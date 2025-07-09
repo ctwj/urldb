@@ -1,0 +1,33 @@
+{
+  "name": "res-db-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest",
+    "@nuxt/typescript-build": "^3.0.0",
+    "@types/node": "^20.0.0",
+    "nuxt": "^3.8.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@nuxtjs/tailwindcss": "^6.8.0",
+    "@pinia/nuxt": "^0.5.0",
+    "pinia": "^2.1.0",
+    "vue": "^3.3.0",
+    "vue-router": "^4.2.0",
+    "naive-ui": "^2.37.0",
+    "vfonts": "^0.0.3",
+    "@vicons/ionicons5": "^0.12.0",
+    "@css-render/vue3-ssr": "^0.15.12",
+    "@juggle/resize-observer": "^3.3.1",
+    "axios": "^1.6.0"
+  }
+} 
