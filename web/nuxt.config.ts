@@ -12,14 +12,20 @@ export default defineNuxtConfig({
   ],
   app: {
     head: {
-      title: '资源管理系统',
+      title: '网盘资源管理系统',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: '一个现代化的资源管理系统' }
+        { name: 'description', content: '网盘资源管理系统 - 一个现代化的资源管理系统' }
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
+      ],
+      script: [
+        { 
+          src: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js',
+          defer: true
+        }
       ]
     }
   },
@@ -30,5 +36,9 @@ export default defineNuxtConfig({
   },
   build: {
     transpile: ['naive-ui', 'vueuc', '@css-render/vue3-ssr', '@juggle/resize-observer']
+  },
+  ssr: true,
+  nitro: {
+    preset: 'node'
   }
 }) 

@@ -62,6 +62,21 @@ func InitDB() error {
 
 // createTables 创建数据库表
 func createTables() error {
+	// 创建pan表
+	panTable := `
+	CREATE TABLE IF NOT EXISTS pan (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(64) DEFAULT NULL,
+		key INTEGER DEFAULT NULL,
+		ck TEXT,
+		is_valid BOOLEAN DEFAULT true,
+		space BIGINT DEFAULT 0,
+		left_space BIGINT DEFAULT 0,
+		remark VARCHAR(64) NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+
 	// 创建分类表
 	categoryTable := `
 	CREATE TABLE IF NOT EXISTS categories (
@@ -72,30 +87,94 @@ func createTables() error {
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
-	// 创建资源表
+	// 创建标签表
+	tagTable := `
+	CREATE TABLE IF NOT EXISTS tags (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(100) NOT NULL UNIQUE,
+		description TEXT,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	// 创建资源表 - 更新后的结构
 	resourceTable := `
 	CREATE TABLE IF NOT EXISTS resources (
 		id SERIAL PRIMARY KEY,
 		title VARCHAR(255) NOT NULL,
 		description TEXT,
-		url VARCHAR(500),
-		file_path VARCHAR(500),
-		file_size BIGINT,
-		file_type VARCHAR(100),
+		url VARCHAR(128),
+		pan_id INTEGER REFERENCES pan(id) ON DELETE SET NULL,
+		quark_url VARCHAR(500),
+		file_size VARCHAR(100),
 		category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-		tags TEXT[],
-		download_count INTEGER DEFAULT 0,
 		view_count INTEGER DEFAULT 0,
+		is_valid BOOLEAN DEFAULT true,
 		is_public BOOLEAN DEFAULT true,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
+	// 创建资源标签关联表
+	resourceTagTable := `
+	CREATE TABLE IF NOT EXISTS resource_tags (
+		id SERIAL PRIMARY KEY,
+		resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+		tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(resource_id, tag_id)
+	);`
+
+	if _, err := DB.Exec(panTable); err != nil {
+		return err
+	}
+
 	if _, err := DB.Exec(categoryTable); err != nil {
 		return err
 	}
 
+	if _, err := DB.Exec(tagTable); err != nil {
+		return err
+	}
+
 	if _, err := DB.Exec(resourceTable); err != nil {
+		return err
+	}
+
+	if _, err := DB.Exec(resourceTagTable); err != nil {
+		return err
+	}
+
+	// 创建cks表
+	cksTable := `
+	CREATE TABLE IF NOT EXISTS cks (
+		id SERIAL PRIMARY KEY,
+		pan_id INTEGER NOT NULL REFERENCES pan(id) ON DELETE CASCADE,
+		t VARCHAR(64) DEFAULT NULL,
+		idx INTEGER DEFAULT NULL,
+		ck TEXT,
+		remark VARCHAR(64) NOT NULL
+	);`
+
+	// 创建待处理资源表
+	readyResourceTable := `
+	CREATE TABLE IF NOT EXISTS ready_resource (
+		id SERIAL PRIMARY KEY,
+		title VARCHAR(255),
+		url VARCHAR(500) NOT NULL,
+		create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		ip VARCHAR(45) DEFAULT NULL
+	);`
+
+	if _, err := DB.Exec(panTable); err != nil {
+		return err
+	}
+
+	if _, err := DB.Exec(cksTable); err != nil {
+		return err
+	}
+
+	if _, err := DB.Exec(readyResourceTable); err != nil {
 		return err
 	}
 
