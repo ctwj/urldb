@@ -7,6 +7,7 @@ import (
 	"res_db/db"
 	"res_db/db/repo"
 	"res_db/handlers"
+	"res_db/middleware"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -43,18 +44,23 @@ func main() {
 	// API路由
 	api := r.Group("/api")
 	{
+		// 认证路由
+		api.POST("/auth/login", handlers.Login)
+		api.POST("/auth/register", handlers.Register)
+		api.GET("/auth/profile", middleware.AuthMiddleware(), handlers.GetProfile)
+
 		// 资源管理
 		api.GET("/resources", handlers.GetResources)
-		api.POST("/resources", handlers.CreateResource)
-		api.PUT("/resources/:id", handlers.UpdateResource)
-		api.DELETE("/resources/:id", handlers.DeleteResource)
+		api.POST("/resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateResource)
+		api.PUT("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateResource)
+		api.DELETE("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteResource)
 		api.GET("/resources/:id", handlers.GetResourceByID)
 
 		// 分类管理
 		api.GET("/categories", handlers.GetCategories)
-		api.POST("/categories", handlers.CreateCategory)
-		api.PUT("/categories/:id", handlers.UpdateCategory)
-		api.DELETE("/categories/:id", handlers.DeleteCategory)
+		api.POST("/categories", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateCategory)
+		api.PUT("/categories/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateCategory)
+		api.DELETE("/categories/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteCategory)
 
 		// 搜索
 		api.GET("/search", handlers.SearchResources)
@@ -63,34 +69,40 @@ func main() {
 		api.GET("/stats", handlers.GetStats)
 
 		// 平台管理
-		api.GET("/pans", handlers.GetPans)
-		api.POST("/pans", handlers.CreatePan)
-		api.PUT("/pans/:id", handlers.UpdatePan)
-		api.DELETE("/pans/:id", handlers.DeletePan)
-		api.GET("/pans/:id", handlers.GetPan)
+		api.GET("/pans", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPans)
+		api.POST("/pans", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreatePan)
+		api.PUT("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdatePan)
+		api.DELETE("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeletePan)
+		api.GET("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPan)
 
 		// Cookie管理
-		api.GET("/cks", handlers.GetCks)
-		api.POST("/cks", handlers.CreateCks)
-		api.PUT("/cks/:id", handlers.UpdateCks)
-		api.DELETE("/cks/:id", handlers.DeleteCks)
-		api.GET("/cks/:id", handlers.GetCksByID)
+		api.GET("/cks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetCks)
+		api.POST("/cks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateCks)
+		api.PUT("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateCks)
+		api.DELETE("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteCks)
+		api.GET("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetCksByID)
 
 		// 标签管理
 		api.GET("/tags", handlers.GetTags)
-		api.POST("/tags", handlers.CreateTag)
-		api.PUT("/tags/:id", handlers.UpdateTag)
-		api.DELETE("/tags/:id", handlers.DeleteTag)
+		api.POST("/tags", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateTag)
+		api.PUT("/tags/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateTag)
+		api.DELETE("/tags/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteTag)
 		api.GET("/tags/:id", handlers.GetTagByID)
 		api.GET("/resources/:id/tags", handlers.GetResourceTags)
 
 		// 待处理资源管理
-		api.GET("/ready-resources", handlers.GetReadyResources)
-		api.POST("/ready-resources", handlers.CreateReadyResource)
-		api.POST("/ready-resources/batch", handlers.BatchCreateReadyResources)
-		api.POST("/ready-resources/text", handlers.CreateReadyResourcesFromText)
-		api.DELETE("/ready-resources/:id", handlers.DeleteReadyResource)
-		api.DELETE("/ready-resources", handlers.ClearReadyResources)
+		api.GET("/ready-resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetReadyResources)
+		api.POST("/ready-resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateReadyResource)
+		api.POST("/ready-resources/batch", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.BatchCreateReadyResources)
+		api.POST("/ready-resources/text", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateReadyResourcesFromText)
+		api.DELETE("/ready-resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteReadyResource)
+		api.DELETE("/ready-resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ClearReadyResources)
+
+		// 用户管理（仅管理员）
+		api.GET("/users", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetUsers)
+		api.POST("/users", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateUser)
+		api.PUT("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateUser)
+		api.DELETE("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteUser)
 	}
 
 	// 静态文件服务

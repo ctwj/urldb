@@ -12,6 +12,7 @@ type RepositoryManager struct {
 	CategoryRepository      CategoryRepository
 	TagRepository           TagRepository
 	ReadyResourceRepository ReadyResourceRepository
+	UserRepository          UserRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -23,5 +24,6 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		CategoryRepository:      NewCategoryRepository(db),
 		TagRepository:           NewTagRepository(db),
 		ReadyResourceRepository: NewReadyResourceRepository(db),
+		UserRepository:          NewUserRepository(db),
 	}
 }

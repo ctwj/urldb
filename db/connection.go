@@ -76,6 +76,7 @@ func autoMigrate() error {
 		&entity.Resource{},
 		&entity.ResourceTag{},
 		&entity.ReadyResource{},
+		&entity.User{},
 	)
 }
 
@@ -95,6 +96,19 @@ func insertDefaultData() error {
 		if err := DB.Where("name = ?", category.Name).FirstOrCreate(&category).Error; err != nil {
 			return err
 		}
+	}
+
+	// 插入默认管理员用户
+	defaultAdmin := entity.User{
+		Username: "admin",
+		Password: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // password
+		Email:    "admin@example.com",
+		Role:     "admin",
+		IsActive: true,
+	}
+
+	if err := DB.Where("username = ?", defaultAdmin.Username).FirstOrCreate(&defaultAdmin).Error; err != nil {
+		return err
 	}
 
 	return nil

@@ -2,16 +2,23 @@
 export const useResourceApi = () => {
   const config = useRuntimeConfig()
   
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+  
   const getResources = async (params?: any) => {
     return await $fetch('/resources', {
       baseURL: config.public.apiBase,
-      params
+      params,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const getResource = async (id: number) => {
     return await $fetch(`/resources/${id}`, {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -19,7 +26,8 @@ export const useResourceApi = () => {
     return await $fetch('/resources', {
       baseURL: config.public.apiBase,
       method: 'POST',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -27,28 +35,32 @@ export const useResourceApi = () => {
     return await $fetch(`/resources/${id}`, {
       baseURL: config.public.apiBase,
       method: 'PUT',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const deleteResource = async (id: number) => {
     return await $fetch(`/resources/${id}`, {
       baseURL: config.public.apiBase,
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const searchResources = async (params: any) => {
     return await $fetch('/search', {
       baseURL: config.public.apiBase,
-      params
+      params,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const getResourcesByPan = async (panId: number, params?: any) => {
     return await $fetch('/resources', {
       baseURL: config.public.apiBase,
-      params: { ...params, pan_id: panId }
+      params: { ...params, pan_id: panId },
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -63,13 +75,54 @@ export const useResourceApi = () => {
   }
 }
 
+// 认证相关API
+export const useAuthApi = () => {
+  const config = useRuntimeConfig()
+  
+  const login = async (data: any) => {
+    return await $fetch('/auth/login', {
+      baseURL: config.public.apiBase,
+      method: 'POST',
+      body: data
+    })
+  }
+
+  const register = async (data: any) => {
+    return await $fetch('/auth/register', {
+      baseURL: config.public.apiBase,
+      method: 'POST',
+      body: data
+    })
+  }
+
+  const getProfile = async () => {
+    const token = localStorage.getItem('token')
+    return await $fetch('/auth/profile', {
+      baseURL: config.public.apiBase,
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
+  }
+
+  return {
+    login,
+    register,
+    getProfile,
+  }
+}
+
 // 分类相关API
 export const useCategoryApi = () => {
   const config = useRuntimeConfig()
   
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+  
   const getCategories = async () => {
     return await $fetch('/categories', {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -77,7 +130,8 @@ export const useCategoryApi = () => {
     return await $fetch('/categories', {
       baseURL: config.public.apiBase,
       method: 'POST',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -85,14 +139,16 @@ export const useCategoryApi = () => {
     return await $fetch(`/categories/${id}`, {
       baseURL: config.public.apiBase,
       method: 'PUT',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const deleteCategory = async (id: number) => {
     return await $fetch(`/categories/${id}`, {
       baseURL: config.public.apiBase,
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -108,15 +164,22 @@ export const useCategoryApi = () => {
 export const usePanApi = () => {
   const config = useRuntimeConfig()
   
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+  
   const getPans = async () => {
     return await $fetch('/pans', {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const getPan = async (id: number) => {
     return await $fetch(`/pans/${id}`, {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -124,7 +187,8 @@ export const usePanApi = () => {
     return await $fetch('/pans', {
       baseURL: config.public.apiBase,
       method: 'POST',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -132,14 +196,16 @@ export const usePanApi = () => {
     return await $fetch(`/pans/${id}`, {
       baseURL: config.public.apiBase,
       method: 'PUT',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const deletePan = async (id: number) => {
     return await $fetch(`/pans/${id}`, {
       baseURL: config.public.apiBase,
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -156,16 +222,23 @@ export const usePanApi = () => {
 export const useCksApi = () => {
   const config = useRuntimeConfig()
   
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+  
   const getCks = async (params?: any) => {
     return await $fetch('/cks', {
       baseURL: config.public.apiBase,
-      params
+      params,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const getCksByID = async (id: number) => {
     return await $fetch(`/cks/${id}`, {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -173,7 +246,8 @@ export const useCksApi = () => {
     return await $fetch('/cks', {
       baseURL: config.public.apiBase,
       method: 'POST',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -181,14 +255,16 @@ export const useCksApi = () => {
     return await $fetch(`/cks/${id}`, {
       baseURL: config.public.apiBase,
       method: 'PUT',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const deleteCks = async (id: number) => {
     return await $fetch(`/cks/${id}`, {
       baseURL: config.public.apiBase,
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -205,15 +281,22 @@ export const useCksApi = () => {
 export const useTagApi = () => {
   const config = useRuntimeConfig()
   
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+  
   const getTags = async () => {
     return await $fetch('/tags', {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const getTag = async (id: number) => {
     return await $fetch(`/tags/${id}`, {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -221,7 +304,8 @@ export const useTagApi = () => {
     return await $fetch('/tags', {
       baseURL: config.public.apiBase,
       method: 'POST',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -229,20 +313,23 @@ export const useTagApi = () => {
     return await $fetch(`/tags/${id}`, {
       baseURL: config.public.apiBase,
       method: 'PUT',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const deleteTag = async (id: number) => {
     return await $fetch(`/tags/${id}`, {
       baseURL: config.public.apiBase,
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const getResourceTags = async (resourceId: number) => {
     return await $fetch(`/resources/${resourceId}/tags`, {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -256,14 +343,19 @@ export const useTagApi = () => {
   }
 }
 
-// 统计相关API
 // 待处理资源相关API
 export const useReadyResourceApi = () => {
   const config = useRuntimeConfig()
   
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+  
   const getReadyResources = async () => {
     return await $fetch('/ready-resources', {
       baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -271,7 +363,8 @@ export const useReadyResourceApi = () => {
     return await $fetch('/ready-resources', {
       baseURL: config.public.apiBase,
       method: 'POST',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -279,29 +372,36 @@ export const useReadyResourceApi = () => {
     return await $fetch('/ready-resources/batch', {
       baseURL: config.public.apiBase,
       method: 'POST',
-      body: data
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const createReadyResourcesFromText = async (text: string) => {
+    const formData = new FormData()
+    formData.append('text', text)
+    
     return await $fetch('/ready-resources/text', {
       baseURL: config.public.apiBase,
       method: 'POST',
-      body: { text }
+      body: formData,
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const deleteReadyResource = async (id: number) => {
     return await $fetch(`/ready-resources/${id}`, {
       baseURL: config.public.apiBase,
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
   const clearReadyResources = async () => {
     return await $fetch('/ready-resources', {
       baseURL: config.public.apiBase,
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders() as Record<string, string>
     })
   }
 
@@ -315,6 +415,7 @@ export const useReadyResourceApi = () => {
   }
 }
 
+// 统计相关API
 export const useStatsApi = () => {
   const config = useRuntimeConfig()
   
