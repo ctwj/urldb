@@ -75,10 +75,10 @@ go run main.go
 cd web
 
 # 安装依赖
-npm install
+pnpm install
 
 # 运行开发服务器
-npm run dev
+pnpm dev
 ```
 
 ## API接口

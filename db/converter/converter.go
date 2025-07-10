@@ -1,0 +1,153 @@
+package converter
+
+import (
+	"res_db/db/dto"
+	"res_db/db/entity"
+)
+
+// ToResourceResponse 将Resource实体转换为ResourceResponse
+func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
+	response := dto.ResourceResponse{
+		ID:          resource.ID,
+		Title:       resource.Title,
+		Description: resource.Description,
+		URL:         resource.URL,
+		PanID:       resource.PanID,
+		QuarkURL:    resource.QuarkURL,
+		FileSize:    resource.FileSize,
+		CategoryID:  resource.CategoryID,
+		ViewCount:   resource.ViewCount,
+		IsValid:     resource.IsValid,
+		IsPublic:    resource.IsPublic,
+		CreatedAt:   resource.CreatedAt,
+		UpdatedAt:   resource.UpdatedAt,
+	}
+
+	// 设置分类名称
+	if resource.Category.ID != 0 {
+		response.CategoryName = resource.Category.Name
+	}
+
+	// 转换标签
+	response.Tags = make([]dto.TagResponse, len(resource.Tags))
+	for i, tag := range resource.Tags {
+		response.Tags[i] = dto.TagResponse{
+			ID:          tag.ID,
+			Name:        tag.Name,
+			Description: tag.Description,
+		}
+	}
+
+	return response
+}
+
+// ToResourceResponseList 将Resource实体列表转换为ResourceResponse列表
+func ToResourceResponseList(resources []entity.Resource) []dto.ResourceResponse {
+	responses := make([]dto.ResourceResponse, len(resources))
+	for i, resource := range resources {
+		responses[i] = ToResourceResponse(&resource)
+	}
+	return responses
+}
+
+// ToCategoryResponse 将Category实体转换为CategoryResponse
+func ToCategoryResponse(category *entity.Category, resourceCount int64) dto.CategoryResponse {
+	return dto.CategoryResponse{
+		ID:            category.ID,
+		Name:          category.Name,
+		Description:   category.Description,
+		ResourceCount: resourceCount,
+	}
+}
+
+// ToCategoryResponseList 将Category实体列表转换为CategoryResponse列表
+func ToCategoryResponseList(categories []entity.Category, resourceCounts map[uint]int64) []dto.CategoryResponse {
+	responses := make([]dto.CategoryResponse, len(categories))
+	for i, category := range categories {
+		count := resourceCounts[category.ID]
+		responses[i] = ToCategoryResponse(&category, count)
+	}
+	return responses
+}
+
+// ToTagResponse 将Tag实体转换为TagResponse
+func ToTagResponse(tag *entity.Tag) dto.TagResponse {
+	return dto.TagResponse{
+		ID:          tag.ID,
+		Name:        tag.Name,
+		Description: tag.Description,
+	}
+}
+
+// ToTagResponseList 将Tag实体列表转换为TagResponse列表
+func ToTagResponseList(tags []entity.Tag) []dto.TagResponse {
+	responses := make([]dto.TagResponse, len(tags))
+	for i, tag := range tags {
+		responses[i] = ToTagResponse(&tag)
+	}
+	return responses
+}
+
+// ToPanResponse 将Pan实体转换为PanResponse
+func ToPanResponse(pan *entity.Pan) dto.PanResponse {
+	return dto.PanResponse{
+		ID:        pan.ID,
+		Name:      pan.Name,
+		Key:       pan.Key,
+		Ck:        pan.Ck,
+		IsValid:   pan.IsValid,
+		Space:     pan.Space,
+		LeftSpace: pan.LeftSpace,
+		Remark:    pan.Remark,
+	}
+}
+
+// ToPanResponseList 将Pan实体列表转换为PanResponse列表
+func ToPanResponseList(pans []entity.Pan) []dto.PanResponse {
+	responses := make([]dto.PanResponse, len(pans))
+	for i, pan := range pans {
+		responses[i] = ToPanResponse(&pan)
+	}
+	return responses
+}
+
+// ToCksResponse 将Cks实体转换为CksResponse
+func ToCksResponse(cks *entity.Cks) dto.CksResponse {
+	return dto.CksResponse{
+		ID:     cks.ID,
+		PanID:  cks.PanID,
+		T:      cks.T,
+		Idx:    cks.Idx,
+		Ck:     cks.Ck,
+		Remark: cks.Remark,
+	}
+}
+
+// ToCksResponseList 将Cks实体列表转换为CksResponse列表
+func ToCksResponseList(cksList []entity.Cks) []dto.CksResponse {
+	responses := make([]dto.CksResponse, len(cksList))
+	for i, cks := range cksList {
+		responses[i] = ToCksResponse(&cks)
+	}
+	return responses
+}
+
+// ToReadyResourceResponse 将ReadyResource实体转换为ReadyResourceResponse
+func ToReadyResourceResponse(resource *entity.ReadyResource) dto.ReadyResourceResponse {
+	return dto.ReadyResourceResponse{
+		ID:         resource.ID,
+		Title:      resource.Title,
+		URL:        resource.URL,
+		CreateTime: resource.CreateTime,
+		IP:         resource.IP,
+	}
+}
+
+// ToReadyResourceResponseList 将ReadyResource实体列表转换为ReadyResourceResponse列表
+func ToReadyResourceResponseList(resources []entity.ReadyResource) []dto.ReadyResourceResponse {
+	responses := make([]dto.ReadyResourceResponse, len(resources))
+	for i, resource := range resources {
+		responses[i] = ToReadyResourceResponse(&resource)
+	}
+	return responses
+}
