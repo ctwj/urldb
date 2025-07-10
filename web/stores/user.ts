@@ -46,15 +46,21 @@ export const useUserStore = defineStore('user', {
       if (typeof window !== 'undefined') {
         const token = localStorage.getItem('token')
         const userStr = localStorage.getItem('user')
+        console.log('initAuth - token:', token ? 'exists' : 'not found')
+        console.log('initAuth - userStr:', userStr ? 'exists' : 'not found')
+        
         if (token && userStr) {
           try {
             this.token = token
             this.user = JSON.parse(userStr)
             this.isAuthenticated = true
+            console.log('initAuth - 状态恢复成功:', this.user?.username)
           } catch (error) {
             console.error('解析用户信息失败:', error)
             this.logout()
           }
+        } else {
+          console.log('initAuth - 没有找到有效的登录信息')
         }
       }
     },
@@ -66,19 +72,29 @@ export const useUserStore = defineStore('user', {
       const authApi = useAuthApi()
       const response = await authApi.login(credentials)
       
-      if (response.token) {
-        this.token = response.token
-        this.user = response.user
-        this.isAuthenticated = true
-        
-        // 保存到localStorage
-        localStorage.setItem('token', response.token)
-        localStorage.setItem('user', JSON.stringify(response.user))
-        
-        return { success: true }
-      } else {
-        return { success: false, message: '登录失败，服务器未返回有效令牌' }
+      console.log('login - 响应:', response)
+      
+      // 处理标准化的响应格式
+      if (response.success && response.data) {
+        const { token, user } = response.data
+        if (token && user) {
+          this.token = token
+          this.user = user
+          this.isAuthenticated = true
+          
+          // 保存到localStorage
+          localStorage.setItem('token', token)
+          localStorage.setItem('user', JSON.stringify(user))
+          
+          console.log('login - 状态保存成功:', user.username)
+          console.log('login - localStorage token:', localStorage.getItem('token') ? 'saved' : 'not saved')
+          console.log('login - localStorage user:', localStorage.getItem('user') ? 'saved' : 'not saved')
+          
+          return { success: true }
+        }
       }
+      
+      return { success: false, message: '登录失败，服务器未返回有效数据' }
     } catch (error: any) {
       console.error('登录错误:', error)
       // 处理HTTP错误响应

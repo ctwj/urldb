@@ -111,6 +111,10 @@ func main() {
 		api.GET("/search-stats/trend", handlers.GetSearchTrend)
 		api.GET("/search-stats/keyword/:keyword/trend", handlers.GetKeywordTrend)
 		api.POST("/search-stats/record", handlers.RecordSearch)
+
+		// 系统配置路由
+		api.GET("/system/config", handlers.GetSystemConfig)
+		api.POST("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSystemConfig)
 	}
 
 	// 静态文件服务

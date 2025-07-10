@@ -1,21 +1,36 @@
   <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
+    <!-- 全局加载状态 -->
+    <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
+        <div class="flex flex-col items-center space-y-4">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div class="text-center">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">正在加载...</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">请稍候，正在初始化系统</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
       <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4">
-          <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源管理系统</a>
+          <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
+            {{ systemConfig?.site_title || '网盘资源管理系统' }}
+          </a>
         </h1>
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 right-4 top-0 absolute">
           <NuxtLink 
-            v-if="!userStore.isAuthenticated"
+            v-if="authInitialized && !userStore.isAuthenticated"
             to="/login" 
             class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
           >
             <i class="fas fa-sign-in-alt"></i> 登录
           </NuxtLink>
           <NuxtLink 
-            v-if="userStore.isAuthenticated"
+            v-if="authInitialized && userStore.isAuthenticated"
             to="/admin" 
             class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
           >
@@ -202,7 +217,7 @@
     <footer class="mt-8 py-6 border-t border-gray-200">
       <div class="max-w-7xl mx-auto text-center text-gray-600 text-sm">
         <p class="mb-2">本站内容由网络爬虫自动抓取。本站不储存、复制、传播任何文件，仅作个人公益学习，请在获取后24小内删除!!!</p>
-        <p>© 2025 网盘资源管理系统 By 小七</p>
+        <p>{{ systemConfig?.copyright || '© 2025 网盘资源管理系统 By 小七' }}</p>
       </div>
     </footer>
   </div>
@@ -213,8 +228,77 @@ const store = useResourceStore()
 const userStore = useUserStore()
 const { resources, categories, stats, loading } = storeToRefs(store)
 
+// 响应式数据
 const searchQuery = ref('')
 const selectedPlatform = ref('')
+const authInitialized = ref(false) // 添加认证状态初始化标志
+const pageLoading = ref(true) // 添加页面加载状态
+const systemConfig = ref<SystemConfig | null>(null) // 添加系统配置状态
+
+// 动态SEO配置
+const seoConfig = computed(() => ({
+  title: systemConfig.value?.site_title || '网盘资源管理系统',
+  meta: [
+    { 
+      name: 'description', 
+      content: systemConfig.value?.site_description || '专业的网盘资源管理系统' 
+    },
+    { 
+      name: 'keywords', 
+      content: systemConfig.value?.keywords || '网盘,资源管理,文件分享' 
+    },
+    { 
+      name: 'author', 
+      content: systemConfig.value?.author || '系统管理员' 
+    },
+    { 
+      name: 'copyright', 
+      content: systemConfig.value?.copyright || '© 2024 网盘资源管理系统' 
+    }
+  ]
+}))
+
+// 页面元数据 - 使用watchEffect来避免组件卸载时的错误
+watchEffect(() => {
+  if (systemConfig.value) {
+    useHead({
+      title: systemConfig.value.site_title || '网盘资源管理系统',
+      meta: [
+        { 
+          name: 'description', 
+          content: systemConfig.value.site_description || '专业的网盘资源管理系统' 
+        },
+        { 
+          name: 'keywords', 
+          content: systemConfig.value.keywords || '网盘,资源管理,文件分享' 
+        },
+        { 
+          name: 'author', 
+          content: systemConfig.value.author || '系统管理员' 
+        },
+        { 
+          name: 'copyright', 
+          content: systemConfig.value.copyright || '© 2024 网盘资源管理系统' 
+        }
+      ]
+    })
+  } else {
+    // 默认SEO配置
+    useHead({
+      title: '网盘资源管理系统',
+      meta: [
+        { name: 'description', content: '专业的网盘资源管理系统' },
+        { name: 'keywords', content: '网盘,资源管理,文件分享' },
+        { name: 'author', content: '系统管理员' },
+        { name: 'copyright', content: '© 2024 网盘资源管理系统' }
+      ]
+    })
+  }
+})
+
+// API
+const { getSystemConfig } = useSystemConfigApi()
+
 // const showAddResourceModal = ref(false)
 const editingResource = ref(null)
 const currentPage = ref(1)
@@ -250,6 +334,21 @@ interface ExtendedResource {
   showLink?: boolean
 }
 
+interface SystemConfig {
+  id: number
+  site_title: string
+  site_description: string
+  keywords: string
+  author: string
+  copyright: string
+  auto_process_ready_resources: boolean
+  auto_process_interval: number
+  page_size: number
+  maintenance_mode: boolean
+  created_at: string
+  updated_at: string
+}
+
 const platforms = ref<Platform[]>([])
 const todayUpdates = ref(0)
 
@@ -262,18 +361,50 @@ const debounceSearch = () => {
   }, 500)
 }
 
+// 获取系统配置
+const fetchSystemConfig = async () => {
+  try {
+    const response = await getSystemConfig() as any
+    console.log('首页系统配置响应:', response)
+    if (response && response.success && response.data) {
+      systemConfig.value = response.data
+    } else if (response && response.data) {
+      // 兼容非标准格式
+      systemConfig.value = response.data
+    }
+  } catch (error) {
+    console.error('获取系统配置失败:', error)
+  }
+}
+
 // 获取数据
 onMounted(async () => {
+  console.log('首页 - onMounted 开始')
+  
   // 初始化用户状态
   userStore.initAuth()
+  authInitialized.value = true // 设置认证状态初始化完成
   
-  await Promise.all([
-    store.fetchResources(),
-    store.fetchCategories(),
-    store.fetchStats(),
-    fetchPlatforms(),
-  ])
-  animateCounters()
+  console.log('首页 - authInitialized:', authInitialized.value)
+  console.log('首页 - isAuthenticated:', userStore.isAuthenticated)
+  console.log('首页 - user:', userStore.userInfo)
+  
+  try {
+    await Promise.all([
+      store.fetchResources(),
+      store.fetchCategories(),
+      store.fetchStats(),
+      fetchPlatforms(),
+      fetchSystemConfig(), // 获取系统配置
+    ])
+    animateCounters()
+  } catch (error) {
+    console.error('页面数据加载失败:', error)
+  } finally {
+    // 所有数据加载完成后，关闭加载状态
+    pageLoading.value = false
+    console.log('首页 - onMounted 完成')
+  }
 })
 
 // 获取平台列表

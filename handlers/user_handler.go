@@ -51,7 +51,7 @@ func Login(c *gin.Context) {
 		User:  converter.ToUserResponse(user),
 	}
 
-	c.JSON(http.StatusOK, response)
+	SuccessResponse(c, response, "登录成功")
 }
 
 // Register 用户注册

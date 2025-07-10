@@ -1,11 +1,21 @@
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
+    <!-- 全局加载状态 -->
+    <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
+        <div class="flex flex-col items-center space-y-4">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div class="text-center">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">正在加载...</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">请稍候，正在加载待处理资源</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
-      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center">
-        <h1 class="text-2xl sm:text-3xl font-bold mb-4">
-          <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源管理系统</NuxtLink>
-        </h1>
+      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center flex items-center">
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
           <NuxtLink 
             to="/admin" 
@@ -13,13 +23,12 @@
           >
             <i class="fas fa-arrow-left"></i> 返回
           </NuxtLink>
-          <button 
-            @click="showAddModal = true" 
-            class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-plus"></i> 批量添加
-          </button>
         </nav>
+        <div class="flex-1">
+          <h1 class="text-2xl sm:text-3xl font-bold">
+            <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源管理系统</NuxtLink>
+          </h1>
+        </div>
       </div>
 
       <!-- 批量添加模态框 -->
@@ -72,7 +81,12 @@ https://pan.baidu.com/s/345678</pre>
 
       <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold text-gray-900">待处理资源管理</h2>
+        <button 
+            @click="showAddModal = true" 
+            class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+          >
+            <i class="fas fa-plus"></i> 批量添加
+          </button>
         <div class="flex gap-2">
           <button 
             @click="refreshData" 
@@ -237,6 +251,7 @@ const readyResources = ref<ReadyResource[]>([])
 const loading = ref(false)
 const showAddModal = ref(false)
 const resourceText = ref('')
+const pageLoading = ref(true) // 添加页面加载状态
 
 // 分页相关状态
 const currentPage = ref(1)
@@ -414,8 +429,15 @@ const checkUrlSafety = (url: string) => {
 }
 
 // 页面加载时获取数据
-onMounted(() => {
-  fetchData()
+onMounted(async () => {
+  try {
+    await fetchData()
+  } catch (error) {
+    console.error('页面初始化失败:', error)
+  } finally {
+    // 数据加载完成后，关闭加载状态
+    pageLoading.value = false
+  }
 })
 </script>
 

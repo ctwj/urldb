@@ -1,0 +1,353 @@
+<template>
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
+    <div class="max-w-4xl mx-auto">
+      <!-- 头部 -->
+      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center flex items-center">
+        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
+          <NuxtLink 
+            to="/admin" 
+            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+          >
+            <i class="fas fa-arrow-left"></i> 返回
+          </NuxtLink>
+        </nav>
+        <div class="flex-1">
+          <h1 class="text-2xl sm:text-3xl font-bold">
+            {{ systemConfig?.site_title ? `${systemConfig.site_title} - 系统配置` : '系统配置' }}
+          </h1>
+        </div>
+      </div>
+
+      <!-- 配置表单 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <form @submit.prevent="saveConfig" class="space-y-6">
+          <!-- SEO 配置 -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <i class="fas fa-search text-blue-600"></i>
+              SEO 配置
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- 网站标题 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  网站标题 *
+                </label>
+                <input 
+                  v-model="config.siteTitle" 
+                  type="text" 
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="网盘资源管理系统"
+                />
+              </div>
+
+              <!-- 网站描述 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  网站描述
+                </label>
+                <input 
+                  v-model="config.siteDescription" 
+                  type="text" 
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="专业的网盘资源管理系统"
+                />
+              </div>
+
+              <!-- 关键词 -->
+              <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  关键词 (用逗号分隔)
+                </label>
+                <input 
+                  v-model="config.keywords" 
+                  type="text" 
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="网盘,资源管理,文件分享"
+                />
+              </div>
+
+              <!-- 作者 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  作者
+                </label>
+                <input 
+                  v-model="config.author" 
+                  type="text" 
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="系统管理员"
+                />
+              </div>
+
+              <!-- 版权信息 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  版权信息
+                </label>
+                <input 
+                  v-model="config.copyright" 
+                  type="text" 
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="© 2024 网盘资源管理系统"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- 自动处理配置 -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <i class="fas fa-cogs text-green-600"></i>
+              自动处理配置
+            </h2>
+            
+            <div class="space-y-4">
+              <!-- 待处理资源自动处理 -->
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="flex-1">
+                  <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                    待处理资源自动处理
+                  </h3>
+                  <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    开启后，系统将自动处理待处理的资源，无需手动操作
+                  </p>
+                </div>
+                <div class="ml-4">
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      v-model="config.autoProcessReadyResources" 
+                      type="checkbox" 
+                      class="sr-only peer"
+                    />
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 自动处理间隔 -->
+              <div v-if="config.autoProcessReadyResources" class="ml-6">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  自动处理间隔 (分钟)
+                </label>
+                <input 
+                  v-model.number="config.autoProcessInterval" 
+                  type="number" 
+                  min="1"
+                  max="1440"
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="30"
+                />
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  建议设置 5-60 分钟，避免过于频繁的处理
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 其他配置 -->
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <i class="fas fa-info-circle text-purple-600"></i>
+              其他配置
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- 每页显示数量 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  每页显示数量
+                </label>
+                <select 
+                  v-model.number="config.pageSize" 
+                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="20">20 条</option>
+                  <option value="50">50 条</option>
+                  <option value="100">100 条</option>
+                  <option value="200">200 条</option>
+                </select>
+              </div>
+
+              <!-- 系统维护模式 -->
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="flex-1">
+                  <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                    维护模式
+                  </h3>
+                  <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    开启后，普通用户无法访问系统
+                  </p>
+                </div>
+                <div class="ml-4">
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      v-model="config.maintenanceMode" 
+                      type="checkbox" 
+                      class="sr-only peer"
+                    />
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 保存按钮 -->
+          <div class="flex justify-end space-x-4 pt-6">
+            <button 
+              type="button"
+              @click="resetForm"
+              class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              重置
+            </button>
+            <button 
+              type="submit"
+              :disabled="loading"
+              class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <i v-if="loading" class="fas fa-spinner fa-spin mr-2"></i>
+              {{ loading ? '保存中...' : '保存配置' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+
+// API
+const { getSystemConfig, updateSystemConfig } = useSystemConfigApi()
+
+// 响应式数据
+const loading = ref(false)
+const config = ref({
+  // SEO 配置
+  siteTitle: '网盘资源管理系统',
+  siteDescription: '专业的网盘资源管理系统',
+  keywords: '网盘,资源管理,文件分享',
+  author: '系统管理员',
+  copyright: '© 2024 网盘资源管理系统',
+  
+  // 自动处理配置
+  autoProcessReadyResources: false,
+  autoProcessInterval: 30,
+  
+  // 其他配置
+  pageSize: 100,
+  maintenanceMode: false
+})
+
+// 系统配置状态（用于SEO）
+const systemConfig = ref(null)
+
+// 页面元数据 - 移到变量声明之后
+useHead({
+  title: () => systemConfig.value?.site_title ? `${systemConfig.value.site_title} - 系统配置` : '系统配置 - 网盘资源管理系统',
+  meta: [
+    { 
+      name: 'description', 
+      content: () => systemConfig.value?.site_description || '系统配置管理页面' 
+    },
+    { 
+      name: 'keywords', 
+      content: () => systemConfig.value?.keywords || '系统配置,管理' 
+    },
+    { 
+      name: 'author', 
+      content: () => systemConfig.value?.author || '系统管理员' 
+    }
+  ]
+})
+
+// 加载配置
+const loadConfig = async () => {
+  try {
+    loading.value = true
+    const response = await getSystemConfig()
+    console.log('系统配置响应:', response)
+    if (response && response.success && response.data) {
+      config.value = {
+        siteTitle: response.data.site_title || '网盘资源管理系统',
+        siteDescription: response.data.site_description || '专业的网盘资源管理系统',
+        keywords: response.data.keywords || '网盘,资源管理,文件分享',
+        author: response.data.author || '系统管理员',
+        copyright: response.data.copyright || '© 2024 网盘资源管理系统',
+        autoProcessReadyResources: response.data.auto_process_ready_resources || false,
+        autoProcessInterval: response.data.auto_process_interval || 30,
+        pageSize: response.data.page_size || 100,
+        maintenanceMode: response.data.maintenance_mode || false
+      }
+      systemConfig.value = response.data // 更新系统配置状态
+    } else if (response && response.data) {
+      // 兼容非标准格式
+      config.value = {
+        siteTitle: response.data.site_title || '网盘资源管理系统',
+        siteDescription: response.data.site_description || '专业的网盘资源管理系统',
+        keywords: response.data.keywords || '网盘,资源管理,文件分享',
+        author: response.data.author || '系统管理员',
+        copyright: response.data.copyright || '© 2024 网盘资源管理系统',
+        autoProcessReadyResources: response.data.auto_process_ready_resources || false,
+        autoProcessInterval: response.data.auto_process_interval || 30,
+        pageSize: response.data.page_size || 100,
+        maintenanceMode: response.data.maintenance_mode || false
+      }
+      systemConfig.value = response.data
+    }
+  } catch (error) {
+    console.error('加载配置失败:', error)
+    // 显示错误提示
+  } finally {
+    loading.value = false
+  }
+}
+
+// 保存配置
+const saveConfig = async () => {
+  try {
+    loading.value = true
+    
+    const requestData = {
+      site_title: config.value.siteTitle,
+      site_description: config.value.siteDescription,
+      keywords: config.value.keywords,
+      author: config.value.author,
+      copyright: config.value.copyright,
+      auto_process_ready_resources: config.value.autoProcessReadyResources,
+      auto_process_interval: config.value.autoProcessInterval,
+      page_size: config.value.pageSize,
+      maintenance_mode: config.value.maintenanceMode
+    }
+    
+    const response = await updateSystemConfig(requestData)
+    if (response.success) {
+      alert('配置保存成功！')
+    } else {
+      alert('保存配置失败：' + (response.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('保存配置失败:', error)
+    alert('保存配置失败，请重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 重置表单
+const resetForm = () => {
+  if (confirm('确定要重置所有配置吗？')) {
+    loadConfig()
+  }
+}
+
+// 页面加载时获取配置
+onMounted(() => {
+  loadConfig()
+})
+</script> 

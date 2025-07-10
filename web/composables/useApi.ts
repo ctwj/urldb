@@ -429,4 +429,35 @@ export const useStatsApi = () => {
   return {
     getStats,
   }
+}
+
+// 系统配置相关API
+export const useSystemConfigApi = () => {
+  const config = useRuntimeConfig()
+  
+  const getAuthHeaders = () => {
+    const userStore = useUserStore()
+    return userStore.authHeaders
+  }
+  
+  const getSystemConfig = async () => {
+    return await $fetch('/system/config', {
+      baseURL: config.public.apiBase,
+      // GET接口不需要认证头
+    })
+  }
+
+  const updateSystemConfig = async (data: any) => {
+    return await $fetch('/system/config', {
+      baseURL: config.public.apiBase,
+      method: 'POST',
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
+    })
+  }
+
+  return {
+    getSystemConfig,
+    updateSystemConfig,
+  }
 } 
