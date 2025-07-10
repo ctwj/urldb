@@ -19,12 +19,10 @@ export default defineNuxtConfig({
         { name: 'description', content: '网盘资源管理系统 - 一个现代化的资源管理系统' }
       ],
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
-      ],
-      script: [
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
         { 
-          src: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js',
-          defer: true
+          rel: 'stylesheet', 
+          href: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
         }
       ]
     }

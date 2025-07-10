@@ -7,18 +7,18 @@
           <h1 class="text-2xl sm:text-3xl font-bold">
             <NuxtLink to="/" class="text-white hover:text-gray-200 no-underline">网盘资源管理系统</NuxtLink>
           </h1>
-          <div class="flex items-center gap-4">
-            <div class="text-sm">
-              <span>欢迎，{{ user?.username }}</span>
-              <span class="ml-2 px-2 py-1 bg-blue-600 rounded text-xs">{{ user?.role }}</span>
+                      <div class="flex items-center gap-4">
+              <div class="text-sm">
+                <span>欢迎，{{ userStore.userInfo?.username }}</span>
+                <span class="ml-2 px-2 py-1 bg-blue-600 rounded text-xs">{{ userStore.userInfo?.role }}</span>
+              </div>
+              <button 
+                @click="handleLogout" 
+                class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
+              >
+                退出登录
+              </button>
             </div>
-            <button 
-              @click="handleLogout" 
-              class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm transition-colors"
-            >
-              退出登录
-            </button>
-          </div>
         </div>
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
           <NuxtLink 
@@ -200,6 +200,33 @@
           </div>
         </div>
 
+        <!-- 搜索统计 -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center mb-4">
+            <div class="p-3 bg-indigo-100 rounded-lg">
+              <i class="fas fa-search text-indigo-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+              <h3 class="text-lg font-semibold text-gray-900">搜索统计</h3>
+              <p class="text-sm text-gray-600">搜索量分析和热门关键词</p>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <NuxtLink to="/search-stats" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors block">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700">查看搜索统计</span>
+                <i class="fas fa-chart-line text-gray-400"></i>
+              </div>
+            </NuxtLink>
+            <button @click="goToHotKeywords" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700">热门关键词</span>
+                <i class="fas fa-fire text-gray-400"></i>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <!-- 系统设置 -->
         <div class="bg-white rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
@@ -235,7 +262,12 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: 'auth'
+})
+
 const router = useRouter()
+const userStore = useUserStore()
 const { $api } = useNuxtApp()
 
 const user = ref(null)
@@ -244,18 +276,11 @@ const showAddResourceModal = ref(false)
 
 // 检查认证状态
 const checkAuth = () => {
-  const token = localStorage.getItem('token')
-  const userStr = localStorage.getItem('user')
+  userStore.initAuth()
   
-  if (!token || !userStr) {
-    router.push('/login')
+  if (!userStore.isAuthenticated) {
+    router.push('/')
     return
-  }
-  
-  try {
-    user.value = JSON.parse(userStr)
-  } catch (e) {
-    router.push('/login')
   }
 }
 
@@ -271,9 +296,8 @@ const fetchStats = async () => {
 
 // 退出登录
 const handleLogout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  router.push('/login')
+  userStore.logout()
+  router.push('/')
 }
 
 // 页面跳转方法
@@ -303,6 +327,10 @@ const goToSystemSettings = () => {
 
 const goToUserManagement = () => {
   router.push('/users')
+}
+
+const goToHotKeywords = () => {
+  router.push('/search-stats')
 }
 
 // 页面加载时检查认证

@@ -1,112 +1,168 @@
 <template>
-  <div class="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8">
-      <div>
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          登录账户
-        </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
-          或
-          <NuxtLink to="/register" class="font-medium text-indigo-600 hover:text-indigo-500">
-            注册新账户
-          </NuxtLink>
-        </p>
-      </div>
-      <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
-        <div class="rounded-md shadow-sm -space-y-px">
+  <div class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-md w-full">
+      <div class="bg-white rounded-lg shadow-lg p-6 space-y-6">
+        <div class="text-center">
+          <h1 class="text-2xl font-bold text-gray-900">管理员登录</h1>
+          <p class="mt-2 text-sm text-gray-600">请输入管理员账号密码</p>
+          <div class="mt-3 p-3 bg-blue-50 rounded-lg">
+            <p class="text-xs text-blue-700">
+              <i class="fas fa-info-circle mr-1"></i>
+              默认管理员账户：admin / password
+            </p>
+          </div>
+        </div>
+
+        <form @submit.prevent="handleLogin" class="space-y-4">
           <div>
-            <label for="username" class="sr-only">用户名</label>
-            <input
-              id="username"
+            <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+            <input 
+              type="text" 
+              id="username" 
               v-model="form.username"
-              name="username"
-              type="text"
-              required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              placeholder="用户名"
-            />
+              required 
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-500': errors.username }"
+            >
+            <p v-if="errors.username" class="mt-1 text-sm text-red-600">{{ errors.username }}</p>
           </div>
+
           <div>
-            <label for="password" class="sr-only">密码</label>
-            <input
-              id="password"
+            <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+            <input 
+              type="password" 
+              id="password" 
               v-model="form.password"
-              name="password"
-              type="password"
-              required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              placeholder="密码"
-            />
+              required 
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-500': errors.password }"
+            >
+            <p v-if="errors.password" class="mt-1 text-sm text-red-600">{{ errors.password }}</p>
           </div>
-        </div>
 
-        <div v-if="error" class="text-red-600 text-sm text-center">
-          {{ error }}
-        </div>
-
-        <div>
-          <button
-            type="submit"
-            :disabled="loading"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          <button 
+            type="submit" 
+            :disabled="userStore.loading"
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span v-if="loading" class="absolute left-0 inset-y-0 flex items-center pl-3">
-              <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <span v-if="userStore.loading" class="inline-flex items-center">
+              <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
+              登录中...
             </span>
-            {{ loading ? '登录中...' : '登录' }}
+            <span v-else>登录</span>
           </button>
+        </form>
+        
+        <div class="pt-2 text-center">
+          <NuxtLink to="/register" class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors mr-4">
+            <i class="fas fa-user-plus mr-1"></i> 注册账号
+          </NuxtLink>
+          <NuxtLink to="/" class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors">
+            <i class="fas fa-home mr-1"></i> 返回首页
+          </NuxtLink>
         </div>
-
-        <div class="text-center">
-          <p class="text-sm text-gray-600">
-            默认管理员账户：admin / password
-          </p>
-        </div>
-      </form>
+      </div>
     </div>
+    
+    <!-- 错误提示 -->
+    <ErrorToast 
+      v-if="showErrorToast" 
+      :message="errorToastMessage" 
+      @close="showErrorToast = false"
+    />
+    
+    <!-- 成功提示 -->
+    <SuccessToast 
+      v-if="showSuccessToast" 
+      :message="successToastMessage" 
+      @close="showSuccessToast = false"
+    />
   </div>
 </template>
 
-<script setup>
-const router = useRouter()
-const { $api } = useNuxtApp()
+<script setup lang="ts">
+import { reactive } from 'vue'
+import { useRouter } from 'vue-router'
 
-const form = ref({
+const router = useRouter()
+const userStore = useUserStore()
+
+const form = reactive({
   username: '',
   password: ''
 })
 
-const loading = ref(false)
-const error = ref('')
+const errors = reactive({
+  username: '',
+  password: ''
+})
+
+const showErrorToast = ref(false)
+const errorToastMessage = ref('')
+const showSuccessToast = ref(false)
+const successToastMessage = ref('')
+
+
+
+const validateForm = () => {
+  errors.username = ''
+  errors.password = ''
+  
+  if (!form.username.trim()) {
+    errors.username = '请输入用户名'
+    return false
+  }
+  
+  if (!form.password.trim()) {
+    errors.password = '请输入密码'
+    return false
+  }
+  
+  return true
+}
 
 const handleLogin = async () => {
-  loading.value = true
-  error.value = ''
-
-  try {
-    const response = await $api.post('/auth/login', form.value)
-    
-    // 保存token和用户信息
-    localStorage.setItem('token', response.data.token)
-    localStorage.setItem('user', JSON.stringify(response.data.user))
-    
-    // 跳转到admin页面
+  if (!validateForm()) return
+  
+  const result = await userStore.login({
+    username: form.username,
+    password: form.password
+  })
+  
+  if (result.success) {
     await router.push('/admin')
-  } catch (err) {
-    error.value = err.response?.data?.error || '登录失败'
-  } finally {
-    loading.value = false
+  } else {
+    // 根据错误类型提供更友好的提示
+    let message = '登录失败'
+    if (result.message) {
+      if (result.message.includes('用户名或密码错误')) {
+        message = '用户名或密码错误，请检查后重试'
+      } else if (result.message.includes('账户已被禁用')) {
+        message = '账户已被禁用，请联系管理员'
+      } else if (result.message.includes('网络连接')) {
+        message = '网络连接失败，请检查网络后重试'
+      } else {
+        message = result.message
+      }
+    }
+    errorToastMessage.value = message
+    showErrorToast.value = true
   }
 }
 
-// 如果已经登录，直接跳转到admin页面
-onMounted(() => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    router.push('/admin')
-  }
+// 设置页面标题
+useHead({
+  title: '管理员登录 - 网盘资源管理系统'
 })
-</script> 
+</script>
+
+<style scoped>
+/* 确保Font Awesome图标正确显示 */
+.fas {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+}
+</style> 

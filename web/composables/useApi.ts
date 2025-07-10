@@ -3,8 +3,8 @@ export const useResourceApi = () => {
   const config = useRuntimeConfig()
   
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const userStore = useUserStore()
+    return userStore.authHeaders
   }
   
   const getResources = async (params?: any) => {
@@ -115,8 +115,8 @@ export const useCategoryApi = () => {
   const config = useRuntimeConfig()
   
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const userStore = useUserStore()
+    return userStore.authHeaders
   }
   
   const getCategories = async () => {
@@ -165,8 +165,8 @@ export const usePanApi = () => {
   const config = useRuntimeConfig()
   
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const userStore = useUserStore()
+    return userStore.authHeaders
   }
   
   const getPans = async () => {
@@ -223,8 +223,8 @@ export const useCksApi = () => {
   const config = useRuntimeConfig()
   
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const userStore = useUserStore()
+    return userStore.authHeaders
   }
   
   const getCks = async (params?: any) => {
@@ -282,8 +282,8 @@ export const useTagApi = () => {
   const config = useRuntimeConfig()
   
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const userStore = useUserStore()
+    return userStore.authHeaders
   }
   
   const getTags = async () => {
@@ -348,8 +348,8 @@ export const useReadyResourceApi = () => {
   const config = useRuntimeConfig()
   
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const userStore = useUserStore()
+    return userStore.authHeaders
   }
   
   const getReadyResources = async () => {

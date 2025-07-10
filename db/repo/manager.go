@@ -13,6 +13,7 @@ type RepositoryManager struct {
 	TagRepository           TagRepository
 	ReadyResourceRepository ReadyResourceRepository
 	UserRepository          UserRepository
+	SearchStatRepository    SearchStatRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -25,5 +26,6 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		TagRepository:           NewTagRepository(db),
 		ReadyResourceRepository: NewReadyResourceRepository(db),
 		UserRepository:          NewUserRepository(db),
+		SearchStatRepository:    NewSearchStatRepository(db),
 	}
 }

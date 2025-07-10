@@ -103,6 +103,14 @@ func main() {
 		api.POST("/users", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateUser)
 		api.PUT("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateUser)
 		api.DELETE("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteUser)
+
+		// 搜索统计路由
+		api.GET("/search-stats", handlers.GetSearchStats)
+		api.GET("/search-stats/hot-keywords", handlers.GetHotKeywords)
+		api.GET("/search-stats/daily", handlers.GetDailyStats)
+		api.GET("/search-stats/trend", handlers.GetSearchTrend)
+		api.GET("/search-stats/keyword/:keyword/trend", handlers.GetKeywordTrend)
+		api.POST("/search-stats/record", handlers.RecordSearch)
 	}
 
 	// 静态文件服务

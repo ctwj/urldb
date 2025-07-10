@@ -1,124 +1,223 @@
 <template>
-  <div class="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-md w-full space-y-8">
-      <div>
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          注册新账户
-        </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
-          或
-          <NuxtLink to="/login" class="font-medium text-indigo-600 hover:text-indigo-500">
-            登录现有账户
-          </NuxtLink>
-        </p>
-      </div>
-      <form class="mt-8 space-y-6" @submit.prevent="handleRegister">
-        <div class="rounded-md shadow-sm -space-y-px">
+  <div class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-md w-full">
+      <div class="bg-white rounded-lg shadow-lg p-6 space-y-6">
+        <div class="text-center">
+          <h1 class="text-2xl font-bold text-gray-900">用户注册</h1>
+          <p class="mt-2 text-sm text-gray-600">创建新的用户账户</p>
+        </div>
+
+        <form @submit.prevent="handleRegister" class="space-y-4">
           <div>
-            <label for="username" class="sr-only">用户名</label>
-            <input
-              id="username"
+            <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+            <input 
+              type="text" 
+              id="username" 
               v-model="form.username"
-              name="username"
-              type="text"
-              required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              placeholder="用户名"
-            />
+              required 
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-500': errors.username }"
+            >
+            <p v-if="errors.username" class="mt-1 text-sm text-red-600">{{ errors.username }}</p>
           </div>
+
           <div>
-            <label for="email" class="sr-only">邮箱</label>
-            <input
-              id="email"
+            <label for="email" class="block text-sm font-medium text-gray-700">邮箱</label>
+            <input 
+              type="email" 
+              id="email" 
               v-model="form.email"
-              name="email"
-              type="email"
-              required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              placeholder="邮箱"
-            />
+              required 
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-500': errors.email }"
+            >
+            <p v-if="errors.email" class="mt-1 text-sm text-red-600">{{ errors.email }}</p>
           </div>
+
           <div>
-            <label for="password" class="sr-only">密码</label>
-            <input
-              id="password"
+            <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+            <input 
+              type="password" 
+              id="password" 
               v-model="form.password"
-              name="password"
-              type="password"
-              required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              placeholder="密码"
-            />
+              required 
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-500': errors.password }"
+            >
+            <p v-if="errors.password" class="mt-1 text-sm text-red-600">{{ errors.password }}</p>
           </div>
-        </div>
 
-        <div v-if="error" class="text-red-600 text-sm text-center">
-          {{ error }}
-        </div>
+          <div>
+            <label for="confirmPassword" class="block text-sm font-medium text-gray-700">确认密码</label>
+            <input 
+              type="password" 
+              id="confirmPassword" 
+              v-model="form.confirmPassword"
+              required 
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-500': errors.confirmPassword }"
+            >
+            <p v-if="errors.confirmPassword" class="mt-1 text-sm text-red-600">{{ errors.confirmPassword }}</p>
+          </div>
 
-        <div v-if="success" class="text-green-600 text-sm text-center">
-          {{ success }}
-        </div>
-
-        <div>
-          <button
-            type="submit"
-            :disabled="loading"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          <button 
+            type="submit" 
+            :disabled="userStore.loading"
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span v-if="loading" class="absolute left-0 inset-y-0 flex items-center pl-3">
-              <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <span v-if="userStore.loading" class="inline-flex items-center">
+              <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
+              注册中...
             </span>
-            {{ loading ? '注册中...' : '注册' }}
+            <span v-else>注册</span>
           </button>
+        </form>
+        
+        <div class="pt-2 text-center">
+          <NuxtLink to="/login" class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors mr-4">
+            <i class="fas fa-sign-in-alt mr-1"></i> 已有账号？登录
+          </NuxtLink>
+          <NuxtLink to="/" class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors">
+            <i class="fas fa-home mr-1"></i> 返回首页
+          </NuxtLink>
         </div>
-      </form>
+      </div>
     </div>
+    
+    <!-- 错误提示 -->
+    <ErrorToast 
+      v-if="showErrorToast" 
+      :message="errorToastMessage" 
+      @close="showErrorToast = false"
+    />
+    
+    <!-- 成功提示 -->
+    <SuccessToast 
+      v-if="showSuccessToast" 
+      :message="successToastMessage" 
+      @close="showSuccessToast = false"
+    />
   </div>
 </template>
 
-<script setup>
-const router = useRouter()
-const { $api } = useNuxtApp()
+<script setup lang="ts">
+import { reactive } from 'vue'
+import { useRouter } from 'vue-router'
 
-const form = ref({
+const router = useRouter()
+const userStore = useUserStore()
+
+const form = reactive({
   username: '',
   email: '',
-  password: ''
+  password: '',
+  confirmPassword: ''
 })
 
-const loading = ref(false)
-const error = ref('')
-const success = ref('')
+const errors = reactive({
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: ''
+})
+
+const showErrorToast = ref(false)
+const errorToastMessage = ref('')
+const showSuccessToast = ref(false)
+const successToastMessage = ref('')
+
+const validateForm = () => {
+  errors.username = ''
+  errors.email = ''
+  errors.password = ''
+  errors.confirmPassword = ''
+  
+  if (!form.username.trim()) {
+    errors.username = '请输入用户名'
+    return false
+  }
+  
+  if (form.username.length < 3) {
+    errors.username = '用户名至少需要3个字符'
+    return false
+  }
+  
+  if (!form.email.trim()) {
+    errors.email = '请输入邮箱'
+    return false
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(form.email)) {
+    errors.email = '请输入有效的邮箱地址'
+    return false
+  }
+  
+  if (!form.password.trim()) {
+    errors.password = '请输入密码'
+    return false
+  }
+  
+  if (form.password.length < 6) {
+    errors.password = '密码至少需要6个字符'
+    return false
+  }
+  
+  if (form.password !== form.confirmPassword) {
+    errors.confirmPassword = '两次输入的密码不一致'
+    return false
+  }
+  
+  return true
+}
 
 const handleRegister = async () => {
-  loading.value = true
-  error.value = ''
-  success.value = ''
-
-  try {
-    await $api.post('/auth/register', form.value)
-    success.value = '注册成功！正在跳转到登录页面...'
-    
-    // 延迟跳转到登录页面
+  if (!validateForm()) return
+  
+  const result = await userStore.register({
+    username: form.username,
+    email: form.email,
+    password: form.password
+  })
+  
+  if (result.success) {
+    successToastMessage.value = '注册成功！请登录'
+    showSuccessToast.value = true
     setTimeout(() => {
       router.push('/login')
     }, 2000)
-  } catch (err) {
-    error.value = err.response?.data?.error || '注册失败'
-  } finally {
-    loading.value = false
+  } else {
+    // 根据错误类型提供更友好的提示
+    let errorMessage = '注册失败'
+    if (result.message) {
+      if (result.message.includes('用户名已存在')) {
+        errorMessage = '用户名已存在，请选择其他用户名'
+      } else if (result.message.includes('邮箱已存在')) {
+        errorMessage = '邮箱已被注册，请使用其他邮箱'
+      } else if (result.message.includes('网络连接')) {
+        errorMessage = '网络连接失败，请检查网络后重试'
+      } else {
+        errorMessage = result.message
+      }
+    }
+    errorToastMessage.value = errorMessage
+    showErrorToast.value = true
   }
 }
 
-// 如果已经登录，直接跳转到admin页面
-onMounted(() => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    router.push('/admin')
-  }
+// 设置页面标题
+useHead({
+  title: '用户注册 - 网盘资源管理系统'
 })
-</script> 
+</script>
+
+<style scoped>
+/* 确保Font Awesome图标正确显示 */
+.fas {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+}
+</style> 

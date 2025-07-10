@@ -166,6 +166,19 @@ func createTables() error {
 		ip VARCHAR(45) DEFAULT NULL
 	);`
 
+	// 创建搜索统计表
+	searchStatTable := `
+	CREATE TABLE IF NOT EXISTS search_stats (
+		id SERIAL PRIMARY KEY,
+		keyword VARCHAR(255) NOT NULL,
+		count INTEGER DEFAULT 1,
+		date DATE NOT NULL,
+		ip VARCHAR(45),
+		user_agent VARCHAR(500),
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+
 	if _, err := DB.Exec(panTable); err != nil {
 		return err
 	}
@@ -175,6 +188,10 @@ func createTables() error {
 	}
 
 	if _, err := DB.Exec(readyResourceTable); err != nil {
+		return err
+	}
+
+	if _, err := DB.Exec(searchStatTable); err != nil {
 		return err
 	}
 

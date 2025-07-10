@@ -230,6 +230,13 @@ func SearchResources(c *gin.Context) {
 		}
 	}
 
+	// 记录搜索统计
+	if query != "" {
+		ip := c.ClientIP()
+		userAgent := c.GetHeader("User-Agent")
+		repoManager.SearchStatRepository.RecordSearch(query, ip, userAgent)
+	}
+
 	resources, total, err := repoManager.ResourceRepository.Search(query, categoryID, page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

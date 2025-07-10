@@ -2,22 +2,24 @@
   <div class="min-h-screen bg-gray-50 text-gray-800 p-3 sm:p-5">
     <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
-      <div class="bg-slate-800 text-white rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center">
+      <div class="bg-slate-800 text-white rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4">
           <a href="/" class="text-white hover:text-gray-200 no-underline">网盘资源管理系统</a>
         </h1>
-        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
-          <button 
-            @click="showAddResourceModal = true" 
-            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-plus"></i> 添加资源
-          </button>
+        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 right-4 top-0 absolute">
           <NuxtLink 
-            to="/admin" 
+            v-if="!userStore.isAuthenticated"
+            to="/login" 
             class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
           >
-            <i class="fas fa-user-shield"></i> 管理员入口
+            <i class="fas fa-sign-in-alt"></i> 登录
+          </NuxtLink>
+          <NuxtLink 
+            v-if="userStore.isAuthenticated"
+            to="/admin" 
+            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+          >
+            <i class="fas fa-user-shield"></i> 管理后台
           </NuxtLink>
         </nav>
       </div>
@@ -189,12 +191,12 @@
     </div>
 
     <!-- 添加资源模态框 -->
-    <ResourceModal
+    <!-- <ResourceModal
       v-if="showAddResourceModal"
       :resource="editingResource"
       @close="closeModal"
       @save="handleSaveResource"
-    />
+    /> -->
 
     <!-- 页脚 -->
     <footer class="mt-8 py-6 border-t border-gray-200">
@@ -208,11 +210,12 @@
 
 <script setup lang="ts">
 const store = useResourceStore()
+const userStore = useUserStore()
 const { resources, categories, stats, loading } = storeToRefs(store)
 
 const searchQuery = ref('')
 const selectedPlatform = ref('')
-const showAddResourceModal = ref(false)
+// const showAddResourceModal = ref(false)
 const editingResource = ref(null)
 const currentPage = ref(1)
 const totalPages = ref(1)
@@ -261,6 +264,9 @@ const debounceSearch = () => {
 
 // 获取数据
 onMounted(async () => {
+  // 初始化用户状态
+  userStore.initAuth()
+  
   await Promise.all([
     store.fetchResources(),
     store.fetchCategories(),
@@ -412,10 +418,10 @@ const goToPage = (page: number) => {
 }
 
 // 编辑资源
-const editResource = (resource: any) => {
-  editingResource.value = resource
-  showAddResourceModal.value = true
-}
+// const editResource = (resource: any) => {
+//   editingResource.value = resource
+//   showAddResourceModal.value = true
+// }
 
 // 删除资源
 const deleteResource = async (id: number) => {
@@ -429,10 +435,10 @@ const deleteResource = async (id: number) => {
 }
 
 // 关闭模态框
-const closeModal = () => {
-  showAddResourceModal.value = false
-  editingResource.value = null
-}
+// const closeModal = () => {
+//   showAddResourceModal.value = false
+//   editingResource.value = null
+// }
 
 // 保存资源
 const handleSaveResource = async (resourceData: any) => {

@@ -77,6 +77,7 @@ func autoMigrate() error {
 		&entity.ResourceTag{},
 		&entity.ReadyResource{},
 		&entity.User{},
+		&entity.SearchStat{},
 	)
 }
 
