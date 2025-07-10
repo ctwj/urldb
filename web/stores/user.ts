@@ -43,17 +43,18 @@ export const useUserStore = defineStore('user', {
   actions: {
     // 初始化用户状态（从localStorage恢复）
     initAuth() {
-      const token = localStorage.getItem('token')
-      const userStr = localStorage.getItem('user')
-      
-      if (token && userStr) {
-        try {
-          this.token = token
-          this.user = JSON.parse(userStr)
-          this.isAuthenticated = true
-        } catch (error) {
-          console.error('解析用户信息失败:', error)
-          this.logout()
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token')
+        const userStr = localStorage.getItem('user')
+        if (token && userStr) {
+          try {
+            this.token = token
+            this.user = JSON.parse(userStr)
+            this.isAuthenticated = true
+          } catch (error) {
+            console.error('解析用户信息失败:', error)
+            this.logout()
+          }
         }
       }
     },
@@ -126,10 +127,11 @@ export const useUserStore = defineStore('user', {
       this.user = null
       this.token = null
       this.isAuthenticated = false
-      
       // 清除localStorage
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
     },
 
     // 获取用户资料

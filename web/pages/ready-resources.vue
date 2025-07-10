@@ -1,17 +1,17 @@
 <template>
-  <div class="min-h-screen bg-gray-50 text-gray-800 p-3 sm:p-5">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
     <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
-      <div class="bg-slate-800 text-white rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center">
+      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4">
-          <NuxtLink to="/" class="text-white hover:text-gray-200 no-underline">网盘资源管理系统</NuxtLink>
+          <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源管理系统</NuxtLink>
         </h1>
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
           <NuxtLink 
-            to="/" 
+            to="/admin" 
             class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
           >
-            <i class="fas fa-home"></i> 返回首页
+            <i class="fas fa-arrow-left"></i> 返回
           </NuxtLink>
           <button 
             @click="showAddModal = true" 
@@ -24,7 +24,7 @@
 
       <!-- 批量添加模态框 -->
       <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto text-gray-900 dark:text-gray-100">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-bold">批量添加待处理资源</h3>
             <button @click="closeModal" class="text-gray-500 hover:text-gray-800">
@@ -34,15 +34,15 @@
           
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">输入格式说明：</label>
-            <div class="bg-gray-50 p-3 rounded text-sm text-gray-600 mb-4">
+            <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded text-sm text-gray-600 dark:text-gray-300 mb-4">
               <p class="mb-2"><strong>格式1：</strong>标题和URL两行一组</p>
-              <pre class="bg-white p-2 rounded border text-xs">
+              <pre class="bg-white dark:bg-gray-800 p-2 rounded border text-xs">
 电影标题1
 https://pan.baidu.com/s/123456
 电影标题2
 https://pan.baidu.com/s/789012</pre>
               <p class="mt-2 mb-2"><strong>格式2：</strong>只有URL，系统自动判断</p>
-              <pre class="bg-white p-2 rounded border text-xs">
+              <pre class="bg-white dark:bg-gray-800 p-2 rounded border text-xs">
 https://pan.baidu.com/s/123456
 https://pan.baidu.com/s/789012
 https://pan.baidu.com/s/345678</pre>
@@ -54,7 +54,7 @@ https://pan.baidu.com/s/345678</pre>
             <textarea
               v-model="resourceText"
               rows="15"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               placeholder="请输入资源内容，支持两种格式..."
             ></textarea>
           </div>
@@ -90,57 +90,69 @@ https://pan.baidu.com/s/345678</pre>
       </div>
 
       <!-- 资源列表 -->
-      <div class="bg-white rounded-lg shadow overflow-hidden">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full">
-            <thead>
-              <tr class="bg-slate-800 text-white">
-                <th class="px-4 py-3 text-left text-sm">ID</th>
-                <th class="px-4 py-3 text-left text-sm">标题</th>
-                <th class="px-4 py-3 text-left text-sm">URL</th>
-                <th class="px-4 py-3 text-left text-sm">创建时间</th>
-                <th class="px-4 py-3 text-left text-sm">IP地址</th>
-                <th class="px-4 py-3 text-left text-sm">操作</th>
+            <thead class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100 sticky top-0 z-10">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm font-medium">ID</th>
+                <th class="px-4 py-3 text-left text-sm font-medium">标题</th>
+                <th class="px-4 py-3 text-left text-sm font-medium">URL</th>
+                <th class="px-4 py-3 text-left text-sm font-medium">创建时间</th>
+                <th class="px-4 py-3 text-left text-sm font-medium">IP地址</th>
+                <th class="px-4 py-3 text-left text-sm font-medium">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
               <tr v-if="loading" class="text-center py-8">
-                <td colspan="6" class="text-gray-500">
+                <td colspan="6" class="text-gray-500 dark:text-gray-400">
                   <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
                 </td>
               </tr>
-              <tr v-else-if="readyResources.length === 0" class="text-center py-8">
-                <td colspan="6" class="text-gray-500">暂无待处理资源</td>
+              <tr v-else-if="readyResources.length === 0">
+                <td colspan="6">
+                  <div class="flex flex-col items-center justify-center py-12">
+                    <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                      <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
+                      <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
+                    </svg>
+                    <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无待处理资源</div>
+                    <div class="text-sm text-gray-400 dark:text-gray-600">你可以点击上方"批量添加"按钮快速导入资源</div>
+                  </div>
+                </td>
               </tr>
               <tr 
                 v-for="resource in readyResources" 
                 :key="resource.id"
-                class="hover:bg-gray-50"
+                class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
-                <td class="px-4 py-3 text-sm text-gray-900">{{ resource.id }}</td>
-                <td class="px-4 py-3 text-sm text-gray-900">
-                  <span v-if="resource.title">{{ resource.title }}</span>
-                  <span v-else class="text-gray-400 italic">未设置</span>
+                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ resource.id }}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                  <span v-if="resource.title" :title="resource.title">{{ escapeHtml(resource.title) }}</span>
+                  <span v-else class="text-gray-400 dark:text-gray-500 italic">未设置</span>
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <a 
-                    :href="resource.url" 
+                    :href="checkUrlSafety(resource.url)" 
                     target="_blank" 
-                    class="text-blue-600 hover:text-blue-800 hover:underline break-all"
+                    rel="noopener noreferrer"
+                    class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline break-all"
+                    :title="resource.url"
                   >
-                    {{ resource.url }}
+                    {{ escapeHtml(resource.url) }}
                   </a>
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-500">
+                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                   {{ formatTime(resource.create_time) }}
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-500">
-                  {{ resource.ip || '-' }}
+                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                  {{ escapeHtml(resource.ip || '-') }}
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <button 
                     @click="deleteResource(resource.id)"
-                    class="text-red-600 hover:text-red-800"
+                    class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                    title="删除此资源"
                   >
                     <i class="fas fa-trash"></i>
                   </button>
@@ -151,9 +163,62 @@ https://pan.baidu.com/s/345678</pre>
         </div>
       </div>
 
+      <!-- 分页组件 -->
+      <div v-if="totalPages > 1" class="mt-6 flex justify-center">
+        <div class="flex items-center space-x-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <!-- 总资源数 -->
+          <div class="text-sm text-gray-600 dark:text-gray-400">
+            共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个待处理资源
+          </div>
+          
+          <div class="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+          
+          <!-- 上一页 -->
+          <button 
+            @click="goToPage(currentPage - 1)"
+            :disabled="currentPage <= 1"
+            class="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+          >
+            <i class="fas fa-chevron-left"></i>
+            <span>上一页</span>
+          </button>
+          
+          <!-- 页码 -->
+          <template v-for="page in visiblePages" :key="page">
+            <button 
+              v-if="typeof page === 'number'"
+              @click="goToPage(page)"
+              :class="[
+                'px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 min-w-[40px]',
+                page === currentPage 
+                  ? 'bg-blue-600 text-white shadow-md' 
+                  : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+              ]"
+            >
+              {{ page }}
+            </button>
+            <span v-else class="px-3 py-2 text-sm text-gray-500">...</span>
+          </template>
+          
+          <!-- 下一页 -->
+          <button 
+            @click="goToPage(currentPage + 1)"
+            :disabled="currentPage >= totalPages"
+            class="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+          >
+            <span>下一页</span>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
       <!-- 统计信息 -->
-      <div class="mt-4 text-sm text-gray-600">
-        共 {{ readyResources.length }} 个待处理资源
+      <div v-if="totalPages <= 1" class="mt-4 text-center">
+        <div class="inline-flex items-center bg-white dark:bg-gray-800 rounded-lg shadow px-6 py-3">
+          <div class="text-sm text-gray-600 dark:text-gray-400">
+            共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个待处理资源
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -173,6 +238,12 @@ const loading = ref(false)
 const showAddModal = ref(false)
 const resourceText = ref('')
 
+// 分页相关状态
+const currentPage = ref(1)
+const pageSize = ref(100)
+const totalCount = ref(0)
+const totalPages = ref(0)
+
 // 获取待处理资源API
 const { useReadyResourceApi } = await import('~/composables/useApi')
 const readyResourceApi = useReadyResourceApi()
@@ -181,14 +252,70 @@ const readyResourceApi = useReadyResourceApi()
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await readyResourceApi.getReadyResources() as any
-    readyResources.value = response.resources || []
+    const response = await readyResourceApi.getReadyResources({
+      page: currentPage.value,
+      page_size: pageSize.value
+    }) as any
+    
+    // 使用标准化的接口返回格式
+    readyResources.value = response.data
+    totalCount.value = response.pagination.total
+    totalPages.value = response.pagination.total_pages
   } catch (error) {
     console.error('获取待处理资源失败:', error)
   } finally {
     loading.value = false
   }
 }
+
+// 跳转到指定页面
+const goToPage = (page: number) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+    fetchData()
+  }
+}
+
+// 计算可见的页码
+const visiblePages = computed(() => {
+  const pages: (number | string)[] = []
+  const maxVisible = 5
+  
+  if (totalPages.value <= maxVisible) {
+    // 如果总页数不多，显示所有页码
+    for (let i = 1; i <= totalPages.value; i++) {
+      pages.push(i)
+    }
+  } else {
+    // 如果总页数很多，显示部分页码
+    if (currentPage.value <= 3) {
+      // 当前页在前几页
+      for (let i = 1; i <= 4; i++) {
+        pages.push(i)
+      }
+      pages.push('...')
+      pages.push(totalPages.value)
+    } else if (currentPage.value >= totalPages.value - 2) {
+      // 当前页在后几页
+      pages.push(1)
+      pages.push('...')
+      for (let i = totalPages.value - 3; i <= totalPages.value; i++) {
+        pages.push(i)
+      }
+    } else {
+      // 当前页在中间
+      pages.push(1)
+      pages.push('...')
+      for (let i = currentPage.value - 1; i <= currentPage.value + 1; i++) {
+        pages.push(i)
+      }
+      pages.push('...')
+      pages.push(totalPages.value)
+    }
+  }
+  
+  return pages
+})
 
 // 刷新数据
 const refreshData = () => {
@@ -213,7 +340,7 @@ const handleBatchAdd = async () => {
     console.log('批量添加成功:', response)
     closeModal()
     fetchData()
-    alert(`成功添加 ${response.count} 个资源`)
+    alert(`成功添加 ${response.data.count} 个资源`)
   } catch (error) {
     console.error('批量添加失败:', error)
     alert('批量添加失败，请检查输入格式')
@@ -228,6 +355,10 @@ const deleteResource = async (id: number) => {
 
   try {
     await readyResourceApi.deleteReadyResource(id)
+    // 如果当前页没有数据了，回到上一页
+    if (readyResources.value.length === 1 && currentPage.value > 1) {
+      currentPage.value--
+    }
     fetchData()
   } catch (error) {
     console.error('删除失败:', error)
@@ -244,8 +375,9 @@ const clearAll = async () => {
   try {
     const response = await readyResourceApi.clearReadyResources() as any
     console.log('清空成功:', response)
+    currentPage.value = 1 // 清空后回到第一页
     fetchData()
-    alert(`成功清空 ${response.deleted_count} 个资源`)
+    alert(`成功清空 ${response.data.deleted_count} 个资源`)
   } catch (error) {
     console.error('清空失败:', error)
     alert('清空失败')
@@ -258,6 +390,29 @@ const formatTime = (timeString: string) => {
   return date.toLocaleString('zh-CN')
 }
 
+// 转义HTML防止XSS
+const escapeHtml = (text: string) => {
+  if (!text) return text
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+// 验证URL安全性
+const checkUrlSafety = (url: string) => {
+  if (!url) return '#'
+  try {
+    const urlObj = new URL(url)
+    // 只允许http和https协议
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      return '#'
+    }
+    return url
+  } catch {
+    return '#'
+  }
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchData()
@@ -265,5 +420,47 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 可以添加自定义样式 */
+/* 表格滚动样式 */
+.overflow-x-auto {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* 表格头部固定 */
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* 分页按钮悬停效果 */
+.pagination-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* 当前页码按钮效果 */
+.current-page {
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3), 0 2px 4px -1px rgba(59, 130, 246, 0.2);
+}
+
+/* 表格行悬停效果 */
+tbody tr:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+/* 暗黑模式下的表格行悬停 */
+.dark tbody tr:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* 统计信息卡片效果 */
+.stats-card {
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.dark .stats-card {
+  background-color: rgba(31, 41, 55, 0.9);
+}
 </style> 

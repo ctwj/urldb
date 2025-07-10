@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-4">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
     <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
-      <div class="bg-white rounded-lg shadow p-6 mb-6">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <div class="flex justify-between items-center">
           <h1 class="text-2xl font-bold text-gray-900">用户管理</h1>
           <div class="flex gap-2">

@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 text-gray-800 p-3 sm:p-5">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
     <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
       <div class="bg-slate-800 text-white rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center">
@@ -39,26 +39,26 @@
       <!-- 管理功能区域 -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <!-- 资源管理 -->
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
             <div class="p-3 bg-blue-100 rounded-lg">
               <i class="fas fa-cloud text-blue-600 text-xl"></i>
             </div>
             <div class="ml-4">
-              <h3 class="text-lg font-semibold text-gray-900">资源管理</h3>
-              <p class="text-sm text-gray-600">管理所有资源</p>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">资源管理</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">管理所有资源</p>
             </div>
           </div>
           <div class="space-y-2">
-            <button @click="goToResourceManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="goToResourceManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">查看所有资源</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">查看所有资源</span>
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
             </button>
-            <button @click="showAddResourceModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="showAddResourceModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">添加新资源</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">添加新资源</span>
                 <i class="fas fa-plus text-gray-400"></i>
               </div>
             </button>
@@ -66,26 +66,26 @@
         </div>
 
         <!-- 平台管理 -->
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
             <div class="p-3 bg-green-100 rounded-lg">
               <i class="fas fa-server text-green-600 text-xl"></i>
             </div>
             <div class="ml-4">
-              <h3 class="text-lg font-semibold text-gray-900">平台管理</h3>
-              <p class="text-sm text-gray-600">管理网盘平台</p>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">平台管理</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">管理网盘平台</p>
             </div>
           </div>
           <div class="space-y-2">
-            <button @click="goToPlatformManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="goToPlatformManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">管理平台</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">管理平台</span>
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
             </button>
-            <button @click="showAddPlatformModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="showAddPlatformModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">添加平台</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">添加平台</span>
                 <i class="fas fa-plus text-gray-400"></i>
               </div>
             </button>
@@ -93,26 +93,26 @@
         </div>
 
         <!-- 分类管理 -->
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
             <div class="p-3 bg-purple-100 rounded-lg">
               <i class="fas fa-folder text-purple-600 text-xl"></i>
             </div>
             <div class="ml-4">
-              <h3 class="text-lg font-semibold text-gray-900">分类管理</h3>
-              <p class="text-sm text-gray-600">管理资源分类</p>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">分类管理</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">管理资源分类</p>
             </div>
           </div>
           <div class="space-y-2">
-            <button @click="goToCategoryManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="goToCategoryManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">管理分类</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">管理分类</span>
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
             </button>
-            <button @click="showAddCategoryModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="showAddCategoryModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">添加分类</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">添加分类</span>
                 <i class="fas fa-plus text-gray-400"></i>
               </div>
             </button>
@@ -120,26 +120,26 @@
         </div>
 
         <!-- 标签管理 -->
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
             <div class="p-3 bg-orange-100 rounded-lg">
               <i class="fas fa-tags text-orange-600 text-xl"></i>
             </div>
             <div class="ml-4">
-              <h3 class="text-lg font-semibold text-gray-900">标签管理</h3>
-              <p class="text-sm text-gray-600">管理资源标签</p>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">标签管理</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">管理资源标签</p>
             </div>
           </div>
           <div class="space-y-2">
-            <button @click="goToTagManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="goToTagManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">管理标签</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">管理标签</span>
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
             </button>
-            <button @click="showAddTagModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="showAddTagModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">添加标签</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">添加标签</span>
                 <i class="fas fa-plus text-gray-400"></i>
               </div>
             </button>
@@ -147,53 +147,53 @@
         </div>
 
         <!-- 统计信息 -->
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
             <div class="p-3 bg-red-100 rounded-lg">
               <i class="fas fa-chart-bar text-red-600 text-xl"></i>
             </div>
             <div class="ml-4">
-              <h3 class="text-lg font-semibold text-gray-900">统计信息</h3>
-              <p class="text-sm text-gray-600">系统统计数据</p>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">统计信息</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">系统统计数据</p>
             </div>
           </div>
           <div class="space-y-3">
             <div class="flex justify-between items-center">
-              <span class="text-sm text-gray-600">总资源数</span>
-              <span class="text-lg font-semibold text-gray-900">{{ stats?.total_resources || 0 }}</span>
+              <span class="text-sm text-gray-600 dark:text-gray-400">总资源数</span>
+              <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ stats?.total_resources || 0 }}</span>
             </div>
             <div class="flex justify-between items-center">
-              <span class="text-sm text-gray-600">总浏览量</span>
-              <span class="text-lg font-semibold text-gray-900">{{ stats?.total_views || 0 }}</span>
+              <span class="text-sm text-gray-600 dark:text-gray-400">总浏览量</span>
+              <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ stats?.total_views || 0 }}</span>
             </div>
             <div class="flex justify-between items-center">
-              <span class="text-sm text-gray-600">分类数量</span>
-              <span class="text-lg font-semibold text-gray-900">{{ stats?.total_categories || 0 }}</span>
+              <span class="text-sm text-gray-600 dark:text-gray-400">分类数量</span>
+              <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ stats?.total_categories || 0 }}</span>
             </div>
           </div>
         </div>
 
         <!-- 待处理资源 -->
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
             <div class="p-3 bg-yellow-100 rounded-lg">
               <i class="fas fa-clock text-yellow-600 text-xl"></i>
             </div>
             <div class="ml-4">
-              <h3 class="text-lg font-semibold text-gray-900">待处理资源</h3>
-              <p class="text-sm text-gray-600">批量添加和管理</p>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">待处理资源</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">批量添加和管理</p>
             </div>
           </div>
           <div class="space-y-2">
-            <NuxtLink to="/ready-resources" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors block">
+            <NuxtLink to="/ready-resources" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">管理待处理资源</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">管理待处理资源</span>
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
             </NuxtLink>
-            <button @click="goToBatchAdd" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="goToBatchAdd" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">批量添加资源</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">批量添加资源</span>
                 <i class="fas fa-plus text-gray-400"></i>
               </div>
             </button>
@@ -201,54 +201,54 @@
         </div>
 
         <!-- 搜索统计 -->
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
-            <div class="p-3 bg-indigo-100 rounded-lg">
-              <i class="fas fa-search text-indigo-600 text-xl"></i>
+            <div class="p-3 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
+              <i class="fas fa-search text-indigo-600 dark:text-indigo-300 text-xl"></i>
             </div>
             <div class="ml-4">
-              <h3 class="text-lg font-semibold text-gray-900">搜索统计</h3>
-              <p class="text-sm text-gray-600">搜索量分析和热门关键词</p>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">搜索统计</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">搜索量分析和热门关键词</p>
             </div>
           </div>
           <div class="space-y-2">
-            <NuxtLink to="/search-stats" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors block">
+            <NuxtLink to="/search-stats" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">查看搜索统计</span>
-                <i class="fas fa-chart-line text-gray-400"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">查看搜索统计</span>
+                <i class="fas fa-chart-line text-gray-400 dark:text-gray-300"></i>
               </div>
             </NuxtLink>
-            <button @click="goToHotKeywords" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="goToHotKeywords" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">热门关键词</span>
-                <i class="fas fa-fire text-gray-400"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">热门关键词</span>
+                <i class="fas fa-fire text-gray-400 dark:text-gray-300"></i>
               </div>
             </button>
           </div>
         </div>
 
         <!-- 系统设置 -->
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
-            <div class="p-3 bg-gray-100 rounded-lg">
-              <i class="fas fa-cog text-gray-600 text-xl"></i>
+            <div class="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <i class="fas fa-cog text-gray-600 dark:text-gray-300 text-xl"></i>
             </div>
             <div class="ml-4">
-              <h3 class="text-lg font-semibold text-gray-900">系统设置</h3>
-              <p class="text-sm text-gray-600">系统配置</p>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">系统设置</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">系统配置</p>
             </div>
           </div>
           <div class="space-y-2">
-            <button @click="goToSystemSettings" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="goToSystemSettings" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">系统配置</span>
-                <i class="fas fa-chevron-right text-gray-400"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">系统配置</span>
+                <i class="fas fa-chevron-right text-gray-400 dark:text-gray-300"></i>
               </div>
             </button>
-            <button @click="goToUserManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors">
+            <button @click="goToUserManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">用户管理</span>
-                <i class="fas fa-users text-gray-400"></i>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">用户管理</span>
+                <i class="fas fa-users text-gray-400 dark:text-gray-300"></i>
               </div>
             </button>
           </div>
@@ -262,6 +262,8 @@
 </template>
 
 <script setup>
+import ResourceModal from '~/components/ResourceModal.vue'
+
 definePageMeta({
   middleware: 'auth'
 })

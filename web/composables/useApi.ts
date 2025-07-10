@@ -352,9 +352,10 @@ export const useReadyResourceApi = () => {
     return userStore.authHeaders
   }
   
-  const getReadyResources = async () => {
+  const getReadyResources = async (params?: any) => {
     return await $fetch('/ready-resources', {
       baseURL: config.public.apiBase,
+      params,
       headers: getAuthHeaders() as Record<string, string>
     })
   }

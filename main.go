@@ -69,14 +69,14 @@ func main() {
 		api.GET("/stats", handlers.GetStats)
 
 		// 平台管理
-		api.GET("/pans", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPans)
+		api.GET("/pans", handlers.GetPans)
 		api.POST("/pans", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreatePan)
 		api.PUT("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdatePan)
 		api.DELETE("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeletePan)
 		api.GET("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPan)
 
 		// Cookie管理
-		api.GET("/cks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetCks)
+		api.GET("/cks", handlers.GetCks)
 		api.POST("/cks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateCks)
 		api.PUT("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateCks)
 		api.DELETE("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteCks)

@@ -1,60 +1,60 @@
 <template>
-  <div class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+  <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
     <div class="max-w-md w-full">
-      <div class="bg-white rounded-lg shadow-lg p-6 space-y-6">
+      <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md text-gray-900 dark:text-gray-100">
         <div class="text-center">
-          <h1 class="text-2xl font-bold text-gray-900">用户注册</h1>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">用户注册</h1>
           <p class="mt-2 text-sm text-gray-600">创建新的用户账户</p>
         </div>
 
         <form @submit.prevent="handleRegister" class="space-y-4">
           <div>
-            <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+            <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-100">用户名</label>
             <input 
               type="text" 
               id="username" 
               v-model="form.username"
               required 
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               :class="{ 'border-red-500': errors.username }"
             >
             <p v-if="errors.username" class="mt-1 text-sm text-red-600">{{ errors.username }}</p>
           </div>
 
           <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">邮箱</label>
+            <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-100">邮箱</label>
             <input 
               type="email" 
               id="email" 
               v-model="form.email"
               required 
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               :class="{ 'border-red-500': errors.email }"
             >
             <p v-if="errors.email" class="mt-1 text-sm text-red-600">{{ errors.email }}</p>
           </div>
 
           <div>
-            <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+            <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-100">密码</label>
             <input 
               type="password" 
               id="password" 
               v-model="form.password"
               required 
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               :class="{ 'border-red-500': errors.password }"
             >
             <p v-if="errors.password" class="mt-1 text-sm text-red-600">{{ errors.password }}</p>
           </div>
 
           <div>
-            <label for="confirmPassword" class="block text-sm font-medium text-gray-700">确认密码</label>
+            <label for="confirmPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-100">确认密码</label>
             <input 
               type="password" 
               id="confirmPassword" 
               v-model="form.confirmPassword"
               required 
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              class="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
               :class="{ 'border-red-500': errors.confirmPassword }"
             >
             <p v-if="errors.confirmPassword" class="mt-1 text-sm text-red-600">{{ errors.confirmPassword }}</p>
@@ -63,7 +63,7 @@
           <button 
             type="submit" 
             :disabled="userStore.loading"
-            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <span v-if="userStore.loading" class="inline-flex items-center">
               <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

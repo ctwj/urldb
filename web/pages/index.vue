@@ -1,10 +1,10 @@
-<template>
-  <div class="min-h-screen bg-gray-50 text-gray-800 p-3 sm:p-5">
+  <template>
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
     <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
-      <div class="bg-slate-800 text-white rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
+      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4">
-          <a href="/" class="text-white hover:text-gray-200 no-underline">网盘资源管理系统</a>
+          <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源管理系统</a>
         </h1>
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 right-4 top-0 absolute">
           <NuxtLink 
@@ -31,7 +31,7 @@
             v-model="searchQuery"
             @keyup="debounceSearch"
             type="text" 
-            class="w-full px-4 py-3 rounded-full border-2 border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+            class="w-full px-4 py-3 rounded-full border-2 border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 transition-all"
             placeholder="输入文件名或链接进行搜索..."
           />
           <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -42,7 +42,7 @@
         <!-- 平台类型筛选 -->
         <div class="mt-3 flex flex-wrap gap-2" id="platformFilters">
           <button 
-            class="px-2 py-1 text-xs rounded-full bg-slate-800 text-white active-filter" 
+            class="px-2 py-1 text-xs rounded-full bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100 active-filter" 
             @click="filterByPlatform('')"
           >
             全部
@@ -50,7 +50,7 @@
           <button 
             v-for="platform in platforms" 
             :key="platform.id"
-            class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
+            class="px-2 py-1 text-xs rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
             @click="filterByPlatform(platform.id)"
           >
             {{ getPlatformIcon(platform.name) }} {{ platform.name }}
@@ -58,7 +58,7 @@
         </div>
         
         <!-- 统计信息 -->
-        <div class="flex justify-between mt-3 text-sm text-gray-600 px-2">
+        <div class="flex justify-between mt-3 text-sm text-gray-600 dark:text-gray-300 px-2">
           <div class="flex items-center">
             <i class="fas fa-calendar-day text-pink-600 mr-1"></i>
             今日更新: <span class="font-medium text-pink-600 ml-1 count-up" :data-target="todayUpdates">0</span>
@@ -71,10 +71,10 @@
       </div>
 
       <!-- 资源列表 -->
-      <div class="overflow-x-auto bg-white rounded-lg shadow">
+      <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow">
         <table class="w-full">
           <thead>
-            <tr class="bg-slate-800 text-white">
+            <tr class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100">
               <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">
                 <div class="flex items-center">
                   <i class="fas fa-cloud mr-1 text-gray-300"></i> 文件名
@@ -86,17 +86,17 @@
           </thead>
           <tbody class="divide-y divide-gray-200">
             <tr v-if="loading" class="text-center py-8">
-              <td colspan="3" class="text-gray-500">
+              <td colspan="3" class="text-gray-500 dark:text-gray-400">
                 <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
               </td>
             </tr>
             <tr v-else-if="resources.length === 0" class="text-center py-8">
-              <td colspan="3" class="text-gray-500">暂无数据</td>
+              <td colspan="3" class="text-gray-500 dark:text-gray-400">暂无数据</td>
             </tr>
                          <tr 
                v-for="resource in (resources as unknown as ExtendedResource[])" 
                :key="resource.id"
-               :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 bg-pink-50/30' : 'hover:bg-gray-50'"
+               :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-900 bg-pink-50/30 dark:bg-pink-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800'"
              >
                <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm">
                  <div class="flex items-start">
@@ -114,7 +114,7 @@
                      v-if="resource.showLink" 
                      :href="resource.url" 
                      target="_blank" 
-                     class="text-blue-600 hover:text-blue-800 hover:underline text-xs break-all"
+                     class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline text-xs break-all"
                    >
                      {{ resource.url }}
                    </a>
@@ -131,7 +131,7 @@
                    v-if="resource.showLink" 
                    :href="resource.url" 
                    target="_blank" 
-                   class="text-blue-600 hover:text-blue-800 hover:underline"
+                   class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
                  >
                    {{ resource.url }}
                  </a>

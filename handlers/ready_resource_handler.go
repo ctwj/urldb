@@ -14,21 +14,38 @@ import (
 
 // GetReadyResources 获取待处理资源列表
 func GetReadyResources(c *gin.Context) {
-	resources, err := repoManager.ReadyResourceRepository.FindAll()
+	// 获取分页参数
+	pageStr := c.DefaultQuery("page", "1")
+	pageSizeStr := c.DefaultQuery("page_size", "100")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil || pageSize < 1 || pageSize > 1000 {
+		pageSize = 100
+	}
+
+	// 获取分页数据
+	resources, total, err := repoManager.ReadyResourceRepository.FindWithPagination(page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	responses := converter.ToReadyResourceResponseList(resources)
-	c.JSON(http.StatusOK, responses)
+
+	// 使用标准化的分页响应格式
+	PaginatedResponse(c, responses, page, pageSize, total)
 }
 
 // CreateReadyResource 创建待处理资源
 func CreateReadyResource(c *gin.Context) {
 	var req dto.CreateReadyResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -40,21 +57,18 @@ func CreateReadyResource(c *gin.Context) {
 
 	err := repoManager.ReadyResourceRepository.Create(resource)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"id":      resource.ID,
-		"message": "待处理资源创建成功",
-	})
+	CreatedResponse(c, gin.H{"id": resource.ID}, "待处理资源创建成功")
 }
 
 // BatchCreateReadyResources 批量创建待处理资源
 func BatchCreateReadyResources(c *gin.Context) {
 	var req dto.BatchCreateReadyResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -70,21 +84,18 @@ func BatchCreateReadyResources(c *gin.Context) {
 
 	err := repoManager.ReadyResourceRepository.BatchCreate(resources)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "批量创建成功",
-		"count":   len(resources),
-	})
+	CreatedResponse(c, gin.H{"count": len(resources)}, "批量创建成功")
 }
 
 // CreateReadyResourcesFromText 从文本创建待处理资源
 func CreateReadyResourcesFromText(c *gin.Context) {
 	text := c.PostForm("text")
 	if text == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "文本内容不能为空"})
+		ErrorResponse(c, http.StatusBadRequest, "文本内容不能为空")
 		return
 	}
 
@@ -107,20 +118,17 @@ func CreateReadyResourcesFromText(c *gin.Context) {
 	}
 
 	if len(resources) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "未找到有效的URL"})
+		ErrorResponse(c, http.StatusBadRequest, "未找到有效的URL")
 		return
 	}
 
 	err := repoManager.ReadyResourceRepository.BatchCreate(resources)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "从文本创建成功",
-		"count":   len(resources),
-	})
+	CreatedResponse(c, gin.H{"count": len(resources)}, "从文本创建成功")
 }
 
 // DeleteReadyResource 删除待处理资源
@@ -128,37 +136,34 @@ func DeleteReadyResource(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, http.StatusBadRequest, "无效的ID")
 		return
 	}
 
 	err = repoManager.ReadyResourceRepository.Delete(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "待处理资源删除成功"})
+	SimpleSuccessResponse(c, "待处理资源删除成功")
 }
 
 // ClearReadyResources 清空所有待处理资源
 func ClearReadyResources(c *gin.Context) {
 	resources, err := repoManager.ReadyResourceRepository.FindAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	for _, resource := range resources {
 		err = repoManager.ReadyResourceRepository.Delete(resource.ID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ErrorResponse(c, http.StatusInternalServerError, err.Error())
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "所有待处理资源已清空",
-		"count":   len(resources),
-	})
+	SuccessResponse(c, gin.H{"deleted_count": len(resources)}, "所有待处理资源已清空")
 }
