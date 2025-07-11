@@ -1,5 +1,5 @@
   <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col">
     <!-- 全局加载状态 -->
     <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
@@ -13,7 +13,9 @@
       </div>
     </div>
 
-    <div class="max-w-7xl mx-auto">
+    <!-- 主要内容区域 -->
+    <div class="flex-1 p-3 sm:p-5">
+      <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
       <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4">
@@ -22,6 +24,18 @@
           </a>
         </h1>
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 right-4 top-0 absolute">
+          <NuxtLink 
+            to="/hot-dramas" 
+            class="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+          >
+            <i class="fas fa-film"></i> 热播剧
+          </NuxtLink>
+          <NuxtLink 
+            to="/monitor" 
+            class="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+          >
+            <i class="fas fa-chart-line"></i> 系统监控
+          </NuxtLink>
           <NuxtLink 
             v-if="authInitialized && !userStore.isAuthenticated"
             to="/login" 
@@ -68,7 +82,7 @@
             class="px-2 py-1 text-xs rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
             @click="filterByPlatform(platform.id)"
           >
-            {{ getPlatformIcon(platform.name) }} {{ platform.name }}
+            <span v-html="getPlatformIcon(platform.name)"></span> {{ platform.name }}
           </button>
         </div>
         
@@ -76,11 +90,11 @@
         <div class="flex justify-between mt-3 text-sm text-gray-600 dark:text-gray-300 px-2">
           <div class="flex items-center">
             <i class="fas fa-calendar-day text-pink-600 mr-1"></i>
-            今日更新: <span class="font-medium text-pink-600 ml-1 count-up" :data-target="todayUpdates">0</span>
+            今日更新: <span class="font-medium text-pink-600 ml-1 count-up" :data-target="safeTodayUpdates">0</span>
           </div>
           <div class="flex items-center">
             <i class="fas fa-database text-blue-600 mr-1"></i>
-            总资源数: <span class="font-medium text-blue-600 ml-1 count-up" :data-target="stats?.total_resources || 0">0</span>
+            总资源数: <span class="font-medium text-blue-600 ml-1 count-up" :data-target="safeStats?.total_resources || 0">0</span>
           </div>
         </div>
       </div>
@@ -100,63 +114,75 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
-            <tr v-if="loading" class="text-center py-8">
+            <tr v-if="safeLoading" class="text-center py-8">
               <td colspan="3" class="text-gray-500 dark:text-gray-400">
                 <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
               </td>
             </tr>
-            <tr v-else-if="resources.length === 0" class="text-center py-8">
+            <tr v-else-if="safeResources.length === 0" class="text-center py-8">
               <td colspan="3" class="text-gray-500 dark:text-gray-400">暂无数据</td>
             </tr>
-                         <tr 
-               v-for="resource in (resources as unknown as ExtendedResource[])" 
-               :key="resource.id"
-               :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-900 bg-pink-50/30 dark:bg-pink-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800'"
-             >
-               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm">
-                 <div class="flex items-start">
-                   <span class="mr-2 flex-shrink-0">{{ getPlatformIcon(getPlatformName(resource.pan_id || 0)) }}</span>
-                   <span class="break-words">{{ resource.title }}</span>
-                 </div>
-                 <div class="sm:hidden mt-1">
-                   <button 
-                     class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 show-link-btn" 
-                     @click="toggleLink(resource)"
-                   >
-                     <i class="fas fa-eye"></i> 显示链接
-                   </button>
-                   <a 
-                     v-if="resource.showLink" 
-                     :href="resource.url" 
-                     target="_blank" 
-                     class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline text-xs break-all"
-                   >
-                     {{ resource.url }}
-                   </a>
-                 </div>
-               </td>
-               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell">
-                 <button 
-                   class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn" 
-                   @click="toggleLink(resource)"
-                 >
-                   <i class="fas fa-eye"></i> 显示链接
-                 </button>
-                 <a 
-                   v-if="resource.showLink" 
-                   :href="resource.url" 
-                   target="_blank" 
-                   class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
-                 >
-                   {{ resource.url }}
-                 </a>
-               </td>
-               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500" :title="resource.updated_at">
-                 {{ formatRelativeTime(resource.updated_at) }}
-               </td>
-             </tr>
+            <tr 
+              v-for="(resource, index) in visibleResources" 
+              :key="resource.id"
+              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-900 bg-pink-50/30 dark:bg-pink-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800'"
+              v-intersection="onIntersection"
+              :data-index="index"
+            >
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm">
+                <div class="flex items-start">
+                  <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(getPlatformName(resource.pan_id || 0))"></span>
+                  <span class="break-words">{{ resource.title }}</span>
+                </div>
+                <div class="sm:hidden mt-1">
+                  <button 
+                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 show-link-btn" 
+                    @click="toggleLink(resource)"
+                  >
+                    <i class="fas fa-eye"></i> 显示链接
+                  </button>
+                  <a 
+                    v-if="resource.showLink" 
+                    :href="resource.url" 
+                    target="_blank" 
+                    class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline text-xs break-all"
+                  >
+                    {{ resource.url }}
+                  </a>
+                </div>
+              </td>
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell">
+                <button 
+                  class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn" 
+                  @click="toggleLink(resource)"
+                >
+                  <i class="fas fa-eye"></i> 显示链接
+                </button>
+                <a 
+                  v-if="resource.showLink" 
+                  :href="resource.url" 
+                  target="_blank" 
+                  class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
+                >
+                  {{ resource.url }}
+                </a>
+              </td>
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500" :title="resource.updated_at">
+                {{ formatRelativeTime(resource.updated_at) }}
+              </td>
+            </tr>
           </tbody>
         </table>
+        
+        <!-- 加载更多按钮 -->
+        <div v-if="hasMoreData && !safeLoading" class="text-center py-4">
+          <button 
+            @click="loadMore"
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            加载更多
+          </button>
+        </div>
       </div>
 
       <!-- 分页 -->
@@ -212,10 +238,11 @@
       @close="closeModal"
       @save="handleSaveResource"
     /> -->
+    </div>
 
     <!-- 页脚 -->
-    <footer class="mt-8 py-6 border-t border-gray-200">
-      <div class="max-w-7xl mx-auto text-center text-gray-600 text-sm">
+    <footer class="mt-auto py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      <div class="max-w-7xl mx-auto text-center text-gray-600 dark:text-gray-400 text-sm px-3 sm:px-5">
         <p class="mb-2">本站内容由网络爬虫自动抓取。本站不储存、复制、传播任何文件，仅作个人公益学习，请在获取后24小内删除!!!</p>
         <p>{{ systemConfig?.copyright || '© 2025 网盘资源管理系统 By 小七' }}</p>
       </div>
@@ -224,16 +251,82 @@
 </template>
 
 <script setup lang="ts">
-const store = useResourceStore()
-const userStore = useUserStore()
-const { resources, categories, stats, loading } = storeToRefs(store)
-
 // 响应式数据
 const searchQuery = ref('')
 const selectedPlatform = ref('')
 const authInitialized = ref(false) // 添加认证状态初始化标志
 const pageLoading = ref(true) // 添加页面加载状态
 const systemConfig = ref<SystemConfig | null>(null) // 添加系统配置状态
+
+// 虚拟滚动相关
+const visibleResources = ref<any[]>([])
+const hasMoreData = ref(true)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const isLoadingMore = ref(false)
+
+// 延迟初始化store，避免SSR过程中的错误
+let store: any = null
+let userStore: any = null
+
+// 本地状态管理，避免SSR过程中的store访问
+const localResources = ref<any[]>([])
+const localCategories = ref<any[]>([])
+const localStats = ref<any>({ total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 })
+const localLoading = ref(false)
+
+// 安全的store访问
+const safeResources = computed(() => {
+  try {
+    if (process.client && store) {
+      const storeRefs = storeToRefs(store)
+      return (storeRefs as any).resources?.value || localResources.value
+    }
+    return localResources.value
+  } catch (error) {
+    console.error('获取resources时出错:', error)
+    return localResources.value
+  }
+})
+
+const safeCategories = computed(() => {
+  try {
+    if (process.client && store) {
+      const storeRefs = storeToRefs(store)
+      return (storeRefs as any).categories?.value || localCategories.value
+    }
+    return localCategories.value
+  } catch (error) {
+    console.error('获取categories时出错:', error)
+    return localCategories.value
+  }
+})
+
+const safeStats = computed(() => {
+  try {
+    if (process.client && store) {
+      const storeRefs = storeToRefs(store)
+      return (storeRefs as any).stats?.value || localStats.value
+    }
+    return localStats.value
+  } catch (error) {
+    console.error('获取stats时出错:', error)
+    return localStats.value
+  }
+})
+
+const safeLoading = computed(() => {
+  try {
+    if (process.client && store) {
+      const storeRefs = storeToRefs(store)
+      return (storeRefs as any).loading?.value || localLoading.value
+    }
+    return localLoading.value
+  } catch (error) {
+    console.error('获取loading时出错:', error)
+    return localLoading.value
+  }
+})
 
 // 动态SEO配置
 const seoConfig = computed(() => ({
@@ -260,30 +353,44 @@ const seoConfig = computed(() => ({
 
 // 页面元数据 - 使用watchEffect来避免组件卸载时的错误
 watchEffect(() => {
-  if (systemConfig.value) {
-    useHead({
-      title: systemConfig.value.site_title || '网盘资源管理系统',
-      meta: [
-        { 
-          name: 'description', 
-          content: systemConfig.value.site_description || '专业的网盘资源管理系统' 
-        },
-        { 
-          name: 'keywords', 
-          content: systemConfig.value.keywords || '网盘,资源管理,文件分享' 
-        },
-        { 
-          name: 'author', 
-          content: systemConfig.value.author || '系统管理员' 
-        },
-        { 
-          name: 'copyright', 
-          content: systemConfig.value.copyright || '© 2024 网盘资源管理系统' 
-        }
-      ]
-    })
-  } else {
-    // 默认SEO配置
+  try {
+    if (systemConfig.value && systemConfig.value.site_title) {
+      useHead({
+        title: systemConfig.value.site_title || '网盘资源管理系统',
+        meta: [
+          { 
+            name: 'description', 
+            content: systemConfig.value.site_description || '专业的网盘资源管理系统' 
+          },
+          { 
+            name: 'keywords', 
+            content: systemConfig.value.keywords || '网盘,资源管理,文件分享' 
+          },
+          { 
+            name: 'author', 
+            content: systemConfig.value.author || '系统管理员' 
+          },
+          { 
+            name: 'copyright', 
+            content: systemConfig.value.copyright || '© 2024 网盘资源管理系统' 
+          }
+        ]
+      })
+    } else {
+      // 默认SEO配置
+      useHead({
+        title: '网盘资源管理系统',
+        meta: [
+          { name: 'description', content: '专业的网盘资源管理系统' },
+          { name: 'keywords', content: '网盘,资源管理,文件分享' },
+          { name: 'author', content: '系统管理员' },
+          { name: 'copyright', content: '© 2024 网盘资源管理系统' }
+        ]
+      })
+    }
+  } catch (error) {
+    console.error('设置页面元数据时出错:', error)
+    // 使用默认配置作为后备
     useHead({
       title: '网盘资源管理系统',
       meta: [
@@ -301,7 +408,6 @@ watchEffect(() => {
 
 // const showAddResourceModal = ref(false)
 const editingResource = ref<any>(null)
-const currentPage = ref(1)
 const totalPages = ref(1)
 interface Platform {
   id: number
@@ -353,6 +459,29 @@ interface SystemConfig {
 const platforms = ref<Platform[]>([])
 const todayUpdates = ref(0)
 
+// 安全地计算今日更新数量
+const safeTodayUpdates = computed(() => {
+  try {
+    const resources = safeResources.value
+    if (!resources || !Array.isArray(resources)) {
+      return 0
+    }
+    const today = new Date().toDateString()
+    return resources.filter((resource: any) => {
+      if (!resource || !resource.updated_at) return false
+      try {
+        return new Date(resource.updated_at).toDateString() === today
+      } catch (dateError) {
+        console.error('解析日期时出错:', dateError)
+        return false
+      }
+    }).length
+  } catch (error) {
+    console.error('计算今日更新数量时出错:', error)
+    return 0
+  }
+})
+
 // 防抖搜索
 let searchTimeout: NodeJS.Timeout
 const debounceSearch = () => {
@@ -383,22 +512,53 @@ const fetchSystemConfig = async () => {
 onMounted(async () => {
   console.log('首页 - onMounted 开始')
   
-  // 初始化用户状态
-  userStore.initAuth()
-  authInitialized.value = true // 设置认证状态初始化完成
-  
-  console.log('首页 - authInitialized:', authInitialized.value)
-  console.log('首页 - isAuthenticated:', userStore.isAuthenticated)
-  console.log('首页 - user:', userStore.userInfo)
-  
   try {
-    await Promise.all([
-      store.fetchResources(),
-      store.fetchCategories(),
-      store.fetchStats(),
-      fetchPlatforms(),
-      fetchSystemConfig(), // 获取系统配置
+    // 初始化store
+    store = useResourceStore()
+    userStore = useUserStore()
+    
+    // 初始化用户状态
+    userStore.initAuth()
+    authInitialized.value = true // 设置认证状态初始化完成
+    
+    console.log('首页 - authInitialized:', authInitialized.value)
+    console.log('首页 - isAuthenticated:', userStore.isAuthenticated)
+    console.log('首页 - user:', userStore.userInfo)
+    
+    // 使用Promise.allSettled来确保即使某个请求失败也不会影响其他请求
+    const results = await Promise.allSettled([
+      store.fetchResources().then((data: any) => {
+        localResources.value = data.resources || []
+        return data
+      }).catch((e: any) => {
+        console.error('获取资源失败:', e)
+        return { resources: [] }
+      }),
+      store.fetchCategories().then((data: any) => {
+        localCategories.value = data.categories || []
+        return data
+      }).catch((e: any) => {
+        console.error('获取分类失败:', e)
+        return { categories: [] }
+      }),
+      store.fetchStats().then((data: any) => {
+        localStats.value = data || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 }
+        return data
+      }).catch((e: any) => {
+        console.error('获取统计失败:', e)
+        return { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 }
+      }),
+      fetchPlatforms().catch((e: any) => console.error('获取平台失败:', e)),
+      fetchSystemConfig().catch((e: any) => console.error('获取系统配置失败:', e)),
     ])
+    
+    // 检查哪些请求成功了
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`请求 ${index} 失败:`, result.reason)
+      }
+    })
+    
     animateCounters()
   } catch (error) {
     console.error('页面数据加载失败:', error)
@@ -415,7 +575,9 @@ const fetchPlatforms = async () => {
     const { usePanApi } = await import('~/composables/useApi')
     const panApi = usePanApi()
     const response = await panApi.getPans() as any
-    platforms.value = response.pans || []
+    // 后端直接返回数组，不需要 .pans
+    platforms.value = Array.isArray(response) ? response : []
+    console.log('获取到的平台数据:', platforms.value)
   } catch (error) {
     console.error('获取平台列表失败:', error)
   }
@@ -423,8 +585,20 @@ const fetchPlatforms = async () => {
 
 // 搜索处理
 const handleSearch = () => {
-  const platformId = selectedPlatform.value ? parseInt(selectedPlatform.value) : undefined
-  store.searchResources(searchQuery.value, platformId)
+  try {
+    if (!store || !process.client) {
+      console.error('store未初始化或不在客户端')
+      return
+    }
+    const platformId = selectedPlatform.value ? parseInt(selectedPlatform.value) : undefined
+    store.searchResources(searchQuery.value, platformId).then((data: any) => {
+      localResources.value = data.resources || []
+    }).catch((error: any) => {
+      console.error('搜索失败:', error)
+    })
+  } catch (error) {
+    console.error('搜索处理时出错:', error)
+  }
 }
 
 // 按平台筛选
@@ -445,10 +619,18 @@ const getPlatformIcon = (platformName: string) => {
   // 如果找不到对应的平台或没有图标，使用默认图标
   const defaultIcons: Record<string, string> = {
     'unknown': '<i class="fas fa-question-circle text-gray-400"></i>',
-    'other': '<i class="fas fa-cloud text-gray-500"></i>'
+    'other': '<i class="fas fa-cloud text-gray-500"></i>',
+    'magnet': '<i class="fas fa-magnet text-red-600"></i>',
+    'uc': '<i class="fas fa-cloud-download-alt text-purple-600"></i>',
+    '夸克网盘': '<i class="fas fa-cloud text-blue-600"></i>',
+    '阿里云盘': '<i class="fas fa-cloud text-orange-600"></i>',
+    '百度网盘': '<i class="fas fa-cloud text-blue-500"></i>',
+    '天翼云盘': '<i class="fas fa-cloud text-red-500"></i>',
+    'OneDrive': '<i class="fas fa-cloud text-blue-700"></i>',
+    'Google Drive': '<i class="fas fa-cloud text-green-600"></i>'
   }
   
-  return defaultIcons['unknown']
+  return defaultIcons[platformName] || defaultIcons['unknown']
 }
 
 // 获取平台名称
@@ -574,6 +756,50 @@ const handleSaveResource = async (resourceData: any) => {
     // closeModal() // 移除未定义的函数调用
   } catch (error) {
     console.error('保存失败:', error)
+  }
+}
+
+// 虚拟滚动相关方法
+const onIntersection = (entries: IntersectionObserverEntry[]) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting && hasMoreData.value && !isLoadingMore.value) {
+      loadMore()
+    }
+  })
+}
+
+const loadMore = async () => {
+  if (isLoadingMore.value || !hasMoreData.value) return
+  
+  isLoadingMore.value = true
+  try {
+    currentPage.value++
+    const newResources = await fetchResources(currentPage.value, pageSize.value)
+    if (newResources && newResources.length > 0) {
+      visibleResources.value.push(...newResources)
+    } else {
+      hasMoreData.value = false
+    }
+  } catch (error) {
+    console.error('加载更多失败:', error)
+    currentPage.value-- // 回退页码
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+const fetchResources = async (page: number, size: number) => {
+  try {
+    const { useResourceApi } = await import('~/composables/useApi')
+    const resourceApi = useResourceApi()
+    const response = await resourceApi.getResources({
+      page,
+      page_size: size
+    }) as any
+    return response.resources || []
+  } catch (error) {
+    console.error('获取资源失败:', error)
+    return []
   }
 }
 </script>

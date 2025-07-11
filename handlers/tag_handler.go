@@ -15,19 +15,19 @@ import (
 func GetTags(c *gin.Context) {
 	tags, err := repoManager.TagRepository.FindAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	responses := converter.ToTagResponseList(tags)
-	c.JSON(http.StatusOK, responses)
+	SuccessResponse(c, responses)
 }
 
 // CreateTag 创建标签
 func CreateTag(c *gin.Context) {
 	var req dto.CreateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -38,14 +38,33 @@ func CreateTag(c *gin.Context) {
 
 	err := repoManager.TagRepository.Create(tag)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"id":      tag.ID,
+	SuccessResponse(c, gin.H{
 		"message": "标签创建成功",
+		"tag":     converter.ToTagResponse(tag),
 	})
+}
+
+// GetTagByID 根据ID获取标签详情
+func GetTagByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	tag, err := repoManager.TagRepository.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "标签不存在", http.StatusNotFound)
+		return
+	}
+
+	response := converter.ToTagResponse(tag)
+	SuccessResponse(c, response)
 }
 
 // UpdateTag 更新标签
@@ -53,19 +72,19 @@ func UpdateTag(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	var req dto.UpdateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	tag, err := repoManager.TagRepository.FindByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "标签不存在"})
+		ErrorResponse(c, "标签不存在", http.StatusNotFound)
 		return
 	}
 
@@ -78,11 +97,11 @@ func UpdateTag(c *gin.Context) {
 
 	err = repoManager.TagRepository.Update(tag)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "标签更新成功"})
+	SuccessResponse(c, gin.H{"message": "标签更新成功"})
 }
 
 // DeleteTag 删除标签
@@ -90,53 +109,46 @@ func DeleteTag(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	err = repoManager.TagRepository.Delete(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "标签删除成功"})
+	SuccessResponse(c, gin.H{"message": "标签删除成功"})
 }
 
-// GetTagByID 根据ID获取标签
-func GetTagByID(c *gin.Context) {
+// GetTagByID 根据ID获取标签详情（使用全局repoManager）
+func GetTagByIDGlobal(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	tag, err := repoManager.TagRepository.FindByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "标签不存在"})
+		ErrorResponse(c, "标签不存在", http.StatusNotFound)
 		return
 	}
 
 	response := converter.ToTagResponse(tag)
-	c.JSON(http.StatusOK, response)
+	SuccessResponse(c, response)
 }
 
-// GetResourceTags 获取资源的标签
-func GetResourceTags(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+// GetTags 获取标签列表（使用全局repoManager）
+func GetTagsGlobal(c *gin.Context) {
+	tags, err := repoManager.TagRepository.FindAll()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
-		return
-	}
-
-	tags, err := repoManager.TagRepository.FindByResourceID(uint(id))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	responses := converter.ToTagResponseList(tags)
-	c.JSON(http.StatusOK, responses)
+	SuccessResponse(c, responses)
 }

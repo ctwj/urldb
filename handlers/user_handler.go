@@ -16,23 +16,23 @@ import (
 func Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	user, err := repoManager.UserRepository.FindByUsername(req.Username)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+		ErrorResponse(c, "用户名或密码错误", http.StatusUnauthorized)
 		return
 	}
 
 	if !user.IsActive {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "账户已被禁用"})
+		ErrorResponse(c, "账户已被禁用", http.StatusUnauthorized)
 		return
 	}
 
 	if !middleware.CheckPassword(req.Password, user.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+		ErrorResponse(c, "用户名或密码错误", http.StatusUnauthorized)
 		return
 	}
 
@@ -42,7 +42,7 @@ func Login(c *gin.Context) {
 	// 生成JWT令牌
 	token, err := middleware.GenerateToken(user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成令牌失败"})
+		ErrorResponse(c, "生成令牌失败", http.StatusInternalServerError)
 		return
 	}
 
@@ -51,35 +51,35 @@ func Login(c *gin.Context) {
 		User:  converter.ToUserResponse(user),
 	}
 
-	SuccessResponse(c, response, "登录成功")
+	SuccessResponse(c, response)
 }
 
 // Register 用户注册
 func Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// 检查用户名是否已存在
 	existingUser, _ := repoManager.UserRepository.FindByUsername(req.Username)
 	if existingUser != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名已存在"})
+		ErrorResponse(c, "用户名已存在", http.StatusBadRequest)
 		return
 	}
 
 	// 检查邮箱是否已存在
 	existingEmail, _ := repoManager.UserRepository.FindByEmail(req.Email)
 	if existingEmail != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱已存在"})
+		ErrorResponse(c, "邮箱已存在", http.StatusBadRequest)
 		return
 	}
 
 	// 哈希密码
 	hashedPassword, err := middleware.HashPassword(req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "密码加密失败"})
+		ErrorResponse(c, "密码加密失败", http.StatusInternalServerError)
 		return
 	}
 
@@ -93,11 +93,11 @@ func Register(c *gin.Context) {
 
 	err = repoManager.UserRepository.Create(user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	SuccessResponse(c, gin.H{
 		"message": "注册成功",
 		"user":    converter.ToUserResponse(user),
 	})
@@ -107,40 +107,40 @@ func Register(c *gin.Context) {
 func GetUsers(c *gin.Context) {
 	users, err := repoManager.UserRepository.FindAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	responses := converter.ToUserResponseList(users)
-	c.JSON(http.StatusOK, responses)
+	SuccessResponse(c, responses)
 }
 
 // CreateUser 创建用户（管理员）
 func CreateUser(c *gin.Context) {
 	var req dto.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// 检查用户名是否已存在
 	existingUser, _ := repoManager.UserRepository.FindByUsername(req.Username)
 	if existingUser != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名已存在"})
+		ErrorResponse(c, "用户名已存在", http.StatusBadRequest)
 		return
 	}
 
 	// 检查邮箱是否已存在
 	existingEmail, _ := repoManager.UserRepository.FindByEmail(req.Email)
 	if existingEmail != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱已存在"})
+		ErrorResponse(c, "邮箱已存在", http.StatusBadRequest)
 		return
 	}
 
 	// 哈希密码
 	hashedPassword, err := middleware.HashPassword(req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "密码加密失败"})
+		ErrorResponse(c, "密码加密失败", http.StatusInternalServerError)
 		return
 	}
 
@@ -154,11 +154,11 @@ func CreateUser(c *gin.Context) {
 
 	err = repoManager.UserRepository.Create(user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	SuccessResponse(c, gin.H{
 		"message": "用户创建成功",
 		"user":    converter.ToUserResponse(user),
 	})
@@ -169,19 +169,19 @@ func UpdateUser(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	var req dto.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	user, err := repoManager.UserRepository.FindByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		ErrorResponse(c, "用户不存在", http.StatusNotFound)
 		return
 	}
 
@@ -198,11 +198,11 @@ func UpdateUser(c *gin.Context) {
 
 	err = repoManager.UserRepository.Update(user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "用户更新成功"})
+	SuccessResponse(c, gin.H{"message": "用户更新成功"})
 }
 
 // DeleteUser 删除用户（管理员）
@@ -210,33 +210,33 @@ func DeleteUser(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	err = repoManager.UserRepository.Delete(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "用户删除成功"})
+	SuccessResponse(c, gin.H{"message": "用户删除成功"})
 }
 
-// GetProfile 获取当前用户信息
+// GetProfile 获取用户资料
 func GetProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
+		ErrorResponse(c, "未认证", http.StatusUnauthorized)
 		return
 	}
 
 	user, err := repoManager.UserRepository.FindByID(userID.(uint))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		ErrorResponse(c, "用户不存在", http.StatusNotFound)
 		return
 	}
 
 	response := converter.ToUserResponse(user)
-	c.JSON(http.StatusOK, response)
+	SuccessResponse(c, response)
 }

@@ -15,19 +15,19 @@ import (
 func GetCks(c *gin.Context) {
 	cks, err := repoManager.CksRepository.FindAll()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	responses := converter.ToCksResponseList(cks)
-	c.JSON(http.StatusOK, responses)
+	SuccessResponse(c, responses)
 }
 
 // CreateCks 创建Cookie
 func CreateCks(c *gin.Context) {
 	var req dto.CreateCksRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -43,14 +43,33 @@ func CreateCks(c *gin.Context) {
 
 	err := repoManager.CksRepository.Create(cks)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"id":      cks.ID,
+	SuccessResponse(c, gin.H{
 		"message": "Cookie创建成功",
+		"cks":     converter.ToCksResponse(cks),
 	})
+}
+
+// GetCksByID 根据ID获取Cookie详情
+func GetCksByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	cks, err := repoManager.CksRepository.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "Cookie不存在", http.StatusNotFound)
+		return
+	}
+
+	response := converter.ToCksResponse(cks)
+	SuccessResponse(c, response)
 }
 
 // UpdateCks 更新Cookie
@@ -58,43 +77,49 @@ func UpdateCks(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	var req dto.UpdateCksRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	cks, err := repoManager.CksRepository.FindByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Cookie不存在"})
+		ErrorResponse(c, "Cookie不存在", http.StatusNotFound)
 		return
 	}
 
 	if req.PanID != 0 {
 		cks.PanID = req.PanID
 	}
-	cks.Idx = req.Idx
+	if req.Idx != 0 {
+		cks.Idx = req.Idx
+	}
 	if req.Ck != "" {
 		cks.Ck = req.Ck
 	}
 	cks.IsValid = req.IsValid
-	cks.Space = req.Space
-	cks.LeftSpace = req.LeftSpace
+	if req.Space != 0 {
+		cks.Space = req.Space
+	}
+	if req.LeftSpace != 0 {
+		cks.LeftSpace = req.LeftSpace
+	}
 	if req.Remark != "" {
 		cks.Remark = req.Remark
 	}
 
 	err = repoManager.CksRepository.Update(cks)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Cookie更新成功"})
+	SuccessResponse(c, gin.H{"message": "Cookie更新成功"})
 }
 
 // DeleteCks 删除Cookie
@@ -102,34 +127,34 @@ func DeleteCks(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	err = repoManager.CksRepository.Delete(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Cookie删除成功"})
+	SuccessResponse(c, gin.H{"message": "Cookie删除成功"})
 }
 
-// GetCksByID 根据ID获取Cookie
-func GetCksByID(c *gin.Context) {
+// GetCksByID 根据ID获取Cookie详情（使用全局repoManager）
+func GetCksByIDGlobal(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	cks, err := repoManager.CksRepository.FindByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Cookie不存在"})
+		ErrorResponse(c, "Cookie不存在", http.StatusNotFound)
 		return
 	}
 
 	response := converter.ToCksResponse(cks)
-	c.JSON(http.StatusOK, response)
+	SuccessResponse(c, response)
 }

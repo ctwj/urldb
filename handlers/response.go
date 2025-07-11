@@ -1,72 +1,66 @@
 package handlers
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
-// StandardResponse 标准化响应结构
-type StandardResponse struct {
-	Success    bool            `json:"success"`
-	Message    string          `json:"message,omitempty"`
-	Data       interface{}     `json:"data,omitempty"`
-	Error      string          `json:"error,omitempty"`
-	Pagination *PaginationInfo `json:"pagination,omitempty"`
-}
-
-// PaginationInfo 分页信息
-type PaginationInfo struct {
-	Page       int   `json:"page"`
-	PageSize   int   `json:"page_size"`
-	Total      int64 `json:"total"`
-	TotalPages int64 `json:"total_pages"`
+// Response 统一响应格式
+type Response struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
+	Code    int         `json:"code"`
 }
 
 // SuccessResponse 成功响应
-func SuccessResponse(c *gin.Context, data interface{}, message string) {
-	c.JSON(200, StandardResponse{
+func SuccessResponse(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, Response{
 		Success: true,
-		Message: message,
+		Message: "操作成功",
 		Data:    data,
+		Code:    200,
 	})
 }
 
 // ErrorResponse 错误响应
-func ErrorResponse(c *gin.Context, statusCode int, message string) {
-	c.JSON(statusCode, StandardResponse{
+func ErrorResponse(c *gin.Context, message string, code int) {
+	if code == 0 {
+		code = 500
+	}
+	c.JSON(code, Response{
 		Success: false,
-		Error:   message,
+		Message: message,
+		Data:    nil,
+		Code:    code,
 	})
 }
 
-// PaginatedResponse 分页响应
-func PaginatedResponse(c *gin.Context, data interface{}, page, pageSize int, total int64) {
-	totalPages := (total + int64(pageSize) - 1) / int64(pageSize)
-
-	c.JSON(200, StandardResponse{
+// ListResponse 列表响应
+func ListResponse(c *gin.Context, data interface{}, total int64) {
+	c.JSON(http.StatusOK, Response{
 		Success: true,
-		Data:    data,
-		Pagination: &PaginationInfo{
-			Page:       page,
-			PageSize:   pageSize,
-			Total:      total,
-			TotalPages: totalPages,
+		Message: "获取成功",
+		Data: gin.H{
+			"list":  data,
+			"total": total,
 		},
+		Code: 200,
 	})
 }
 
-// SimpleSuccessResponse 简单成功响应
-func SimpleSuccessResponse(c *gin.Context, message string) {
-	c.JSON(200, StandardResponse{
+// PageResponse 分页响应
+func PageResponse(c *gin.Context, data interface{}, total int64, page, limit int) {
+	c.JSON(http.StatusOK, Response{
 		Success: true,
-		Message: message,
-	})
-}
-
-// CreatedResponse 创建成功响应
-func CreatedResponse(c *gin.Context, data interface{}, message string) {
-	c.JSON(201, StandardResponse{
-		Success: true,
-		Message: message,
-		Data:    data,
+		Message: "获取成功",
+		Data: gin.H{
+			"list":  data,
+			"total": total,
+			"page":  page,
+			"limit": limit,
+		},
+		Code: 200,
 	})
 }

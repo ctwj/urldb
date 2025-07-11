@@ -320,11 +320,9 @@ const fetchSystemConfig = async () => {
   try {
     const response = await getSystemConfig()
     console.log('admin系统配置响应:', response)
-    if (response && response.success && response.data) {
-      systemConfig.value = response.data
-    } else if (response && response.data) {
-      // 兼容非标准格式
-      systemConfig.value = response.data
+    // 使用新的统一响应格式，直接使用response
+    if (response) {
+      systemConfig.value = response
     }
   } catch (error) {
     console.error('获取系统配置失败:', error)

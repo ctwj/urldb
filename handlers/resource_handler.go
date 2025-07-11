@@ -14,89 +14,66 @@ import (
 // GetResources 获取资源列表
 func GetResources(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	categoryIDStr := c.Query("category_id")
-	panIDStr := c.Query("pan_id")
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	categoryID := c.Query("category_id")
+	search := c.Query("search")
 
 	var resources []entity.Resource
+	var total int64
 	var err error
 
-	if categoryIDStr != "" {
-		categoryID, _ := strconv.ParseUint(categoryIDStr, 10, 32)
-		resources, err = repoManager.ResourceRepository.FindByCategoryID(uint(categoryID))
-	} else if panIDStr != "" {
-		panID, _ := strconv.ParseUint(panIDStr, 10, 32)
-		resources, err = repoManager.ResourceRepository.FindByPanID(uint(panID))
+	if search != "" {
+		resources, total, err = repoManager.ResourceRepository.Search(search, nil, page, pageSize)
+	} else if categoryID != "" {
+		categoryIDUint, _ := strconv.ParseUint(categoryID, 10, 32)
+		resources, total, err = repoManager.ResourceRepository.FindByCategoryIDPaginated(uint(categoryIDUint), page, pageSize)
 	} else {
-		resources, err = repoManager.ResourceRepository.FindWithRelations()
+		// 使用分页查询，避免加载所有数据
+		resources, total, err = repoManager.ResourceRepository.FindWithRelationsPaginated(page, pageSize)
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// 只返回公开的资源
-	var publicResources []entity.Resource
-	for _, resource := range resources {
-		if resource.IsPublic {
-			publicResources = append(publicResources, resource)
-		}
-	}
-
-	// 分页处理
-	start := (page - 1) * limit
-	end := start + limit
-	if start >= len(publicResources) {
-		start = len(publicResources)
-	}
-	if end > len(publicResources) {
-		end = len(publicResources)
-	}
-
-	pagedResources := publicResources[start:end]
-	responses := converter.ToResourceResponseList(pagedResources)
-
-	c.JSON(http.StatusOK, gin.H{
-		"resources": responses,
+	SuccessResponse(c, gin.H{
+		"resources": converter.ToResourceResponseList(resources),
+		"total":     total,
 		"page":      page,
-		"limit":     limit,
-		"total":     len(publicResources),
+		"page_size": pageSize,
 	})
 }
 
-// GetResourceByID 根据ID获取资源
+// GetResourceByID 根据ID获取资源详情
 func GetResourceByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	resource, err := repoManager.ResourceRepository.FindByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "资源不存在"})
-		return
-	}
-
-	if !resource.IsPublic {
-		c.JSON(http.StatusNotFound, gin.H{"error": "资源不存在"})
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
 		return
 	}
 
 	// 增加浏览次数
-	repoManager.ResourceRepository.IncrementViewCount(uint(id))
+	if resource != nil {
+		repoManager.ResourceRepository.IncrementViewCount(uint(id))
+	}
 
 	response := converter.ToResourceResponse(resource)
-	c.JSON(http.StatusOK, response)
+	SuccessResponse(c, response)
 }
 
 // CreateResource 创建资源
 func CreateResource(c *gin.Context) {
 	var req dto.CreateResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -114,7 +91,7 @@ func CreateResource(c *gin.Context) {
 
 	err := repoManager.ResourceRepository.Create(resource)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -122,14 +99,14 @@ func CreateResource(c *gin.Context) {
 	if len(req.TagIDs) > 0 {
 		err = repoManager.ResourceRepository.UpdateWithTags(resource, req.TagIDs)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"id":      resource.ID,
-		"message": "资源创建成功",
+	SuccessResponse(c, gin.H{
+		"message":  "资源创建成功",
+		"resource": converter.ToResourceResponse(resource),
 	})
 }
 
@@ -138,23 +115,23 @@ func UpdateResource(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	var req dto.UpdateResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	resource, err := repoManager.ResourceRepository.FindByID(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "资源不存在"})
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
 		return
 	}
 
-	// 更新字段
+	// 更新资源信息
 	if req.Title != "" {
 		resource.Title = req.Title
 	}
@@ -179,22 +156,22 @@ func UpdateResource(c *gin.Context) {
 	resource.IsValid = req.IsValid
 	resource.IsPublic = req.IsPublic
 
-	err = repoManager.ResourceRepository.Update(resource)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	// 处理标签关联
-	if req.TagIDs != nil {
+	if len(req.TagIDs) > 0 {
 		err = repoManager.ResourceRepository.UpdateWithTags(resource, req.TagIDs)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		err = repoManager.ResourceRepository.Update(resource)
+		if err != nil {
+			ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "资源更新成功"})
+	SuccessResponse(c, gin.H{"message": "资源更新成功"})
 }
 
 // DeleteResource 删除资源
@@ -202,61 +179,46 @@ func DeleteResource(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
 		return
 	}
 
 	err = repoManager.ResourceRepository.Delete(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "资源删除成功"})
+	SuccessResponse(c, gin.H{"message": "资源删除成功"})
 }
 
 // SearchResources 搜索资源
 func SearchResources(c *gin.Context) {
-	query := c.Query("query")
-	categoryIDStr := c.Query("category_id")
+	query := c.Query("q")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	var categoryID *uint
-	if categoryIDStr != "" {
-		if id, err := strconv.ParseUint(categoryIDStr, 10, 32); err == nil {
-			temp := uint(id)
-			categoryID = &temp
-		}
+	var resources []entity.Resource
+	var total int64
+	var err error
+
+	if query == "" {
+		// 搜索关键词为空时，返回最新记录（分页）
+		resources, total, err = repoManager.ResourceRepository.FindWithRelationsPaginated(page, pageSize)
+	} else {
+		// 有搜索关键词时，执行搜索
+		resources, total, err = repoManager.ResourceRepository.Search(query, nil, page, pageSize)
 	}
 
-	// 记录搜索统计
-	if query != "" {
-		ip := c.ClientIP()
-		userAgent := c.GetHeader("User-Agent")
-		repoManager.SearchStatRepository.RecordSearch(query, ip, userAgent)
-	}
-
-	resources, total, err := repoManager.ResourceRepository.Search(query, categoryID, page, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// 只返回公开的资源
-	var publicResources []entity.Resource
-	for _, resource := range resources {
-		if resource.IsPublic {
-			publicResources = append(publicResources, resource)
-		}
-	}
-
-	responses := converter.ToResourceResponseList(publicResources)
-
-	c.JSON(http.StatusOK, dto.SearchResponse{
-		Resources: responses,
-		Total:     total,
-		Page:      page,
-		Limit:     limit,
+	SuccessResponse(c, gin.H{
+		"resources": converter.ToResourceResponseList(resources),
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
 	})
 }

@@ -163,6 +163,11 @@ func createTables() error {
 		id SERIAL PRIMARY KEY,
 		title VARCHAR(255),
 		url VARCHAR(500) NOT NULL,
+		category VARCHAR(100) DEFAULT NULL,
+		tags VARCHAR(500) DEFAULT NULL,
+		img VARCHAR(500) DEFAULT NULL,
+		source VARCHAR(100) DEFAULT NULL,
+		extra TEXT DEFAULT NULL,
 		create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		ip VARCHAR(45) DEFAULT NULL
 	);`
@@ -176,6 +181,42 @@ func createTables() error {
 		date DATE NOT NULL,
 		ip VARCHAR(45),
 		user_agent VARCHAR(500),
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	// 创建系统配置表
+	systemConfigTable := `
+	CREATE TABLE IF NOT EXISTS system_configs (
+		id SERIAL PRIMARY KEY,
+		site_title VARCHAR(200) NOT NULL DEFAULT '网盘资源管理系统',
+		site_description VARCHAR(500),
+		keywords VARCHAR(500),
+		author VARCHAR(100),
+		copyright VARCHAR(200),
+		auto_process_ready_resources BOOLEAN DEFAULT false,
+		auto_process_interval INTEGER DEFAULT 30,
+		auto_transfer_enabled BOOLEAN DEFAULT false,
+		auto_fetch_hot_drama_enabled BOOLEAN DEFAULT false,
+		page_size INTEGER DEFAULT 100,
+		maintenance_mode BOOLEAN DEFAULT false,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	// 创建热播剧表
+	hotDramaTable := `
+	CREATE TABLE IF NOT EXISTS hot_dramas (
+		id SERIAL PRIMARY KEY,
+		title VARCHAR(255) NOT NULL,
+		rating DECIMAL(3,1) DEFAULT 0.0,
+		year VARCHAR(10),
+		directors VARCHAR(500),
+		actors VARCHAR(1000),
+		category VARCHAR(50),
+		sub_type VARCHAR(50),
+		source VARCHAR(50) DEFAULT 'douban',
+		douban_id VARCHAR(50),
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
@@ -196,6 +237,14 @@ func createTables() error {
 		return err
 	}
 
+	if _, err := DB.Exec(systemConfigTable); err != nil {
+		return err
+	}
+
+	if _, err := DB.Exec(hotDramaTable); err != nil {
+		return err
+	}
+
 	// 插入默认分类
 	insertDefaultCategories := `
 	INSERT INTO categories (name, description) VALUES 
@@ -204,8 +253,12 @@ func createTables() error {
 	('动漫', '动漫资源'),
 	('音乐', '音乐资源'),
 	('软件', '软件资源'),
-	('游戏', '游戏资源'),
+	('PC游戏', 'PC游戏资源'),
+	('手机游戏', '手机游戏'),
 	('文档', '文档资源'),
+	('短剧', '短剧'),
+	('学习资源', '学习资源'),
+	('视频教程', '学习资源'),
 	('其他', '其他资源')
 	ON CONFLICT (name) DO NOTHING;`
 
@@ -213,30 +266,16 @@ func createTables() error {
 	insertDefaultPans := `
 	INSERT INTO pan (name, key, icon, remark) VALUES 
 	('baidu', 1, '<i class="fas fa-cloud text-blue-500"></i>', '百度网盘'),
-	('pan.baidu', 2, '<i class="fas fa-cloud text-blue-500"></i>', '百度网盘'),
-	('aliyun', 3, '<i class="fas fa-cloud text-orange-500"></i>', '阿里云盘'),
-	('quark', 4, '<i class="fas fa-atom text-purple-500"></i>', '夸克网盘'),
-	('teambition', 5, '<i class="fas fa-cloud text-orange-500"></i>', '阿里云盘'),
-	('cloud.189', 6, '<i class="fas fa-cloud text-cyan-500"></i>', '天翼云盘'),
-	('e.189', 7, '<i class="fas fa-cloud text-cyan-500"></i>', '天翼云盘'),
-	('tianyi', 8, '<i class="fas fa-cloud text-cyan-500"></i>', '天翼云盘'),
-	('天翼', 9, '<i class="fas fa-cloud text-cyan-500"></i>', '天翼云盘'),
-	('xunlei', 10, '<i class="fas fa-bolt text-yellow-500"></i>', '迅雷云盘'),
-	('weiyun', 11, '<i class="fas fa-cloud text-green-500"></i>', '微云'),
-	('lanzou', 12, '<i class="fas fa-cloud text-blue-400"></i>', '蓝奏云'),
-	('123', 13, '<i class="fas fa-cloud text-red-500"></i>', '123云盘'),
-	('onedrive', 14, '<i class="fab fa-microsoft text-blue-600"></i>', 'OneDrive'),
-	('google', 15, '<i class="fab fa-google-drive text-green-600"></i>', 'Google云盘'),
-	('drive.google', 16, '<i class="fab fa-google-drive text-green-600"></i>', 'Google云盘'),
-	('dropbox', 17, '<i class="fab fa-dropbox text-blue-500"></i>', 'Dropbox'),
-	('ctfile', 18, '<i class="fas fa-folder text-yellow-600"></i>', '城通网盘'),
-	('115', 19, '<i class="fas fa-cloud-upload-alt text-green-600"></i>', '115网盘'),
-	('magnet', 20, '<i class="fas fa-magnet text-red-600"></i>', '磁力链接'),
-	('uc', 21, '<i class="fas fa-cloud-download-alt text-purple-600"></i>', 'UC网盘'),
-	('UC', 22, '<i class="fas fa-cloud-download-alt text-purple-600"></i>', 'UC网盘'),
-	('yun.139', 23, '<i class="fas fa-cloud text-cyan-500"></i>', '移动云盘'),
-	('unknown', 24, '<i class="fas fa-question-circle text-gray-400"></i>', '未知平台'),
-	('other', 25, '<i class="fas fa-cloud text-gray-500"></i>', '其他')
+	('aliyun', 2, '<i class="fas fa-cloud text-orange-500"></i>', '阿里云盘'),
+	('quark', 3, '<i class="fas fa-atom text-purple-500"></i>', '夸克网盘'),
+	('xunlei', 5, '<i class="fas fa-bolt text-yellow-500"></i>', '迅雷云盘'),
+	('lanzou', 7, '<i class="fas fa-cloud text-blue-400"></i>', '蓝奏云'),
+	('123', 8, '<i class="fas fa-cloud text-red-500"></i>', '123云盘'),
+	('ctfile', 9, '<i class="fas fa-folder text-yellow-600"></i>', '城通网盘'),
+	('115', 10, '<i class="fas fa-cloud-upload-alt text-green-600"></i>', '115网盘'),
+	('magnet', 11, '<i class="fas fa-magnet text-red-600"></i>', '磁力链接'),
+	('uc', 12, '<i class="fas fa-cloud-download-alt text-purple-600"></i>', 'UC网盘'),
+	('other', 13, '<i class="fas fa-cloud text-gray-500"></i>', '其他')
 	ON CONFLICT (name) DO NOTHING;`
 
 	if _, err := DB.Exec(insertDefaultCategories); err != nil {

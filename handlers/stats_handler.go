@@ -1,46 +1,84 @@
 package handlers
 
 import (
-	"net/http"
+	"res_db/db"
+	"res_db/db/entity"
+	"runtime"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// GetStats 获取统计信息
+// GetStats 获取基础统计信息
 func GetStats(c *gin.Context) {
-	// 获取资源总数
-	totalResources, err := repoManager.ResourceRepository.FindAll()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	// 获取数据库统计
+	var totalResources, totalCategories, totalTags, totalViews int64
+	db.DB.Model(&entity.Resource{}).Count(&totalResources)
+	db.DB.Model(&entity.Category{}).Count(&totalCategories)
+	db.DB.Model(&entity.Tag{}).Count(&totalTags)
+	db.DB.Model(&entity.Resource{}).Select("COALESCE(SUM(view_count), 0)").Scan(&totalViews)
 
-	// 获取分类总数
-	totalCategories, err := repoManager.CategoryRepository.FindAll()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// 获取标签总数
-	totalTags, err := repoManager.TagRepository.FindAll()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// 计算总浏览次数
-	var totalViews int64
-	for _, resource := range totalResources {
-		totalViews += int64(resource.ViewCount)
-	}
-
-	stats := map[string]interface{}{
-		"total_resources":  len(totalResources),
-		"total_categories": len(totalCategories),
-		"total_tags":       len(totalTags),
+	SuccessResponse(c, gin.H{
+		"total_resources":  totalResources,
+		"total_categories": totalCategories,
+		"total_tags":       totalTags,
 		"total_views":      totalViews,
+	})
+}
+
+// GetPerformanceStats 获取性能监控信息
+func GetPerformanceStats(c *gin.Context) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	// 获取数据库连接池状态
+	sqlDB, err := db.DB.DB()
+	var dbStats gin.H
+	if err == nil {
+		dbStats = gin.H{
+			"max_open_connections": sqlDB.Stats().MaxOpenConnections,
+			"open_connections":     sqlDB.Stats().OpenConnections,
+			"in_use":               sqlDB.Stats().InUse,
+			"idle":                 sqlDB.Stats().Idle,
+		}
+	} else {
+		dbStats = gin.H{
+			"error": "无法获取数据库连接池状态",
+		}
 	}
 
-	c.JSON(http.StatusOK, stats)
+	SuccessResponse(c, gin.H{
+		"timestamp": time.Now().Unix(),
+		"memory": gin.H{
+			"alloc":       m.Alloc,
+			"total_alloc": m.TotalAlloc,
+			"sys":         m.Sys,
+			"num_gc":      m.NumGC,
+			"heap_alloc":  m.HeapAlloc,
+			"heap_sys":    m.HeapSys,
+			"heap_idle":   m.HeapIdle,
+			"heap_inuse":  m.HeapInuse,
+		},
+		"goroutines": runtime.NumGoroutine(),
+		"database":   dbStats,
+		"system": gin.H{
+			"cpu_count":  runtime.NumCPU(),
+			"go_version": runtime.Version(),
+		},
+	})
 }
+
+// GetSystemInfo 获取系统信息
+func GetSystemInfo(c *gin.Context) {
+	SuccessResponse(c, gin.H{
+		"uptime":     time.Since(startTime).String(),
+		"start_time": startTime.Format("2006-01-02 15:04:05"),
+		"version":    "1.0.0",
+		"environment": gin.H{
+			"gin_mode": gin.Mode(),
+		},
+	})
+}
+
+// 记录启动时间
+var startTime = time.Now()

@@ -70,28 +70,26 @@ export const useUserStore = defineStore('user', {
     this.loading = true
     try {
       const authApi = useAuthApi()
-      const response = await authApi.login(credentials)
+      const response = await authApi.login(credentials) as any
       
       console.log('login - 响应:', response)
       
-      // 处理标准化的响应格式
-      if (response.success && response.data) {
-        const { token, user } = response.data
-        if (token && user) {
-          this.token = token
-          this.user = user
-          this.isAuthenticated = true
-          
-          // 保存到localStorage
-          localStorage.setItem('token', token)
-          localStorage.setItem('user', JSON.stringify(user))
-          
-          console.log('login - 状态保存成功:', user.username)
-          console.log('login - localStorage token:', localStorage.getItem('token') ? 'saved' : 'not saved')
-          console.log('login - localStorage user:', localStorage.getItem('user') ? 'saved' : 'not saved')
-          
-          return { success: true }
-        }
+      // 使用新的统一响应格式，直接检查response是否存在
+      if (response && response.token && response.user) {
+        const { token, user } = response
+        this.token = token
+        this.user = user
+        this.isAuthenticated = true
+        
+        // 保存到localStorage
+        localStorage.setItem('token', token)
+        localStorage.setItem('user', JSON.stringify(user))
+        
+        console.log('login - 状态保存成功:', user.username)
+        console.log('login - localStorage token:', localStorage.getItem('token') ? 'saved' : 'not saved')
+        console.log('login - localStorage user:', localStorage.getItem('user') ? 'saved' : 'not saved')
+        
+        return { success: true }
       }
       
       return { success: false, message: '登录失败，服务器未返回有效数据' }
@@ -154,7 +152,7 @@ export const useUserStore = defineStore('user', {
     async fetchProfile() {
       try {
         const authApi = useAuthApi()
-        const user = await authApi.getProfile()
+        const user = await authApi.getProfile() as any
         this.user = user
         return { success: true }
       } catch (error: any) {

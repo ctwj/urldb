@@ -127,6 +127,50 @@
                 </div>
               </div>
 
+              <!-- 自动转存 -->
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="flex-1">
+                  <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                    自动转存
+                  </h3>
+                  <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    开启后，系统将自动转存资源到其他网盘平台
+                  </p>
+                </div>
+                <div class="ml-4">
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      v-model="config.autoTransferEnabled" 
+                      type="checkbox" 
+                      class="sr-only peer"
+                    />
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 自动拉取热播剧 -->
+              <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="flex-1">
+                  <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                    自动拉取热播剧
+                  </h3>
+                  <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    开启后，系统将自动从豆瓣获取热播剧信息
+                  </p>
+                </div>
+                <div class="ml-4">
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      v-model="config.autoFetchHotDramaEnabled" 
+                      type="checkbox" 
+                      class="sr-only peer"
+                    />
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              </div>
+
               <!-- 自动处理间隔 -->
               <div v-if="config.autoProcessReadyResources" class="ml-6">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -238,6 +282,8 @@ const config = ref({
   // 自动处理配置
   autoProcessReadyResources: false,
   autoProcessInterval: 30,
+  autoTransferEnabled: false, // 新增
+  autoFetchHotDramaEnabled: false, // 新增
   
   // 其他配置
   pageSize: 100,
@@ -272,33 +318,23 @@ const loadConfig = async () => {
     loading.value = true
     const response = await getSystemConfig()
     console.log('系统配置响应:', response)
-    if (response && response.success && response.data) {
+    
+    // 使用新的统一响应格式，直接使用response
+    if (response) {
       config.value = {
-        siteTitle: response.data.site_title || '网盘资源管理系统',
-        siteDescription: response.data.site_description || '专业的网盘资源管理系统',
-        keywords: response.data.keywords || '网盘,资源管理,文件分享',
-        author: response.data.author || '系统管理员',
-        copyright: response.data.copyright || '© 2024 网盘资源管理系统',
-        autoProcessReadyResources: response.data.auto_process_ready_resources || false,
-        autoProcessInterval: response.data.auto_process_interval || 30,
-        pageSize: response.data.page_size || 100,
-        maintenanceMode: response.data.maintenance_mode || false
+        siteTitle: response.site_title || '网盘资源管理系统',
+        siteDescription: response.site_description || '专业的网盘资源管理系统',
+        keywords: response.keywords || '网盘,资源管理,文件分享',
+        author: response.author || '系统管理员',
+        copyright: response.copyright || '© 2024 网盘资源管理系统',
+        autoProcessReadyResources: response.auto_process_ready_resources || false,
+        autoProcessInterval: response.auto_process_interval || 30,
+        autoTransferEnabled: response.auto_transfer_enabled || false, // 新增
+        autoFetchHotDramaEnabled: response.auto_fetch_hot_drama_enabled || false, // 新增
+        pageSize: response.page_size || 100,
+        maintenanceMode: response.maintenance_mode || false
       }
-      systemConfig.value = response.data // 更新系统配置状态
-    } else if (response && response.data) {
-      // 兼容非标准格式
-      config.value = {
-        siteTitle: response.data.site_title || '网盘资源管理系统',
-        siteDescription: response.data.site_description || '专业的网盘资源管理系统',
-        keywords: response.data.keywords || '网盘,资源管理,文件分享',
-        author: response.data.author || '系统管理员',
-        copyright: response.data.copyright || '© 2024 网盘资源管理系统',
-        autoProcessReadyResources: response.data.auto_process_ready_resources || false,
-        autoProcessInterval: response.data.auto_process_interval || 30,
-        pageSize: response.data.page_size || 100,
-        maintenanceMode: response.data.maintenance_mode || false
-      }
-      systemConfig.value = response.data
+      systemConfig.value = response // 更新系统配置状态
     }
   } catch (error) {
     console.error('加载配置失败:', error)
@@ -321,19 +357,24 @@ const saveConfig = async () => {
       copyright: config.value.copyright,
       auto_process_ready_resources: config.value.autoProcessReadyResources,
       auto_process_interval: config.value.autoProcessInterval,
+      auto_transfer_enabled: config.value.autoTransferEnabled, // 新增
+      auto_fetch_hot_drama_enabled: config.value.autoFetchHotDramaEnabled, // 新增
       page_size: config.value.pageSize,
       maintenance_mode: config.value.maintenanceMode
     }
     
     const response = await updateSystemConfig(requestData)
-    if (response.success) {
+    // 使用新的统一响应格式，直接检查response是否存在
+    if (response) {
       alert('配置保存成功！')
+      // 重新加载配置以获取最新数据
+      await loadConfig()
     } else {
-      alert('保存配置失败：' + (response.message || '未知错误'))
+      alert('保存配置失败：未知错误')
     }
   } catch (error) {
     console.error('保存配置失败:', error)
-    alert('保存配置失败，请重试')
+    alert('保存配置失败：' + (error.message || '未知错误'))
   } finally {
     loading.value = false
   }
