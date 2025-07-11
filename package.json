@@ -1,0 +1,6 @@
+{
+	"devDependencies": {
+		"unplugin-auto-import": "^19.3.0",
+		"unplugin-vue-components": "^28.8.0"
+	}
+}
