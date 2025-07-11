@@ -25,9 +25,11 @@ func SystemConfigToResponse(config *entity.SystemConfig) *dto.SystemConfigRespon
 		Author:          config.Author,
 		Copyright:       config.Copyright,
 
-		// 自动处理配置
+		// 自动处理配置组
 		AutoProcessReadyResources: config.AutoProcessReadyResources,
 		AutoProcessInterval:       config.AutoProcessInterval,
+		AutoTransferEnabled:       config.AutoTransferEnabled,
+		AutoFetchHotDramaEnabled:  config.AutoFetchHotDramaEnabled,
 
 		// 其他配置
 		PageSize:        config.PageSize,
@@ -49,9 +51,11 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) *entity.SystemConfig {
 		Author:          req.Author,
 		Copyright:       req.Copyright,
 
-		// 自动处理配置
+		// 自动处理配置组
 		AutoProcessReadyResources: req.AutoProcessReadyResources,
 		AutoProcessInterval:       req.AutoProcessInterval,
+		AutoTransferEnabled:       req.AutoTransferEnabled,
+		AutoFetchHotDramaEnabled:  req.AutoFetchHotDramaEnabled,
 
 		// 其他配置
 		PageSize:        req.PageSize,

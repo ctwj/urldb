@@ -137,6 +137,11 @@ func ToReadyResourceResponse(resource *entity.ReadyResource) dto.ReadyResourceRe
 		ID:         resource.ID,
 		Title:      resource.Title,
 		URL:        resource.URL,
+		Category:   resource.Category,
+		Tags:       resource.Tags,
+		Img:        resource.Img,
+		Source:     resource.Source,
+		Extra:      resource.Extra,
 		CreateTime: resource.CreateTime,
 		IP:         resource.IP,
 	}

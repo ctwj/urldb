@@ -70,6 +70,11 @@ type ReadyResourceResponse struct {
 	ID         uint      `json:"id"`
 	Title      *string   `json:"title"`
 	URL        string    `json:"url"`
+	Category   string    `json:"category"`
+	Tags       string    `json:"tags"`
+	Img        string    `json:"img"`
+	Source     string    `json:"source"`
+	Extra      string    `json:"extra"`
 	CreateTime time.Time `json:"create_time"`
 	IP         *string   `json:"ip"`
 }

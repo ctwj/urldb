@@ -17,9 +17,11 @@ type SystemConfig struct {
 	Author          string `json:"author" gorm:"size:100"`
 	Copyright       string `json:"copyright" gorm:"size:200"`
 
-	// 自动处理配置
-	AutoProcessReadyResources bool `json:"auto_process_ready_resources" gorm:"default:false"`
-	AutoProcessInterval       int  `json:"auto_process_interval" gorm:"default:30"` // 分钟
+	// 自动处理配置组
+	AutoProcessReadyResources bool `json:"auto_process_ready_resources" gorm:"default:false"` // 自动处理待处理资源
+	AutoProcessInterval       int  `json:"auto_process_interval" gorm:"default:30"`           // 自动处理间隔（分钟）
+	AutoTransferEnabled       bool `json:"auto_transfer_enabled" gorm:"default:false"`        // 开启自动转存
+	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled" gorm:"default:false"` // 自动拉取热播剧名字
 
 	// 其他配置
 	PageSize        int  `json:"page_size" gorm:"default:100"`

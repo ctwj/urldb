@@ -67,6 +67,8 @@ func main() {
 
 		// 统计
 		api.GET("/stats", handlers.GetStats)
+		api.GET("/performance", handlers.GetPerformanceStats)
+		api.GET("/system/info", handlers.GetSystemInfo)
 
 		// 平台管理
 		api.GET("/pans", handlers.GetPans)
@@ -88,7 +90,6 @@ func main() {
 		api.PUT("/tags/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateTag)
 		api.DELETE("/tags/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteTag)
 		api.GET("/tags/:id", handlers.GetTagByID)
-		api.GET("/resources/:id/tags", handlers.GetResourceTags)
 
 		// 待处理资源管理
 		api.GET("/ready-resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetReadyResources)
@@ -115,6 +116,20 @@ func main() {
 		// 系统配置路由
 		api.GET("/system/config", handlers.GetSystemConfig)
 		api.POST("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSystemConfig)
+
+		// 热播剧管理路由（查询接口无需认证）
+		api.GET("/hot-dramas", handlers.GetHotDramaList)
+		api.GET("/hot-dramas/:id", handlers.GetHotDramaByID)
+		api.POST("/hot-dramas", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateHotDrama)
+		api.PUT("/hot-dramas/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateHotDrama)
+		api.DELETE("/hot-dramas/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteHotDrama)
+
+		// 调度器管理路由（查询接口无需认证）
+		api.GET("/scheduler/status", handlers.GetSchedulerStatus)
+		api.GET("/scheduler/hot-drama/names", handlers.FetchHotDramaNames)
+		api.POST("/scheduler/hot-drama/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StartHotDramaScheduler)
+		api.POST("/scheduler/hot-drama/stop", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StopHotDramaScheduler)
+		api.POST("/scheduler/hot-drama/trigger", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.TriggerHotDramaScheduler)
 	}
 
 	// 静态文件服务
