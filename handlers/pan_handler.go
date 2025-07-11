@@ -32,13 +32,10 @@ func CreatePan(c *gin.Context) {
 	}
 
 	pan := &entity.Pan{
-		Name:      req.Name,
-		Key:       req.Key,
-		Ck:        req.Ck,
-		IsValid:   req.IsValid,
-		Space:     req.Space,
-		LeftSpace: req.LeftSpace,
-		Remark:    req.Remark,
+		Name:   req.Name,
+		Key:    req.Key,
+		Icon:   req.Icon,
+		Remark: req.Remark,
 	}
 
 	err := repoManager.PanRepository.Create(pan)
@@ -78,12 +75,9 @@ func UpdatePan(c *gin.Context) {
 		pan.Name = req.Name
 	}
 	pan.Key = req.Key
-	if req.Ck != "" {
-		pan.Ck = req.Ck
+	if req.Icon != "" {
+		pan.Icon = req.Icon
 	}
-	pan.IsValid = req.IsValid
-	pan.Space = req.Space
-	pan.LeftSpace = req.LeftSpace
 	if req.Remark != "" {
 		pan.Remark = req.Remark
 	}

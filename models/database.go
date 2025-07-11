@@ -68,10 +68,7 @@ func createTables() error {
 		id SERIAL PRIMARY KEY,
 		name VARCHAR(64) DEFAULT NULL,
 		key INTEGER DEFAULT NULL,
-		ck TEXT,
-		is_valid BOOLEAN DEFAULT true,
-		space BIGINT DEFAULT 0,
-		left_space BIGINT DEFAULT 0,
+		icon VARCHAR(128) DEFAULT NULL,
 		remark VARCHAR(64) NOT NULL,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -150,10 +147,14 @@ func createTables() error {
 	CREATE TABLE IF NOT EXISTS cks (
 		id SERIAL PRIMARY KEY,
 		pan_id INTEGER NOT NULL REFERENCES pan(id) ON DELETE CASCADE,
-		t VARCHAR(64) DEFAULT NULL,
 		idx INTEGER DEFAULT NULL,
 		ck TEXT,
-		remark VARCHAR(64) NOT NULL
+		is_valid BOOLEAN DEFAULT true,
+		space BIGINT DEFAULT 0,
+		left_space BIGINT DEFAULT 0,
+		remark VARCHAR(64) NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	// 创建待处理资源表
@@ -198,16 +199,52 @@ func createTables() error {
 	// 插入默认分类
 	insertDefaultCategories := `
 	INSERT INTO categories (name, description) VALUES 
-	('文档', '各种文档资料'),
-	('软件', '软件工具'),
-	('视频', '视频教程'),
-	('图片', '图片资源'),
-	('音频', '音频文件'),
+	('电影', '电影资源'),
+	('电视剧', '电视剧资源'),
+	('动漫', '动漫资源'),
+	('音乐', '音乐资源'),
+	('软件', '软件资源'),
+	('游戏', '游戏资源'),
+	('文档', '文档资源'),
 	('其他', '其他资源')
 	ON CONFLICT (name) DO NOTHING;`
 
+	// 插入默认网盘平台
+	insertDefaultPans := `
+	INSERT INTO pan (name, key, icon, remark) VALUES 
+	('baidu', 1, '<i class="fas fa-cloud text-blue-500"></i>', '百度网盘'),
+	('pan.baidu', 2, '<i class="fas fa-cloud text-blue-500"></i>', '百度网盘'),
+	('aliyun', 3, '<i class="fas fa-cloud text-orange-500"></i>', '阿里云盘'),
+	('quark', 4, '<i class="fas fa-atom text-purple-500"></i>', '夸克网盘'),
+	('teambition', 5, '<i class="fas fa-cloud text-orange-500"></i>', '阿里云盘'),
+	('cloud.189', 6, '<i class="fas fa-cloud text-cyan-500"></i>', '天翼云盘'),
+	('e.189', 7, '<i class="fas fa-cloud text-cyan-500"></i>', '天翼云盘'),
+	('tianyi', 8, '<i class="fas fa-cloud text-cyan-500"></i>', '天翼云盘'),
+	('天翼', 9, '<i class="fas fa-cloud text-cyan-500"></i>', '天翼云盘'),
+	('xunlei', 10, '<i class="fas fa-bolt text-yellow-500"></i>', '迅雷云盘'),
+	('weiyun', 11, '<i class="fas fa-cloud text-green-500"></i>', '微云'),
+	('lanzou', 12, '<i class="fas fa-cloud text-blue-400"></i>', '蓝奏云'),
+	('123', 13, '<i class="fas fa-cloud text-red-500"></i>', '123云盘'),
+	('onedrive', 14, '<i class="fab fa-microsoft text-blue-600"></i>', 'OneDrive'),
+	('google', 15, '<i class="fab fa-google-drive text-green-600"></i>', 'Google云盘'),
+	('drive.google', 16, '<i class="fab fa-google-drive text-green-600"></i>', 'Google云盘'),
+	('dropbox', 17, '<i class="fab fa-dropbox text-blue-500"></i>', 'Dropbox'),
+	('ctfile', 18, '<i class="fas fa-folder text-yellow-600"></i>', '城通网盘'),
+	('115', 19, '<i class="fas fa-cloud-upload-alt text-green-600"></i>', '115网盘'),
+	('magnet', 20, '<i class="fas fa-magnet text-red-600"></i>', '磁力链接'),
+	('uc', 21, '<i class="fas fa-cloud-download-alt text-purple-600"></i>', 'UC网盘'),
+	('UC', 22, '<i class="fas fa-cloud-download-alt text-purple-600"></i>', 'UC网盘'),
+	('yun.139', 23, '<i class="fas fa-cloud text-cyan-500"></i>', '移动云盘'),
+	('unknown', 24, '<i class="fas fa-question-circle text-gray-400"></i>', '未知平台'),
+	('other', 25, '<i class="fas fa-cloud text-gray-500"></i>', '其他')
+	ON CONFLICT (name) DO NOTHING;`
+
 	if _, err := DB.Exec(insertDefaultCategories); err != nil {
-		log.Printf("插入默认分类失败: %v", err)
+		return err
+	}
+
+	if _, err := DB.Exec(insertDefaultPans); err != nil {
+		return err
 	}
 
 	return nil

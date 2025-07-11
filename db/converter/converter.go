@@ -91,14 +91,11 @@ func ToTagResponseList(tags []entity.Tag) []dto.TagResponse {
 // ToPanResponse 将Pan实体转换为PanResponse
 func ToPanResponse(pan *entity.Pan) dto.PanResponse {
 	return dto.PanResponse{
-		ID:        pan.ID,
-		Name:      pan.Name,
-		Key:       pan.Key,
-		Ck:        pan.Ck,
-		IsValid:   pan.IsValid,
-		Space:     pan.Space,
-		LeftSpace: pan.LeftSpace,
-		Remark:    pan.Remark,
+		ID:     pan.ID,
+		Name:   pan.Name,
+		Key:    pan.Key,
+		Icon:   pan.Icon,
+		Remark: pan.Remark,
 	}
 }
 
@@ -114,12 +111,14 @@ func ToPanResponseList(pans []entity.Pan) []dto.PanResponse {
 // ToCksResponse 将Cks实体转换为CksResponse
 func ToCksResponse(cks *entity.Cks) dto.CksResponse {
 	return dto.CksResponse{
-		ID:     cks.ID,
-		PanID:  cks.PanID,
-		T:      cks.T,
-		Idx:    cks.Idx,
-		Ck:     cks.Ck,
-		Remark: cks.Remark,
+		ID:        cks.ID,
+		PanID:     cks.PanID,
+		Idx:       cks.Idx,
+		Ck:        cks.Ck,
+		IsValid:   cks.IsValid,
+		Space:     cks.Space,
+		LeftSpace: cks.LeftSpace,
+		Remark:    cks.Remark,
 	}
 }
 

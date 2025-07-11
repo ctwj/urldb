@@ -297,10 +297,10 @@ watchEffect(() => {
 })
 
 // API
-const { getSystemConfig } = useSystemConfigApi()
+// const { getSystemConfig } = useSystemConfigApi()
 
 // const showAddResourceModal = ref(false)
-const editingResource = ref(null)
+const editingResource = ref<any>(null)
 const currentPage = ref(1)
 const totalPages = ref(1)
 interface Platform {
@@ -314,6 +314,7 @@ interface Platform {
   remark: string
   created_at: string
   updated_at: string
+  icon?: string // 新增图标字段
 }
 
 interface ExtendedResource {
@@ -364,14 +365,15 @@ const debounceSearch = () => {
 // 获取系统配置
 const fetchSystemConfig = async () => {
   try {
-    const response = await getSystemConfig() as any
-    console.log('首页系统配置响应:', response)
-    if (response && response.success && response.data) {
-      systemConfig.value = response.data
-    } else if (response && response.data) {
-      // 兼容非标准格式
-      systemConfig.value = response.data
-    }
+    // const response = await getSystemConfig() as any
+    // console.log('首页系统配置响应:', response)
+    // if (response && response.success && response.data) {
+    //   systemConfig.value = response.data
+    // } else if (response && response.data) {
+    //   // 兼容非标准格式
+    //   systemConfig.value = response.data
+    // }
+    console.log('系统配置功能暂时禁用')
   } catch (error) {
     console.error('获取系统配置失败:', error)
   }
@@ -434,29 +436,19 @@ const filterByPlatform = (platformId: string | number) => {
 
 // 获取平台图标
 const getPlatformIcon = (platformName: string) => {
-  const icons: Record<string, string> = {
-    '百度网盘': '<i class="fas fa-cloud text-blue-500"></i>',
-    '阿里云盘': '<i class="fas fa-cloud text-orange-500"></i>',
-    '夸克网盘': '<i class="fas fa-atom text-purple-500"></i>',
-    '天翼云盘': '<i class="fas fa-cloud text-cyan-500"></i>',
-    '迅雷云盘': '<i class="fas fa-bolt text-yellow-500"></i>',
-    '微云': '<i class="fas fa-cloud text-green-500"></i>',
-    '蓝奏云': '<i class="fas fa-cloud text-blue-400"></i>',
-    '123云盘': '<i class="fas fa-cloud text-red-500"></i>',
-    '腾讯微云': '<i class="fas fa-cloud text-green-500"></i>',
-    'OneDrive': '<i class="fab fa-microsoft text-blue-600"></i>',
-    'Google云盘': '<i class="fab fa-google-drive text-green-600"></i>',
-    'Dropbox': '<i class="fab fa-dropbox text-blue-500"></i>',
-    '城通网盘': '<i class="fas fa-folder text-yellow-600"></i>',
-    '115网盘': '<i class="fas fa-cloud-upload-alt text-green-600"></i>',
-    '磁力链接': '<i class="fas fa-magnet text-red-600"></i>',
-    'UC网盘': '<i class="fas fa-cloud-download-alt text-purple-600"></i>',
-    '天翼云': '<i class="fas fa-cloud text-cyan-500"></i>',
-    'unknown': '<i class="fas fa-question-circle text-gray-400"></i>',
-    '其他': '<i class="fas fa-cloud text-gray-500"></i>'
+  // 首先尝试从平台列表中查找对应的平台
+  const platform = platforms.value.find((p: Platform) => p.name === platformName)
+  if (platform && platform.icon) {
+    return platform.icon
   }
   
-  return icons[platformName] || icons['unknown']
+  // 如果找不到对应的平台或没有图标，使用默认图标
+  const defaultIcons: Record<string, string> = {
+    'unknown': '<i class="fas fa-question-circle text-gray-400"></i>',
+    'other': '<i class="fas fa-cloud text-gray-500"></i>'
+  }
+  
+  return defaultIcons['unknown']
 }
 
 // 获取平台名称
@@ -579,7 +571,7 @@ const handleSaveResource = async (resourceData: any) => {
     } else {
       await store.createResource(resourceData)
     }
-    closeModal()
+    // closeModal() // 移除未定义的函数调用
   } catch (error) {
     console.error('保存失败:', error)
   }

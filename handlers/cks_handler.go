@@ -32,11 +32,13 @@ func CreateCks(c *gin.Context) {
 	}
 
 	cks := &entity.Cks{
-		PanID:  req.PanID,
-		T:      req.T,
-		Idx:    req.Idx,
-		Ck:     req.Ck,
-		Remark: req.Remark,
+		PanID:     req.PanID,
+		Idx:       req.Idx,
+		Ck:        req.Ck,
+		IsValid:   req.IsValid,
+		Space:     req.Space,
+		LeftSpace: req.LeftSpace,
+		Remark:    req.Remark,
 	}
 
 	err := repoManager.CksRepository.Create(cks)
@@ -75,13 +77,13 @@ func UpdateCks(c *gin.Context) {
 	if req.PanID != 0 {
 		cks.PanID = req.PanID
 	}
-	if req.T != "" {
-		cks.T = req.T
-	}
 	cks.Idx = req.Idx
 	if req.Ck != "" {
 		cks.Ck = req.Ck
 	}
+	cks.IsValid = req.IsValid
+	cks.Space = req.Space
+	cks.LeftSpace = req.LeftSpace
 	if req.Remark != "" {
 		cks.Remark = req.Remark
 	}

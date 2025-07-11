@@ -46,24 +46,23 @@ type TagResponse struct {
 
 // PanResponse 平台响应
 type PanResponse struct {
+	ID     uint   `json:"id"`
+	Name   string `json:"name"`
+	Key    int    `json:"key"`
+	Icon   string `json:"icon"`
+	Remark string `json:"remark"`
+}
+
+// CksResponse Cookie响应
+type CksResponse struct {
 	ID        uint   `json:"id"`
-	Name      string `json:"name"`
-	Key       int    `json:"key"`
+	PanID     uint   `json:"pan_id"`
+	Idx       int    `json:"idx"`
 	Ck        string `json:"ck"`
 	IsValid   bool   `json:"is_valid"`
 	Space     int64  `json:"space"`
 	LeftSpace int64  `json:"left_space"`
 	Remark    string `json:"remark"`
-}
-
-// CksResponse Cookie响应
-type CksResponse struct {
-	ID     uint   `json:"id"`
-	PanID  uint   `json:"pan_id"`
-	T      string `json:"t"`
-	Idx    int    `json:"idx"`
-	Ck     string `json:"ck"`
-	Remark string `json:"remark"`
 }
 
 // ReadyResourceResponse 待处理资源响应
