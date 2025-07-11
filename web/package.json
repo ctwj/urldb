@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@css-render/vue3-ssr": "^0.15.12",
+    "@fortawesome/fontawesome-free": "^6.7.2",
     "@juggle/resize-observer": "^3.3.1",
     "@nuxtjs/tailwindcss": "^6.8.0",
     "@pinia/nuxt": "^0.5.0",

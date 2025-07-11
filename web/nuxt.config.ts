@@ -9,6 +9,7 @@ export default defineNuxtConfig({
     '~/assets/css/main.css',
     'vfonts/Lato.css',
     'vfonts/FiraCode.css',
+    '@fortawesome/fontawesome-free/css/all.min.css', // 本地Font Awesome
   ],
   app: {
     head: {
@@ -19,11 +20,7 @@ export default defineNuxtConfig({
         { name: 'description', content: '网盘资源管理系统 - 一个现代化的资源管理系统' }
       ],
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
-        { 
-          rel: 'stylesheet', 
-          href: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
-        }
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
       ]
     }
   },

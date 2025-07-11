@@ -525,45 +525,65 @@ onMounted(async () => {
     console.log('首页 - isAuthenticated:', userStore.isAuthenticated)
     console.log('首页 - user:', userStore.userInfo)
     
-    // 使用Promise.allSettled来确保即使某个请求失败也不会影响其他请求
-    const results = await Promise.allSettled([
-      store.fetchResources().then((data: any) => {
+    // 设置超时时间（5秒）
+    const timeout = 5000
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('请求超时')), timeout)
+    })
+    
+    // 使用Promise.race来添加超时机制，并优化请求顺序
+    try {
+      // 首先加载最重要的数据（资源列表）
+      const resourcesPromise = store.fetchResources().then((data: any) => {
         localResources.value = data.resources || []
         return data
       }).catch((e: any) => {
         console.error('获取资源失败:', e)
         return { resources: [] }
-      }),
-      store.fetchCategories().then((data: any) => {
-        localCategories.value = data.categories || []
-        return data
-      }).catch((e: any) => {
-        console.error('获取分类失败:', e)
-        return { categories: [] }
-      }),
-      store.fetchStats().then((data: any) => {
-        localStats.value = data || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 }
-        return data
-      }).catch((e: any) => {
-        console.error('获取统计失败:', e)
-        return { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 }
-      }),
-      fetchPlatforms().catch((e: any) => console.error('获取平台失败:', e)),
-      fetchSystemConfig().catch((e: any) => console.error('获取系统配置失败:', e)),
-    ])
-    
-    // 检查哪些请求成功了
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        console.error(`请求 ${index} 失败:`, result.reason)
-      }
-    })
+      })
+      
+      // 等待资源数据加载完成或超时
+      await Promise.race([resourcesPromise, timeoutPromise])
+      
+      // 然后并行加载其他数据
+      const otherDataPromise = Promise.allSettled([
+        store.fetchCategories().then((data: any) => {
+          localCategories.value = data.categories || []
+          return data
+        }).catch((e: any) => {
+          console.error('获取分类失败:', e)
+          return { categories: [] }
+        }),
+        store.fetchStats().then((data: any) => {
+          localStats.value = data || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 }
+          return data
+        }).catch((e: any) => {
+          console.error('获取统计失败:', e)
+          return { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 }
+        }),
+        fetchPlatforms().catch((e: any) => console.error('获取平台失败:', e)),
+        fetchSystemConfig().catch((e: any) => console.error('获取系统配置失败:', e)),
+      ])
+      
+      // 检查哪些请求成功了
+      otherDataPromise.then(results => {
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            console.error(`请求 ${index} 失败:`, result.reason)
+          }
+        })
+      })
+      
+    } catch (timeoutError) {
+      console.warn('部分数据加载超时，使用默认数据:', timeoutError)
+      // 超时后使用默认数据，不阻塞页面显示
+    }
     
     animateCounters()
   } catch (error) {
     console.error('页面数据加载失败:', error)
   } finally {
-    // 所有数据加载完成后，关闭加载状态
+    // 无论成功还是失败，都要关闭加载状态
     pageLoading.value = false
     console.log('首页 - onMounted 完成')
   }

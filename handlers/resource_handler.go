@@ -22,6 +22,9 @@ func GetResources(c *gin.Context) {
 	var total int64
 	var err error
 
+	// 设置响应头，启用缓存
+	c.Header("Cache-Control", "public, max-age=300") // 5分钟缓存
+
 	if search != "" {
 		resources, total, err = repoManager.ResourceRepository.Search(search, nil, page, pageSize)
 	} else if categoryID != "" {

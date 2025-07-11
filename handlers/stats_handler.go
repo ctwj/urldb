@@ -11,6 +11,9 @@ import (
 
 // GetStats 获取基础统计信息
 func GetStats(c *gin.Context) {
+	// 设置响应头，启用缓存
+	c.Header("Cache-Control", "public, max-age=60") // 1分钟缓存
+
 	// 获取数据库统计
 	var totalResources, totalCategories, totalTags, totalViews int64
 	db.DB.Model(&entity.Resource{}).Count(&totalResources)

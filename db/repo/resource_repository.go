@@ -55,11 +55,29 @@ func (r *ResourceRepositoryImpl) FindWithRelationsPaginated(page, limit int) ([]
 	var total int64
 
 	offset := (page - 1) * limit
-	db := r.db.Model(&entity.Resource{}).Preload("Category").Preload("Pan").Preload("Tags")
 
-	// 获取总数
-	if err := db.Count(&total).Error; err != nil {
-		return nil, 0, err
+	// 优化查询：只预加载必要的关联，并添加排序
+	db := r.db.Model(&entity.Resource{}).
+		Preload("Category").
+		Preload("Pan").
+		Order("updated_at DESC") // 按更新时间倒序，显示最新内容
+
+	// 获取总数（使用缓存键）
+	cacheKey := fmt.Sprintf("resources_total_%d_%d", page, limit)
+	if cached, exists := r.cache[cacheKey]; exists {
+		if totalCached, ok := cached.(int64); ok {
+			total = totalCached
+		}
+	} else {
+		if err := db.Count(&total).Error; err != nil {
+			return nil, 0, err
+		}
+		// 缓存总数（5分钟）
+		r.cache[cacheKey] = total
+		go func() {
+			time.Sleep(5 * time.Minute)
+			delete(r.cache, cacheKey)
+		}()
 	}
 
 	// 获取分页数据
