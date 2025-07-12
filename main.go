@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"res_db/utils"
 
 	"res_db/db"
 	"res_db/db/repo"
@@ -27,6 +28,36 @@ func main() {
 
 	// 创建Repository管理器
 	repoManager := repo.NewRepositoryManager(db.DB)
+
+	// 创建全局调度器
+	scheduler := utils.GetGlobalScheduler(
+		repoManager.HotDramaRepository,
+		repoManager.ReadyResourceRepository,
+		repoManager.ResourceRepository,
+		repoManager.SystemConfigRepository,
+	)
+
+	// 检查系统配置，决定是否启动待处理资源自动处理任务
+	systemConfig, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
+	if err != nil {
+		log.Printf("获取系统配置失败: %v", err)
+	} else {
+		// 检查是否启动待处理资源自动处理任务
+		if systemConfig.AutoProcessReadyResources {
+			scheduler.StartReadyResourceScheduler()
+			log.Println("已启动待处理资源自动处理任务")
+		} else {
+			log.Println("系统配置中自动处理待处理资源功能已禁用，跳过启动定时任务")
+		}
+
+		// 检查是否启动热播剧自动拉取任务
+		if systemConfig.AutoFetchHotDramaEnabled {
+			scheduler.StartHotDramaScheduler()
+			log.Println("已启动热播剧自动拉取任务")
+		} else {
+			log.Println("系统配置中自动拉取热播剧功能已禁用，跳过启动定时任务")
+		}
+	}
 
 	// 创建Gin实例
 	r := gin.Default()
@@ -55,6 +86,7 @@ func main() {
 		api.PUT("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateResource)
 		api.DELETE("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteResource)
 		api.GET("/resources/:id", handlers.GetResourceByID)
+		api.GET("/resources/check-exists", handlers.CheckResourceExists)
 
 		// 分类管理
 		api.GET("/categories", handlers.GetCategories)
@@ -130,6 +162,11 @@ func main() {
 		api.POST("/scheduler/hot-drama/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StartHotDramaScheduler)
 		api.POST("/scheduler/hot-drama/stop", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StopHotDramaScheduler)
 		api.POST("/scheduler/hot-drama/trigger", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.TriggerHotDramaScheduler)
+
+		// 待处理资源自动处理管理路由
+		api.POST("/scheduler/ready-resource/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StartReadyResourceScheduler)
+		api.POST("/scheduler/ready-resource/stop", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StopReadyResourceScheduler)
+		api.POST("/scheduler/ready-resource/trigger", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.TriggerReadyResourceScheduler)
 	}
 
 	// 静态文件服务

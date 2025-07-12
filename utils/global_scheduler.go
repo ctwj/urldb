@@ -18,10 +18,10 @@ var (
 )
 
 // GetGlobalScheduler 获取全局调度器实例（单例模式）
-func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository) *GlobalScheduler {
+func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository) *GlobalScheduler {
 	once.Do(func() {
 		globalScheduler = &GlobalScheduler{
-			scheduler: NewScheduler(hotDramaRepo),
+			scheduler: NewScheduler(hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo),
 		}
 	})
 	return globalScheduler
@@ -65,6 +65,48 @@ func (gs *GlobalScheduler) IsHotDramaSchedulerRunning() bool {
 // GetHotDramaNames 手动获取热播剧名字
 func (gs *GlobalScheduler) GetHotDramaNames() ([]string, error) {
 	return gs.scheduler.GetHotDramaNames()
+}
+
+// StartReadyResourceScheduler 启动待处理资源自动处理任务
+func (gs *GlobalScheduler) StartReadyResourceScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if gs.scheduler.IsReadyResourceRunning() {
+		log.Println("待处理资源自动处理任务已在运行中")
+		return
+	}
+
+	gs.scheduler.StartReadyResourceScheduler()
+	log.Println("全局调度器已启动待处理资源自动处理任务")
+}
+
+// StopReadyResourceScheduler 停止待处理资源自动处理任务
+func (gs *GlobalScheduler) StopReadyResourceScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if !gs.scheduler.IsReadyResourceRunning() {
+		log.Println("待处理资源自动处理任务未在运行")
+		return
+	}
+
+	gs.scheduler.StopReadyResourceScheduler()
+	log.Println("全局调度器已停止待处理资源自动处理任务")
+}
+
+// IsReadyResourceRunning 检查待处理资源自动处理任务是否在运行
+func (gs *GlobalScheduler) IsReadyResourceRunning() bool {
+	gs.mutex.RLock()
+	defer gs.mutex.RUnlock()
+	return gs.scheduler.IsReadyResourceRunning()
+}
+
+// ProcessReadyResources 手动触发待处理资源处理
+func (gs *GlobalScheduler) ProcessReadyResources() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+	gs.scheduler.processReadyResources()
 }
 
 // UpdateSchedulerStatus 根据系统配置更新调度器状态

@@ -134,7 +134,12 @@ func UpdateSystemConfig(c *gin.Context) {
 	}
 
 	// 根据配置更新定时任务状态（错误不影响配置保存）
-	scheduler := utils.GetGlobalScheduler(repoManager.HotDramaRepository)
+	scheduler := utils.GetGlobalScheduler(
+		repoManager.HotDramaRepository,
+		repoManager.ReadyResourceRepository,
+		repoManager.ResourceRepository,
+		repoManager.SystemConfigRepository,
+	)
 	if scheduler != nil {
 		scheduler.UpdateSchedulerStatus(req.AutoFetchHotDramaEnabled)
 	}

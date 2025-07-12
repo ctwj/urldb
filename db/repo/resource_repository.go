@@ -26,6 +26,7 @@ type ResourceRepository interface {
 	GetLatestResources(limit int) ([]entity.Resource, error)
 	GetCachedLatestResources(limit int) ([]entity.Resource, error)
 	InvalidateCache() error
+	FindExists(url string, excludeID ...uint) (bool, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -255,4 +256,21 @@ func (r *ResourceRepositoryImpl) GetCachedLatestResources(limit int) ([]entity.R
 func (r *ResourceRepositoryImpl) InvalidateCache() error {
 	r.cache = make(map[string]interface{})
 	return nil
+}
+
+// FindExists 检查是否存在相同URL的资源
+func (r *ResourceRepositoryImpl) FindExists(url string, excludeID ...uint) (bool, error) {
+	var count int64
+	query := r.db.Model(&entity.Resource{}).Where("url = ?", url)
+
+	// 如果有排除ID，则排除该记录（用于更新时排除自己）
+	if len(excludeID) > 0 {
+		query = query.Where("id != ?", excludeID[0])
+	}
+
+	err := query.Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

@@ -48,7 +48,7 @@ func GetResources(c *gin.Context) {
 	})
 }
 
-// GetResourceByID 根据ID获取资源详情
+// GetResourceByID 根据ID获取资源
 func GetResourceByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -63,13 +63,36 @@ func GetResourceByID(c *gin.Context) {
 		return
 	}
 
-	// 增加浏览次数
-	if resource != nil {
-		repoManager.ResourceRepository.IncrementViewCount(uint(id))
-	}
-
 	response := converter.ToResourceResponse(resource)
 	SuccessResponse(c, response)
+}
+
+// CheckResourceExists 检查资源是否存在（测试FindExists函数）
+func CheckResourceExists(c *gin.Context) {
+	url := c.Query("url")
+	if url == "" {
+		ErrorResponse(c, "URL参数不能为空", http.StatusBadRequest)
+		return
+	}
+
+	excludeIDStr := c.Query("exclude_id")
+	var excludeID uint
+	if excludeIDStr != "" {
+		if id, err := strconv.ParseUint(excludeIDStr, 10, 32); err == nil {
+			excludeID = uint(id)
+		}
+	}
+
+	exists, err := repoManager.ResourceRepository.FindExists(url, excludeID)
+	if err != nil {
+		ErrorResponse(c, "检查失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, gin.H{
+		"url":    url,
+		"exists": exists,
+	})
 }
 
 // CreateResource 创建资源
