@@ -12,6 +12,19 @@
       />
     </div>
 
+    <!-- 描述 -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        描述 <span class="text-gray-400 text-xs">(可选)</span>
+      </label>
+      <textarea 
+        v-model="form.description" 
+        rows="3" 
+        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
+        placeholder="输入资源描述，如：剧情简介、文件大小、清晰度等"
+      ></textarea>
+    </div>
+
     <!-- URL -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -132,6 +145,7 @@ const newTag = ref('')
 // 根据 ready_resource 表字段定义表单
 const form = ref({
   title: '',
+  description: '',
   url: '',
   category: '',
   tags: [] as string[],
@@ -176,6 +190,7 @@ const validateForm = () => {
 const clearForm = () => {
   form.value = {
     title: '',
+    description: '',
     url: '',
     category: '',
     tags: [],
@@ -199,6 +214,7 @@ const handleSubmit = async () => {
     for (const url of urls) {
       const resourceData = {
         title: form.value.title || undefined, // 如果为空则传undefined
+        description: form.value.description || undefined, // 添加描述
         url: url,
         category: form.value.category || '',
         tags: form.value.tags.join(','), // 转换为逗号分隔的字符串

@@ -92,14 +92,15 @@ type UpdateTagRequest struct {
 
 // CreateReadyResourceRequest 创建待处理资源请求
 type CreateReadyResourceRequest struct {
-	Title    *string `json:"title"`
-	URL      string  `json:"url" binding:"required"`
-	Category string  `json:"category"`
-	Tags     string  `json:"tags"`
-	Img      string  `json:"img"`
-	Source   string  `json:"source"`
-	Extra    string  `json:"extra"`
-	IP       *string `json:"ip"`
+	Title       *string `json:"title"`
+	Description string  `json:"description"`
+	URL         string  `json:"url" binding:"required"`
+	Category    string  `json:"category"`
+	Tags        string  `json:"tags"`
+	Img         string  `json:"img"`
+	Source      string  `json:"source"`
+	Extra       string  `json:"extra"`
+	IP          *string `json:"ip"`
 }
 
 // BatchCreateReadyResourceRequest 批量创建待处理资源请求

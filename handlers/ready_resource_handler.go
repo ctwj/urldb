@@ -55,14 +55,15 @@ func CreateReadyResource(c *gin.Context) {
 	}
 
 	resource := &entity.ReadyResource{
-		Title:    req.Title,
-		URL:      req.URL,
-		Category: req.Category,
-		Tags:     req.Tags,
-		Img:      req.Img,
-		Source:   req.Source,
-		Extra:    req.Extra,
-		IP:       req.IP,
+		Title:       req.Title,
+		Description: req.Description,
+		URL:         req.URL,
+		Category:    req.Category,
+		Tags:        req.Tags,
+		Img:         req.Img,
+		Source:      req.Source,
+		Extra:       req.Extra,
+		IP:          req.IP,
 	}
 
 	err := repoManager.ReadyResourceRepository.Create(resource)
@@ -88,14 +89,15 @@ func BatchCreateReadyResources(c *gin.Context) {
 	var resources []entity.ReadyResource
 	for _, reqResource := range req.Resources {
 		resource := entity.ReadyResource{
-			Title:    reqResource.Title,
-			URL:      reqResource.URL,
-			Category: reqResource.Category,
-			Tags:     reqResource.Tags,
-			Img:      reqResource.Img,
-			Source:   reqResource.Source,
-			Extra:    reqResource.Extra,
-			IP:       reqResource.IP,
+			Title:       reqResource.Title,
+			Description: reqResource.Description,
+			URL:         reqResource.URL,
+			Category:    reqResource.Category,
+			Tags:        reqResource.Tags,
+			Img:         reqResource.Img,
+			Source:      reqResource.Source,
+			Extra:       reqResource.Extra,
+			IP:          reqResource.IP,
 		}
 		resources = append(resources, resource)
 	}
