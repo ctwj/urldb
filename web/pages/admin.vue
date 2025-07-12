@@ -42,12 +42,12 @@
           >
             <i class="fas fa-home"></i> 返回首页
           </NuxtLink>
-          <button 
-            @click="showAddResourceModal = true" 
+          <NuxtLink 
+            to="/add-resource" 
             class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
           >
             <i class="fas fa-plus"></i> 添加资源
-          </button>
+          </NuxtLink>
         </nav>
       </div>
 
@@ -71,12 +71,12 @@
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
             </button>
-            <button @click="showAddResourceModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <NuxtLink to="/add-resource" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">添加新资源</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">批量添加资源</span>
                 <i class="fas fa-plus text-gray-400"></i>
               </div>
-            </button>
+            </NuxtLink>
           </div>
         </div>
 
@@ -269,16 +269,11 @@
           </div>
         </div>
       </div>
-
-      <!-- 模态框组件 -->
-      <ResourceModal v-if="showAddResourceModal" @close="showAddResourceModal = false" />
     </div>
   </div>
 </template>
 
 <script setup>
-import ResourceModal from '~/components/ResourceModal.vue'
-
 definePageMeta({
   middleware: 'auth'
 })
@@ -292,7 +287,6 @@ const { $api } = useNuxtApp()
 
 const user = ref(null)
 const stats = ref(null)
-const showAddResourceModal = ref(false)
 const pageLoading = ref(true) // 添加页面加载状态
 const systemConfig = ref(null) // 添加系统配置状态
 
