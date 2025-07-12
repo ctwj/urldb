@@ -31,6 +31,69 @@
         </div>
       </div>
 
+      <!-- 自动处理配置状态 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-6">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2">
+              <i class="fas fa-cog text-gray-600 dark:text-gray-400"></i>
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">自动处理配置：</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <div 
+                :class="[
+                  'w-3 h-3 rounded-full',
+                  systemConfig?.auto_process_ready_resources 
+                    ? 'bg-green-500 animate-pulse' 
+                    : 'bg-red-500'
+                ]"
+              ></div>
+              <span 
+                :class="[
+                  'text-sm font-medium',
+                  systemConfig?.auto_process_ready_resources 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-red-600 dark:text-red-400'
+                ]"
+              >
+                {{ systemConfig?.auto_process_ready_resources ? '已开启' : '已关闭' }}
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center space-x-3">
+            <div class="text-xs text-gray-500 dark:text-gray-400">
+              <i class="fas fa-info-circle mr-1"></i>
+              {{ systemConfig?.auto_process_ready_resources 
+                ? '系统会自动处理待处理资源并入库' 
+                : '需要手动处理待处理资源' 
+              }}
+            </div>
+            <button 
+              @click="refreshConfig"
+              :disabled="updatingConfig"
+              class="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
+              title="刷新配置"
+            >
+              <i class="fas fa-sync-alt"></i>
+            </button>
+            <button 
+              @click="toggleAutoProcess"
+              :disabled="updatingConfig"
+              :class="[
+                'px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1',
+                systemConfig?.auto_process_ready_resources
+                  ? 'bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                  : 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+              ]"
+            >
+              <i v-if="updatingConfig" class="fas fa-spinner fa-spin"></i>
+              <i v-else :class="systemConfig?.auto_process_ready_resources ? 'fas fa-pause' : 'fas fa-play'"></i>
+              {{ systemConfig?.auto_process_ready_resources ? '关闭' : '开启' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- 批量添加模态框 -->
       <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto text-gray-900 dark:text-gray-100">
@@ -81,16 +144,24 @@ https://pan.baidu.com/s/345678</pre>
 
       <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
-        <button 
-            @click="showAddModal = true" 
+        <div class="flex gap-2">
+          <NuxtLink 
+            to="/add-resource" 
             class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
           >
-            <i class="fas fa-plus"></i> 批量添加
+            <i class="fas fa-plus"></i> 添加资源
+          </NuxtLink>
+          <button 
+            @click="showAddModal = true" 
+            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+          >
+            <i class="fas fa-list"></i> 批量添加
           </button>
+        </div>
         <div class="flex gap-2">
           <button 
             @click="refreshData" 
-            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
           >
             <i class="fas fa-refresh"></i> 刷新
           </button>
@@ -131,7 +202,21 @@ https://pan.baidu.com/s/345678</pre>
                       <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
                     </svg>
                     <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无待处理资源</div>
-                    <div class="text-sm text-gray-400 dark:text-gray-600">你可以点击上方"批量添加"按钮快速导入资源</div>
+                    <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加资源"按钮快速导入资源</div>
+                    <div class="flex gap-2">
+                      <NuxtLink 
+                        to="/add-resource" 
+                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
+                      >
+                        <i class="fas fa-plus"></i> 添加资源
+                      </NuxtLink>
+                      <button 
+                        @click="showAddModal = true" 
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
+                      >
+                        <i class="fas fa-list"></i> 批量添加
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -263,6 +348,22 @@ const totalPages = ref(0)
 const { useReadyResourceApi } = await import('~/composables/useApi')
 const readyResourceApi = useReadyResourceApi()
 
+// 获取系统配置API
+const { useSystemConfigApi } = await import('~/composables/useApi')
+const systemConfigApi = useSystemConfigApi()
+
+// 获取系统配置
+const systemConfig = ref<any>(null)
+const updatingConfig = ref(false) // 添加配置更新状态
+const fetchSystemConfig = async () => {
+  try {
+    const response = await systemConfigApi.getSystemConfig()
+    systemConfig.value = response
+  } catch (error) {
+    console.error('获取系统配置失败:', error)
+  }
+}
+
 // 获取数据
 const fetchData = async () => {
   loading.value = true
@@ -272,12 +373,27 @@ const fetchData = async () => {
       page_size: pageSize.value
     }) as any
     
-    // 使用标准化的接口返回格式
-    readyResources.value = response.data
-    totalCount.value = response.pagination.total
-    totalPages.value = response.pagination.total_pages
+    // 适配后端API响应格式
+    if (response && response.data) {
+      readyResources.value = response.data
+      // 后端返回格式: {data: [...], page: 1, page_size: 100, total: 123}
+      totalCount.value = response.total || 0
+      totalPages.value = Math.ceil((response.total || 0) / pageSize.value)
+    } else if (Array.isArray(response)) {
+      // 如果直接返回数组
+      readyResources.value = response
+      totalCount.value = response.length
+      totalPages.value = 1
+    } else {
+      readyResources.value = []
+      totalCount.value = 0
+      totalPages.value = 1
+    }
   } catch (error) {
     console.error('获取待处理资源失败:', error)
+    readyResources.value = []
+    totalCount.value = 0
+    totalPages.value = 1
   } finally {
     loading.value = false
   }
@@ -335,6 +451,11 @@ const visiblePages = computed(() => {
 // 刷新数据
 const refreshData = () => {
   fetchData()
+}
+
+// 刷新配置
+const refreshConfig = () => {
+  fetchSystemConfig()
 }
 
 // 关闭模态框
@@ -428,16 +549,66 @@ const checkUrlSafety = (url: string) => {
   }
 }
 
+// 切换自动处理配置
+const toggleAutoProcess = async () => {
+  if (updatingConfig.value) {
+    return
+  }
+  updatingConfig.value = true
+  try {
+    const newValue = !systemConfig.value?.auto_process_ready_resources
+    console.log('当前配置:', systemConfig.value)
+    console.log('新值:', newValue)
+    
+    // 先获取当前配置，然后只更新需要的字段
+    const currentConfig = await systemConfigApi.getSystemConfig() as any
+    console.log('获取到的当前配置:', currentConfig)
+    
+    const updateData = {
+      site_title: currentConfig.site_title || '',
+      site_description: currentConfig.site_description || '',
+      keywords: currentConfig.keywords || '',
+      author: currentConfig.author || '',
+      copyright: currentConfig.copyright || '',
+      auto_process_ready_resources: newValue,
+      auto_process_interval: currentConfig.auto_process_interval || 30,
+      auto_transfer_enabled: currentConfig.auto_transfer_enabled || false,
+      auto_fetch_hot_drama_enabled: currentConfig.auto_fetch_hot_drama_enabled || false,
+      page_size: currentConfig.page_size || 100,
+      maintenance_mode: currentConfig.maintenance_mode || false
+    }
+    
+    console.log('更新数据:', updateData)
+    const response = await systemConfigApi.updateSystemConfig(updateData)
+    console.log('更新响应:', response)
+    
+    systemConfig.value = response
+    alert(`自动处理配置已${newValue ? '开启' : '关闭'}`)
+  } catch (error: any) {
+    console.error('切换自动处理配置失败:', error)
+    console.error('错误详情:', error.response || error)
+    alert('切换自动处理配置失败')
+  } finally {
+    updatingConfig.value = false
+  }
+}
+
 // 页面加载时获取数据
 onMounted(async () => {
   try {
     await fetchData()
+    await fetchSystemConfig()
   } catch (error) {
     console.error('页面初始化失败:', error)
   } finally {
     // 数据加载完成后，关闭加载状态
     pageLoading.value = false
   }
+})
+
+// 设置页面标题
+useHead({
+  title: '待处理资源管理 - 网盘资源管理系统'
 })
 </script>
 

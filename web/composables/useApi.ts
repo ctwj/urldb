@@ -1,5 +1,7 @@
 // 统一响应解析函数
 export const parseApiResponse = <T>(response: any): T => {
+  console.log('parseApiResponse - 原始响应:', response)
+  
   // 检查是否是新的统一响应格式
   if (response && typeof response === 'object' && 'code' in response && 'data' in response) {
     if (response.code === 200) {
@@ -12,6 +14,16 @@ export const parseApiResponse = <T>(response: any): T => {
       throw new Error(response.message || '请求失败')
     }
   }
+  
+  // 检查是否是包含success字段的响应格式（如登录接口）
+  if (response && typeof response === 'object' && 'success' in response && 'data' in response) {
+    if (response.success) {
+      return response.data
+    } else {
+      throw new Error(response.message || '请求失败')
+    }
+  }
+  
   // 兼容旧格式，直接返回响应
   return response
 }
