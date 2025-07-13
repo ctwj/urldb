@@ -12,17 +12,17 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-// 定义网盘服务类型
+// 定义网盘服务类型（使用字符串常量，避免与ServiceType冲突）
 const (
-	UC       = "uc"
-	Aliyun   = "aliyun"
-	Quark    = "quark"
-	Pan115   = "115"
-	Pan123   = "123pan"
-	Tianyi   = "tianyi"
-	Xunlei   = "xunlei"
-	Baidu    = "baidu"
-	NotFound = "notfound"
+	UCStr       = "uc"
+	AliyunStr   = "aliyun"
+	QuarkStr    = "quark"
+	Pan115Str   = "115"
+	Pan123Str   = "123pan"
+	TianyiStr   = "tianyi"
+	XunleiStr   = "xunlei"
+	BaiduStr    = "baidu"
+	NotFoundStr = "notfound"
 )
 
 // 检查结果结构
@@ -31,8 +31,8 @@ type CheckResult struct {
 	Status bool
 }
 
-// 提取分享码和服务类型
-func ExtractShareId(urlStr string) (string, string) {
+// 提取分享码和服务类型（重命名避免冲突）
+func ExtractShareIdString(urlStr string) (string, string) {
 	return extractShareID(urlStr)
 }
 
@@ -42,35 +42,35 @@ func extractShareID(urlStr string) (string, string) {
 		Domains []string
 		Pattern *regexp.Regexp
 	}{
-		UC: {
+		UCStr: {
 			Domains: []string{"drive.uc.cn"},
 			Pattern: regexp.MustCompile(`https?://drive\.uc\.cn/s/([a-zA-Z0-9]+)`),
 		},
-		Aliyun: {
+		AliyunStr: {
 			Domains: []string{"aliyundrive.com", "alipan.com"},
 			Pattern: regexp.MustCompile(`https?://(?:www\.)?(?:aliyundrive|alipan)\.com/s/([a-zA-Z0-9]+)`),
 		},
-		Quark: {
+		QuarkStr: {
 			Domains: []string{"pan.quark.cn"},
 			Pattern: regexp.MustCompile(`https?://(?:www\.)?pan\.quark\.cn/s/([a-zA-Z0-9]+)`),
 		},
-		Pan115: {
+		Pan115Str: {
 			Domains: []string{"115.com", "115cdn.com", "anxia.com"},
 			Pattern: regexp.MustCompile(`https?://(?:www\.)?(?:115|115cdn|anxia)\.com/s/([a-zA-Z0-9]+)`),
 		},
-		Pan123: {
+		Pan123Str: {
 			Domains: []string{"123684.com", "123685.com", "123912.com", "123pan.com", "123pan.cn", "123592.com"},
 			Pattern: regexp.MustCompile(`https?://(?:www\.)?(?:123684|123685|123912|123pan|123pan\.cn|123592)\.com/s/([a-zA-Z0-9-]+)`),
 		},
-		Tianyi: {
+		TianyiStr: {
 			Domains: []string{"cloud.189.cn"},
 			Pattern: regexp.MustCompile(`https?://cloud\.189\.cn/(?:t/|web/share\?code=)([a-zA-Z0-9]+)`),
 		},
-		Xunlei: {
+		XunleiStr: {
 			Domains: []string{"pan.xunlei.com"},
 			Pattern: regexp.MustCompile(`https?://(?:www\.)?pan\.xunlei\.com/s/([a-zA-Z0-9-]+)`),
 		},
-		Baidu: {
+		BaiduStr: {
 			Domains: []string{"pan.baidu.com", "yun.baidu.com"},
 			Pattern: regexp.MustCompile(`https?://(?:[a-z]+\.)?(?:pan|yun)\.baidu\.com/(?:s/|share/init\?surl=)([a-zA-Z0-9_-]+)(?:\?|$)`),
 		},
@@ -85,7 +85,7 @@ func extractShareID(urlStr string) (string, string) {
 		}
 	}
 
-	return "", NotFound
+	return "", NotFoundStr
 }
 
 // 检查域名是否包含在列表中
@@ -460,20 +460,20 @@ func checkBaidu(shareID string) (bool, error) {
 // 检查URL有效性
 func CheckURL(urlStr string) (CheckResult, error) {
 	shareID, service := extractShareID(urlStr)
-	if shareID == "" || service == NotFound {
+	if shareID == "" || service == NotFoundStr {
 		fmt.Printf("无法识别的链接或网盘服务: %s\n", urlStr)
 		return CheckResult{URL: urlStr, Status: false}, nil
 	}
 
 	checkFunctions := map[string]func(string) (bool, error){
-		UC:     checkUC,
-		Aliyun: checkAliyun,
-		Quark:  checkQuark,
-		Pan115: check115,
-		Pan123: check123pan,
-		Tianyi: checkTianyi,
-		Xunlei: checkXunlei,
-		Baidu:  checkBaidu,
+		UCStr:     checkUC,
+		AliyunStr: checkAliyun,
+		QuarkStr:  checkQuark,
+		Pan115Str: check115,
+		Pan123Str: check123pan,
+		TianyiStr: checkTianyi,
+		XunleiStr: checkXunlei,
+		BaiduStr:  checkBaidu,
 	}
 
 	if fn, ok := checkFunctions[service]; ok {
