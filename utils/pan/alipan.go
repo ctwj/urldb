@@ -1,4 +1,4 @@
-package utils
+package pan
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -13,33 +14,62 @@ import (
 type AlipanService struct {
 	*BasePanService
 	accessToken string
+	configMutex sync.RWMutex // 保护配置的读写锁
 }
 
-// NewAlipanService 创建阿里云盘服务
-func NewAlipanService(config *PanConfig) *AlipanService {
-	service := &AlipanService{
-		BasePanService: NewBasePanService(config),
-	}
+// 单例相关变量
+var (
+	alipanInstance *AlipanService
+	alipanOnce     sync.Once
+)
 
-	// 设置阿里云盘的默认请求头
-	service.SetHeaders(map[string]string{
-		"Accept":             "application/json, text/plain, */*",
-		"Accept-Language":    "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-		"Content-Type":       "application/json",
-		"Origin":             "https://www.alipan.com",
-		"Priority":           "u=1, i",
-		"Referer":            "https://www.alipan.com/",
-		"Sec-Ch-Ua":          `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`,
-		"Sec-Ch-Ua-Mobile":   "?0",
-		"Sec-Ch-Ua-Platform": `"Windows"`,
-		"Sec-Fetch-Dest":     "empty",
-		"Sec-Fetch-Mode":     "cors",
-		"Sec-Fetch-Site":     "same-site",
-		"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
-		"X-Canary":           "client=web,app=share,version=v2.3.1",
+// NewAlipanService 创建阿里云盘服务（单例模式）
+func NewAlipanService(config *PanConfig) *AlipanService {
+	alipanOnce.Do(func() {
+		alipanInstance = &AlipanService{
+			BasePanService: NewBasePanService(config),
+		}
+
+		// 设置阿里云盘的默认请求头
+		alipanInstance.SetHeaders(map[string]string{
+			"Accept":             "application/json, text/plain, */*",
+			"Accept-Language":    "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+			"Content-Type":       "application/json",
+			"Origin":             "https://www.alipan.com",
+			"Priority":           "u=1, i",
+			"Referer":            "https://www.alipan.com/",
+			"Sec-Ch-Ua":          `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`,
+			"Sec-Ch-Ua-Mobile":   "?0",
+			"Sec-Ch-Ua-Platform": `"Windows"`,
+			"Sec-Fetch-Dest":     "empty",
+			"Sec-Fetch-Mode":     "cors",
+			"Sec-Fetch-Site":     "same-site",
+			"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
+			"X-Canary":           "client=web,app=share,version=v2.3.1",
+		})
 	})
 
-	return service
+	// 更新配置
+	alipanInstance.UpdateConfig(config)
+
+	return alipanInstance
+}
+
+// GetAlipanInstance 获取阿里云盘服务单例实例
+func GetAlipanInstance() *AlipanService {
+	return NewAlipanService(nil)
+}
+
+// UpdateConfig 更新配置（线程安全）
+func (a *AlipanService) UpdateConfig(config *PanConfig) {
+	if config == nil {
+		return
+	}
+
+	a.configMutex.Lock()
+	defer a.configMutex.Unlock()
+
+	a.config = config
 }
 
 // GetServiceType 获取服务类型
@@ -49,6 +79,11 @@ func (a *AlipanService) GetServiceType() ServiceType {
 
 // Transfer 转存分享链接
 func (a *AlipanService) Transfer(shareID string) (*TransferResult, error) {
+	// 读取配置（线程安全）
+	a.configMutex.RLock()
+	config := a.config
+	a.configMutex.RUnlock()
+
 	log.Printf("开始处理阿里云盘分享: %s", shareID)
 
 	// 获取access token
@@ -66,11 +101,11 @@ func (a *AlipanService) Transfer(shareID string) (*TransferResult, error) {
 		return ErrorResult(fmt.Sprintf("获取分享信息失败: %v", err)), nil
 	}
 
-	if a.config.IsType == 1 {
+	if config.IsType == 1 {
 		// 直接返回资源信息
 		return SuccessResult("检验成功", map[string]interface{}{
 			"title":    shareInfo.ShareName,
-			"shareUrl": a.config.URL,
+			"shareUrl": config.URL,
 		}), nil
 	}
 
@@ -82,7 +117,7 @@ func (a *AlipanService) Transfer(shareID string) (*TransferResult, error) {
 
 	// 确定存储路径
 	toPdirFid := "root" // 默认存储路径，可以从配置中读取
-	if a.config.ExpiredType == 2 {
+	if config.ExpiredType == 2 {
 		toPdirFid = "temp" // 临时资源路径，可以从配置中读取
 	}
 

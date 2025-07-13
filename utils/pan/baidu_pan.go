@@ -1,4 +1,4 @@
-package utils
+package pan
 
 // BaiduPanService 百度网盘服务
 type BaiduPanService struct {

@@ -276,7 +276,7 @@ func (s *Scheduler) processReadyResources() {
 	log.Printf("找到 %d 个待处理资源，开始处理...", len(readyResources))
 
 	processedCount := 0
-	factory := panutils.NewPanFactory()
+	factory := panutils.GetInstance() // 使用单例模式
 	for _, readyResource := range readyResources {
 
 		//readyResource.URL 是 查重
@@ -306,7 +306,16 @@ func (s *Scheduler) processReadyResources() {
 func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyResource, factory *panutils.PanFactory) error {
 	log.Printf("开始处理资源: %s", readyResource.URL)
 
-	// 使用工厂模式创建对应的网盘服务
+	// 提取分享ID和服务类型
+	shareID, serviceType := panutils.ExtractShareId(readyResource.URL)
+	if serviceType == panutils.NotFound {
+		log.Printf("不支持的链接地址: %s", readyResource.URL)
+		return nil
+	}
+
+	log.Printf("检测到服务类型: %s, 分享ID: %s", serviceType.String(), shareID)
+
+	// 准备配置
 	config := &panutils.PanConfig{
 		URL:         readyResource.URL,
 		Code:        "", // 可以从readyResource中获取
@@ -316,65 +325,15 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 		Stoken:      "",
 	}
 
+	// 通过工厂获取对应的网盘服务单例
 	panService, err := factory.CreatePanService(readyResource.URL, config)
 	if err != nil {
-		log.Printf("创建网盘服务失败: %v", err)
+		log.Printf("获取网盘服务失败: %v", err)
 		return err
 	}
 
-	// 提取分享ID
-	shareID, serviceType := panutils.ExtractShareId(readyResource.URL)
-	if serviceType == panutils.NotFound {
-		log.Printf("不支持的链接地址: %s", readyResource.URL)
-		return nil
-	}
-
-	log.Printf("检测到服务类型: %s, 分享ID: %s", serviceType.String(), shareID)
-
-	// 根据服务类型进行不同处理
-	switch serviceType {
-	case panutils.Quark:
-		// 夸克网盘：直接转存
-		result, err := panService.Transfer(shareID)
-		if err != nil {
-			log.Printf("夸克网盘转存失败: %v", err)
-			return err
-		}
-
-		if !result.Success {
-			log.Printf("夸克网盘转存失败: %s", result.Message)
-			return nil
-		}
-
-		// 提取转存结果
-		if resultData, ok := result.Data.(map[string]interface{}); ok {
-			title := resultData["title"].(string)
-			shareURL := resultData["shareUrl"].(string)
-			// fid := resultData["fid"].(string) // 暂时未使用
-
-			// 创建资源记录
-			resource := &entity.Resource{
-				Title:       title,
-				Description: readyResource.Description,
-				URL:         shareURL,
-				PanID:       s.determinePanID(readyResource.URL),
-				IsValid:     true,
-				IsPublic:    true,
-			}
-
-			// 如果有分类信息，尝试查找或创建分类
-			if readyResource.Category != "" {
-				categoryID, err := s.getOrCreateCategory(readyResource.Category)
-				if err == nil {
-					resource.CategoryID = &categoryID
-				}
-			}
-
-			return s.resourceRepo.Create(resource)
-		}
-
-	case panutils.Alipan:
-		// 阿里云盘：需要检查URL有效性
+	// 阿里云盘特殊处理：检查URL有效性
+	if serviceType == panutils.Alipan {
 		checkResult, _ := CheckURL(readyResource.URL)
 		if !checkResult.Status {
 			log.Printf("阿里云盘链接无效: %s", readyResource.URL)
@@ -402,45 +361,48 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 
 			return s.resourceRepo.Create(resource)
 		}
+	}
 
-		// 尝试转存获取标题
-		result, err := panService.Transfer(shareID)
-		if err != nil {
-			log.Printf("阿里云盘转存失败: %v", err)
-			return err
-		}
+	// 统一处理：尝试转存获取标题
+	result, err := panService.Transfer(shareID)
+	if err != nil {
+		log.Printf("网盘转存失败: %v", err)
+		return err
+	}
 
-		if result.Success {
-			if resultData, ok := result.Data.(map[string]interface{}); ok {
-				title := resultData["title"].(string)
-				shareURL := resultData["shareUrl"].(string)
-
-				resource := &entity.Resource{
-					Title:       title,
-					Description: readyResource.Description,
-					URL:         shareURL,
-					PanID:       s.determinePanID(readyResource.URL),
-					IsValid:     true,
-					IsPublic:    true,
-				}
-
-				// 如果有分类信息，尝试查找或创建分类
-				if readyResource.Category != "" {
-					categoryID, err := s.getOrCreateCategory(readyResource.Category)
-					if err == nil {
-						resource.CategoryID = &categoryID
-					}
-				}
-
-				return s.resourceRepo.Create(resource)
-			}
-		}
-
-	default:
-		log.Printf("暂不支持的服务类型: %s", serviceType.String())
+	if !result.Success {
+		log.Printf("网盘转存失败: %s", result.Message)
 		return nil
 	}
 
+	// 提取转存结果
+	if resultData, ok := result.Data.(map[string]interface{}); ok {
+		title := resultData["title"].(string)
+		shareURL := resultData["shareUrl"].(string)
+		// fid := resultData["fid"].(string) // 暂时未使用
+
+		// 创建资源记录
+		resource := &entity.Resource{
+			Title:       title,
+			Description: readyResource.Description,
+			URL:         shareURL,
+			PanID:       s.determinePanID(readyResource.URL),
+			IsValid:     true,
+			IsPublic:    true,
+		}
+
+		// 如果有分类信息，尝试查找或创建分类
+		if readyResource.Category != "" {
+			categoryID, err := s.getOrCreateCategory(readyResource.Category)
+			if err == nil {
+				resource.CategoryID = &categoryID
+			}
+		}
+
+		return s.resourceRepo.Create(resource)
+	}
+
+	log.Printf("转存结果格式异常")
 	return nil
 }
 

@@ -1,4 +1,4 @@
-package utils
+package pan
 
 // UCService UC网盘服务
 type UCService struct {

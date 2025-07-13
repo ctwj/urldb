@@ -1,8 +1,9 @@
-package utils
+package pan
 
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // ServiceType 定义网盘服务类型
@@ -70,9 +71,23 @@ type PanService interface {
 // PanFactory 网盘工厂
 type PanFactory struct{}
 
-// NewPanFactory 创建网盘工厂实例
+// 单例相关变量
+var (
+	instance *PanFactory
+	once     sync.Once
+)
+
+// NewPanFactory 创建网盘工厂实例（单例模式）
 func NewPanFactory() *PanFactory {
-	return &PanFactory{}
+	once.Do(func() {
+		instance = &PanFactory{}
+	})
+	return instance
+}
+
+// GetInstance 获取单例实例（推荐使用）
+func GetInstance() *PanFactory {
+	return NewPanFactory()
 }
 
 // CreatePanService 根据URL创建对应的网盘服务
@@ -107,6 +122,30 @@ func (f *PanFactory) CreatePanServiceByType(serviceType ServiceType, config *Pan
 	default:
 		return nil, fmt.Errorf("不支持的服务类型: %d", serviceType)
 	}
+}
+
+// GetQuarkService 获取夸克网盘服务单例
+func (f *PanFactory) GetQuarkService(config *PanConfig) PanService {
+	service := NewQuarkPanService(config)
+	return service
+}
+
+// GetAlipanService 获取阿里云盘服务单例
+func (f *PanFactory) GetAlipanService(config *PanConfig) PanService {
+	service := NewAlipanService(config)
+	return service
+}
+
+// GetBaiduService 获取百度网盘服务单例
+func (f *PanFactory) GetBaiduService(config *PanConfig) PanService {
+	service := NewBaiduPanService(config)
+	return service
+}
+
+// GetUCService 获取UC网盘服务单例
+func (f *PanFactory) GetUCService(config *PanConfig) PanService {
+	service := NewUCService(config)
+	return service
 }
 
 // ExtractServiceType 从URL中提取服务类型
