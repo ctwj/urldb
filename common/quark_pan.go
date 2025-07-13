@@ -90,15 +90,6 @@ func (q *QuarkPanService) Transfer(shareID string) (*TransferResult, error) {
 			return ErrorResult(fmt.Sprintf("获取stoken失败: %v", err)), nil
 		}
 
-		if config.IsType == 1 {
-			// 直接返回资源信息
-			return SuccessResult("检验成功", map[string]interface{}{
-				"title":    stokenResult.Title,
-				"shareUrl": config.URL,
-				"stoken":   stokenResult.Stoken,
-			}), nil
-		}
-
 		stoken = strings.ReplaceAll(stokenResult.Stoken, " ", "+")
 	} else {
 		stoken = strings.ReplaceAll(config.Stoken, " ", "+")
@@ -108,6 +99,42 @@ func (q *QuarkPanService) Transfer(shareID string) (*TransferResult, error) {
 	shareResult, err := q.getShare(shareID, stoken)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("获取分享详情失败: %v", err)), nil
+	}
+
+	if config.IsType == 1 {
+		// 遍历 资源目录结构
+		for _, item := range shareResult.List {
+			// 获取文件信息
+			fileList, err := q.getDirFile(item.Fid)
+			if err != nil {
+				log.Printf("获取目录文件失败: %v", err)
+				continue
+			}
+
+			// 处理文件列表
+			if fileList != nil {
+				log.Printf("目录 %s 包含 %d 个文件/文件夹", item.Fid, len(fileList))
+
+				// 遍历所有文件，可以在这里添加具体的处理逻辑
+				for _, file := range fileList {
+					if fileName, ok := file["file_name"].(string); ok {
+						if fileType, ok := file["file_type"].(float64); ok {
+							fileTypeStr := "文件"
+							if fileType == 1 {
+								fileTypeStr = "目录"
+							}
+							log.Printf("  - %s (%s)", fileName, fileTypeStr)
+						}
+					}
+				}
+			}
+		}
+
+		// 直接返回资源信息
+		return SuccessResult("检验成功", map[string]interface{}{
+			"title":    shareResult.Share.Title,
+			"shareUrl": config.URL,
+		}), nil
 	}
 
 	// 提取文件信息
@@ -280,18 +307,23 @@ func (q *QuarkPanService) getStoken(shareID string) (*StokenResult, error) {
 
 // getShare 获取分享详情
 func (q *QuarkPanService) getShare(shareID, stoken string) (*ShareResult, error) {
-	data := map[string]interface{}{
-		"pwd_id": shareID,
-		"stoken": stoken,
-	}
-
 	queryParams := map[string]string{
-		"pr":           "ucpro",
-		"fr":           "pc",
-		"uc_param_str": "",
+		"pr":            "ucpro",
+		"fr":            "pc",
+		"uc_param_str":  "",
+		"pwd_id":        shareID,
+		"stoken":        stoken,
+		"pdir_fid":      "0",
+		"force":         "0",
+		"_page":         "1",
+		"_size":         "100",
+		"_fetch_banner": "1",
+		"_fetch_share":  "1",
+		"_fetch_total":  "1",
+		"_sort":         "file_type:asc,updated_at:desc",
 	}
 
-	respData, err := q.HTTPPost("https://drive-pc.quark.cn/1/clouddrive/share/sharepage/detail", data, queryParams)
+	respData, err := q.HTTPGet("https://drive-pc.quark.cn/1/clouddrive/share/sharepage/detail", queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -479,6 +511,67 @@ func (q *QuarkPanService) deleteAdFiles(pdirFid string) error {
 	// 这里可以添加广告文件删除逻辑
 	// 需要从配置中读取禁止的关键词列表
 	return nil
+}
+
+// getDirFile 获取指定文件夹的文件列表
+func (q *QuarkPanService) getDirFile(pdirFid string) ([]map[string]interface{}, error) {
+	log.Printf("正在遍历父文件夹: %s", pdirFid)
+
+	queryParams := map[string]string{
+		"pr":              "ucpro",
+		"fr":              "pc",
+		"uc_param_str":    "",
+		"pdir_fid":        pdirFid,
+		"_page":           "1",
+		"_size":           "50",
+		"_fetch_total":    "1",
+		"_fetch_sub_dirs": "0",
+		"_sort":           "updated_at:desc",
+	}
+
+	respData, err := q.HTTPGet("https://drive-pc.quark.cn/1/clouddrive/file/sort", queryParams)
+	if err != nil {
+		log.Printf("获取目录文件失败: %v", err)
+		return nil, err
+	}
+
+	var response struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+		Data    struct {
+			List []map[string]interface{} `json:"list"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respData, &response); err != nil {
+		log.Printf("解析目录文件响应失败: %v", err)
+		return nil, err
+	}
+
+	if response.Status != 200 {
+		return nil, fmt.Errorf(response.Message)
+	}
+
+	// 递归处理子目录
+	var allFiles []map[string]interface{}
+	for _, item := range response.Data.List {
+		// 添加当前文件/目录
+		allFiles = append(allFiles, item)
+
+		// 如果是目录，递归获取子目录内容
+		if fileType, ok := item["file_type"].(float64); ok && fileType == 1 { // 1表示目录
+			if fid, ok := item["fid"].(string); ok {
+				subFiles, err := q.getDirFile(fid)
+				if err != nil {
+					log.Printf("获取子目录 %s 失败: %v", fid, err)
+					continue
+				}
+				allFiles = append(allFiles, subFiles...)
+			}
+		}
+	}
+
+	return allFiles, nil
 }
 
 // 定义各种结果结构体
