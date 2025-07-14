@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -70,12 +71,18 @@ func NewDoubanService() *DoubanService {
 		"Referer":         "https://m.douban.com/",
 		"Accept":          "application/json, text/plain, */*",
 		"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-		"Accept-Encoding": "gzip, deflate, br",
+		"Accept-Encoding": "gzip, deflate",
 		"Connection":      "keep-alive",
 		"Sec-Fetch-Dest":  "empty",
 		"Sec-Fetch-Mode":  "cors",
 		"Sec-Fetch-Site":  "same-origin",
 	})
+
+	// 启用自动解压缩
+	client.SetDisableWarn(true)
+	client.SetRetryCount(3)
+	client.SetRetryWaitTime(1 * time.Second)
+	client.SetRetryMaxWaitTime(5 * time.Second)
 
 	// 初始化电影榜单配置
 	movieCategories := map[string]map[string]map[string]string{
@@ -137,7 +144,8 @@ func NewDoubanService() *DoubanService {
 
 // GetMovieRanking 获取电影榜单数据
 func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, limit int) (*DoubanResult, error) {
-	log.Printf("获取电影榜单: %s - %s, start: %d, limit: %d", category, rankingType, start, limit)
+	log.Printf("=== 开始获取电影榜单 ===")
+	log.Printf("参数: category=%s, rankingType=%s, start=%d, limit=%d", category, rankingType, start, limit)
 
 	// 构建请求参数
 	params := map[string]string{
@@ -146,26 +154,33 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 	}
 
 	// 根据不同的category和type添加特定参数
-	if category != "热门" || rankingType != "全部" {
-		if rankingType != "全部" {
-			params["type"] = rankingType
-		}
-		if category != "热门" {
-			params["category"] = category
-		}
+	// 电影API需要明确指定category和type参数
+	if category != "" {
+		params["category"] = category
 	}
+	if rankingType != "" {
+		params["type"] = rankingType
+	}
+
+	log.Printf("请求参数: %+v", params)
+	log.Printf("请求URL: %s/subject/recent_hot/movie", ds.baseURL)
 
 	var response *resty.Response
 	var err error
 
 	// 尝试调用豆瓣API
+	log.Printf("开始发送HTTP请求...")
 	response, err = ds.client.R().
 		SetQueryParams(params).
 		Get(ds.baseURL + "/subject/recent_hot/movie")
 
 	if err != nil {
-		log.Printf("豆瓣API调用失败，使用模拟数据: %v", err)
+		log.Printf("=== 豆瓣API调用失败 ===")
+		log.Printf("错误详情: %v", err)
+		log.Printf("错误类型: %T", err)
+
 		// 如果豆瓣API调用失败，使用模拟数据
+		log.Printf("使用模拟数据作为备选方案")
 		mockData := ds.getMockMovieData()
 		mockData.IsMockData = true
 		mockData.MockReason = "API调用失败"
@@ -176,9 +191,58 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 		}, nil
 	}
 
+	log.Printf("=== HTTP请求成功 ===")
+	log.Printf("响应状态码: %d", response.StatusCode())
+	log.Printf("响应头: %+v", response.Header())
+	log.Printf("响应体长度: %d bytes", len(response.Body()))
+
+	// 检查响应是否被压缩
+	contentEncoding := response.Header().Get("Content-Encoding")
+	log.Printf("内容编码: %s", contentEncoding)
+
+	// 记录响应体的前500个字符用于调试
+	responseBody := string(response.Body())
+	log.Printf("响应体原始长度: %d 字符", len(responseBody))
+
+	if len(responseBody) > 500 {
+		log.Printf("响应体前500字符: %s...", responseBody[:500])
+	} else {
+		log.Printf("完整响应体: %s", responseBody)
+	}
+
+	// 检查响应体是否包含有效JSON
+	if len(responseBody) == 0 {
+		log.Printf("=== 响应体为空 ===")
+		mockData := ds.getMockMovieData()
+		mockData.IsMockData = true
+		mockData.MockReason = "响应体为空"
+
+		return &DoubanResult{
+			Success: true,
+			Data:    mockData,
+		}, nil
+	}
+
+	// 尝试解析JSON
 	var apiResponse map[string]interface{}
 	if err := json.Unmarshal(response.Body(), &apiResponse); err != nil {
-		log.Printf("解析API响应失败: %v", err)
+		log.Printf("=== 解析API响应失败 ===")
+		log.Printf("JSON解析错误: %v", err)
+		log.Printf("响应体内容: %s", string(response.Body()))
+
+		// 尝试检查是否是HTML错误页面
+		if len(responseBody) > 100 && (strings.Contains(responseBody, "<html>") || strings.Contains(responseBody, "<!DOCTYPE")) {
+			log.Printf("检测到HTML响应，可能是错误页面")
+			mockData := ds.getMockMovieData()
+			mockData.IsMockData = true
+			mockData.MockReason = "返回HTML错误页面"
+
+			return &DoubanResult{
+				Success: true,
+				Data:    mockData,
+			}, nil
+		}
+
 		mockData := ds.getMockMovieData()
 		mockData.IsMockData = true
 		mockData.MockReason = "解析API响应失败"
@@ -189,16 +253,22 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 		}, nil
 	}
 
+	log.Printf("=== JSON解析成功 ===")
+	log.Printf("解析后的数据结构: %+v", apiResponse)
+
 	// 处理豆瓣移动端API的响应格式
 	items := ds.extractItems(apiResponse)
 	categories := ds.extractCategories(apiResponse)
+
+	log.Printf("提取到的电影数量: %d", len(items))
+	log.Printf("提取到的分类数量: %d", len(categories))
 
 	// 如果没有获取到真实数据，使用模拟数据
 	isMockData := false
 	mockReason := ""
 
 	if len(items) == 0 {
-		log.Println("API返回空数据，使用模拟数据")
+		log.Printf("=== API返回空数据，使用模拟数据 ===")
 		mockData := ds.getMockMovieData()
 		items = mockData.Items
 		isMockData = true
@@ -207,6 +277,7 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 
 	// 如果没有获取到categories，使用默认的电影分类
 	if len(categories) == 0 {
+		log.Printf("=== 使用默认电影分类 ===")
 		categories = []DoubanCategory{
 			{Category: "热门", Selected: true, Type: "全部", Title: "热门"},
 			{Category: "最新", Selected: false, Type: "全部", Title: "最新"},
@@ -226,6 +297,7 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 
 	// 限制返回数量
 	if len(items) > limit {
+		log.Printf("限制返回数量从 %d 到 %d", len(items), limit)
 		items = items[:limit]
 	}
 
@@ -241,6 +313,13 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 		result.Notice = "⚠️ 这是模拟数据，非豆瓣实时数据"
 	}
 
+	log.Printf("=== 电影榜单获取完成 ===")
+	log.Printf("最终返回电影数量: %d", len(items))
+	log.Printf("是否使用模拟数据: %v", isMockData)
+	if isMockData {
+		log.Printf("模拟数据原因: %s", mockReason)
+	}
+
 	return &DoubanResult{
 		Success: true,
 		Data:    result,
@@ -249,7 +328,8 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 
 // GetTvRanking 获取电视剧榜单数据
 func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit int) (*DoubanResult, error) {
-	log.Printf("获取电视剧榜单: %s - %s, start: %d, limit: %d", category, rankingType, start, limit)
+	log.Printf("=== 开始获取电视剧榜单 ===")
+	log.Printf("参数: category=%s, rankingType=%s, start=%d, limit=%d", category, rankingType, start, limit)
 
 	// 构建请求参数
 	params := map[string]string{
@@ -258,25 +338,32 @@ func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit
 	}
 
 	// 根据不同的category和type添加特定参数
-	if category != "tv" || rankingType != "tv" {
-		if rankingType != "tv" {
-			params["type"] = rankingType
-		}
-		if category != "tv" {
-			params["category"] = category
-		}
+	// 电视剧API需要明确指定category和type参数
+	if category != "" {
+		params["category"] = category
 	}
+	if rankingType != "" {
+		params["type"] = rankingType
+	}
+
+	log.Printf("请求参数: %+v", params)
+	log.Printf("请求URL: %s/subject/recent_hot/tv", ds.baseURL)
 
 	var response *resty.Response
 	var err error
 
 	// 尝试调用豆瓣API
+	log.Printf("开始发送HTTP请求...")
 	response, err = ds.client.R().
 		SetQueryParams(params).
 		Get(ds.baseURL + "/subject/recent_hot/tv")
 
 	if err != nil {
-		log.Printf("豆瓣TV API调用失败，使用模拟数据: %v", err)
+		log.Printf("=== 豆瓣TV API调用失败 ===")
+		log.Printf("错误详情: %v", err)
+		log.Printf("错误类型: %T", err)
+
+		log.Printf("使用模拟数据作为备选方案")
 		mockData := ds.getMockTvData()
 		mockData.IsMockData = true
 		mockData.MockReason = "API调用失败"
@@ -287,9 +374,58 @@ func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit
 		}, nil
 	}
 
+	log.Printf("=== HTTP请求成功 ===")
+	log.Printf("响应状态码: %d", response.StatusCode())
+	log.Printf("响应头: %+v", response.Header())
+	log.Printf("响应体长度: %d bytes", len(response.Body()))
+
+	// 检查响应是否被压缩
+	contentEncoding := response.Header().Get("Content-Encoding")
+	log.Printf("内容编码: %s", contentEncoding)
+
+	// 记录响应体的前500个字符用于调试
+	responseBody := string(response.Body())
+	log.Printf("响应体原始长度: %d 字符", len(responseBody))
+
+	if len(responseBody) > 500 {
+		log.Printf("响应体前500字符: %s...", responseBody[:500])
+	} else {
+		log.Printf("完整响应体: %s", responseBody)
+	}
+
+	// 检查响应体是否包含有效JSON
+	if len(responseBody) == 0 {
+		log.Printf("=== 响应体为空 ===")
+		mockData := ds.getMockTvData()
+		mockData.IsMockData = true
+		mockData.MockReason = "响应体为空"
+
+		return &DoubanResult{
+			Success: true,
+			Data:    mockData,
+		}, nil
+	}
+
+	// 尝试解析JSON
 	var apiResponse map[string]interface{}
 	if err := json.Unmarshal(response.Body(), &apiResponse); err != nil {
-		log.Printf("解析TV API响应失败: %v", err)
+		log.Printf("=== 解析TV API响应失败 ===")
+		log.Printf("JSON解析错误: %v", err)
+		log.Printf("响应体内容: %s", string(response.Body()))
+
+		// 尝试检查是否是HTML错误页面
+		if len(responseBody) > 100 && (strings.Contains(responseBody, "<html>") || strings.Contains(responseBody, "<!DOCTYPE")) {
+			log.Printf("检测到HTML响应，可能是错误页面")
+			mockData := ds.getMockTvData()
+			mockData.IsMockData = true
+			mockData.MockReason = "返回HTML错误页面"
+
+			return &DoubanResult{
+				Success: true,
+				Data:    mockData,
+			}, nil
+		}
+
 		mockData := ds.getMockTvData()
 		mockData.IsMockData = true
 		mockData.MockReason = "解析API响应失败"
@@ -300,16 +436,22 @@ func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit
 		}, nil
 	}
 
+	log.Printf("=== JSON解析成功 ===")
+	log.Printf("解析后的数据结构: %+v", apiResponse)
+
 	// 处理豆瓣移动端API的响应格式
 	items := ds.extractItems(apiResponse)
 	categories := ds.extractCategories(apiResponse)
+
+	log.Printf("提取到的电视剧数量: %d", len(items))
+	log.Printf("提取到的分类数量: %d", len(categories))
 
 	// 如果没有获取到真实数据，使用模拟数据
 	isMockData := false
 	mockReason := ""
 
 	if len(items) == 0 {
-		log.Println("TV API返回空数据，使用模拟数据")
+		log.Printf("=== TV API返回空数据，使用模拟数据 ===")
 		mockData := ds.getMockTvData()
 		items = mockData.Items
 		isMockData = true
@@ -318,6 +460,7 @@ func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit
 
 	// 如果没有获取到categories，使用默认的电视剧分类
 	if len(categories) == 0 {
+		log.Printf("=== 使用默认电视剧分类 ===")
 		categories = []DoubanCategory{
 			{Category: "tv", Selected: true, Type: "tv", Title: "综合"},
 			{Category: "tv", Selected: false, Type: "tv_domestic", Title: "国产剧"},
@@ -337,6 +480,7 @@ func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit
 
 	// 限制返回数量
 	if len(items) > limit {
+		log.Printf("限制返回数量从 %d 到 %d", len(items), limit)
 		items = items[:limit]
 	}
 
@@ -350,6 +494,13 @@ func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit
 
 	if isMockData {
 		result.Notice = "⚠️ 这是模拟数据，非豆瓣实时数据"
+	}
+
+	log.Printf("=== 电视剧榜单获取完成 ===")
+	log.Printf("最终返回电视剧数量: %d", len(items))
+	log.Printf("是否使用模拟数据: %v", isMockData)
+	if isMockData {
+		log.Printf("模拟数据原因: %s", mockReason)
 	}
 
 	return &DoubanResult{
@@ -487,28 +638,41 @@ func (ds *DoubanService) extractCategories(response map[string]interface{}) []Do
 
 // FetchHotDramaNames 获取热播剧名字（用于定时任务）
 func (ds *DoubanService) FetchHotDramaNames() ([]string, error) {
+	log.Printf("=== 开始获取热播剧名字 ===")
 	var dramaNames []string
 
 	// 获取电影热门榜单
+	log.Printf("正在获取电影热门榜单...")
 	movieResult, err := ds.GetMovieRanking("热门", "全部", 0, 10)
 	if err != nil {
 		log.Printf("获取电影榜单失败: %v", err)
 	} else if movieResult.Success && movieResult.Data != nil {
+		log.Printf("电影榜单获取成功，共 %d 个电影", len(movieResult.Data.Items))
 		for _, item := range movieResult.Data.Items {
 			dramaNames = append(dramaNames, item.Title)
+			log.Printf("添加电影: %s", item.Title)
 		}
+	} else {
+		log.Printf("电影榜单获取失败或数据为空")
 	}
 
 	// 获取电视剧热门榜单
+	log.Printf("正在获取电视剧热门榜单...")
 	tvResult, err := ds.GetTvRanking("tv", "tv", 0, 10)
 	if err != nil {
 		log.Printf("获取电视剧榜单失败: %v", err)
 	} else if tvResult.Success && tvResult.Data != nil {
+		log.Printf("电视剧榜单获取成功，共 %d 个电视剧", len(tvResult.Data.Items))
 		for _, item := range tvResult.Data.Items {
 			dramaNames = append(dramaNames, item.Title)
+			log.Printf("添加电视剧: %s", item.Title)
 		}
+	} else {
+		log.Printf("电视剧榜单获取失败或数据为空")
 	}
 
-	log.Printf("获取到 %d 个热播剧名字", len(dramaNames))
+	log.Printf("=== 热播剧名字获取完成 ===")
+	log.Printf("总共获取到 %d 个热播剧名字", len(dramaNames))
+	log.Printf("热播剧列表: %v", dramaNames)
 	return dramaNames, nil
 }
