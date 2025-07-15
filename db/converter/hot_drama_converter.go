@@ -12,18 +12,26 @@ func HotDramaToResponse(drama *entity.HotDrama) *dto.HotDramaResponse {
 	}
 
 	return &dto.HotDramaResponse{
-		ID:        drama.ID,
-		CreatedAt: drama.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: drama.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Title:     drama.Title,
-		Rating:    drama.Rating,
-		Year:      drama.Year,
-		Directors: drama.Directors,
-		Actors:    drama.Actors,
-		Category:  drama.Category,
-		SubType:   drama.SubType,
-		Source:    drama.Source,
-		DoubanID:  drama.DoubanID,
+		ID:           drama.ID,
+		CreatedAt:    drama.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:    drama.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Title:        drama.Title,
+		CardSubtitle: drama.CardSubtitle,
+		EpisodesInfo: drama.EpisodesInfo,
+		IsNew:        drama.IsNew,
+		Rating:       drama.Rating,
+		RatingCount:  drama.RatingCount,
+		Year:         drama.Year,
+		Region:       drama.Region,
+		Genres:       drama.Genres,
+		Directors:    drama.Directors,
+		Actors:       drama.Actors,
+		PosterURL:    drama.PosterURL,
+		Category:     drama.Category,
+		SubType:      drama.SubType,
+		Source:       drama.Source,
+		DoubanID:     drama.DoubanID,
+		DoubanURI:    drama.DoubanURI,
 	}
 }
 

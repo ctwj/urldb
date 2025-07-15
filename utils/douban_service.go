@@ -24,17 +24,34 @@ type DoubanService struct {
 
 // DoubanItem 豆瓣项目
 type DoubanItem struct {
-	ID        string   `json:"id"`
-	Title     string   `json:"title"`
-	Rating    Rating   `json:"rating"`
-	Year      string   `json:"year"`
-	Directors []string `json:"directors"`
-	Actors    []string `json:"actors"`
+	ID           string   `json:"id"`
+	Title        string   `json:"title"`
+	CardSubtitle string   `json:"card_subtitle"`
+	EpisodesInfo string   `json:"episodes_info"`
+	IsNew        bool     `json:"is_new"`
+	Pic          PicInfo  `json:"pic"`
+	Rating       Rating   `json:"rating"`
+	Type         string   `json:"type"`
+	URI          string   `json:"uri"`
+	Year         string   `json:"year"`
+	Directors    []string `json:"directors"`
+	Actors       []string `json:"actors"`
+	Region       string   `json:"region"`
+	Genres       []string `json:"genres"`
+}
+
+// PicInfo 图片信息
+type PicInfo struct {
+	Large  string `json:"large"`
+	Normal string `json:"normal"`
 }
 
 // Rating 评分
 type Rating struct {
-	Value float64 `json:"value"`
+	Value     float64 `json:"value"`
+	Count     int     `json:"count"`
+	Max       int     `json:"max"`
+	StarCount float64 `json:"star_count"`
 }
 
 // DoubanCategory 豆瓣分类
@@ -147,6 +164,28 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 	log.Printf("=== 开始获取电影榜单 ===")
 	log.Printf("参数: category=%s, rankingType=%s, start=%d, limit=%d", category, rankingType, start, limit)
 
+	// 如果limit为0，表示获取全部数据
+	if limit == 0 {
+		log.Printf("检测到limit=0，将尝试获取全部数据")
+		// 先获取第一页来确定总数
+		firstPageResult, err := ds.getMovieRankingPage(category, rankingType, 0, 50)
+		if err != nil {
+			log.Printf("获取第一页失败: %v", err)
+			return nil, err
+		}
+
+		if firstPageResult.Success && firstPageResult.Data != nil {
+			total := firstPageResult.Data.Total
+			log.Printf("检测到总数为: %d，将一次性获取全部数据", total)
+			return ds.getMovieRankingPage(category, rankingType, 0, total)
+		}
+	}
+
+	return ds.getMovieRankingPage(category, rankingType, start, limit)
+}
+
+// getMovieRankingPage 获取电影榜单数据（实际API调用）
+func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start, limit int) (*DoubanResult, error) {
 	// 构建请求参数
 	params := map[string]string{
 		"start": strconv.Itoa(start),
@@ -256,6 +295,14 @@ func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, li
 	log.Printf("=== JSON解析成功 ===")
 	log.Printf("解析后的数据结构: %+v", apiResponse)
 
+	// 打印完整的API响应JSON
+	log.Printf("=== 完整电影API响应JSON ===")
+	if responseBytes, err := json.MarshalIndent(apiResponse, "", "  "); err == nil {
+		log.Printf("完整响应:\n%s", string(responseBytes))
+	} else {
+		log.Printf("序列化响应失败: %v", err)
+	}
+
 	// 处理豆瓣移动端API的响应格式
 	items := ds.extractItems(apiResponse)
 	categories := ds.extractCategories(apiResponse)
@@ -331,6 +378,28 @@ func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit
 	log.Printf("=== 开始获取电视剧榜单 ===")
 	log.Printf("参数: category=%s, rankingType=%s, start=%d, limit=%d", category, rankingType, start, limit)
 
+	// 如果limit为0，表示获取全部数据
+	if limit == 0 {
+		log.Printf("检测到limit=0，将尝试获取全部数据")
+		// 先获取第一页来确定总数
+		firstPageResult, err := ds.getTvRankingPage(category, rankingType, 0, 50)
+		if err != nil {
+			log.Printf("获取第一页失败: %v", err)
+			return nil, err
+		}
+
+		if firstPageResult.Success && firstPageResult.Data != nil {
+			total := firstPageResult.Data.Total
+			log.Printf("检测到总数为: %d，将一次性获取全部数据", total)
+			return ds.getTvRankingPage(category, rankingType, 0, total)
+		}
+	}
+
+	return ds.getTvRankingPage(category, rankingType, start, limit)
+}
+
+// getTvRankingPage 获取电视剧榜单数据（实际API调用）
+func (ds *DoubanService) getTvRankingPage(category, rankingType string, start, limit int) (*DoubanResult, error) {
 	// 构建请求参数
 	params := map[string]string{
 		"start": strconv.Itoa(start),
@@ -438,6 +507,14 @@ func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit
 
 	log.Printf("=== JSON解析成功 ===")
 	log.Printf("解析后的数据结构: %+v", apiResponse)
+
+	// 打印完整的API响应JSON
+	log.Printf("=== 完整电视剧API响应JSON ===")
+	if responseBytes, err := json.MarshalIndent(apiResponse, "", "  "); err == nil {
+		log.Printf("完整响应:\n%s", string(responseBytes))
+	} else {
+		log.Printf("序列化响应失败: %v", err)
+	}
 
 	// 处理豆瓣移动端API的响应格式
 	items := ds.extractItems(apiResponse)
@@ -612,15 +689,63 @@ func (ds *DoubanService) extractItems(response map[string]interface{}) []DoubanI
 	// 尝试从不同的字段获取items
 	if itemsData, ok := response["items"]; ok {
 		if itemsBytes, err := json.Marshal(itemsData); err == nil {
-			json.Unmarshal(itemsBytes, &items)
+			if err := json.Unmarshal(itemsBytes, &items); err != nil {
+				log.Printf("解析items字段失败: %v", err)
+			}
 		}
 	} else if subjectsData, ok := response["subjects"]; ok {
 		if subjectsBytes, err := json.Marshal(subjectsData); err == nil {
-			json.Unmarshal(subjectsBytes, &items)
+			if err := json.Unmarshal(subjectsBytes, &items); err != nil {
+				log.Printf("解析subjects字段失败: %v", err)
+			}
 		}
 	}
 
+	// 解析每个项目的card_subtitle，提取年份、地区、类型、导演、演员信息
+	for i := range items {
+		ds.parseCardSubtitle(&items[i])
+	}
+
 	return items
+}
+
+// parseCardSubtitle 解析card_subtitle字段
+func (ds *DoubanService) parseCardSubtitle(item *DoubanItem) {
+	if item.CardSubtitle == "" {
+		return
+	}
+
+	// card_subtitle格式: "2025 / 中国大陆 / 剧情 爱情 / 丁梓光 / 杨紫 李现"
+	parts := strings.Split(item.CardSubtitle, " / ")
+	if len(parts) >= 4 {
+		// 年份
+		if len(parts) > 0 {
+			item.Year = strings.TrimSpace(parts[0])
+		}
+
+		// 地区
+		if len(parts) > 1 {
+			item.Region = strings.TrimSpace(parts[1])
+		}
+
+		// 类型（可能有多个，用空格分隔）
+		if len(parts) > 2 {
+			genresStr := strings.TrimSpace(parts[2])
+			item.Genres = strings.Fields(genresStr)
+		}
+
+		// 导演（可能有多个，用空格分隔）
+		if len(parts) > 3 {
+			directorsStr := strings.TrimSpace(parts[3])
+			item.Directors = strings.Fields(directorsStr)
+		}
+
+		// 演员（可能有多个，用空格分隔）
+		if len(parts) > 4 {
+			actorsStr := strings.TrimSpace(parts[4])
+			item.Actors = strings.Fields(actorsStr)
+		}
+	}
 }
 
 // extractCategories 从API响应中提取分类列表

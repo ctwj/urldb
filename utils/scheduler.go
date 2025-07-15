@@ -128,8 +128,8 @@ func (s *Scheduler) processHotDramaNames(dramaNames []string) {
 func (s *Scheduler) processMovieData() {
 	log.Println("开始处理电影数据...")
 
-	// 获取电影热门榜单
-	movieResult, err := s.doubanService.GetMovieRanking("热门", "全部", 0, 20)
+	// 获取电影热门榜单（获取全部数据）
+	movieResult, err := s.doubanService.GetMovieRanking("热门", "全部", 0, 0)
 	if err != nil {
 		log.Printf("获取电影榜单失败: %v", err)
 		return
@@ -138,22 +138,31 @@ func (s *Scheduler) processMovieData() {
 	if movieResult.Success && movieResult.Data != nil {
 		for _, item := range movieResult.Data.Items {
 			drama := &entity.HotDrama{
-				Title:     item.Title,
-				Rating:    item.Rating.Value,
-				Year:      item.Year,
-				Directors: strings.Join(item.Directors, ", "),
-				Actors:    strings.Join(item.Actors, ", "),
-				Category:  "电影",
-				SubType:   "热门",
-				Source:    "douban",
-				DoubanID:  item.ID,
+				Title:        item.Title,
+				CardSubtitle: item.CardSubtitle,
+				EpisodesInfo: item.EpisodesInfo,
+				IsNew:        item.IsNew,
+				Rating:       item.Rating.Value,
+				RatingCount:  item.Rating.Count,
+				Year:         item.Year,
+				Region:       item.Region,
+				Genres:       strings.Join(item.Genres, ", "),
+				Directors:    strings.Join(item.Directors, ", "),
+				Actors:       strings.Join(item.Actors, ", "),
+				PosterURL:    item.Pic.Normal,
+				Category:     "电影",
+				SubType:      "热门",
+				Source:       "douban",
+				DoubanID:     item.ID,
+				DoubanURI:    item.URI,
 			}
 
 			// 保存到数据库
 			if err := s.hotDramaRepo.Upsert(drama); err != nil {
 				log.Printf("保存电影数据失败: %v", err)
 			} else {
-				log.Printf("成功保存电影: %s", item.Title)
+				log.Printf("成功保存电影: %s (评分: %.1f, 年份: %s, 地区: %s)",
+					item.Title, item.Rating.Value, item.Year, item.Region)
 			}
 		}
 	}
@@ -163,8 +172,8 @@ func (s *Scheduler) processMovieData() {
 func (s *Scheduler) processTvData() {
 	log.Println("开始处理电视剧数据...")
 
-	// 获取电视剧热门榜单
-	tvResult, err := s.doubanService.GetTvRanking("tv", "tv", 0, 20)
+	// 获取电视剧热门榜单（获取全部数据）
+	tvResult, err := s.doubanService.GetTvRanking("tv", "tv", 0, 0)
 	if err != nil {
 		log.Printf("获取电视剧榜单失败: %v", err)
 		return
@@ -173,22 +182,31 @@ func (s *Scheduler) processTvData() {
 	if tvResult.Success && tvResult.Data != nil {
 		for _, item := range tvResult.Data.Items {
 			drama := &entity.HotDrama{
-				Title:     item.Title,
-				Rating:    item.Rating.Value,
-				Year:      item.Year,
-				Directors: strings.Join(item.Directors, ", "),
-				Actors:    strings.Join(item.Actors, ", "),
-				Category:  "电视剧",
-				SubType:   "热门",
-				Source:    "douban",
-				DoubanID:  item.ID,
+				Title:        item.Title,
+				CardSubtitle: item.CardSubtitle,
+				EpisodesInfo: item.EpisodesInfo,
+				IsNew:        item.IsNew,
+				Rating:       item.Rating.Value,
+				RatingCount:  item.Rating.Count,
+				Year:         item.Year,
+				Region:       item.Region,
+				Genres:       strings.Join(item.Genres, ", "),
+				Directors:    strings.Join(item.Directors, ", "),
+				Actors:       strings.Join(item.Actors, ", "),
+				PosterURL:    item.Pic.Normal,
+				Category:     "电视剧",
+				SubType:      "热门",
+				Source:       "douban",
+				DoubanID:     item.ID,
+				DoubanURI:    item.URI,
 			}
 
 			// 保存到数据库
 			if err := s.hotDramaRepo.Upsert(drama); err != nil {
 				log.Printf("保存电视剧数据失败: %v", err)
 			} else {
-				log.Printf("成功保存电视剧: %s", item.Title)
+				log.Printf("成功保存电视剧: %s (评分: %.1f, 年份: %s, 地区: %s)",
+					item.Title, item.Rating.Value, item.Year, item.Region)
 			}
 		}
 	}
