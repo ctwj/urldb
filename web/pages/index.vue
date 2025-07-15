@@ -26,13 +26,13 @@
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 right-4 top-0 absolute">
           <NuxtLink 
             to="/hot-dramas" 
-            class="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+            class="hidden sm:flex w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md transition-colors text-center items-center justify-center gap-2"
           >
             <i class="fas fa-film"></i> 热播剧
           </NuxtLink>
           <NuxtLink 
             to="/monitor" 
-            class="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+            class="hidden sm:flex w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors text-center items-center justify-center gap-2"
           >
             <i class="fas fa-chart-line"></i> 系统监控
           </NuxtLink>
@@ -46,7 +46,7 @@
           <NuxtLink 
             v-if="authInitialized && userStore.isAuthenticated"
             to="/admin" 
-            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+            class="hidden sm:flex w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center items-center justify-center gap-2"
           >
             <i class="fas fa-user-shield"></i> 管理后台
           </NuxtLink>
@@ -101,26 +101,30 @@
 
       <!-- 资源列表 -->
       <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow">
-        <table class="w-full">
+        <table class="w-full min-w-full table-fixed">
           <thead>
             <tr class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100">
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">
+              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm w-1/2 sm:w-2/5">
                 <div class="flex items-center">
                   <i class="fas fa-cloud mr-1 text-gray-300"></i> 文件名
                 </div>
               </th>
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell">链接</th>
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">更新时间</th>
+              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-1/5">链接</th>
+              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-2/5">更新时间</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
             <tr v-if="safeLoading" class="text-center py-8">
-              <td colspan="3" class="text-gray-500 dark:text-gray-400">
+              <td colspan="1" class="text-gray-500 dark:text-gray-400 sm:hidden">
+                <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
+              </td>
+              <td colspan="3" class="text-gray-500 dark:text-gray-400 hidden sm:table-cell">
                 <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
               </td>
             </tr>
             <tr v-else-if="safeResources.length === 0" class="text-center py-8">
-              <td colspan="3" class="text-gray-500 dark:text-gray-400">暂无数据</td>
+              <td colspan="1" class="text-gray-500 dark:text-gray-400 sm:hidden">暂无数据</td>
+              <td colspan="3" class="text-gray-500 dark:text-gray-400 hidden sm:table-cell">暂无数据</td>
             </tr>
             <tr 
               v-for="(resource, index) in visibleResources" 
@@ -129,45 +133,34 @@
               v-intersection="onIntersection"
               :data-index="index"
             >
-              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm">
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm w-1/2 sm:w-2/5">
                 <div class="flex items-start">
                   <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(getPlatformName(resource.pan_id || 0))"></span>
                   <span class="break-words">{{ resource.title }}</span>
                 </div>
-                <div class="sm:hidden mt-1">
+                <div class="sm:hidden mt-1 space-y-1">
+                  <!-- 移动端显示更新时间 -->
+                  <div class="text-xs text-gray-500" :title="resource.updated_at">
+                    <span v-html="formatRelativeTime(resource.updated_at)"></span>
+                  </div>
+                  <!-- 移动端显示链接按钮 -->
                   <button 
                     class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 show-link-btn" 
                     @click="toggleLink(resource)"
                   >
                     <i class="fas fa-eye"></i> 显示链接
                   </button>
-                  <a 
-                    v-if="resource.showLink" 
-                    :href="resource.url" 
-                    target="_blank" 
-                    class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline text-xs break-all"
-                  >
-                    {{ resource.url }}
-                  </a>
                 </div>
               </td>
-              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell">
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell w-1/5">
                 <button 
                   class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn" 
                   @click="toggleLink(resource)"
                 >
                   <i class="fas fa-eye"></i> 显示链接
                 </button>
-                <a 
-                  v-if="resource.showLink" 
-                  :href="resource.url" 
-                  target="_blank" 
-                  class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
-                >
-                  {{ resource.url }}
-                </a>
               </td>
-              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500" :title="resource.updated_at">
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500 hidden sm:table-cell w-2/5" :title="resource.updated_at">
                 <span v-html="formatRelativeTime(resource.updated_at)"></span>
               </td>
             </tr>
@@ -233,11 +226,18 @@
 
     </div>
 
+    <!-- 二维码模态框 -->
+    <QrCodeModal 
+      :visible="qrCodeVisible" 
+      :url="currentQrCodeUrl" 
+      @close="closeQrCode" 
+    />
+
     <!-- 页脚 -->
     <footer class="mt-auto py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
       <div class="max-w-7xl mx-auto text-center text-gray-600 dark:text-gray-400 text-sm px-3 sm:px-5">
         <p class="mb-2">本站内容由网络爬虫自动抓取。本站不储存、复制、传播任何文件，仅作个人公益学习，请在获取后24小内删除!!!</p>
-        <p>{{ systemConfig?.copyright || '© 2025 网盘资源管理系统 By 小七' }}</p>
+        <p>{{ systemConfig?.copyright || '© 2025 网盘资源管理系统 By 老九' }}</p>
       </div>
     </footer>
   </div>
@@ -504,6 +504,9 @@ const fetchSystemConfig = async () => {
 onMounted(async () => {
   console.log('首页 - onMounted 开始')
   
+  // 检测设备类型
+  detectDevice()
+  
   try {
     // 初始化store
     store = useResourceStore()
@@ -684,9 +687,70 @@ const getPlatformName = (platformId: number) => {
   return platform?.name || 'unknown'
 }
 
+// 二维码相关状态
+const qrCodeVisible = ref(false)
+const currentQrCodeUrl = ref('')
+const currentResource = ref<any>(null)
+
+// 检测是否为移动设备
+const isMobile = ref(false)
+
+// 检测设备类型
+const detectDevice = () => {
+  if (process.client) {
+    isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }
+}
+
+// 判断是否为夸克链接
+const isQuarkLink = (url: string) => {
+  return url.includes('pan.quark.cn') || url.includes('quark.cn')
+}
+
 // 切换链接显示
 const toggleLink = (resource: any) => {
-  resource.showLink = !resource.showLink
+  // 所有情况都显示二维码模态框
+  currentResource.value = resource
+  currentQrCodeUrl.value = resource.url
+  qrCodeVisible.value = true
+}
+
+// 显示二维码
+const showQrCode = (url: string) => {
+  currentQrCodeUrl.value = url
+  qrCodeVisible.value = true
+}
+
+// 关闭二维码
+const closeQrCode = () => {
+  qrCodeVisible.value = false
+  currentQrCodeUrl.value = ''
+  currentResource.value = null
+}
+
+// 复制链接
+const copyLink = async (url: string) => {
+  try {
+    await navigator.clipboard.writeText(url)
+    // 可以添加一个简单的提示
+    const button = event?.target as HTMLButtonElement
+    if (button) {
+      const originalText = button.innerHTML
+      button.innerHTML = '<i class="fas fa-check"></i> 已复制'
+      button.classList.add('bg-green-600')
+      setTimeout(() => {
+        button.innerHTML = originalText
+        button.classList.remove('bg-green-600')
+      }, 2000)
+    }
+  } catch (error) {
+    console.error('复制失败:', error)
+  }
+}
+
+// 跳转到链接
+const openLink = (url: string) => {
+  window.open(url, '_blank')
 }
 
 // 格式化相对时间
