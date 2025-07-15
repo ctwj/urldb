@@ -18,26 +18,33 @@ type Scheduler struct {
 	readyResourceRepo    repo.ReadyResourceRepository
 	resourceRepo         repo.ResourceRepository
 	systemConfigRepo     repo.SystemConfigRepository
+	panRepo              repo.PanRepository
 	stopChan             chan bool
 	isRunning            bool
 	readyResourceRunning bool
 	processingMutex      sync.Mutex // 防止ready_resource任务重叠执行
 	hotDramaMutex        sync.Mutex // 防止热播剧任务重叠执行
+
+	// 平台映射缓存
+	panCache     map[string]*uint // serviceType -> panID
+	panCacheOnce sync.Once
 }
 
 // NewScheduler 创建新的定时任务管理器
-func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository) *Scheduler {
+func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository) *Scheduler {
 	return &Scheduler{
 		doubanService:        NewDoubanService(),
 		hotDramaRepo:         hotDramaRepo,
 		readyResourceRepo:    readyResourceRepo,
 		resourceRepo:         resourceRepo,
 		systemConfigRepo:     systemConfigRepo,
+		panRepo:              panRepo,
 		stopChan:             make(chan bool),
 		isRunning:            false,
 		readyResourceRunning: false,
 		processingMutex:      sync.Mutex{},
 		hotDramaMutex:        sync.Mutex{},
+		panCache:             make(map[string]*uint),
 	}
 }
 
@@ -208,8 +215,17 @@ func (s *Scheduler) StartReadyResourceScheduler() {
 	log.Println("启动待处理资源自动处理任务")
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute) // 每5分钟检查一次
+		// 获取系统配置中的间隔时间
+		config, err := s.systemConfigRepo.GetOrCreateDefault()
+		interval := 5 * time.Minute // 默认5分钟
+		if err == nil && config.AutoProcessInterval > 0 {
+			interval = time.Duration(config.AutoProcessInterval) * time.Minute
+		}
+
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
+		log.Printf("待处理资源自动处理任务已启动，间隔时间: %v", interval)
 
 		// 立即执行一次
 		s.processReadyResources()
@@ -399,7 +415,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 			Title:       title,
 			Description: readyResource.Description,
 			URL:         shareURL,
-			PanID:       s.determinePanID(readyResource.URL),
+			PanID:       s.getPanIDByServiceType(serviceType),
 			IsValid:     true,
 			IsPublic:    true,
 		}
@@ -419,32 +435,76 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 	return nil
 }
 
-// determinePanID 根据URL确定平台ID
-func (s *Scheduler) determinePanID(url string) *uint {
-	url = strings.ToLower(url)
-
-	// 这里可以根据你的平台配置来判断
-	// 示例逻辑，你需要根据实际情况调整
-	if strings.Contains(url, "pan.baidu.com") {
-		panID := uint(1) // 百度网盘
-		return &panID
-	} else if strings.Contains(url, "www.aliyundrive.com") {
-		panID := uint(2) // 阿里云盘
-		return &panID
-	} else if strings.Contains(url, "pan.quark.cn") {
-		panID := uint(3) // 夸克网盘
-		return &panID
-	}
-
-	return nil
-}
-
 // getOrCreateCategory 获取或创建分类
 func (s *Scheduler) getOrCreateCategory(categoryName string) (uint, error) {
 	// 这里需要实现分类的查找和创建逻辑
 	// 由于没有CategoryRepository的注入，这里先返回0
 	// 你可以根据需要添加CategoryRepository的依赖
 	return 0, nil
+}
+
+// initPanCache 初始化平台映射缓存
+func (s *Scheduler) initPanCache() {
+	s.panCacheOnce.Do(func() {
+		// 获取所有平台数据
+		pans, err := s.panRepo.FindAll()
+		if err != nil {
+			log.Printf("初始化平台缓存失败: %v", err)
+			return
+		}
+
+		// 建立 ServiceType 到 PanID 的映射
+		serviceTypeToPanName := map[string]string{
+			"quark":   "quark",
+			"alipan":  "aliyun", // 阿里云盘在数据库中的名称是 aliyun
+			"baidu":   "baidu",
+			"uc":      "uc",
+			"unknown": "other",
+		}
+
+		// 创建平台名称到ID的映射
+		panNameToID := make(map[string]*uint)
+		for _, pan := range pans {
+			panID := pan.ID
+			panNameToID[pan.Name] = &panID
+		}
+
+		// 建立 ServiceType 到 PanID 的映射
+		for serviceType, panName := range serviceTypeToPanName {
+			if panID, exists := panNameToID[panName]; exists {
+				s.panCache[serviceType] = panID
+				log.Printf("平台映射缓存: %s -> %s (ID: %d)", serviceType, panName, *panID)
+			} else {
+				log.Printf("警告: 未找到平台 %s 对应的数据库记录", panName)
+			}
+		}
+
+		// 确保有默认的 other 平台
+		if otherID, exists := panNameToID["other"]; exists {
+			s.panCache["unknown"] = otherID
+		}
+
+		log.Printf("平台映射缓存初始化完成，共 %d 个映射", len(s.panCache))
+	})
+}
+
+// getPanIDByServiceType 根据服务类型获取平台ID
+func (s *Scheduler) getPanIDByServiceType(serviceType panutils.ServiceType) *uint {
+	s.initPanCache()
+
+	serviceTypeStr := serviceType.String()
+	if panID, exists := s.panCache[serviceTypeStr]; exists {
+		return panID
+	}
+
+	// 如果找不到，返回 other 平台的ID
+	if otherID, exists := s.panCache["other"]; exists {
+		log.Printf("未找到服务类型 %s 的映射，使用默认平台 other", serviceTypeStr)
+		return otherID
+	}
+
+	log.Printf("未找到服务类型 %s 的映射，且没有默认平台，返回nil", serviceTypeStr)
+	return nil
 }
 
 // IsReadyResourceRunning 检查待处理资源自动处理任务是否在运行

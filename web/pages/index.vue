@@ -168,7 +168,7 @@
                 </a>
               </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500" :title="resource.updated_at">
-                {{ formatRelativeTime(resource.updated_at) }}
+                <span v-html="formatRelativeTime(resource.updated_at)"></span>
               </td>
             </tr>
           </tbody>
@@ -231,13 +231,6 @@
       </div>
     </div>
 
-    <!-- 添加资源模态框 -->
-    <!-- <ResourceModal
-      v-if="showAddResourceModal"
-      :resource="editingResource"
-      @close="closeModal"
-      @save="handleSaveResource"
-    /> -->
     </div>
 
     <!-- 页脚 -->
@@ -259,10 +252,10 @@ const pageLoading = ref(true) // 添加页面加载状态
 const systemConfig = ref<SystemConfig | null>(null) // 添加系统配置状态
 
 // 虚拟滚动相关
-const visibleResources = ref<any[]>([])
+const visibleResources = computed(() => safeResources.value)
 const hasMoreData = ref(true)
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(100) // 修改为100条数据
 const isLoadingMore = ref(false)
 
 // 延迟初始化store，避免SSR过程中的错误
@@ -271,7 +264,6 @@ let userStore: any = null
 
 // 本地状态管理，避免SSR过程中的store访问
 const localResources = ref<any[]>([])
-const localCategories = ref<any[]>([])
 const localStats = ref<any>({ total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 })
 const localLoading = ref(false)
 
@@ -293,12 +285,12 @@ const safeCategories = computed(() => {
   try {
     if (process.client && store) {
       const storeRefs = storeToRefs(store)
-      return (storeRefs as any).categories?.value || localCategories.value
+      return (storeRefs as any).categories?.value || []
     }
-    return localCategories.value
+    return []
   } catch (error) {
     console.error('获取categories时出错:', error)
-    return localCategories.value
+    return []
   }
 })
 
@@ -534,11 +526,21 @@ onMounted(async () => {
     // 使用Promise.race来添加超时机制，并优化请求顺序
     try {
       // 首先加载最重要的数据（资源列表）
-      const resourcesPromise = store.fetchResources().then((data: any) => {
-        localResources.value = data.resources || []
+      const resourcesPromise = store.fetchResources({
+        page: 1,
+        page_size: 100
+      }).then((data: any) => {
+        console.log('首页 - 资源数据:', data)
+        // 从store中获取数据，而不是从返回的data中获取
+        if (store && store.resources) {
+          localResources.value = store.resources || []
+        } else {
+          localResources.value = data?.resources || []
+        }
         return data
       }).catch((e: any) => {
         console.error('获取资源失败:', e)
+        localResources.value = []
         return { resources: [] }
       })
       
@@ -547,13 +549,6 @@ onMounted(async () => {
       
       // 然后并行加载其他数据
       const otherDataPromise = Promise.allSettled([
-        store.fetchCategories().then((data: any) => {
-          localCategories.value = data.categories || []
-          return data
-        }).catch((e: any) => {
-          console.error('获取分类失败:', e)
-          return { categories: [] }
-        }),
         store.fetchStats().then((data: any) => {
           localStats.value = data || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0 }
           return data
@@ -604,20 +599,50 @@ const fetchPlatforms = async () => {
 }
 
 // 搜索处理
-const handleSearch = () => {
+const handleSearch = async () => {
   try {
     if (!store || !process.client) {
       console.error('store未初始化或不在客户端')
       return
     }
+    
     const platformId = selectedPlatform.value ? parseInt(selectedPlatform.value) : undefined
-    store.searchResources(searchQuery.value, platformId).then((data: any) => {
-      localResources.value = data.resources || []
-    }).catch((error: any) => {
-      console.error('搜索失败:', error)
-    })
+    
+    // 使用标准的资源API，传递pan_id参数
+    const { useResourceApi } = await import('~/composables/useApi')
+    const resourceApi = useResourceApi()
+    const params: any = {
+      page: 1,
+      page_size: 100
+    }
+    
+    if (platformId) {
+      params.pan_id = platformId
+    }
+    
+    if (searchQuery.value) {
+      params.search = searchQuery.value
+    }
+    
+    console.log('搜索参数:', params)
+    const response = await resourceApi.getResources(params) as any
+    console.log('搜索结果:', response)
+    
+    // 强制设置搜索结果到store，确保显示正确
+    if (store && store.setResources) {
+      store.setResources(response.resources || [])
+    } else {
+      // 如果没有setResources方法，直接设置localResources
+      localResources.value = response.resources || []
+    }
   } catch (error) {
     console.error('搜索处理时出错:', error)
+    // 出错时也要清空结果
+    if (store && store.setResources) {
+      store.setResources([])
+    } else {
+      localResources.value = []
+    }
   }
 }
 
@@ -688,15 +713,15 @@ const formatRelativeTime = (dateString: string) => {
       return `<span class="text-pink-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>${diffHour}小时前</span>`
     }
   } else if (diffDay < 1) {
-    return `${diffHour}小时前`
+    return `<span class="text-gray-600">${diffHour}小时前</span>`
   } else if (diffDay < 7) {
-    return `${diffDay}天前`
+    return `<span class="text-gray-600">${diffDay}天前</span>`
   } else if (diffWeek < 4) {
-    return `${diffWeek}周前`
+    return `<span class="text-gray-600">${diffWeek}周前</span>`
   } else if (diffMonth < 12) {
-    return `${diffMonth}个月前`
+    return `<span class="text-gray-600">${diffMonth}个月前</span>`
   } else {
-    return `${diffYear}年前`
+    return `<span class="text-gray-600">${diffYear}年前</span>`
   }
 }
 

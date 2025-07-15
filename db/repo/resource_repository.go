@@ -20,6 +20,7 @@ type ResourceRepository interface {
 	FindByIsValid(isValid bool) ([]entity.Resource, error)
 	FindByIsPublic(isPublic bool) ([]entity.Resource, error)
 	Search(query string, categoryID *uint, page, limit int) ([]entity.Resource, int64, error)
+	SearchByPanID(query string, panID uint, page, limit int) ([]entity.Resource, int64, error)
 	IncrementViewCount(id uint) error
 	FindWithTags() ([]entity.Resource, error)
 	UpdateWithTags(resource *entity.Resource, tagIDs []uint) error
@@ -99,7 +100,7 @@ func (r *ResourceRepositoryImpl) FindByCategoryIDPaginated(categoryID uint, page
 	var total int64
 
 	offset := (page - 1) * limit
-	db := r.db.Model(&entity.Resource{}).Where("category_id = ?", categoryID).Preload("Category").Preload("Tags")
+	db := r.db.Model(&entity.Resource{}).Where("category_id = ?", categoryID).Preload("Category").Preload("Tags").Order("updated_at DESC")
 
 	// 获取总数
 	if err := db.Count(&total).Error; err != nil {
@@ -124,7 +125,7 @@ func (r *ResourceRepositoryImpl) FindByPanIDPaginated(panID uint, page, limit in
 	var total int64
 
 	offset := (page - 1) * limit
-	db := r.db.Model(&entity.Resource{}).Where("pan_id = ?", panID).Preload("Category").Preload("Tags")
+	db := r.db.Model(&entity.Resource{}).Where("pan_id = ?", panID).Preload("Category").Preload("Tags").Order("updated_at DESC")
 
 	// 获取总数
 	if err := db.Count(&total).Error; err != nil {
@@ -172,8 +173,31 @@ func (r *ResourceRepositoryImpl) Search(query string, categoryID *uint, page, li
 		return nil, 0, err
 	}
 
-	// 获取分页数据
-	err := db.Offset(offset).Limit(limit).Find(&resources).Error
+	// 获取分页数据，按更新时间倒序
+	err := db.Order("updated_at DESC").Offset(offset).Limit(limit).Find(&resources).Error
+	return resources, total, err
+}
+
+// SearchByPanID 在指定平台内搜索资源
+func (r *ResourceRepositoryImpl) SearchByPanID(query string, panID uint, page, limit int) ([]entity.Resource, int64, error) {
+	var resources []entity.Resource
+	var total int64
+
+	offset := (page - 1) * limit
+	db := r.db.Model(&entity.Resource{}).Preload("Category").Preload("Tags").Where("pan_id = ?", panID)
+
+	// 构建查询条件
+	if query != "" {
+		db = db.Where("title ILIKE ? OR description ILIKE ?", "%"+query+"%", "%"+query+"%")
+	}
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据，按更新时间倒序
+	err := db.Order("updated_at DESC").Offset(offset).Limit(limit).Find(&resources).Error
 	return resources, total, err
 }
 

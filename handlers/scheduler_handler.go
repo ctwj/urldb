@@ -14,6 +14,7 @@ func GetSchedulerStatus(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 
 	status := gin.H{
@@ -31,6 +32,7 @@ func StartHotDramaScheduler(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 	if scheduler.IsHotDramaSchedulerRunning() {
 		ErrorResponse(c, "热播剧定时任务已在运行中", http.StatusBadRequest)
@@ -47,6 +49,7 @@ func StopHotDramaScheduler(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 	if !scheduler.IsHotDramaSchedulerRunning() {
 		ErrorResponse(c, "热播剧定时任务未在运行", http.StatusBadRequest)
@@ -63,6 +66,7 @@ func TriggerHotDramaScheduler(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 	scheduler.StartHotDramaScheduler() // 直接启动一次
 	SuccessResponse(c, gin.H{"message": "手动触发热播剧定时任务成功"})
@@ -75,6 +79,7 @@ func FetchHotDramaNames(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 	names, err := scheduler.GetHotDramaNames()
 	if err != nil {
@@ -91,6 +96,7 @@ func StartReadyResourceScheduler(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 	if scheduler.IsReadyResourceRunning() {
 		ErrorResponse(c, "待处理资源自动处理任务已在运行中", http.StatusBadRequest)
@@ -107,6 +113,7 @@ func StopReadyResourceScheduler(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 	if !scheduler.IsReadyResourceRunning() {
 		ErrorResponse(c, "待处理资源自动处理任务未在运行", http.StatusBadRequest)
@@ -123,6 +130,7 @@ func TriggerReadyResourceScheduler(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 	// 手动触发一次处理
 	scheduler.ProcessReadyResources()

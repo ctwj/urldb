@@ -18,10 +18,10 @@ var (
 )
 
 // GetGlobalScheduler 获取全局调度器实例（单例模式）
-func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository) *GlobalScheduler {
+func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository) *GlobalScheduler {
 	once.Do(func() {
 		globalScheduler = &GlobalScheduler{
-			scheduler: NewScheduler(hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo),
+			scheduler: NewScheduler(hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo, panRepo),
 		}
 	})
 	return globalScheduler
@@ -110,10 +110,11 @@ func (gs *GlobalScheduler) ProcessReadyResources() {
 }
 
 // UpdateSchedulerStatus 根据系统配置更新调度器状态
-func (gs *GlobalScheduler) UpdateSchedulerStatus(autoFetchHotDramaEnabled bool) {
+func (gs *GlobalScheduler) UpdateSchedulerStatus(autoFetchHotDramaEnabled bool, autoProcessReadyResources bool) {
 	gs.mutex.Lock()
 	defer gs.mutex.Unlock()
 
+	// 处理热播剧自动拉取功能
 	if autoFetchHotDramaEnabled {
 		if !gs.scheduler.IsRunning() {
 			log.Println("系统配置启用自动拉取热播剧，启动定时任务")
@@ -123,6 +124,19 @@ func (gs *GlobalScheduler) UpdateSchedulerStatus(autoFetchHotDramaEnabled bool) 
 		if gs.scheduler.IsRunning() {
 			log.Println("系统配置禁用自动拉取热播剧，停止定时任务")
 			gs.scheduler.StopHotDramaScheduler()
+		}
+	}
+
+	// 处理待处理资源自动处理功能
+	if autoProcessReadyResources {
+		if !gs.scheduler.IsReadyResourceRunning() {
+			log.Println("系统配置启用自动处理待处理资源，启动定时任务")
+			gs.scheduler.StartReadyResourceScheduler()
+		}
+	} else {
+		if gs.scheduler.IsReadyResourceRunning() {
+			log.Println("系统配置禁用自动处理待处理资源，停止定时任务")
+			gs.scheduler.StopReadyResourceScheduler()
 		}
 	}
 }

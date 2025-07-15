@@ -60,12 +60,40 @@ export const useResourceStore = defineStore('resource', {
       this.loading = true
       try {
         const { getResources } = useResourceApi()
-        const data = await getResources(params)
-        this.resources = data.resources
-        this.currentPage = data.page
-        this.totalPages = Math.ceil(data.total / data.limit)
+        // 确保有默认参数
+        const defaultParams = {
+          page: 1,
+          page_size: 100,
+          ...params
+        }
+        console.log('fetchResources - 请求参数:', defaultParams)
+        const data = await getResources(defaultParams) as any
+        console.log('fetchResources - 返回数据:', data)
+        
+        // 添加更详细的错误检查
+        if (!data) {
+          console.error('fetchResources - 数据为空')
+          this.resources = []
+          return
+        }
+        
+        if (!data.resources) {
+          console.error('fetchResources - 缺少resources字段:', data)
+          this.resources = []
+          return
+        }
+        
+        this.resources = data.resources || []
+        this.currentPage = data.page || 1
+        this.totalPages = Math.ceil((data.total || 0) / (data.page_size || 100))
+        console.log('fetchResources - 设置成功:', {
+          resourcesCount: this.resources.length,
+          currentPage: this.currentPage,
+          totalPages: this.totalPages
+        })
       } catch (error) {
         console.error('获取资源失败:', error)
+        this.resources = []
       } finally {
         this.loading = false
       }
@@ -74,7 +102,7 @@ export const useResourceStore = defineStore('resource', {
     async fetchCategories() {
       try {
         const { getCategories } = useCategoryApi()
-        this.categories = await getCategories()
+        this.categories = await getCategories() as any
       } catch (error) {
         console.error('获取分类失败:', error)
       }
@@ -83,7 +111,7 @@ export const useResourceStore = defineStore('resource', {
     async fetchStats() {
       try {
         const { getStats } = useStatsApi()
-        this.stats = await getStats()
+        this.stats = await getStats() as any
       } catch (error) {
         console.error('获取统计失败:', error)
       }
@@ -94,8 +122,8 @@ export const useResourceStore = defineStore('resource', {
       try {
         const { searchResources } = useResourceApi()
         const params = { q: query, category_id: categoryId }
-        const data = await searchResources(params)
-        this.resources = data.resources
+        const data = await searchResources(params) as any
+        this.resources = data.resources || []
         this.searchQuery = query
         this.selectedCategory = categoryId || null
       } catch (error) {
@@ -169,6 +197,12 @@ export const useResourceStore = defineStore('resource', {
         console.error('删除分类失败:', error)
         throw error
       }
+    },
+
+    // 直接设置资源列表，用于搜索结果显示
+    setResources(resources: Resource[]) {
+      this.resources = resources
+      console.log('setResources - 设置资源:', resources.length)
     },
 
     clearSearch() {

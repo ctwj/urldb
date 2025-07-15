@@ -35,6 +35,7 @@ func main() {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 
 	// 检查系统配置，决定是否启动待处理资源自动处理任务

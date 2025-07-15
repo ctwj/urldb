@@ -139,9 +139,10 @@ func UpdateSystemConfig(c *gin.Context) {
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
 	)
 	if scheduler != nil {
-		scheduler.UpdateSchedulerStatus(req.AutoFetchHotDramaEnabled)
+		scheduler.UpdateSchedulerStatus(req.AutoFetchHotDramaEnabled, req.AutoProcessReadyResources)
 	}
 
 	// 返回更新后的配置

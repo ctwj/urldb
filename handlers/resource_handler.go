@@ -16,6 +16,7 @@ func GetResources(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	categoryID := c.Query("category_id")
+	panID := c.Query("pan_id")
 	search := c.Query("search")
 
 	var resources []entity.Resource
@@ -25,9 +26,19 @@ func GetResources(c *gin.Context) {
 	// 设置响应头，启用缓存
 	c.Header("Cache-Control", "public, max-age=300") // 5分钟缓存
 
-	if search != "" {
+	if search != "" && panID != "" {
+		// 平台内搜索
+		panIDUint, _ := strconv.ParseUint(panID, 10, 32)
+		resources, total, err = repoManager.ResourceRepository.SearchByPanID(search, uint(panIDUint), page, pageSize)
+	} else if search != "" {
+		// 全局搜索
 		resources, total, err = repoManager.ResourceRepository.Search(search, nil, page, pageSize)
+	} else if panID != "" {
+		// 按平台筛选
+		panIDUint, _ := strconv.ParseUint(panID, 10, 32)
+		resources, total, err = repoManager.ResourceRepository.FindByPanIDPaginated(uint(panIDUint), page, pageSize)
 	} else if categoryID != "" {
+		// 按分类筛选
 		categoryIDUint, _ := strconv.ParseUint(categoryID, 10, 32)
 		resources, total, err = repoManager.ResourceRepository.FindByCategoryIDPaginated(uint(categoryIDUint), page, pageSize)
 	} else {
