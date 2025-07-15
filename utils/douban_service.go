@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/json"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -84,15 +83,19 @@ func NewDoubanService() *DoubanService {
 	client := resty.New()
 	client.SetTimeout(30 * time.Second)
 	client.SetHeaders(map[string]string{
-		"User-Agent":      "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
-		"Referer":         "https://m.douban.com/",
-		"Accept":          "application/json, text/plain, */*",
-		"Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-		"Accept-Encoding": "gzip, deflate",
-		"Connection":      "keep-alive",
-		"Sec-Fetch-Dest":  "empty",
-		"Sec-Fetch-Mode":  "cors",
-		"Sec-Fetch-Site":  "same-origin",
+		"User-Agent":       "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+		"Referer":          "https://m.douban.com/",
+		"Accept":           "application/json, text/plain, */*",
+		"Accept-Language":  "zh-CN,zh;q=0.9,en;q=0.8",
+		"Accept-Encoding":  "gzip, deflate",
+		"Connection":       "keep-alive",
+		"Sec-Fetch-Dest":   "empty",
+		"Sec-Fetch-Mode":   "cors",
+		"Sec-Fetch-Site":   "same-origin",
+		"Cache-Control":    "no-cache",
+		"Pragma":           "no-cache",
+		"X-Requested-With": "XMLHttpRequest",
+		"Origin":           "https://m.douban.com",
 	})
 
 	// 启用自动解压缩
@@ -101,42 +104,10 @@ func NewDoubanService() *DoubanService {
 	client.SetRetryWaitTime(1 * time.Second)
 	client.SetRetryMaxWaitTime(5 * time.Second)
 
-	// 初始化电影榜单配置
-	movieCategories := map[string]map[string]map[string]string{
-		"热门电影": {
-			"全部": {"category": "热门", "type": "全部"},
-			"华语": {"category": "热门", "type": "华语"},
-			"欧美": {"category": "热门", "type": "欧美"},
-			"韩国": {"category": "热门", "type": "韩国"},
-			"日本": {"category": "热门", "type": "日本"},
-		},
-		"最新电影": {
-			"全部": {"category": "最新", "type": "全部"},
-			"华语": {"category": "最新", "type": "华语"},
-			"欧美": {"category": "最新", "type": "欧美"},
-			"韩国": {"category": "最新", "type": "韩国"},
-			"日本": {"category": "最新", "type": "日本"},
-		},
-		"豆瓣高分": {
-			"全部": {"category": "豆瓣高分", "type": "全部"},
-			"华语": {"category": "豆瓣高分", "type": "华语"},
-			"欧美": {"category": "豆瓣高分", "type": "欧美"},
-			"韩国": {"category": "豆瓣高分", "type": "韩国"},
-			"日本": {"category": "豆瓣高分", "type": "日本"},
-		},
-		"冷门佳片": {
-			"全部": {"category": "冷门佳片", "type": "全部"},
-			"华语": {"category": "冷门佳片", "type": "华语"},
-			"欧美": {"category": "冷门佳片", "type": "欧美"},
-			"韩国": {"category": "冷门佳片", "type": "韩国"},
-			"日本": {"category": "冷门佳片", "type": "日本"},
-		},
-	}
-
 	// 初始化剧集榜单配置
 	tvCategories := map[string]map[string]map[string]string{
 		"最近热门剧集": {
-			"综合":  {"category": "tv", "type": "tv"},
+			// "综合":  {"category": "tv", "type": "tv"},
 			"国产剧": {"category": "tv", "type": "tv_domestic"},
 			"欧美剧": {"category": "tv", "type": "tv_american"},
 			"日剧":  {"category": "tv", "type": "tv_japanese"},
@@ -145,64 +116,32 @@ func NewDoubanService() *DoubanService {
 			"纪录片": {"category": "tv", "type": "tv_documentary"},
 		},
 		"最近热门综艺": {
-			"综合": {"category": "show", "type": "show"},
+			// "综合": {"category": "show", "type": "show"},
 			"国内": {"category": "show", "type": "show_domestic"},
 			"国外": {"category": "show", "type": "show_foreign"},
 		},
 	}
 
 	return &DoubanService{
-		baseURL:         "https://m.douban.com/rexxar/api/v2",
-		client:          client,
-		MovieCategories: movieCategories,
-		TvCategories:    tvCategories,
+		baseURL:      "https://m.douban.com/rexxar/api/v2",
+		client:       client,
+		TvCategories: tvCategories,
 	}
 }
 
-// GetMovieRanking 获取电影榜单数据
-func (ds *DoubanService) GetMovieRanking(category, rankingType string, start, limit int) (*DoubanResult, error) {
-	log.Printf("=== 开始获取电影榜单 ===")
-	log.Printf("参数: category=%s, rankingType=%s, start=%d, limit=%d", category, rankingType, start, limit)
-
-	// 如果limit为0，表示获取全部数据
-	if limit == 0 {
-		log.Printf("检测到limit=0，将尝试获取全部数据")
-		// 先获取第一页来确定总数
-		firstPageResult, err := ds.getMovieRankingPage(category, rankingType, 0, 50)
-		if err != nil {
-			log.Printf("获取第一页失败: %v", err)
-			return nil, err
-		}
-
-		if firstPageResult.Success && firstPageResult.Data != nil {
-			total := firstPageResult.Data.Total
-			log.Printf("检测到总数为: %d，将一次性获取全部数据", total)
-			return ds.getMovieRankingPage(category, rankingType, 0, total)
-		}
-	}
-
-	return ds.getMovieRankingPage(category, rankingType, start, limit)
-}
-
-// getMovieRankingPage 获取电影榜单数据（实际API调用）
-func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start, limit int) (*DoubanResult, error) {
+// GetTypePage 获取指定类型的数据
+func (ds *DoubanService) GetTypePage(category, rankingType string) (*DoubanResult, error) {
 	// 构建请求参数
 	params := map[string]string{
-		"start": strconv.Itoa(start),
-		"limit": strconv.Itoa(limit),
-	}
-
-	// 根据不同的category和type添加特定参数
-	// 电影API需要明确指定category和type参数
-	if category != "" {
-		params["category"] = category
-	}
-	if rankingType != "" {
-		params["type"] = rankingType
+		"start":  "0",
+		"limit":  "50",
+		"os":     "window",
+		"_":      "0",
+		"loc_id": "108288",
 	}
 
 	log.Printf("请求参数: %+v", params)
-	log.Printf("请求URL: %s/subject/recent_hot/movie", ds.baseURL)
+	log.Printf("请求URL: %s/subject_collection/%s/items", ds.baseURL, rankingType)
 
 	var response *resty.Response
 	var err error
@@ -211,33 +150,20 @@ func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start
 	log.Printf("开始发送HTTP请求...")
 	response, err = ds.client.R().
 		SetQueryParams(params).
-		Get(ds.baseURL + "/subject/recent_hot/movie")
+		Get(ds.baseURL + "/subject_collection/" + rankingType + "/items")
 
 	if err != nil {
 		log.Printf("=== 豆瓣API调用失败 ===")
 		log.Printf("错误详情: %v", err)
-		log.Printf("错误类型: %T", err)
-
-		// 如果豆瓣API调用失败，使用模拟数据
-		log.Printf("使用模拟数据作为备选方案")
-		mockData := ds.getMockMovieData()
-		mockData.IsMockData = true
-		mockData.MockReason = "API调用失败"
-
 		return &DoubanResult{
-			Success: true,
-			Data:    mockData,
+			Success: false,
+			Message: "API调用失败: " + err.Error(),
 		}, nil
 	}
 
 	log.Printf("=== HTTP请求成功 ===")
 	log.Printf("响应状态码: %d", response.StatusCode())
-	log.Printf("响应头: %+v", response.Header())
 	log.Printf("响应体长度: %d bytes", len(response.Body()))
-
-	// 检查响应是否被压缩
-	contentEncoding := response.Header().Get("Content-Encoding")
-	log.Printf("内容编码: %s", contentEncoding)
 
 	// 记录响应体的前500个字符用于调试
 	responseBody := string(response.Body())
@@ -252,13 +178,9 @@ func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start
 	// 检查响应体是否包含有效JSON
 	if len(responseBody) == 0 {
 		log.Printf("=== 响应体为空 ===")
-		mockData := ds.getMockMovieData()
-		mockData.IsMockData = true
-		mockData.MockReason = "响应体为空"
-
 		return &DoubanResult{
-			Success: true,
-			Data:    mockData,
+			Success: false,
+			Message: "响应体为空",
 		}, nil
 	}
 
@@ -272,23 +194,15 @@ func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start
 		// 尝试检查是否是HTML错误页面
 		if len(responseBody) > 100 && (strings.Contains(responseBody, "<html>") || strings.Contains(responseBody, "<!DOCTYPE")) {
 			log.Printf("检测到HTML响应，可能是错误页面")
-			mockData := ds.getMockMovieData()
-			mockData.IsMockData = true
-			mockData.MockReason = "返回HTML错误页面"
-
 			return &DoubanResult{
-				Success: true,
-				Data:    mockData,
+				Success: false,
+				Message: "返回HTML错误页面",
 			}, nil
 		}
 
-		mockData := ds.getMockMovieData()
-		mockData.IsMockData = true
-		mockData.MockReason = "解析API响应失败"
-
 		return &DoubanResult{
-			Success: true,
-			Data:    mockData,
+			Success: false,
+			Message: "解析API响应失败: " + err.Error(),
 		}, nil
 	}
 
@@ -296,7 +210,7 @@ func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start
 	log.Printf("解析后的数据结构: %+v", apiResponse)
 
 	// 打印完整的API响应JSON
-	log.Printf("=== 完整电影API响应JSON ===")
+	log.Printf("=== 完整API响应JSON ===")
 	if responseBytes, err := json.MarshalIndent(apiResponse, "", "  "); err == nil {
 		log.Printf("完整响应:\n%s", string(responseBytes))
 	} else {
@@ -307,33 +221,27 @@ func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start
 	items := ds.extractItems(apiResponse)
 	categories := ds.extractCategories(apiResponse)
 
-	log.Printf("提取到的电影数量: %d", len(items))
+	log.Printf("提取到的数据数量: %d", len(items))
 	log.Printf("提取到的分类数量: %d", len(categories))
 
-	// 如果没有获取到真实数据，使用模拟数据
-	isMockData := false
-	mockReason := ""
-
+	// 如果没有获取到真实数据，返回空结果
 	if len(items) == 0 {
-		log.Printf("=== API返回空数据，使用模拟数据 ===")
-		mockData := ds.getMockMovieData()
-		items = mockData.Items
-		isMockData = true
-		mockReason = "API返回空数据"
+		log.Printf("=== API返回空数据 ===")
+		return &DoubanResult{
+			Success: true,
+			Data: &DoubanResponse{
+				Items:      []DoubanItem{},
+				Total:      0,
+				Categories: []DoubanCategory{},
+			},
+		}, nil
 	}
 
-	// 如果没有获取到categories，使用默认的电影分类
+	// 如果没有获取到categories，使用默认分类
 	if len(categories) == 0 {
-		log.Printf("=== 使用默认电影分类 ===")
+		log.Printf("=== 使用默认分类 ===")
 		categories = []DoubanCategory{
-			{Category: "热门", Selected: true, Type: "全部", Title: "热门"},
-			{Category: "最新", Selected: false, Type: "全部", Title: "最新"},
-			{Category: "豆瓣高分", Selected: false, Type: "全部", Title: "豆瓣高分"},
-			{Category: "冷门佳片", Selected: false, Type: "全部", Title: "冷门佳片"},
-			{Category: "热门", Selected: false, Type: "华语", Title: "华语"},
-			{Category: "热门", Selected: false, Type: "欧美", Title: "欧美"},
-			{Category: "热门", Selected: false, Type: "韩国", Title: "韩国"},
-			{Category: "热门", Selected: false, Type: "日本", Title: "日本"},
+			{Category: category, Selected: true, Type: rankingType, Title: rankingType},
 		}
 	}
 
@@ -342,30 +250,31 @@ func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start
 		categories[i].Selected = categories[i].Category == category && categories[i].Type == rankingType
 	}
 
-	// 限制返回数量
+	// 限制返回数量（最多50条）
+	limit := 50
 	if len(items) > limit {
 		log.Printf("限制返回数量从 %d 到 %d", len(items), limit)
 		items = items[:limit]
 	}
 
+	// 获取总数，优先使用API返回的total字段
+	total := len(items)
+	if totalData, ok := apiResponse["total"]; ok {
+		if totalFloat, ok := totalData.(float64); ok {
+			total = int(totalFloat)
+		}
+	}
+
 	result := &DoubanResponse{
 		Items:      items,
-		Total:      len(items),
+		Total:      total,
 		Categories: categories,
-		IsMockData: isMockData,
-		MockReason: mockReason,
+		IsMockData: false,
+		MockReason: "",
 	}
 
-	if isMockData {
-		result.Notice = "⚠️ 这是模拟数据，非豆瓣实时数据"
-	}
-
-	log.Printf("=== 电影榜单获取完成 ===")
-	log.Printf("最终返回电影数量: %d", len(items))
-	log.Printf("是否使用模拟数据: %v", isMockData)
-	if isMockData {
-		log.Printf("模拟数据原因: %s", mockReason)
-	}
+	log.Printf("=== 数据获取完成 ===")
+	log.Printf("最终返回数据数量: %d", len(items))
 
 	return &DoubanResult{
 		Success: true,
@@ -373,333 +282,82 @@ func (ds *DoubanService) getMovieRankingPage(category, rankingType string, start
 	}, nil
 }
 
-// GetTvRanking 获取电视剧榜单数据
-func (ds *DoubanService) GetTvRanking(category, rankingType string, start, limit int) (*DoubanResult, error) {
-	log.Printf("=== 开始获取电视剧榜单 ===")
-	log.Printf("参数: category=%s, rankingType=%s, start=%d, limit=%d", category, rankingType, start, limit)
-
-	// 如果limit为0，表示获取全部数据
-	if limit == 0 {
-		log.Printf("检测到limit=0，将尝试获取全部数据")
-		// 先获取第一页来确定总数
-		firstPageResult, err := ds.getTvRankingPage(category, rankingType, 0, 50)
-		if err != nil {
-			log.Printf("获取第一页失败: %v", err)
-			return nil, err
-		}
-
-		if firstPageResult.Success && firstPageResult.Data != nil {
-			total := firstPageResult.Data.Total
-			log.Printf("检测到总数为: %d，将一次性获取全部数据", total)
-			return ds.getTvRankingPage(category, rankingType, 0, total)
-		}
-	}
-
-	return ds.getTvRankingPage(category, rankingType, start, limit)
-}
-
-// getTvRankingPage 获取电视剧榜单数据（实际API调用）
-func (ds *DoubanService) getTvRankingPage(category, rankingType string, start, limit int) (*DoubanResult, error) {
-	// 构建请求参数
+// GetTvByType 获取指定type的全部剧集数据
+func (ds *DoubanService) GetTvByType(tvType string) ([]map[string]interface{}, error) {
+	url := ds.baseURL + "/subject_collection/" + tvType + "/items"
 	params := map[string]string{
-		"start": strconv.Itoa(start),
-		"limit": strconv.Itoa(limit),
+		"start": "0",
+		"limit": "1000", // 假设不会超过1000条
 	}
 
-	// 根据不同的category和type添加特定参数
-	// 电视剧API需要明确指定category和type参数
-	if category != "" {
-		params["category"] = category
-	}
-	if rankingType != "" {
-		params["type"] = rankingType
-	}
-
-	log.Printf("请求参数: %+v", params)
-	log.Printf("请求URL: %s/subject/recent_hot/tv", ds.baseURL)
-
-	var response *resty.Response
-	var err error
-
-	// 尝试调用豆瓣API
-	log.Printf("开始发送HTTP请求...")
-	response, err = ds.client.R().
+	resp, err := ds.client.R().
 		SetQueryParams(params).
-		Get(ds.baseURL + "/subject/recent_hot/tv")
-
+		Get(url)
 	if err != nil {
-		log.Printf("=== 豆瓣TV API调用失败 ===")
-		log.Printf("错误详情: %v", err)
-		log.Printf("错误类型: %T", err)
-
-		log.Printf("使用模拟数据作为备选方案")
-		mockData := ds.getMockTvData()
-		mockData.IsMockData = true
-		mockData.MockReason = "API调用失败"
-
-		return &DoubanResult{
-			Success: true,
-			Data:    mockData,
-		}, nil
+		return nil, err
 	}
 
-	log.Printf("=== HTTP请求成功 ===")
-	log.Printf("响应状态码: %d", response.StatusCode())
-	log.Printf("响应头: %+v", response.Header())
-	log.Printf("响应体长度: %d bytes", len(response.Body()))
-
-	// 检查响应是否被压缩
-	contentEncoding := response.Header().Get("Content-Encoding")
-	log.Printf("内容编码: %s", contentEncoding)
-
-	// 记录响应体的前500个字符用于调试
-	responseBody := string(response.Body())
-	log.Printf("响应体原始长度: %d 字符", len(responseBody))
-
-	if len(responseBody) > 500 {
-		log.Printf("响应体前500字符: %s...", responseBody[:500])
-	} else {
-		log.Printf("完整响应体: %s", responseBody)
+	var result map[string]interface{}
+	if err := json.Unmarshal(resp.Body(), &result); err != nil {
+		return nil, err
 	}
 
-	// 检查响应体是否包含有效JSON
-	if len(responseBody) == 0 {
-		log.Printf("=== 响应体为空 ===")
-		mockData := ds.getMockTvData()
-		mockData.IsMockData = true
-		mockData.MockReason = "响应体为空"
-
-		return &DoubanResult{
-			Success: true,
-			Data:    mockData,
-		}, nil
+	items, ok := result["subject_collection_items"].([]interface{})
+	if !ok {
+		return nil, nil // 没有数据
 	}
 
-	// 尝试解析JSON
-	var apiResponse map[string]interface{}
-	if err := json.Unmarshal(response.Body(), &apiResponse); err != nil {
-		log.Printf("=== 解析TV API响应失败 ===")
-		log.Printf("JSON解析错误: %v", err)
-		log.Printf("响应体内容: %s", string(response.Body()))
-
-		// 尝试检查是否是HTML错误页面
-		if len(responseBody) > 100 && (strings.Contains(responseBody, "<html>") || strings.Contains(responseBody, "<!DOCTYPE")) {
-			log.Printf("检测到HTML响应，可能是错误页面")
-			mockData := ds.getMockTvData()
-			mockData.IsMockData = true
-			mockData.MockReason = "返回HTML错误页面"
-
-			return &DoubanResult{
-				Success: true,
-				Data:    mockData,
-			}, nil
-		}
-
-		mockData := ds.getMockTvData()
-		mockData.IsMockData = true
-		mockData.MockReason = "解析API响应失败"
-
-		return &DoubanResult{
-			Success: true,
-			Data:    mockData,
-		}, nil
-	}
-
-	log.Printf("=== JSON解析成功 ===")
-	log.Printf("解析后的数据结构: %+v", apiResponse)
-
-	// 打印完整的API响应JSON
-	log.Printf("=== 完整电视剧API响应JSON ===")
-	if responseBytes, err := json.MarshalIndent(apiResponse, "", "  "); err == nil {
-		log.Printf("完整响应:\n%s", string(responseBytes))
-	} else {
-		log.Printf("序列化响应失败: %v", err)
-	}
-
-	// 处理豆瓣移动端API的响应格式
-	items := ds.extractItems(apiResponse)
-	categories := ds.extractCategories(apiResponse)
-
-	log.Printf("提取到的电视剧数量: %d", len(items))
-	log.Printf("提取到的分类数量: %d", len(categories))
-
-	// 如果没有获取到真实数据，使用模拟数据
-	isMockData := false
-	mockReason := ""
-
-	if len(items) == 0 {
-		log.Printf("=== TV API返回空数据，使用模拟数据 ===")
-		mockData := ds.getMockTvData()
-		items = mockData.Items
-		isMockData = true
-		mockReason = "API返回空数据"
-	}
-
-	// 如果没有获取到categories，使用默认的电视剧分类
-	if len(categories) == 0 {
-		log.Printf("=== 使用默认电视剧分类 ===")
-		categories = []DoubanCategory{
-			{Category: "tv", Selected: true, Type: "tv", Title: "综合"},
-			{Category: "tv", Selected: false, Type: "tv_domestic", Title: "国产剧"},
-			{Category: "show", Selected: false, Type: "show", Title: "综艺"},
-			{Category: "tv", Selected: false, Type: "tv_american", Title: "欧美剧"},
-			{Category: "tv", Selected: false, Type: "tv_japanese", Title: "日剧"},
-			{Category: "tv", Selected: false, Type: "tv_korean", Title: "韩剧"},
-			{Category: "tv", Selected: false, Type: "tv_animation", Title: "动画"},
-			{Category: "tv", Selected: false, Type: "tv_documentary", Title: "纪录片"},
+	// 转换为[]map[string]interface{}
+	var out []map[string]interface{}
+	for _, item := range items {
+		if m, ok := item.(map[string]interface{}); ok {
+			out = append(out, m)
 		}
 	}
-
-	// 根据请求的category和type更新selected状态
-	for i := range categories {
-		categories[i].Selected = categories[i].Category == category && categories[i].Type == rankingType
-	}
-
-	// 限制返回数量
-	if len(items) > limit {
-		log.Printf("限制返回数量从 %d 到 %d", len(items), limit)
-		items = items[:limit]
-	}
-
-	result := &DoubanResponse{
-		Items:      items,
-		Total:      len(items),
-		Categories: categories,
-		IsMockData: isMockData,
-		MockReason: mockReason,
-	}
-
-	if isMockData {
-		result.Notice = "⚠️ 这是模拟数据，非豆瓣实时数据"
-	}
-
-	log.Printf("=== 电视剧榜单获取完成 ===")
-	log.Printf("最终返回电视剧数量: %d", len(items))
-	log.Printf("是否使用模拟数据: %v", isMockData)
-	if isMockData {
-		log.Printf("模拟数据原因: %s", mockReason)
-	}
-
-	return &DoubanResult{
-		Success: true,
-		Data:    result,
-	}, nil
+	return out, nil
 }
 
-// GetMovieCategories 获取支持的电影类别
-func (ds *DoubanService) GetMovieCategories() map[string]map[string]map[string]string {
-	return ds.MovieCategories
-}
-
-// GetTvCategories 获取支持的电视剧类别
-func (ds *DoubanService) GetTvCategories() map[string]map[string]map[string]string {
-	return ds.TvCategories
-}
-
-// GetAllCategories 获取所有支持的类别
-func (ds *DoubanService) GetAllCategories() map[string]interface{} {
-	return map[string]interface{}{
-		"movie": ds.GetMovieCategories(),
-		"tv":    ds.GetTvCategories(),
+// GetAllTvTypes 获取所有tv类型（type列表）
+func (ds *DoubanService) GetAllTvTypes() []string {
+	types := []string{}
+	for _, sub := range ds.TvCategories {
+		for _, v := range sub {
+			if t, ok := v["type"]; ok {
+				types = append(types, t)
+			}
+		}
 	}
-}
-
-// GetMovieSubCategories 获取电影特定大类下的小类
-func (ds *DoubanService) GetMovieSubCategories(mainCategory string) map[string]map[string]string {
-	return ds.MovieCategories[mainCategory]
-}
-
-// GetTvSubCategories 获取剧集特定大类下的小类
-func (ds *DoubanService) GetTvSubCategories(mainCategory string) map[string]map[string]string {
-	return ds.TvCategories[mainCategory]
-}
-
-// getMockMovieData 获取模拟电影数据
-func (ds *DoubanService) getMockMovieData() *DoubanResponse {
-	return &DoubanResponse{
-		Notice: "⚠️ 这是模拟数据，非豆瓣实时数据",
-		Items: []DoubanItem{
-			{
-				ID:        "1292052",
-				Title:     "肖申克的救赎",
-				Rating:    Rating{Value: 9.7},
-				Year:      "1994",
-				Directors: []string{"弗兰克·德拉邦特"},
-				Actors:    []string{"蒂姆·罗宾斯", "摩根·弗里曼"},
-			},
-			{
-				ID:        "1291546",
-				Title:     "霸王别姬",
-				Rating:    Rating{Value: 9.6},
-				Year:      "1993",
-				Directors: []string{"陈凯歌"},
-				Actors:    []string{"张国荣", "张丰毅", "巩俐"},
-			},
-			{
-				ID:        "1295644",
-				Title:     "阿甘正传",
-				Rating:    Rating{Value: 9.5},
-				Year:      "1994",
-				Directors: []string{"罗伯特·泽米吉斯"},
-				Actors:    []string{"汤姆·汉克斯", "罗宾·怀特"},
-			},
-		},
-		Total: 3,
-	}
-}
-
-// getMockTvData 获取模拟电视剧数据
-func (ds *DoubanService) getMockTvData() *DoubanResponse {
-	return &DoubanResponse{
-		Notice: "⚠️ 这是模拟数据，非豆瓣实时数据",
-		Items: []DoubanItem{
-			{
-				ID:        "26794435",
-				Title:     "请回答1988",
-				Rating:    Rating{Value: 9.7},
-				Year:      "2015",
-				Directors: []string{"申元浩"},
-				Actors:    []string{"李惠利", "朴宝剑", "柳俊烈"},
-			},
-			{
-				ID:        "1309163",
-				Title:     "大明王朝1566",
-				Rating:    Rating{Value: 9.7},
-				Year:      "2007",
-				Directors: []string{"张黎"},
-				Actors:    []string{"陈宝国", "黄志忠", "王庆祥"},
-			},
-			{
-				ID:        "1309169",
-				Title:     "亮剑",
-				Rating:    Rating{Value: 9.3},
-				Year:      "2005",
-				Directors: []string{"陈健", "张前"},
-				Actors:    []string{"李幼斌", "何政军", "张光北"},
-			},
-		},
-		Total: 3,
-	}
+	return types
 }
 
 // extractItems 从API响应中提取项目列表
 func (ds *DoubanService) extractItems(response map[string]interface{}) []DoubanItem {
 	var items []DoubanItem
 
-	// 尝试从不同的字段获取items
-	if itemsData, ok := response["items"]; ok {
+	// 根据实际接口返回格式，数据在 subject_collection_items 字段中
+	if itemsData, ok := response["subject_collection_items"]; ok {
+		if itemsBytes, err := json.Marshal(itemsData); err == nil {
+			if err := json.Unmarshal(itemsBytes, &items); err != nil {
+				log.Printf("解析subject_collection_items字段失败: %v", err)
+			}
+		}
+	} else if itemsData, ok := response["items"]; ok {
+		// 兼容旧的items字段
 		if itemsBytes, err := json.Marshal(itemsData); err == nil {
 			if err := json.Unmarshal(itemsBytes, &items); err != nil {
 				log.Printf("解析items字段失败: %v", err)
 			}
 		}
 	} else if subjectsData, ok := response["subjects"]; ok {
+		// 兼容subjects字段
 		if subjectsBytes, err := json.Marshal(subjectsData); err == nil {
 			if err := json.Unmarshal(subjectsBytes, &items); err != nil {
 				log.Printf("解析subjects字段失败: %v", err)
 			}
 		}
 	}
+
+	log.Printf("从API响应中提取到 %d 个项目", len(items))
 
 	// 解析每个项目的card_subtitle，提取年份、地区、类型、导演、演员信息
 	for i := range items {
@@ -759,45 +417,4 @@ func (ds *DoubanService) extractCategories(response map[string]interface{}) []Do
 	}
 
 	return categories
-}
-
-// FetchHotDramaNames 获取热播剧名字（用于定时任务）
-func (ds *DoubanService) FetchHotDramaNames() ([]string, error) {
-	log.Printf("=== 开始获取热播剧名字 ===")
-	var dramaNames []string
-
-	// 获取电影热门榜单
-	log.Printf("正在获取电影热门榜单...")
-	movieResult, err := ds.GetMovieRanking("热门", "全部", 0, 10)
-	if err != nil {
-		log.Printf("获取电影榜单失败: %v", err)
-	} else if movieResult.Success && movieResult.Data != nil {
-		log.Printf("电影榜单获取成功，共 %d 个电影", len(movieResult.Data.Items))
-		for _, item := range movieResult.Data.Items {
-			dramaNames = append(dramaNames, item.Title)
-			log.Printf("添加电影: %s", item.Title)
-		}
-	} else {
-		log.Printf("电影榜单获取失败或数据为空")
-	}
-
-	// 获取电视剧热门榜单
-	log.Printf("正在获取电视剧热门榜单...")
-	tvResult, err := ds.GetTvRanking("tv", "tv", 0, 10)
-	if err != nil {
-		log.Printf("获取电视剧榜单失败: %v", err)
-	} else if tvResult.Success && tvResult.Data != nil {
-		log.Printf("电视剧榜单获取成功，共 %d 个电视剧", len(tvResult.Data.Items))
-		for _, item := range tvResult.Data.Items {
-			dramaNames = append(dramaNames, item.Title)
-			log.Printf("添加电视剧: %s", item.Title)
-		}
-	} else {
-		log.Printf("电视剧榜单获取失败或数据为空")
-	}
-
-	log.Printf("=== 热播剧名字获取完成 ===")
-	log.Printf("总共获取到 %d 个热播剧名字", len(dramaNames))
-	log.Printf("热播剧列表: %v", dramaNames)
-	return dramaNames, nil
 }

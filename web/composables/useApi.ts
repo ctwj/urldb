@@ -549,9 +549,10 @@ export const useHotDramaApi = () => {
     return userStore.authHeaders
   }
   
-  const getHotDramas = async () => {
+  const getHotDramas = async (params?: any) => {
     const response = await $fetch('/hot-dramas', {
       baseURL: config.public.apiBase,
+      params,
     })
     return parseApiResponse(response)
   }

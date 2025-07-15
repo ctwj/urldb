@@ -17,6 +17,8 @@ type HotDramaRepository interface {
 	Delete(id uint) error
 	DeleteByDoubanID(doubanID string) error
 	DeleteOldRecords(days int) error
+	DeleteAll() error
+	BatchCreate(dramas []*entity.HotDrama) error
 }
 
 // hotDramaRepository 热播剧仓储实现
@@ -125,4 +127,17 @@ func (r *hotDramaRepository) DeleteByDoubanID(doubanID string) error {
 // DeleteOldRecords 删除指定天数前的旧记录
 func (r *hotDramaRepository) DeleteOldRecords(days int) error {
 	return r.db.Where("created_at < NOW() - INTERVAL '? days'", days).Delete(&entity.HotDrama{}).Error
+}
+
+// DeleteAll 删除所有热播剧记录
+func (r *hotDramaRepository) DeleteAll() error {
+	return r.db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&entity.HotDrama{}).Error
+}
+
+// BatchCreate 批量创建热播剧记录
+func (r *hotDramaRepository) BatchCreate(dramas []*entity.HotDrama) error {
+	if len(dramas) == 0 {
+		return nil
+	}
+	return r.db.CreateInBatches(dramas, 100).Error
 }

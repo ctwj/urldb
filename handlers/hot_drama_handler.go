@@ -154,10 +154,19 @@ func GetHotDramaList(c *gin.Context) {
 	var total int64
 	var err error
 
-	if category != "" {
-		dramas, total, err = repoManager.HotDramaRepository.FindByCategory(category, page, pageSize)
+	// 如果page_size很大（比如>=1000），则获取所有数据
+	if pageSize >= 1000 {
+		if category != "" {
+			dramas, total, err = repoManager.HotDramaRepository.FindByCategory(category, 1, 10000)
+		} else {
+			dramas, total, err = repoManager.HotDramaRepository.FindAll(1, 10000)
+		}
 	} else {
-		dramas, total, err = repoManager.HotDramaRepository.FindAll(page, pageSize)
+		if category != "" {
+			dramas, total, err = repoManager.HotDramaRepository.FindByCategory(category, page, pageSize)
+		} else {
+			dramas, total, err = repoManager.HotDramaRepository.FindAll(page, pageSize)
+		}
 	}
 
 	if err != nil {

@@ -1,10 +1,58 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <div class="container mx-auto px-4 py-8">
       <!-- 页面标题 -->
       <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">热播剧榜单</h1>
-        <p class="text-gray-600">实时获取豆瓣热门电影和电视剧榜单</p>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">热播剧榜单</h1>
+        <p class="text-gray-600 dark:text-gray-400">实时获取豆瓣热门电影和电视剧榜单</p>
+      </div>
+
+      <!-- 统计信息 -->
+      <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+          <div class="flex items-center">
+            <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <i class="fas fa-film text-blue-600 dark:text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">总数量</p>
+              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ total }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+          <div class="flex items-center">
+            <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+              <i class="fas fa-video text-green-600 dark:text-green-400"></i>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">电影</p>
+              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ movieCount }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+          <div class="flex items-center">
+            <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+              <i class="fas fa-tv text-purple-600 dark:text-purple-400"></i>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">电视剧</p>
+              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ tvCount }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+          <div class="flex items-center">
+            <div class="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+              <i class="fas fa-star text-yellow-600 dark:text-yellow-400"></i>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">平均评分</p>
+              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ averageRating }}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 筛选器 -->
@@ -17,7 +65,7 @@
             'px-4 py-2 rounded-lg font-medium transition-colors',
             selectedCategory === category.value
               ? 'bg-blue-600 text-white'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600'
           ]"
         >
           {{ category.label }}
@@ -30,49 +78,84 @@
       </div>
 
       <!-- 热播剧列表 -->
-      <div v-else-if="dramas.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div v-else-if="filteredDramas.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         <div
           v-for="drama in filteredDramas"
           :key="drama.id"
-          class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+          class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
         >
           <!-- 剧集信息 -->
           <div class="p-6">
             <div class="flex items-start justify-between mb-3">
-              <h3 class="text-lg font-semibold text-gray-900 line-clamp-2">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2 flex-1">
                 {{ drama.title }}
               </h3>
-              <div class="flex items-center ml-2">
+              <div class="flex items-center ml-2 flex-shrink-0">
                 <span class="text-yellow-500 text-sm font-medium">{{ drama.rating }}</span>
-                <span class="text-gray-400 text-xs ml-1">分</span>
+                <span class="text-gray-400 dark:text-gray-500 text-xs ml-1">分</span>
               </div>
             </div>
 
-            <!-- 年份和分类 -->
-            <div class="flex items-center gap-2 mb-3">
-              <span v-if="drama.year" class="text-sm text-gray-500">{{ drama.year }}</span>
-              <span class="text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded">
+            <!-- 副标题 -->
+            <div v-if="drama.card_subtitle" class="mb-3">
+              <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">{{ drama.card_subtitle }}</p>
+            </div>
+
+            <!-- 年份、地区、类型 -->
+            <div class="flex items-center gap-2 mb-3 flex-wrap">
+              <span v-if="drama.year" class="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                {{ drama.year }}
+              </span>
+              <span v-if="drama.region" class="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                {{ drama.region }}
+              </span>
+              <span class="text-sm text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
                 {{ drama.category }}
               </span>
-              <span v-if="drama.sub_type" class="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              <span v-if="drama.sub_type" class="text-sm text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded">
                 {{ drama.sub_type }}
               </span>
             </div>
 
+            <!-- 类型标签 -->
+            <div v-if="drama.genres" class="mb-3">
+              <div class="flex flex-wrap gap-1">
+                <span 
+                  v-for="genre in drama.genres.split(',')" 
+                  :key="genre"
+                  class="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded"
+                >
+                  {{ genre.trim() }}
+                </span>
+              </div>
+            </div>
+
             <!-- 导演 -->
             <div v-if="drama.directors" class="mb-2">
-              <span class="text-xs text-gray-500">导演：</span>
-              <span class="text-sm text-gray-700">{{ drama.directors }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">导演：</span>
+              <span class="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">{{ drama.directors }}</span>
             </div>
 
             <!-- 演员 -->
             <div v-if="drama.actors" class="mb-3">
-              <span class="text-xs text-gray-500">主演：</span>
-              <span class="text-sm text-gray-700 line-clamp-2">{{ drama.actors }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">主演：</span>
+              <span class="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">{{ drama.actors }}</span>
             </div>
 
-            <!-- 数据来源 -->
-            <div class="flex items-center justify-between text-xs text-gray-400">
+            <!-- 集数信息 -->
+            <div v-if="drama.episodes_info" class="mb-3">
+              <span class="text-xs text-gray-500 dark:text-gray-400">集数：</span>
+              <span class="text-sm text-gray-700 dark:text-gray-300">{{ drama.episodes_info }}</span>
+            </div>
+
+            <!-- 评分人数 -->
+            <div v-if="drama.rating_count" class="mb-3">
+              <span class="text-xs text-gray-500 dark:text-gray-400">评分人数：</span>
+              <span class="text-sm text-gray-700 dark:text-gray-300">{{ formatNumber(drama.rating_count) }}</span>
+            </div>
+
+            <!-- 数据来源和时间 -->
+            <div class="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 pt-3 border-t border-gray-200 dark:border-gray-600">
               <span>来源：{{ drama.source }}</span>
               <span>{{ formatDate(drama.created_at) }}</span>
             </div>
@@ -82,36 +165,11 @@
 
       <!-- 空状态 -->
       <div v-else class="text-center py-12">
-        <div class="text-gray-400 mb-4">
-          <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
+        <div class="text-gray-400 dark:text-gray-500 mb-4">
+          <i class="fas fa-film text-6xl"></i>
         </div>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">暂无热播剧数据</h3>
-        <p class="text-gray-500">请稍后再试或联系管理员</p>
-      </div>
-
-      <!-- 分页 -->
-      <div v-if="total > pageSize" class="mt-8 flex justify-center">
-        <nav class="flex items-center space-x-2">
-          <button
-            @click="changePage(currentPage - 1)"
-            :disabled="currentPage <= 1"
-            class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            上一页
-          </button>
-          <span class="px-3 py-2 text-sm text-gray-700">
-            第 {{ currentPage }} 页，共 {{ Math.ceil(total / pageSize) }} 页
-          </span>
-          <button
-            @click="changePage(currentPage + 1)"
-            :disabled="currentPage >= Math.ceil(total / pageSize)"
-            class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            下一页
-          </button>
-        </nav>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">暂无热播剧数据</h3>
+        <p class="text-gray-500 dark:text-gray-400">请稍后再试或联系管理员</p>
       </div>
     </div>
   </div>
@@ -124,8 +182,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 const loading = ref(false)
 const dramas = ref([])
 const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(20)
 const selectedCategory = ref('')
 
 // 分类选项
@@ -143,7 +199,22 @@ const filteredDramas = computed(() => {
   return dramas.value.filter(drama => drama.category === selectedCategory.value)
 })
 
-// 获取热播剧列表
+const movieCount = computed(() => {
+  return dramas.value.filter(drama => drama.category === '电影').length
+})
+
+const tvCount = computed(() => {
+  return dramas.value.filter(drama => drama.category === '电视剧').length
+})
+
+const averageRating = computed(() => {
+  const validRatings = dramas.value.filter(drama => drama.rating > 0)
+  if (validRatings.length === 0) return '0.0'
+  const sum = validRatings.reduce((acc, drama) => acc + drama.rating, 0)
+  return (sum / validRatings.length).toFixed(1)
+})
+
+// 获取热播剧列表（获取所有数据）
 const fetchDramas = async () => {
   loading.value = true
   try {
@@ -151,8 +222,8 @@ const fetchDramas = async () => {
     const hotDramaApi = useHotDramaApi()
     
     const params = {
-      page: currentPage.value,
-      page_size: pageSize.value
+      page: 1,
+      page_size: 1000 // 获取大量数据，实际会返回所有数据
     }
     
     if (selectedCategory.value) {
@@ -160,28 +231,24 @@ const fetchDramas = async () => {
     }
 
     const response = await hotDramaApi.getHotDramas(params)
+    console.log('API响应:', response)
     
     // 使用新的统一响应格式
     if (response && response.items) {
       dramas.value = response.items
       total.value = response.total || 0
+      console.log('设置数据:', dramas.value.length, '条')
+      console.log('第一条数据:', dramas.value[0])
     } else {
       // 兼容旧格式
       dramas.value = Array.isArray(response) ? response : []
       total.value = dramas.value.length
+      console.log('兼容格式数据:', dramas.value.length, '条')
     }
   } catch (error) {
     console.error('获取热播剧列表失败:', error)
   } finally {
     loading.value = false
-  }
-}
-
-// 切换页面
-const changePage = (page) => {
-  if (page >= 1 && page <= Math.ceil(total.value / pageSize.value)) {
-    currentPage.value = page
-    fetchDramas()
   }
 }
 
@@ -192,19 +259,55 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('zh-CN')
 }
 
+// 格式化数字
+const formatNumber = (num) => {
+  if (!num) return '0'
+  if (num >= 10000) {
+    return (num / 10000).toFixed(1) + '万'
+  }
+  return num.toString()
+}
+
+// 处理图片加载错误
+const handleImageError = (event) => {
+  console.log('图片加载失败:', event.target.src)
+  event.target.style.display = 'none'
+}
+
+// 处理图片加载成功
+const handleImageLoad = (event) => {
+  console.log('图片加载成功:', event.target.src)
+}
+
 // 监听分类变化
 watch(selectedCategory, () => {
-  currentPage.value = 1
   fetchDramas()
 })
 
 // 页面加载时获取数据
 onMounted(() => {
+  console.log('热播剧页面加载')
   fetchDramas()
 })
+
+// 监听数据变化
+watch(dramas, (newDramas) => {
+  console.log('dramas数据变化:', newDramas?.length)
+  if (newDramas && newDramas.length > 0) {
+    console.log('第一条数据:', newDramas[0])
+    console.log('第一条数据的poster_url:', newDramas[0].poster_url)
+  }
+}, { deep: true })
 </script>
 
 <style scoped>
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;

@@ -59,7 +59,7 @@ func (s *Scheduler) StartHotDramaScheduler() {
 	log.Println("启动热播剧定时任务")
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Hour) // 每小时执行一次
+		ticker := time.NewTicker(12 * time.Hour) // 每12小时执行一次
 		defer ticker.Stop()
 
 		// 立即执行一次
@@ -101,41 +101,64 @@ func (s *Scheduler) StopHotDramaScheduler() {
 func (s *Scheduler) fetchHotDramaData() {
 	log.Println("开始获取热播剧数据...")
 
-	dramaNames, err := s.doubanService.FetchHotDramaNames()
-	if err != nil {
-		log.Printf("获取热播剧数据失败: %v", err)
-		return
-	}
-
-	log.Printf("成功获取到 %d 个热播剧: %v", len(dramaNames), dramaNames)
-
-	// 处理获取到的热播剧数据
-	s.processHotDramaNames(dramaNames)
+	// 直接处理电影和电视剧数据，不再需要FetchHotDramaNames
+	s.processHotDramaNames([]string{})
 }
 
 // processHotDramaNames 处理热播剧名字
 func (s *Scheduler) processHotDramaNames(dramaNames []string) {
 	log.Printf("开始处理热播剧数据，共 %d 个", len(dramaNames))
 
-	// 获取电影和电视剧的详细数据
-	s.processMovieData()
-	s.processTvData()
+	// 收集所有数据
+	var allDramas []*entity.HotDrama
+
+	// 获取电影数据
+	movieDramas := s.processMovieData()
+	allDramas = append(allDramas, movieDramas...)
+
+	// 获取电视剧数据
+	tvDramas := s.processTvData()
+	allDramas = append(allDramas, tvDramas...)
+
+	// 清空数据库
+	log.Printf("准备清空数据库，当前共有 %d 条数据", len(allDramas))
+	if err := s.hotDramaRepo.DeleteAll(); err != nil {
+		log.Printf("清空数据库失败: %v", err)
+		return
+	}
+	log.Println("数据库清空完成")
+
+	// 批量插入所有数据
+	if len(allDramas) > 0 {
+		log.Printf("开始批量插入 %d 条数据", len(allDramas))
+		if err := s.hotDramaRepo.BatchCreate(allDramas); err != nil {
+			log.Printf("批量插入数据失败: %v", err)
+		} else {
+			log.Printf("成功批量插入 %d 条数据", len(allDramas))
+		}
+	} else {
+		log.Println("没有数据需要插入")
+	}
 
 	log.Println("热播剧数据处理完成")
 }
 
 // processMovieData 处理电影数据
-func (s *Scheduler) processMovieData() {
+func (s *Scheduler) processMovieData() []*entity.HotDrama {
 	log.Println("开始处理电影数据...")
 
-	// 获取电影热门榜单（获取全部数据）
-	movieResult, err := s.doubanService.GetMovieRanking("热门", "全部", 0, 0)
+	var movieDramas []*entity.HotDrama
+
+	// 使用GetTypePage方法获取电影数据
+	movieResult, err := s.doubanService.GetTypePage("热门", "全部")
 	if err != nil {
 		log.Printf("获取电影榜单失败: %v", err)
-		return
+		return movieDramas
 	}
 
 	if movieResult.Success && movieResult.Data != nil {
+		log.Printf("电影获取到 %d 个数据", len(movieResult.Data.Items))
+
 		for _, item := range movieResult.Data.Items {
 			drama := &entity.HotDrama{
 				Title:        item.Title,
@@ -157,59 +180,77 @@ func (s *Scheduler) processMovieData() {
 				DoubanURI:    item.URI,
 			}
 
-			// 保存到数据库
-			if err := s.hotDramaRepo.Upsert(drama); err != nil {
-				log.Printf("保存电影数据失败: %v", err)
-			} else {
-				log.Printf("成功保存电影: %s (评分: %.1f, 年份: %s, 地区: %s)",
-					item.Title, item.Rating.Value, item.Year, item.Region)
-			}
+			movieDramas = append(movieDramas, drama)
+			log.Printf("收集电影: %s (评分: %.1f, 年份: %s, 地区: %s)",
+				item.Title, item.Rating.Value, item.Year, item.Region)
 		}
+	} else {
+		log.Printf("电影获取数据失败或为空")
 	}
+
+	log.Printf("电影数据处理完成，共收集 %d 条数据", len(movieDramas))
+	return movieDramas
 }
 
 // processTvData 处理电视剧数据
-func (s *Scheduler) processTvData() {
+func (s *Scheduler) processTvData() []*entity.HotDrama {
 	log.Println("开始处理电视剧数据...")
 
-	// 获取电视剧热门榜单（获取全部数据）
-	tvResult, err := s.doubanService.GetTvRanking("tv", "tv", 0, 0)
-	if err != nil {
-		log.Printf("获取电视剧榜单失败: %v", err)
-		return
-	}
+	var tvDramas []*entity.HotDrama
 
-	if tvResult.Success && tvResult.Data != nil {
-		for _, item := range tvResult.Data.Items {
-			drama := &entity.HotDrama{
-				Title:        item.Title,
-				CardSubtitle: item.CardSubtitle,
-				EpisodesInfo: item.EpisodesInfo,
-				IsNew:        item.IsNew,
-				Rating:       item.Rating.Value,
-				RatingCount:  item.Rating.Count,
-				Year:         item.Year,
-				Region:       item.Region,
-				Genres:       strings.Join(item.Genres, ", "),
-				Directors:    strings.Join(item.Directors, ", "),
-				Actors:       strings.Join(item.Actors, ", "),
-				PosterURL:    item.Pic.Normal,
-				Category:     "电视剧",
-				SubType:      "热门",
-				Source:       "douban",
-				DoubanID:     item.ID,
-				DoubanURI:    item.URI,
-			}
+	// 获取所有tv类型
+	tvTypes := s.doubanService.GetAllTvTypes()
+	log.Printf("获取到 %d 个tv类型: %v", len(tvTypes), tvTypes)
 
-			// 保存到数据库
-			if err := s.hotDramaRepo.Upsert(drama); err != nil {
-				log.Printf("保存电视剧数据失败: %v", err)
-			} else {
-				log.Printf("成功保存电视剧: %s (评分: %.1f, 年份: %s, 地区: %s)",
-					item.Title, item.Rating.Value, item.Year, item.Region)
-			}
+	// 遍历每个type，分别请求数据
+	for _, tvType := range tvTypes {
+		log.Printf("正在处理tv类型: %s", tvType)
+
+		// 使用GetTypePage方法请求数据
+		tvResult, err := s.doubanService.GetTypePage("tv", tvType)
+		if err != nil {
+			log.Printf("获取tv类型 %s 数据失败: %v", tvType, err)
+			continue
 		}
+
+		if tvResult.Success && tvResult.Data != nil {
+			log.Printf("tv类型 %s 获取到 %d 个数据", tvType, len(tvResult.Data.Items))
+
+			for _, item := range tvResult.Data.Items {
+				drama := &entity.HotDrama{
+					Title:        item.Title,
+					CardSubtitle: item.CardSubtitle,
+					EpisodesInfo: item.EpisodesInfo,
+					IsNew:        item.IsNew,
+					Rating:       item.Rating.Value,
+					RatingCount:  item.Rating.Count,
+					Year:         item.Year,
+					Region:       item.Region,
+					Genres:       strings.Join(item.Genres, ", "),
+					Directors:    strings.Join(item.Directors, ", "),
+					Actors:       strings.Join(item.Actors, ", "),
+					PosterURL:    item.Pic.Normal,
+					Category:     "电视剧",
+					SubType:      tvType, // 使用具体的tv类型
+					Source:       "douban",
+					DoubanID:     item.ID,
+					DoubanURI:    item.URI,
+				}
+
+				tvDramas = append(tvDramas, drama)
+				log.Printf("收集tv类型 %s: %s (评分: %.1f, 年份: %s, 地区: %s)",
+					tvType, item.Title, item.Rating.Value, item.Year, item.Region)
+			}
+		} else {
+			log.Printf("tv类型 %s 获取数据失败或为空", tvType)
+		}
+
+		// 每个type请求间隔1秒，避免请求过于频繁
+		time.Sleep(1 * time.Second)
 	}
+
+	log.Printf("电视剧数据处理完成，共收集 %d 条数据", len(tvDramas))
+	return tvDramas
 }
 
 // IsRunning 检查定时任务是否在运行
@@ -219,7 +260,8 @@ func (s *Scheduler) IsRunning() bool {
 
 // GetHotDramaNames 手动获取热播剧名字（用于测试或手动调用）
 func (s *Scheduler) GetHotDramaNames() ([]string, error) {
-	return s.doubanService.FetchHotDramaNames()
+	// 由于删除了FetchHotDramaNames方法，返回空数组
+	return []string{}, nil
 }
 
 // StartReadyResourceScheduler 启动待处理资源自动处理任务
