@@ -32,9 +32,10 @@ func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 	response.Tags = make([]dto.TagResponse, len(resource.Tags))
 	for i, tag := range resource.Tags {
 		response.Tags[i] = dto.TagResponse{
-			ID:          tag.ID,
-			Name:        tag.Name,
-			Description: tag.Description,
+			ID:            tag.ID,
+			Name:          tag.Name,
+			Description:   tag.Description,
+			ResourceCount: 0, // 在资源上下文中，标签的资源数量不相关
 		}
 	}
 
@@ -71,19 +72,21 @@ func ToCategoryResponseList(categories []entity.Category, resourceCounts map[uin
 }
 
 // ToTagResponse 将Tag实体转换为TagResponse
-func ToTagResponse(tag *entity.Tag) dto.TagResponse {
+func ToTagResponse(tag *entity.Tag, resourceCount int64) dto.TagResponse {
 	return dto.TagResponse{
-		ID:          tag.ID,
-		Name:        tag.Name,
-		Description: tag.Description,
+		ID:            tag.ID,
+		Name:          tag.Name,
+		Description:   tag.Description,
+		ResourceCount: resourceCount,
 	}
 }
 
 // ToTagResponseList 将Tag实体列表转换为TagResponse列表
-func ToTagResponseList(tags []entity.Tag) []dto.TagResponse {
+func ToTagResponseList(tags []entity.Tag, resourceCounts map[uint]int64) []dto.TagResponse {
 	responses := make([]dto.TagResponse, len(tags))
 	for i, tag := range tags {
-		responses[i] = ToTagResponse(&tag)
+		count := resourceCounts[tag.ID]
+		responses[i] = ToTagResponse(&tag, count)
 	}
 	return responses
 }

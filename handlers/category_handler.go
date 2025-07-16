@@ -13,7 +13,23 @@ import (
 
 // GetCategories 获取分类列表
 func GetCategories(c *gin.Context) {
-	categories, err := repoManager.CategoryRepository.FindAll()
+	// 获取分页参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	search := c.Query("search")
+
+	var categories []entity.Category
+	var total int64
+	var err error
+
+	if search != "" {
+		// 搜索分类
+		categories, total, err = repoManager.CategoryRepository.Search(search, page, pageSize)
+	} else {
+		// 分页查询
+		categories, total, err = repoManager.CategoryRepository.FindWithPagination(page, pageSize)
+	}
+
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
@@ -30,7 +46,14 @@ func GetCategories(c *gin.Context) {
 	}
 
 	responses := converter.ToCategoryResponseList(categories, resourceCounts)
-	SuccessResponse(c, responses)
+
+	// 返回分页格式的响应
+	SuccessResponse(c, gin.H{
+		"items":     responses,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
 }
 
 // CreateCategory 创建分类

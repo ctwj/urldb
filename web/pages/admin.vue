@@ -125,7 +125,7 @@
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
             </button>
-            <button @click="showAddCategoryModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <button @click="goToAddCategory" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-200">添加分类</span>
                 <i class="fas fa-plus text-gray-400"></i>
@@ -152,7 +152,7 @@
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
             </button>
-            <button @click="showAddTagModal = true" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <button @click="goToAddTag" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-200">添加标签</span>
                 <i class="fas fa-plus text-gray-400"></i>
@@ -366,11 +366,21 @@ const goToPlatformManagement = () => {
 }
 
 const goToCategoryManagement = () => {
-  // 实现分类管理页面跳转
+  router.push('/categories')
 }
 
 const goToTagManagement = () => {
-  // 实现标签管理页面跳转
+  router.push('/tags')
+}
+
+// 新增：跳转到分类管理并打开新增弹窗
+const goToAddCategory = () => {
+  router.push('/categories?action=add')
+}
+
+// 新增：跳转到标签管理并打开新增弹窗
+const goToAddTag = () => {
+  router.push('/tags?action=add')
 }
 
 const goToBatchAdd = () => {

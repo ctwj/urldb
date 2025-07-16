@@ -13,14 +13,47 @@ import (
 
 // GetTags 获取标签列表
 func GetTags(c *gin.Context) {
-	tags, err := repoManager.TagRepository.FindAll()
+	// 获取分页参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	search := c.Query("search")
+
+	var tags []entity.Tag
+	var total int64
+	var err error
+
+	if search != "" {
+		// 搜索标签
+		tags, total, err = repoManager.TagRepository.Search(search, page, pageSize)
+	} else {
+		// 分页查询
+		tags, total, err = repoManager.TagRepository.FindWithPagination(page, pageSize)
+	}
+
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	responses := converter.ToTagResponseList(tags)
-	SuccessResponse(c, responses)
+	// 获取每个标签的资源数量
+	resourceCounts := make(map[uint]int64)
+	for _, tag := range tags {
+		count, err := repoManager.TagRepository.GetResourceCount(tag.ID)
+		if err != nil {
+			continue
+		}
+		resourceCounts[tag.ID] = count
+	}
+
+	responses := converter.ToTagResponseList(tags, resourceCounts)
+
+	// 返回分页格式的响应
+	SuccessResponse(c, gin.H{
+		"items":     responses,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
 }
 
 // CreateTag 创建标签
@@ -44,7 +77,7 @@ func CreateTag(c *gin.Context) {
 
 	SuccessResponse(c, gin.H{
 		"message": "标签创建成功",
-		"tag":     converter.ToTagResponse(tag),
+		"tag":     converter.ToTagResponse(tag, 0),
 	})
 }
 
@@ -63,7 +96,9 @@ func GetTagByID(c *gin.Context) {
 		return
 	}
 
-	response := converter.ToTagResponse(tag)
+	// 获取资源数量
+	resourceCount, _ := repoManager.TagRepository.GetResourceCount(tag.ID)
+	response := converter.ToTagResponse(tag, resourceCount)
 	SuccessResponse(c, response)
 }
 
@@ -137,7 +172,9 @@ func GetTagByIDGlobal(c *gin.Context) {
 		return
 	}
 
-	response := converter.ToTagResponse(tag)
+	// 获取资源数量
+	resourceCount, _ := repoManager.TagRepository.GetResourceCount(tag.ID)
+	response := converter.ToTagResponse(tag, resourceCount)
 	SuccessResponse(c, response)
 }
 
@@ -149,6 +186,16 @@ func GetTagsGlobal(c *gin.Context) {
 		return
 	}
 
-	responses := converter.ToTagResponseList(tags)
+	// 获取每个标签的资源数量
+	resourceCounts := make(map[uint]int64)
+	for _, tag := range tags {
+		count, err := repoManager.TagRepository.GetResourceCount(tag.ID)
+		if err != nil {
+			continue
+		}
+		resourceCounts[tag.ID] = count
+	}
+
+	responses := converter.ToTagResponseList(tags, resourceCounts)
 	SuccessResponse(c, responses)
 }

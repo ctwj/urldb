@@ -13,6 +13,8 @@ type TagRepository interface {
 	FindWithResources() ([]entity.Tag, error)
 	GetResourceCount(tagID uint) (int64, error)
 	FindByResourceID(resourceID uint) ([]entity.Tag, error)
+	FindWithPagination(page, pageSize int) ([]entity.Tag, int64, error)
+	Search(query string, page, pageSize int) ([]entity.Tag, int64, error)
 }
 
 // TagRepositoryImpl Tag的Repository实现
@@ -57,4 +59,50 @@ func (r *TagRepositoryImpl) FindByResourceID(resourceID uint) ([]entity.Tag, err
 	err := r.db.Joins("JOIN resource_tags ON tags.id = resource_tags.tag_id").
 		Where("resource_tags.resource_id = ?", resourceID).Find(&tags).Error
 	return tags, err
+}
+
+// FindWithPagination 分页查询标签
+func (r *TagRepositoryImpl) FindWithPagination(page, pageSize int) ([]entity.Tag, int64, error) {
+	var tags []entity.Tag
+	var total int64
+
+	// 获取总数
+	err := r.db.Model(&entity.Tag{}).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	offset := (page - 1) * pageSize
+	err = r.db.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&tags).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return tags, total, nil
+}
+
+// Search 搜索标签
+func (r *TagRepositoryImpl) Search(query string, page, pageSize int) ([]entity.Tag, int64, error) {
+	var tags []entity.Tag
+	var total int64
+
+	// 构建搜索条件
+	searchQuery := "%" + query + "%"
+
+	// 获取总数
+	err := r.db.Model(&entity.Tag{}).Where("name ILIKE ? OR description ILIKE ?", searchQuery, searchQuery).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 分页搜索
+	offset := (page - 1) * pageSize
+	err = r.db.Where("name ILIKE ? OR description ILIKE ?", searchQuery, searchQuery).
+		Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&tags).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return tags, total, nil
 }

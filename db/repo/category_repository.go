@@ -12,6 +12,8 @@ type CategoryRepository interface {
 	FindByName(name string) (*entity.Category, error)
 	FindWithResources() ([]entity.Category, error)
 	GetResourceCount(categoryID uint) (int64, error)
+	FindWithPagination(page, pageSize int) ([]entity.Category, int64, error)
+	Search(query string, page, pageSize int) ([]entity.Category, int64, error)
 }
 
 // CategoryRepositoryImpl Category的Repository实现
@@ -48,4 +50,50 @@ func (r *CategoryRepositoryImpl) GetResourceCount(categoryID uint) (int64, error
 	var count int64
 	err := r.db.Model(&entity.Resource{}).Where("category_id = ?", categoryID).Count(&count).Error
 	return count, err
+}
+
+// FindWithPagination 分页查询分类
+func (r *CategoryRepositoryImpl) FindWithPagination(page, pageSize int) ([]entity.Category, int64, error) {
+	var categories []entity.Category
+	var total int64
+
+	// 获取总数
+	err := r.db.Model(&entity.Category{}).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	offset := (page - 1) * pageSize
+	err = r.db.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&categories).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return categories, total, nil
+}
+
+// Search 搜索分类
+func (r *CategoryRepositoryImpl) Search(query string, page, pageSize int) ([]entity.Category, int64, error) {
+	var categories []entity.Category
+	var total int64
+
+	// 构建搜索条件
+	searchQuery := "%" + query + "%"
+
+	// 获取总数
+	err := r.db.Model(&entity.Category{}).Where("name ILIKE ? OR description ILIKE ?", searchQuery, searchQuery).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 分页搜索
+	offset := (page - 1) * pageSize
+	err = r.db.Where("name ILIKE ? OR description ILIKE ?", searchQuery, searchQuery).
+		Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&categories).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return categories, total, nil
 }

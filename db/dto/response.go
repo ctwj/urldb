@@ -39,9 +39,10 @@ type CategoryResponse struct {
 
 // TagResponse 标签响应
 type TagResponse struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	ID            uint   `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	ResourceCount int64  `json:"resource_count"`
 }
 
 // PanResponse 平台响应
