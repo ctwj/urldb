@@ -88,7 +88,7 @@
             </div>
             <div class="ml-4">
               <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">平台管理</h3>
-              <p class="text-sm text-gray-600 dark:text-gray-400">管理网盘平台</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">暂不支持修改</p>
             </div>
           </div>
           <div class="space-y-2">

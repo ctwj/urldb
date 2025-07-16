@@ -17,6 +17,7 @@ type Category struct {
 
 	// 关联关系
 	Resources []Resource `json:"resources" gorm:"foreignKey:CategoryID"`
+	Tags      []Tag      `json:"tags" gorm:"foreignKey:CategoryID"`
 }
 
 // TableName 指定表名

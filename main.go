@@ -123,6 +123,7 @@ func main() {
 		api.PUT("/tags/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateTag)
 		api.DELETE("/tags/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteTag)
 		api.GET("/tags/:id", handlers.GetTagByID)
+		api.GET("/categories/:categoryId/tags", handlers.GetTagsByCategory)
 
 		// 待处理资源管理
 		api.GET("/ready-resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetReadyResources)

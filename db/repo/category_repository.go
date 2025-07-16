@@ -11,7 +11,9 @@ type CategoryRepository interface {
 	BaseRepository[entity.Category]
 	FindByName(name string) (*entity.Category, error)
 	FindWithResources() ([]entity.Category, error)
+	FindWithTags() ([]entity.Category, error)
 	GetResourceCount(categoryID uint) (int64, error)
+	GetTagCount(categoryID uint) (int64, error)
 	FindWithPagination(page, pageSize int) ([]entity.Category, int64, error)
 	Search(query string, page, pageSize int) ([]entity.Category, int64, error)
 }
@@ -45,10 +47,24 @@ func (r *CategoryRepositoryImpl) FindWithResources() ([]entity.Category, error) 
 	return categories, err
 }
 
+// FindWithTags 查找包含标签的分类
+func (r *CategoryRepositoryImpl) FindWithTags() ([]entity.Category, error) {
+	var categories []entity.Category
+	err := r.db.Preload("Tags").Find(&categories).Error
+	return categories, err
+}
+
 // GetResourceCount 获取分类下的资源数量
 func (r *CategoryRepositoryImpl) GetResourceCount(categoryID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&entity.Resource{}).Where("category_id = ?", categoryID).Count(&count).Error
+	return count, err
+}
+
+// GetTagCount 获取分类下的标签数量
+func (r *CategoryRepositoryImpl) GetTagCount(categoryID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Tag{}).Where("category_id = ?", categoryID).Count(&count).Error
 	return count, err
 }
 

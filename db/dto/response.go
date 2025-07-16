@@ -35,6 +35,7 @@ type CategoryResponse struct {
 	Name          string `json:"name"`
 	Description   string `json:"description"`
 	ResourceCount int64  `json:"resource_count"`
+	TagCount      int64  `json:"tag_count"`
 }
 
 // TagResponse 标签响应
@@ -42,6 +43,8 @@ type TagResponse struct {
 	ID            uint   `json:"id"`
 	Name          string `json:"name"`
 	Description   string `json:"description"`
+	CategoryID    *uint  `json:"category_id"`
+	CategoryName  string `json:"category_name"`
 	ResourceCount int64  `json:"resource_count"`
 }
 

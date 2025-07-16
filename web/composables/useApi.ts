@@ -357,6 +357,15 @@ export const useTagApi = () => {
     return parseApiResponse(response)
   }
 
+  const getTagsByCategory = async (categoryId: number, params?: any) => {
+    const response = await $fetch(`/categories/${categoryId}/tags`, {
+      baseURL: config.public.apiBase,
+      params,
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    return parseApiResponse(response)
+  }
+
   const getTag = async (id: number) => {
     const response = await $fetch(`/tags/${id}`, {
       baseURL: config.public.apiBase,
@@ -404,6 +413,7 @@ export const useTagApi = () => {
 
   return {
     getTags,
+    getTagsByCategory,
     getTag,
     createTag,
     updateTag,

@@ -48,7 +48,7 @@ func (r *BaseRepositoryImpl[T]) FindAll() ([]T, error) {
 
 // Update 更新实体
 func (r *BaseRepositoryImpl[T]) Update(entity *T) error {
-	return r.db.Save(entity).Error
+	return r.db.Model(entity).Updates(entity).Error
 }
 
 // Delete 删除实体

@@ -11,10 +11,13 @@ type TagRepository interface {
 	BaseRepository[entity.Tag]
 	FindByName(name string) (*entity.Tag, error)
 	FindWithResources() ([]entity.Tag, error)
+	FindByCategoryID(categoryID uint) ([]entity.Tag, error)
+	FindByCategoryIDPaginated(categoryID uint, page, pageSize int) ([]entity.Tag, int64, error)
 	GetResourceCount(tagID uint) (int64, error)
 	FindByResourceID(resourceID uint) ([]entity.Tag, error)
 	FindWithPagination(page, pageSize int) ([]entity.Tag, int64, error)
 	Search(query string, page, pageSize int) ([]entity.Tag, int64, error)
+	UpdateWithNulls(tag *entity.Tag) error
 }
 
 // TagRepositoryImpl Tag的Repository实现
@@ -46,6 +49,35 @@ func (r *TagRepositoryImpl) FindWithResources() ([]entity.Tag, error) {
 	return tags, err
 }
 
+// FindByCategoryID 根据分类ID查找标签
+func (r *TagRepositoryImpl) FindByCategoryID(categoryID uint) ([]entity.Tag, error) {
+	var tags []entity.Tag
+	err := r.db.Where("category_id = ?", categoryID).Preload("Category").Find(&tags).Error
+	return tags, err
+}
+
+// FindByCategoryIDPaginated 分页根据分类ID查找标签
+func (r *TagRepositoryImpl) FindByCategoryIDPaginated(categoryID uint, page, pageSize int) ([]entity.Tag, int64, error) {
+	var tags []entity.Tag
+	var total int64
+
+	// 获取总数
+	err := r.db.Model(&entity.Tag{}).Where("category_id = ?", categoryID).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	offset := (page - 1) * pageSize
+	err = r.db.Where("category_id = ?", categoryID).Preload("Category").
+		Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&tags).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return tags, total, nil
+}
+
 // GetResourceCount 获取标签下的资源数量
 func (r *TagRepositoryImpl) GetResourceCount(tagID uint) (int64, error) {
 	var count int64
@@ -74,7 +106,7 @@ func (r *TagRepositoryImpl) FindWithPagination(page, pageSize int) ([]entity.Tag
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	err = r.db.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&tags).Error
+	err = r.db.Preload("Category").Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&tags).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -99,10 +131,16 @@ func (r *TagRepositoryImpl) Search(query string, page, pageSize int) ([]entity.T
 	// 分页搜索
 	offset := (page - 1) * pageSize
 	err = r.db.Where("name ILIKE ? OR description ILIKE ?", searchQuery, searchQuery).
-		Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&tags).Error
+		Preload("Category").Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&tags).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return tags, total, nil
+}
+
+// UpdateWithNulls 更新标签，包括null值
+func (r *TagRepositoryImpl) UpdateWithNulls(tag *entity.Tag) error {
+	// 使用Select方法明确指定要更新的字段，包括null值
+	return r.db.Model(tag).Select("name", "description", "category_id", "updated_at").Updates(tag).Error
 }

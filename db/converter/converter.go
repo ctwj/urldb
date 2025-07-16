@@ -52,41 +52,54 @@ func ToResourceResponseList(resources []entity.Resource) []dto.ResourceResponse 
 }
 
 // ToCategoryResponse 将Category实体转换为CategoryResponse
-func ToCategoryResponse(category *entity.Category, resourceCount int64) dto.CategoryResponse {
+func ToCategoryResponse(category *entity.Category, resourceCount int64, tagCount int64) dto.CategoryResponse {
 	return dto.CategoryResponse{
 		ID:            category.ID,
 		Name:          category.Name,
 		Description:   category.Description,
 		ResourceCount: resourceCount,
+		TagCount:      tagCount,
 	}
 }
 
 // ToCategoryResponseList 将Category实体列表转换为CategoryResponse列表
-func ToCategoryResponseList(categories []entity.Category, resourceCounts map[uint]int64) []dto.CategoryResponse {
+func ToCategoryResponseList(categories []entity.Category, resourceCounts map[uint]int64, tagCounts map[uint]int64) []dto.CategoryResponse {
 	responses := make([]dto.CategoryResponse, len(categories))
 	for i, category := range categories {
-		count := resourceCounts[category.ID]
-		responses[i] = ToCategoryResponse(&category, count)
+		resourceCount := resourceCounts[category.ID]
+		tagCount := tagCounts[category.ID]
+		responses[i] = ToCategoryResponse(&category, resourceCount, tagCount)
 	}
 	return responses
 }
 
 // ToTagResponse 将Tag实体转换为TagResponse
 func ToTagResponse(tag *entity.Tag, resourceCount int64) dto.TagResponse {
-	return dto.TagResponse{
+	response := dto.TagResponse{
 		ID:            tag.ID,
 		Name:          tag.Name,
 		Description:   tag.Description,
+		CategoryID:    tag.CategoryID,
 		ResourceCount: resourceCount,
 	}
+
+	// 设置分类名称
+	if tag.CategoryID != nil && tag.Category.ID != 0 {
+		response.CategoryName = tag.Category.Name
+	} else if tag.CategoryID != nil {
+		// 如果CategoryID存在但Category没有预加载，设置为"未知分类"
+		response.CategoryName = "未知分类"
+	}
+
+	return response
 }
 
 // ToTagResponseList 将Tag实体列表转换为TagResponse列表
 func ToTagResponseList(tags []entity.Tag, resourceCounts map[uint]int64) []dto.TagResponse {
 	responses := make([]dto.TagResponse, len(tags))
 	for i, tag := range tags {
-		count := resourceCounts[tag.ID]
-		responses[i] = ToTagResponse(&tag, count)
+		resourceCount := resourceCounts[tag.ID]
+		responses[i] = ToTagResponse(&tag, resourceCount)
 	}
 	return responses
 }

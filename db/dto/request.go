@@ -82,12 +82,14 @@ type UpdateCategoryRequest struct {
 type CreateTagRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
+	CategoryID  *uint  `json:"category_id"`
 }
 
 // UpdateTagRequest 更新标签请求
 type UpdateTagRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	CategoryID  *uint  `json:"category_id"`
 }
 
 // CreateReadyResourceRequest 创建待处理资源请求

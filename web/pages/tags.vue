@@ -42,6 +42,17 @@
           </button>
         </div>
         <div class="flex gap-2">
+          <!-- 分类筛选 -->
+          <select 
+            v-model="selectedCategory"
+            @change="onCategoryChange"
+            class="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-gray-100 text-sm"
+          >
+            <option value="">全部分类</option>
+            <option v-for="category in categories" :key="category.id" :value="category.id">
+              {{ category.name }}
+            </option>
+          </select>
           <div class="relative">
             <input 
               v-model="searchQuery"
@@ -71,6 +82,7 @@
               <tr class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100">
                 <th class="px-4 py-3 text-left text-sm font-medium">ID</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">标签名称</th>
+                <th class="px-4 py-3 text-left text-sm font-medium">分类</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">描述</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">资源数量</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">创建时间</th>
@@ -79,12 +91,12 @@
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
               <tr v-if="loading" class="text-center py-8">
-                <td colspan="6" class="text-gray-500 dark:text-gray-400">
+                <td colspan="7" class="text-gray-500 dark:text-gray-400">
                   <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
                 </td>
               </tr>
               <tr v-else-if="tags.length === 0" class="text-center py-8">
-                <td colspan="6" class="text-gray-500 dark:text-gray-400">
+                <td colspan="7" class="text-gray-500 dark:text-gray-400">
                   <div class="flex flex-col items-center justify-center py-12">
                     <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 48 48">
                       <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
@@ -111,6 +123,12 @@
                   <span :title="tag.name">{{ tag.name }}</span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                  <span v-if="tag.category_name" class="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-full text-xs">
+                    {{ tag.category_name }}
+                  </span>
+                  <span v-else class="text-gray-400 dark:text-gray-500 italic text-xs">未分类</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                   <span v-if="tag.description" :title="tag.description">{{ tag.description }}</span>
                   <span v-else class="text-gray-400 dark:text-gray-500 italic">无描述</span>
                 </td>
@@ -120,7 +138,7 @@
                   </span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                  {{ formatTime(tag.create_time) }}
+                  {{ formatTime(tag.created_at) }}
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <div class="flex items-center gap-2">
@@ -227,6 +245,19 @@
             </div>
             
             <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">分类：</label>
+              <select
+                v-model="formData.category_id"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              >
+                <option value="">选择分类（可选）</option>
+                <option v-for="category in categories" :key="category.id" :value="category.id">
+                  {{ category.name }}
+                </option>
+              </select>
+            </div>
+            
+            <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">描述：</label>
               <textarea
                 v-model="formData.description"
@@ -267,7 +298,8 @@ const config = useRuntimeConfig()
 // 页面状态
 const pageLoading = ref(true)
 const loading = ref(false)
-const tags = ref([])
+const tags = ref<any[]>([])
+const categories = ref<any[]>([])
 
 // 分页状态
 const currentPage = ref(1)
@@ -275,19 +307,21 @@ const pageSize = ref(20)
 const totalCount = ref(0)
 const totalPages = ref(0)
 
-// 搜索状态
+// 搜索和筛选状态
 const searchQuery = ref('')
+const selectedCategory = ref('')
 let searchTimeout: NodeJS.Timeout | null = null
 
 // 模态框状态
 const showAddModal = ref(false)
 const submitting = ref(false)
-const editingTag = ref(null)
+const editingTag = ref<any>(null)
 
 // 表单数据
 const formData = ref({
   name: '',
-  description: ''
+  description: '',
+  category_id: ''
 })
 
 // 获取认证头
@@ -313,6 +347,24 @@ const checkAuth = () => {
   }
 }
 
+// 获取分类列表
+const fetchCategories = async () => {
+  try {
+    const response = await $fetch('/categories', {
+      baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    
+    if (response && typeof response === 'object' && 'code' in response && response.code === 200) {
+      categories.value = (response as any).data?.items || []
+    } else {
+      categories.value = (response as any).items || []
+    }
+  } catch (error) {
+    console.error('获取分类列表失败:', error)
+  }
+}
+
 // 获取标签列表
 const fetchTags = async () => {
   try {
@@ -323,15 +375,27 @@ const fetchTags = async () => {
       search: searchQuery.value
     }
     
-    const response = await $fetch('/tags', {
-      baseURL: config.public.apiBase,
-      params
-    })
+    let response: any
+    if (selectedCategory.value) {
+      // 如果选择了分类，使用按分类查询的接口
+      response = await $fetch(`/categories/${selectedCategory.value}/tags`, {
+        baseURL: config.public.apiBase,
+        params,
+        headers: getAuthHeaders() as Record<string, string>
+      })
+    } else {
+      // 否则使用普通查询接口
+      response = await $fetch('/tags', {
+        baseURL: config.public.apiBase,
+        params,
+        headers: getAuthHeaders() as Record<string, string>
+      })
+    }
     
     // 解析响应
     if (response && typeof response === 'object' && 'code' in response && response.code === 200) {
-      tags.value = response.data.items || []
-      totalCount.value = response.data.total || 0
+      tags.value = response.data?.items || []
+      totalCount.value = response.data?.total || 0
       totalPages.value = Math.ceil(totalCount.value / pageSize.value)
     } else {
       tags.value = response.items || []
@@ -343,6 +407,12 @@ const fetchTags = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 分类变化处理
+const onCategoryChange = () => {
+  currentPage.value = 1
+  fetchTags()
 }
 
 // 搜索防抖
@@ -372,7 +442,8 @@ const editTag = (tag: any) => {
   editingTag.value = tag
   formData.value = {
     name: tag.name,
-    description: tag.description || ''
+    description: tag.description || '',
+    category_id: tag.category_id || ''
   }
   showAddModal.value = true
 }
@@ -387,7 +458,7 @@ const deleteTag = async (tagId: number) => {
     await $fetch(`/tags/${tagId}`, {
       baseURL: config.public.apiBase,
       method: 'DELETE',
-      headers: getAuthHeaders()
+      headers: getAuthHeaders() as Record<string, string>
     })
     await fetchTags()
   } catch (error) {
@@ -400,19 +471,31 @@ const handleSubmit = async () => {
   try {
     submitting.value = true
     
+    // 正确处理category_id，空字符串应该转换为null
+    let categoryId = null
+    if (formData.value.category_id && formData.value.category_id !== '') {
+      categoryId = parseInt(formData.value.category_id)
+    }
+    
+    const submitData = {
+      name: formData.value.name,
+      description: formData.value.description,
+      category_id: categoryId
+    }
+    
     if (editingTag.value) {
       await $fetch(`/tags/${editingTag.value.id}`, {
         baseURL: config.public.apiBase,
         method: 'PUT',
-        body: formData.value,
-        headers: getAuthHeaders()
+        body: submitData,
+        headers: getAuthHeaders() as Record<string, string>
       })
     } else {
       await $fetch('/tags', {
         baseURL: config.public.apiBase,
         method: 'POST',
-        body: formData.value,
-        headers: getAuthHeaders()
+        body: submitData,
+        headers: getAuthHeaders() as Record<string, string>
       })
     }
     
@@ -431,7 +514,8 @@ const closeModal = () => {
   editingTag.value = null
   formData.value = {
     name: '',
-    description: ''
+    description: '',
+    category_id: ''
   }
 }
 
@@ -457,6 +541,7 @@ const handleLogout = () => {
 onMounted(async () => {
   try {
     checkAuth()
+    await fetchCategories()
     await fetchTags()
     
     // 检查URL参数，如果action=add则自动打开新增弹窗

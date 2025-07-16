@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -67,6 +68,7 @@ func CreateTag(c *gin.Context) {
 	tag := &entity.Tag{
 		Name:        req.Name,
 		Description: req.Description,
+		CategoryID:  req.CategoryID,
 	}
 
 	err := repoManager.TagRepository.Create(tag)
@@ -123,14 +125,23 @@ func UpdateTag(c *gin.Context) {
 		return
 	}
 
+	// 添加调试信息
+	fmt.Printf("更新标签 - ID: %d, 请求CategoryID: %v, 当前CategoryID: %v\n", id, req.CategoryID, tag.CategoryID)
+
 	if req.Name != "" {
 		tag.Name = req.Name
 	}
 	if req.Description != "" {
 		tag.Description = req.Description
 	}
+	// 处理CategoryID，包括设置为null的情况
+	tag.CategoryID = req.CategoryID
 
-	err = repoManager.TagRepository.Update(tag)
+	// 添加调试信息
+	fmt.Printf("更新后CategoryID: %v\n", tag.CategoryID)
+
+	// 使用专门的更新方法，确保能更新null值
+	err = repoManager.TagRepository.UpdateWithNulls(tag)
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
@@ -198,4 +209,44 @@ func GetTagsGlobal(c *gin.Context) {
 
 	responses := converter.ToTagResponseList(tags, resourceCounts)
 	SuccessResponse(c, responses)
+}
+
+// GetTagsByCategory 根据分类ID获取标签列表
+func GetTagsByCategory(c *gin.Context) {
+	categoryIDStr := c.Param("categoryId")
+	categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的分类ID", http.StatusBadRequest)
+		return
+	}
+
+	// 获取分页参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	tags, total, err := repoManager.TagRepository.FindByCategoryIDPaginated(uint(categoryID), page, pageSize)
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 获取每个标签的资源数量
+	resourceCounts := make(map[uint]int64)
+	for _, tag := range tags {
+		count, err := repoManager.TagRepository.GetResourceCount(tag.ID)
+		if err != nil {
+			continue
+		}
+		resourceCounts[tag.ID] = count
+	}
+
+	responses := converter.ToTagResponseList(tags, resourceCounts)
+
+	// 返回分页格式的响应
+	SuccessResponse(c, gin.H{
+		"items":     responses,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
 }
