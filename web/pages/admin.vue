@@ -107,6 +107,33 @@
           </div>
         </div>
 
+        <!-- 第三方平台账号管理 -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div class="flex items-center mb-4">
+            <div class="p-3 bg-teal-100 rounded-lg">
+              <i class="fas fa-key text-teal-600 text-xl"></i>
+            </div>
+            <div class="ml-4">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">平台账号管理</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400">管理第三方平台账号</p>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <NuxtLink to="/cks" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">管理账号</span>
+                <i class="fas fa-chevron-right text-gray-400"></i>
+              </div>
+            </NuxtLink>
+            <NuxtLink to="/cks" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">添加账号</span>
+                <i class="fas fa-plus text-gray-400"></i>
+              </div>
+            </NuxtLink>
+          </div>
+        </div>
+
         <!-- 分类管理 -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="flex items-center mb-4">
