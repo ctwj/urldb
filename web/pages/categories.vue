@@ -73,7 +73,7 @@
                 <th class="px-4 py-3 text-left text-sm font-medium">分类名称</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">描述</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">资源数量</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">创建时间</th>
+                <th class="px-4 py-3 text-left text-sm font-medium">关联标签</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">操作</th>
               </tr>
             </thead>
@@ -120,7 +120,10 @@
                   </span>
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                  {{ formatTime(category.create_time) }}
+                  <span v-if="category.tag_names && category.tag_names.length > 0" class="text-gray-800 dark:text-gray-200">
+                    {{ category.tag_names.join(', ') }}
+                  </span>
+                  <span v-else class="text-gray-400 dark:text-gray-500 italic text-xs">无标签</span>
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <div class="flex items-center gap-2">

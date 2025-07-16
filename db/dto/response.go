@@ -31,11 +31,11 @@ type ResourceResponse struct {
 
 // CategoryResponse 分类响应
 type CategoryResponse struct {
-	ID            uint   `json:"id"`
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	ResourceCount int64  `json:"resource_count"`
-	TagCount      int64  `json:"tag_count"`
+	ID            uint     `json:"id"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	ResourceCount int64    `json:"resource_count"`
+	TagNames      []string `json:"tag_names"`
 }
 
 // TagResponse 标签响应

@@ -52,23 +52,23 @@ func ToResourceResponseList(resources []entity.Resource) []dto.ResourceResponse 
 }
 
 // ToCategoryResponse 将Category实体转换为CategoryResponse
-func ToCategoryResponse(category *entity.Category, resourceCount int64, tagCount int64) dto.CategoryResponse {
+func ToCategoryResponse(category *entity.Category, resourceCount int64, tagNames []string) dto.CategoryResponse {
 	return dto.CategoryResponse{
 		ID:            category.ID,
 		Name:          category.Name,
 		Description:   category.Description,
 		ResourceCount: resourceCount,
-		TagCount:      tagCount,
+		TagNames:      tagNames,
 	}
 }
 
 // ToCategoryResponseList 将Category实体列表转换为CategoryResponse列表
-func ToCategoryResponseList(categories []entity.Category, resourceCounts map[uint]int64, tagCounts map[uint]int64) []dto.CategoryResponse {
+func ToCategoryResponseList(categories []entity.Category, resourceCounts map[uint]int64, tagNamesMap map[uint][]string) []dto.CategoryResponse {
 	responses := make([]dto.CategoryResponse, len(categories))
 	for i, category := range categories {
 		resourceCount := resourceCounts[category.ID]
-		tagCount := tagCounts[category.ID]
-		responses[i] = ToCategoryResponse(&category, resourceCount, tagCount)
+		tagNames := tagNamesMap[category.ID]
+		responses[i] = ToCategoryResponse(&category, resourceCount, tagNames)
 	}
 	return responses
 }

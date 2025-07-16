@@ -14,6 +14,7 @@ type CategoryRepository interface {
 	FindWithTags() ([]entity.Category, error)
 	GetResourceCount(categoryID uint) (int64, error)
 	GetTagCount(categoryID uint) (int64, error)
+	GetTagNames(categoryID uint) ([]string, error)
 	FindWithPagination(page, pageSize int) ([]entity.Category, int64, error)
 	Search(query string, page, pageSize int) ([]entity.Category, int64, error)
 }
@@ -66,6 +67,21 @@ func (r *CategoryRepositoryImpl) GetTagCount(categoryID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&entity.Tag{}).Where("category_id = ?", categoryID).Count(&count).Error
 	return count, err
+}
+
+// GetTagNames 获取分类下的标签名称列表
+func (r *CategoryRepositoryImpl) GetTagNames(categoryID uint) ([]string, error) {
+	var tags []entity.Tag
+	err := r.db.Model(&entity.Tag{}).Where("category_id = ?", categoryID).Select("name").Find(&tags).Error
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, len(tags))
+	for i, tag := range tags {
+		names[i] = tag.Name
+	}
+	return names, nil
 }
 
 // FindWithPagination 分页查询分类

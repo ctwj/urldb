@@ -35,9 +35,9 @@ func GetCategories(c *gin.Context) {
 		return
 	}
 
-	// 获取每个分类的资源数量和标签数量
+	// 获取每个分类的资源数量和标签名称
 	resourceCounts := make(map[uint]int64)
-	tagCounts := make(map[uint]int64)
+	tagNamesMap := make(map[uint][]string)
 	for _, category := range categories {
 		// 获取资源数量
 		resourceCount, err := repoManager.CategoryRepository.GetResourceCount(category.ID)
@@ -46,15 +46,15 @@ func GetCategories(c *gin.Context) {
 		}
 		resourceCounts[category.ID] = resourceCount
 
-		// 获取标签数量
-		tagCount, err := repoManager.CategoryRepository.GetTagCount(category.ID)
+		// 获取标签名称
+		tagNames, err := repoManager.CategoryRepository.GetTagNames(category.ID)
 		if err != nil {
 			continue
 		}
-		tagCounts[category.ID] = tagCount
+		tagNamesMap[category.ID] = tagNames
 	}
 
-	responses := converter.ToCategoryResponseList(categories, resourceCounts, tagCounts)
+	responses := converter.ToCategoryResponseList(categories, resourceCounts, tagNamesMap)
 
 	// 返回分页格式的响应
 	SuccessResponse(c, gin.H{
@@ -86,7 +86,7 @@ func CreateCategory(c *gin.Context) {
 
 	SuccessResponse(c, gin.H{
 		"message":  "分类创建成功",
-		"category": converter.ToCategoryResponse(category, 0, 0),
+		"category": converter.ToCategoryResponse(category, 0, []string{}),
 	})
 }
 
