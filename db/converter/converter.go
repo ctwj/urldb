@@ -171,3 +171,21 @@ func ToReadyResourceResponseList(resources []entity.ReadyResource) []dto.ReadyRe
 	}
 	return responses
 }
+
+// RequestToReadyResource 将ReadyResourceRequest转换为ReadyResource实体
+func RequestToReadyResource(req *dto.ReadyResourceRequest) *entity.ReadyResource {
+	if req == nil {
+		return nil
+	}
+
+	return &entity.ReadyResource{
+		Title:       &req.Title,
+		Description: req.Description,
+		URL:         req.Url,
+		Category:    req.Category,
+		Tags:        req.Tags,
+		Img:         req.Img,
+		Source:      req.Source,
+		Extra:       req.Extra,
+	}
+}

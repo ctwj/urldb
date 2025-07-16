@@ -61,6 +61,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <button @click="editUser(user)" class="text-indigo-600 hover:text-indigo-900 mr-3">编辑</button>
+                  <button @click="showChangePasswordModal(user)" class="text-yellow-600 hover:text-yellow-900 mr-3">修改密码</button>
                   <button @click="deleteUser(user.id)" class="text-red-600 hover:text-red-900">删除</button>
                 </td>
               </tr>
@@ -145,6 +146,60 @@
           </div>
         </div>
       </div>
+
+      <!-- 修改密码模态框 -->
+      <div v-if="showPasswordModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">
+              修改用户密码
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">
+              正在为用户 <strong>{{ changingPasswordUser?.username }}</strong> 修改密码
+            </p>
+            <form @submit.prevent="handlePasswordChange">
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700">新密码</label>
+                  <input 
+                    v-model="passwordForm.newPassword" 
+                    type="password" 
+                    required
+                    minlength="6"
+                    class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="请输入新密码（至少6位）"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700">确认新密码</label>
+                  <input 
+                    v-model="passwordForm.confirmPassword" 
+                    type="password" 
+                    required
+                    class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="请再次输入新密码"
+                  />
+                </div>
+              </div>
+              <div class="mt-6 flex justify-end space-x-3">
+                <button 
+                  type="button" 
+                  @click="closePasswordModal"
+                  class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button 
+                  type="submit" 
+                  class="px-4 py-2 bg-yellow-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-yellow-700"
+                >
+                  修改密码
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -156,13 +211,19 @@ const userStore = useUserStore()
 const users = ref([])
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
+const showPasswordModal = ref(false)
 const editingUser = ref(null)
+const changingPasswordUser = ref(null)
 const form = ref({
   username: '',
   email: '',
   password: '',
   role: 'user',
   is_active: true
+})
+const passwordForm = ref({
+  newPassword: '',
+  confirmPassword: ''
 })
 
 // 检查认证
@@ -224,6 +285,55 @@ const deleteUser = async (id) => {
   } catch (error) {
     console.error('删除用户失败:', error)
   }
+}
+
+// 显示修改密码模态框
+const showChangePasswordModal = (user) => {
+  changingPasswordUser.value = user
+  passwordForm.value = {
+    newPassword: '',
+    confirmPassword: ''
+  }
+  showPasswordModal.value = true
+}
+
+// 关闭修改密码模态框
+const closePasswordModal = () => {
+  showPasswordModal.value = false
+  changingPasswordUser.value = null
+  passwordForm.value = {
+    newPassword: '',
+    confirmPassword: ''
+  }
+}
+
+// 修改密码
+const changePassword = async () => {
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    alert('两次输入的密码不一致')
+    return
+  }
+  
+  if (passwordForm.value.newPassword.length < 6) {
+    alert('密码长度至少6位')
+    return
+  }
+  
+  try {
+    const { useUserApi } = await import('~/composables/useApi')
+    const userApi = useUserApi()
+    await userApi.changePassword(changingPasswordUser.value.id, passwordForm.value.newPassword)
+    alert('密码修改成功')
+    closePasswordModal()
+  } catch (error) {
+    console.error('修改密码失败:', error)
+    alert('修改密码失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 处理密码修改表单提交
+const handlePasswordChange = () => {
+  changePassword()
 }
 
 // 编辑用户

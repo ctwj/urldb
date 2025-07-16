@@ -701,11 +701,22 @@ export const useUserApi = () => {
     return parseApiResponse(response)
   }
 
+  const changePassword = async (id: number, newPassword: string) => {
+    const response = await $fetch(`/users/${id}/password`, {
+      baseURL: config.public.apiBase,
+      method: 'PUT',
+      body: { new_password: newPassword },
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    return parseApiResponse(response)
+  }
+
   return {
     getUsers,
     getUser,
     createUser,
     updateUser,
     deleteUser,
+    changePassword,
   }
 } 

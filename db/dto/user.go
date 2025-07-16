@@ -32,6 +32,11 @@ type UpdateUserRequest struct {
 	IsActive bool   `json:"is_active"`
 }
 
+// ChangePasswordRequest 修改密码请求
+type ChangePasswordRequest struct {
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
 // UserResponse 用户响应
 type UserResponse struct {
 	ID        uint       `json:"id"`

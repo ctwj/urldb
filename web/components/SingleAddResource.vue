@@ -3,12 +3,13 @@
     <!-- 标题 -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        标题 <span class="text-gray-400 text-xs">(可选)</span>
+        标题 <span class="text-red-500">*</span>
       </label>
       <input 
         v-model="form.title" 
         class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
-        placeholder="输入资源标题，留空则自动从URL提取" 
+        placeholder="输入资源标题（必填）" 
+        required
       />
     </div>
 
@@ -171,6 +172,9 @@ const removeTag = (tag: string) => {
 
 // 验证表单
 const validateForm = () => {
+  if (!form.value.title.trim()) {
+    throw new Error('标题不能为空')
+  }
   if (!form.value.url.trim()) {
     throw new Error('请输入至少一个URL')
   }
@@ -213,7 +217,7 @@ const handleSubmit = async () => {
     // 为每个URL创建一个资源
     for (const url of urls) {
       const resourceData = {
-        title: form.value.title || undefined, // 如果为空则传undefined
+        title: form.value.title, // 标题必填
         description: form.value.description || undefined, // 添加描述
         url: url,
         category: form.value.category || '',

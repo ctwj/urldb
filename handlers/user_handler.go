@@ -205,6 +205,44 @@ func UpdateUser(c *gin.Context) {
 	SuccessResponse(c, gin.H{"message": "用户更新成功"})
 }
 
+// ChangePassword 修改用户密码（管理员）
+func ChangePassword(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	var req dto.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	user, err := repoManager.UserRepository.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "用户不存在", http.StatusNotFound)
+		return
+	}
+
+	// 哈希新密码
+	hashedPassword, err := middleware.HashPassword(req.NewPassword)
+	if err != nil {
+		ErrorResponse(c, "密码加密失败", http.StatusInternalServerError)
+		return
+	}
+
+	user.Password = hashedPassword
+	err = repoManager.UserRepository.Update(user)
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, gin.H{"message": "密码修改成功"})
+}
+
 // DeleteUser 删除用户（管理员）
 func DeleteUser(c *gin.Context) {
 	idStr := c.Param("id")

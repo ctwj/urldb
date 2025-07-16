@@ -23,32 +23,31 @@
             {{ systemConfig?.site_title || '网盘资源管理系统' }}
           </a>
         </h1>
-        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 right-4 top-0 absolute">
-          <NuxtLink 
-            to="/hot-dramas" 
-            class="hidden sm:flex w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-md transition-colors text-center items-center justify-center gap-2"
-          >
-            <i class="fas fa-film"></i> 热播剧
+        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-2 right-4 top-0 absolute">
+          <NuxtLink to="/hot-dramas" class="hidden sm:flex">
+            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+              <i class="fas fa-film text-xs"></i> 热播剧
+            </n-button>
           </NuxtLink>
-          <NuxtLink 
-            to="/monitor" 
-            class="hidden sm:flex w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors text-center items-center justify-center gap-2"
-          >
-            <i class="fas fa-chart-line"></i> 系统监控
+          <NuxtLink to="/monitor" class="hidden sm:flex">
+            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+              <i class="fas fa-chart-line text-xs"></i> 系统监控
+            </n-button>
           </NuxtLink>
-          <NuxtLink 
-            v-if="authInitialized && !userStore.isAuthenticated"
-            to="/login" 
-            class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-sign-in-alt"></i> 登录
+          <NuxtLink to="/api-docs" class="hidden sm:flex">
+            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+              <i class="fas fa-book text-xs"></i> API文档
+            </n-button>
           </NuxtLink>
-          <NuxtLink 
-            v-if="authInitialized && userStore.isAuthenticated"
-            to="/admin" 
-            class="hidden sm:flex w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center items-center justify-center gap-2"
-          >
-            <i class="fas fa-user-shield"></i> 管理后台
+          <NuxtLink v-if="authInitialized && !userStore.isAuthenticated" to="/login" class="sm:flex">
+            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+              <i class="fas fa-sign-in-alt text-xs"></i> 登录
+            </n-button>
+          </NuxtLink>
+          <NuxtLink v-if="authInitialized && userStore.isAuthenticated" to="/admin" class="hidden sm:flex">
+            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+              <i class="fas fa-user-shield text-xs"></i> 管理后台
+            </n-button>
           </NuxtLink>
         </nav>
       </div>

@@ -15,6 +15,9 @@ type SystemConfigRequest struct {
 	AutoTransferEnabled       bool `json:"auto_transfer_enabled"`                           // 开启自动转存
 	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled"`                    // 自动拉取热播剧名字
 
+	// API配置
+	ApiToken string `json:"api_token"` // 公开API访问令牌
+
 	// 其他配置
 	PageSize        int  `json:"page_size" validate:"min=10,max=500"`
 	MaintenanceMode bool `json:"maintenance_mode"`
@@ -38,6 +41,9 @@ type SystemConfigResponse struct {
 	AutoProcessInterval       int  `json:"auto_process_interval"`        // 自动处理间隔（分钟）
 	AutoTransferEnabled       bool `json:"auto_transfer_enabled"`        // 开启自动转存
 	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled"` // 自动拉取热播剧名字
+
+	// API配置
+	ApiToken string `json:"api_token"` // 公开API访问令牌
 
 	// 其他配置
 	PageSize        int  `json:"page_size"`

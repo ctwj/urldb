@@ -31,6 +31,9 @@ func SystemConfigToResponse(config *entity.SystemConfig) *dto.SystemConfigRespon
 		AutoTransferEnabled:       config.AutoTransferEnabled,
 		AutoFetchHotDramaEnabled:  config.AutoFetchHotDramaEnabled,
 
+		// API配置
+		ApiToken: config.ApiToken,
+
 		// 其他配置
 		PageSize:        config.PageSize,
 		MaintenanceMode: config.MaintenanceMode,
@@ -56,6 +59,9 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) *entity.SystemConfig {
 		AutoProcessInterval:       req.AutoProcessInterval,
 		AutoTransferEnabled:       req.AutoTransferEnabled,
 		AutoFetchHotDramaEnabled:  req.AutoFetchHotDramaEnabled,
+
+		// API配置
+		ApiToken: req.ApiToken,
 
 		// 其他配置
 		PageSize:        req.PageSize,

@@ -21,6 +21,7 @@ type ResourceRepository interface {
 	FindByIsPublic(isPublic bool) ([]entity.Resource, error)
 	Search(query string, categoryID *uint, page, limit int) ([]entity.Resource, int64, error)
 	SearchByPanID(query string, panID uint, page, limit int) ([]entity.Resource, int64, error)
+	SearchWithFilters(params map[string]interface{}) ([]entity.Resource, int64, error)
 	IncrementViewCount(id uint) error
 	FindWithTags() ([]entity.Resource, error)
 	UpdateWithTags(resource *entity.Resource, tagIDs []uint) error
@@ -198,6 +199,49 @@ func (r *ResourceRepositoryImpl) SearchByPanID(query string, panID uint, page, l
 
 	// 获取分页数据，按更新时间倒序
 	err := db.Order("updated_at DESC").Offset(offset).Limit(limit).Find(&resources).Error
+	return resources, total, err
+}
+
+// SearchWithFilters 根据参数进行搜索
+func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}) ([]entity.Resource, int64, error) {
+	var resources []entity.Resource
+	var total int64
+
+	db := r.db.Model(&entity.Resource{})
+
+	// 处理参数
+	for key, value := range params {
+		switch key {
+		case "query":
+			if query, ok := value.(string); ok && query != "" {
+				db = db.Where("title ILIKE ? OR description ILIKE ?", "%"+query+"%", "%"+query+"%")
+			}
+		case "category_id":
+			if categoryID, ok := value.(uint); ok {
+				db = db.Where("category_id = ?", categoryID)
+			}
+		case "is_valid":
+			if isValid, ok := value.(bool); ok {
+				db = db.Where("is_valid = ?", isValid)
+			}
+		case "is_public":
+			if isPublic, ok := value.(bool); ok {
+				db = db.Where("is_public = ?", isPublic)
+			}
+		case "pan_id":
+			if panID, ok := value.(uint); ok {
+				db = db.Where("pan_id = ?", panID)
+			}
+		}
+	}
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据，按更新时间倒序
+	err := db.Order("updated_at DESC").Find(&resources).Error
 	return resources, total, err
 }
 

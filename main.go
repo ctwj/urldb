@@ -1,3 +1,23 @@
+// @title 网盘资源管理系统公开API
+// @version 1.0
+// @description 网盘资源管理系统的公开API接口文档
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /api/public
+
+// @securityDefinitions.apikey ApiTokenAuth
+// @in header
+// @name X-API-Token
+// @description API Token认证
+
 package main
 
 import (
@@ -10,9 +30,13 @@ import (
 	"res_db/handlers"
 	"res_db/middleware"
 
+	_ "res_db/docs"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func main() {
@@ -73,9 +97,29 @@ func main() {
 	// 将Repository管理器注入到handlers中
 	handlers.SetRepositoryManager(repoManager)
 
+	// 设置公开API中间件的Repository管理器
+	middleware.SetRepositoryManager(repoManager)
+
+	// 创建公开API处理器
+	publicAPIHandler := handlers.NewPublicAPIHandler()
+
 	// API路由
 	api := r.Group("/api")
 	{
+		// 公开API路由（需要API Token认证）
+		publicAPI := api.Group("/public")
+		publicAPI.Use(middleware.PublicAPIAuth())
+		{
+			// 单个添加资源
+			publicAPI.POST("/resources/add", publicAPIHandler.AddSingleResource)
+			// 批量添加资源
+			publicAPI.POST("/resources/batch-add", publicAPIHandler.AddBatchResources)
+			// 资源搜索
+			publicAPI.GET("/resources/search", publicAPIHandler.SearchResources)
+			// 热门剧
+			publicAPI.GET("/hot-dramas", publicAPIHandler.GetHotDramas)
+		}
+
 		// 认证路由
 		api.POST("/auth/login", handlers.Login)
 		api.POST("/auth/register", handlers.Register)
@@ -137,6 +181,7 @@ func main() {
 		api.GET("/users", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetUsers)
 		api.POST("/users", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateUser)
 		api.PUT("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateUser)
+		api.PUT("/users/:id/password", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ChangePassword)
 		api.DELETE("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteUser)
 
 		// 搜索统计路由
@@ -173,6 +218,9 @@ func main() {
 
 	// 静态文件服务
 	r.Static("/uploads", "./uploads")
+
+	// 注册Swagger UI路由
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	port := os.Getenv("PORT")
 	if port == "" {

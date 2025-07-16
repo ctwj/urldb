@@ -239,6 +239,57 @@
             </div>
           </div>
 
+          <!-- API配置 -->
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <i class="fas fa-key text-orange-600"></i>
+              API 配置
+            </h2>
+            
+            <div class="space-y-4">
+              <!-- API Token -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  公开API访问令牌
+                </label>
+                <div class="flex gap-2">
+                  <input 
+                    v-model="config.apiToken" 
+                    type="text" 
+                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="输入API Token，用于公开API访问认证"
+                  />
+                  <button 
+                    type="button"
+                    @click="generateApiToken"
+                    class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+                  >
+                    生成
+                  </button>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  用于公开API的访问认证，建议使用随机字符串
+                </p>
+              </div>
+
+              <!-- API使用说明 -->
+              <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  <i class="fas fa-info-circle mr-1"></i>
+                  API使用说明
+                </h3>
+                <div class="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                  <p>• 单个添加资源: POST /api/public/resources/add</p>
+                  <p>• 批量添加资源: POST /api/public/resources/batch-add</p>
+                  <p>• 资源搜索: GET /api/public/resources/search</p>
+                  <p>• 热门剧: GET /api/public/hot-dramas</p>
+                  <p>• 认证方式: 在请求头中添加 X-API-Token 或在查询参数中添加 api_token</p>
+                  <p>• Swagger文档: <a href="/swagger/index.html" target="_blank" class="underline">查看完整API文档</a></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- 保存按钮 -->
           <div class="flex justify-end space-x-4 pt-6">
             <button 
@@ -287,7 +338,8 @@ const config = ref({
   
   // 其他配置
   pageSize: 100,
-  maintenanceMode: false
+  maintenanceMode: false,
+  apiToken: '' // 新增
 })
 
 // 系统配置状态（用于SEO）
@@ -332,7 +384,8 @@ const loadConfig = async () => {
         autoTransferEnabled: response.auto_transfer_enabled || false, // 新增
         autoFetchHotDramaEnabled: response.auto_fetch_hot_drama_enabled || false, // 新增
         pageSize: response.page_size || 100,
-        maintenanceMode: response.maintenance_mode || false
+        maintenanceMode: response.maintenance_mode || false,
+        apiToken: response.api_token || '' // 加载API Token
       }
       systemConfig.value = response // 更新系统配置状态
     }
@@ -360,7 +413,8 @@ const saveConfig = async () => {
       auto_transfer_enabled: config.value.autoTransferEnabled, // 新增
       auto_fetch_hot_drama_enabled: config.value.autoFetchHotDramaEnabled, // 新增
       page_size: config.value.pageSize,
-      maintenance_mode: config.value.maintenanceMode
+      maintenance_mode: config.value.maintenanceMode,
+      api_token: config.value.apiToken // 保存API Token
     }
     
     const response = await updateSystemConfig(requestData)
@@ -386,6 +440,13 @@ const resetForm = () => {
     loadConfig()
   }
 }
+
+// 生成API Token
+const generateApiToken = () => {
+  const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  config.value.apiToken = newToken;
+  alert('新API Token已生成: ' + newToken);
+};
 
 // 页面加载时获取配置
 onMounted(() => {
