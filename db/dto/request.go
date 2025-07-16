@@ -18,24 +18,32 @@ type UpdatePanRequest struct {
 
 // CreateCksRequest 创建cookie请求
 type CreateCksRequest struct {
-	PanID     uint   `json:"pan_id" binding:"required"`
-	Idx       int    `json:"idx"`
-	Ck        string `json:"ck"`
-	IsValid   bool   `json:"is_valid"`
-	Space     int64  `json:"space"`
-	LeftSpace int64  `json:"left_space"`
-	Remark    string `json:"remark"`
+	PanID       uint   `json:"pan_id" binding:"required"`
+	Idx         int    `json:"idx"`
+	Ck          string `json:"ck"`
+	IsValid     bool   `json:"is_valid"`
+	Space       int64  `json:"space"`
+	LeftSpace   int64  `json:"left_space"`
+	UsedSpace   int64  `json:"used_space"`
+	Username    string `json:"username"`
+	VipStatus   bool   `json:"vip_status"`
+	ServiceType string `json:"service_type"`
+	Remark      string `json:"remark"`
 }
 
 // UpdateCksRequest 更新cookie请求
 type UpdateCksRequest struct {
-	PanID     uint   `json:"pan_id"`
-	Idx       int    `json:"idx"`
-	Ck        string `json:"ck"`
-	IsValid   bool   `json:"is_valid"`
-	Space     int64  `json:"space"`
-	LeftSpace int64  `json:"left_space"`
-	Remark    string `json:"remark"`
+	PanID       uint   `json:"pan_id"`
+	Idx         int    `json:"idx"`
+	Ck          string `json:"ck"`
+	IsValid     bool   `json:"is_valid"`
+	Space       int64  `json:"space"`
+	LeftSpace   int64  `json:"left_space"`
+	UsedSpace   int64  `json:"used_space"`
+	Username    string `json:"username"`
+	VipStatus   bool   `json:"vip_status"`
+	ServiceType string `json:"service_type"`
+	Remark      string `json:"remark"`
 }
 
 // CreateResourceRequest 创建资源请求

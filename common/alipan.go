@@ -253,6 +253,71 @@ func (a *AlipanService) DeleteFiles(fileList []string) (*TransferResult, error) 
 	return SuccessResult("删除成功", nil), nil
 }
 
+// GetUserInfo 获取用户信息
+func (a *AlipanService) GetUserInfo(cookie string) (*UserInfo, error) {
+	// 设置Cookie
+	a.SetHeader("Cookie", cookie)
+
+	// 获取access token
+	accessToken, err := a.manageAccessToken()
+	if err != nil {
+		return nil, fmt.Errorf("获取access_token失败: %v", err)
+	}
+
+	// 设置Authorization头
+	a.SetHeader("Authorization", "Bearer "+accessToken)
+
+	// 调用阿里云盘用户信息API
+	userInfoURL := "https://api.alipan.com/v2/user/get"
+	resp, err := a.HTTPGet(userInfoURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败: %v", err)
+	}
+
+	// 解析响应
+	var result struct {
+		Code string `json:"code"`
+		Data struct {
+			NickName  string `json:"nick_name"`
+			Avatar    string `json:"avatar"`
+			DriveInfo struct {
+				TotalSize string `json:"total_size"`
+				UsedSize  string `json:"used_size"`
+			} `json:"drive_info"`
+			VipInfo struct {
+				VipStatus string `json:"vip_status"`
+			} `json:"vip_info"`
+		} `json:"data"`
+	}
+
+	if err := a.ParseJSONResponse(resp, &result); err != nil {
+		return nil, fmt.Errorf("解析用户信息失败: %v", err)
+	}
+
+	if result.Code != "" {
+		return nil, fmt.Errorf("API返回错误: %s", result.Code)
+	}
+
+	// 转换VIP状态
+	vipStatus := result.Data.VipInfo.VipStatus == "vip"
+
+	// 转换容量字符串为字节数
+	totalSizeStr := result.Data.DriveInfo.TotalSize
+	usedSizeStr := result.Data.DriveInfo.UsedSize
+
+	// 解析容量字符串
+	totalSizeBytes := ParseCapacityString(totalSizeStr)
+	usedSizeBytes := ParseCapacityString(usedSizeStr)
+
+	return &UserInfo{
+		Username:    result.Data.NickName,
+		VIPStatus:   vipStatus,
+		UsedSpace:   usedSizeBytes,
+		TotalSpace:  totalSizeBytes,
+		ServiceType: "alipan",
+	}, nil
+}
+
 // getAlipan1 通过分享id获取file_id
 func (a *AlipanService) getAlipan1(shareID string) (*AlipanShareInfo, error) {
 	data := map[string]interface{}{

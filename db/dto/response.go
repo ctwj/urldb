@@ -59,14 +59,18 @@ type PanResponse struct {
 
 // CksResponse Cookie响应
 type CksResponse struct {
-	ID        uint   `json:"id"`
-	PanID     uint   `json:"pan_id"`
-	Idx       int    `json:"idx"`
-	Ck        string `json:"ck"`
-	IsValid   bool   `json:"is_valid"`
-	Space     int64  `json:"space"`
-	LeftSpace int64  `json:"left_space"`
-	Remark    string `json:"remark"`
+	ID          uint   `json:"id"`
+	PanID       uint   `json:"pan_id"`
+	Idx         int    `json:"idx"`
+	Ck          string `json:"ck"`
+	IsValid     bool   `json:"is_valid"`
+	Space       int64  `json:"space"`
+	LeftSpace   int64  `json:"left_space"`
+	UsedSpace   int64  `json:"used_space"`
+	Username    string `json:"username"`
+	VipStatus   bool   `json:"vip_status"`
+	ServiceType string `json:"service_type"`
+	Remark      string `json:"remark"`
 }
 
 // ReadyResourceResponse 待处理资源响应

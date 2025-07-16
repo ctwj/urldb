@@ -1,5 +1,7 @@
 package pan
 
+import "fmt"
+
 // UCService UC网盘服务
 type UCService struct {
 	*BasePanService
@@ -43,4 +45,55 @@ func (u *UCService) GetFiles(pdirFid string) (*TransferResult, error) {
 func (u *UCService) DeleteFiles(fileList []string) (*TransferResult, error) {
 	// TODO: 实现UC网盘文件删除
 	return ErrorResult("UC网盘文件删除功能暂未实现"), nil
+}
+
+// GetUserInfo 获取用户信息
+func (u *UCService) GetUserInfo(cookie string) (*UserInfo, error) {
+	// 设置Cookie
+	u.SetHeader("Cookie", cookie)
+
+	// 调用UC网盘用户信息API
+	userInfoURL := "https://drive.uc.cn/api/user/info"
+
+	resp, err := u.HTTPGet(userInfoURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败: %v", err)
+	}
+
+	// 解析响应
+	var result struct {
+		Code int `json:"code"`
+		Data struct {
+			Username   string `json:"username"`
+			Nickname   string `json:"nickname"`
+			VipStatus  int    `json:"vip_status"`
+			TotalSpace int64  `json:"total_space"`
+			UsedSpace  int64  `json:"used_space"`
+		} `json:"data"`
+	}
+
+	if err := u.ParseJSONResponse(resp, &result); err != nil {
+		return nil, fmt.Errorf("解析用户信息失败: %v", err)
+	}
+
+	if result.Code != 0 {
+		return nil, fmt.Errorf("API返回错误: %d", result.Code)
+	}
+
+	// 转换VIP状态
+	vipStatus := result.Data.VipStatus > 0
+
+	// 使用nickname或username
+	username := result.Data.Nickname
+	if username == "" {
+		username = result.Data.Username
+	}
+
+	return &UserInfo{
+		Username:    username,
+		VIPStatus:   vipStatus,
+		UsedSpace:   result.Data.UsedSpace,
+		TotalSpace:  result.Data.TotalSpace,
+		ServiceType: "uc",
+	}, nil
 }

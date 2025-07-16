@@ -2,6 +2,7 @@ package pan
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -53,6 +54,15 @@ type TransferResult struct {
 	Fid      string      `json:"fid,omitempty"`
 }
 
+// UserInfo 用户信息结构体
+type UserInfo struct {
+	Username    string `json:"username"`    // 用户名
+	VIPStatus   bool   `json:"vipStatus"`   // VIP状态
+	UsedSpace   int64  `json:"usedSpace"`   // 已使用空间
+	TotalSpace  int64  `json:"totalSpace"`  // 总空间
+	ServiceType string `json:"serviceType"` // 服务类型
+}
+
 // PanService 网盘服务接口
 type PanService interface {
 	// Transfer 转存分享链接
@@ -63,6 +73,9 @@ type PanService interface {
 
 	// DeleteFiles 删除文件
 	DeleteFiles(fileList []string) (*TransferResult, error)
+
+	// GetUserInfo 获取用户信息
+	GetUserInfo(cookie string) (*UserInfo, error)
 
 	// GetServiceType 获取服务类型
 	GetServiceType() ServiceType
@@ -209,4 +222,47 @@ func ErrorResult(message string) *TransferResult {
 		Success: false,
 		Message: message,
 	}
+}
+
+// ParseCapacityString 解析容量字符串为字节数
+func ParseCapacityString(capacityStr string) int64 {
+	if capacityStr == "" {
+		return 0
+	}
+
+	// 移除空格并转换为小写
+	capacityStr = strings.TrimSpace(strings.ToLower(capacityStr))
+
+	var multiplier int64 = 1
+	if strings.Contains(capacityStr, "gb") {
+		multiplier = 1024 * 1024 * 1024
+		capacityStr = strings.Replace(capacityStr, "gb", "", -1)
+	} else if strings.Contains(capacityStr, "mb") {
+		multiplier = 1024 * 1024
+		capacityStr = strings.Replace(capacityStr, "mb", "", -1)
+	} else if strings.Contains(capacityStr, "kb") {
+		multiplier = 1024
+		capacityStr = strings.Replace(capacityStr, "kb", "", -1)
+	} else if strings.Contains(capacityStr, "b") {
+		capacityStr = strings.Replace(capacityStr, "b", "", -1)
+	}
+
+	// 解析数字
+	capacityStr = strings.TrimSpace(capacityStr)
+	if capacityStr == "" {
+		return 0
+	}
+
+	// 尝试解析浮点数
+	if strings.Contains(capacityStr, ".") {
+		if val, err := strconv.ParseFloat(capacityStr, 64); err == nil {
+			return int64(val * float64(multiplier))
+		}
+	} else {
+		if val, err := strconv.ParseInt(capacityStr, 10, 64); err == nil {
+			return val * multiplier
+		}
+	}
+
+	return 0
 }

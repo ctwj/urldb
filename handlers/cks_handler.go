@@ -3,7 +3,9 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
+	panutils "res_db/common"
 	"res_db/db/converter"
 	"res_db/db/dto"
 	"res_db/db/entity"
@@ -31,26 +33,114 @@ func CreateCks(c *gin.Context) {
 		return
 	}
 
-	cks := &entity.Cks{
-		PanID:     req.PanID,
-		Idx:       req.Idx,
-		Ck:        req.Ck,
-		IsValid:   req.IsValid,
-		Space:     req.Space,
-		LeftSpace: req.LeftSpace,
-		Remark:    req.Remark,
+	// 获取平台信息以确定服务类型
+	pan, err := repoManager.PanRepository.FindByID(req.PanID)
+	if err != nil {
+		ErrorResponse(c, "平台不存在", http.StatusBadRequest)
+		return
 	}
 
-	err := repoManager.CksRepository.Create(cks)
+	// 根据平台名称确定服务类型
+	var serviceType panutils.ServiceType
+	switch pan.Name {
+	case "quark":
+		serviceType = panutils.Quark
+	case "alipan":
+		serviceType = panutils.Alipan
+	case "baidu":
+		serviceType = panutils.BaiduPan
+	case "uc":
+		serviceType = panutils.UC
+	default:
+		ErrorResponse(c, "不支持的平台类型", http.StatusBadRequest)
+		return
+	}
+
+	// 创建网盘服务实例
+	factory := panutils.GetInstance()
+	service, err := factory.CreatePanServiceByType(serviceType, &panutils.PanConfig{})
+	if err != nil {
+		ErrorResponse(c, "创建网盘服务失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 获取用户信息
+	userInfo, err := service.GetUserInfo(req.Ck)
+	if err != nil {
+		ErrorResponse(c, "无法获取用户信息，账号创建失败: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
+
+	// 创建Cks实体
+	cks := &entity.Cks{
+		PanID:       req.PanID,
+		Idx:         req.Idx,
+		Ck:          req.Ck,
+		IsValid:     userInfo.VIPStatus, // 根据VIP状态设置有效性
+		Space:       userInfo.TotalSpace,
+		LeftSpace:   leftSpaceBytes,
+		UsedSpace:   userInfo.UsedSpace,
+		Username:    userInfo.Username,
+		VipStatus:   userInfo.VIPStatus,
+		ServiceType: userInfo.ServiceType,
+		Remark:      req.Remark,
+	}
+
+	err = repoManager.CksRepository.Create(cks)
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	SuccessResponse(c, gin.H{
-		"message": "Cookie创建成功",
+		"message": "账号创建成功",
 		"cks":     converter.ToCksResponse(cks),
 	})
+}
+
+// parseCapacityToBytes 将容量字符串转换为字节数
+func parseCapacityToBytes(capacity string) int64 {
+	if capacity == "未知" || capacity == "" {
+		return 0
+	}
+
+	// 移除空格并转换为小写
+	capacity = strings.TrimSpace(strings.ToLower(capacity))
+
+	var multiplier int64 = 1
+	if strings.Contains(capacity, "gb") {
+		multiplier = 1024 * 1024 * 1024
+		capacity = strings.Replace(capacity, "gb", "", -1)
+	} else if strings.Contains(capacity, "mb") {
+		multiplier = 1024 * 1024
+		capacity = strings.Replace(capacity, "mb", "", -1)
+	} else if strings.Contains(capacity, "kb") {
+		multiplier = 1024
+		capacity = strings.Replace(capacity, "kb", "", -1)
+	} else if strings.Contains(capacity, "b") {
+		capacity = strings.Replace(capacity, "b", "", -1)
+	}
+
+	// 解析数字
+	capacity = strings.TrimSpace(capacity)
+	if capacity == "" {
+		return 0
+	}
+
+	// 尝试解析浮点数
+	if strings.Contains(capacity, ".") {
+		if val, err := strconv.ParseFloat(capacity, 64); err == nil {
+			return int64(val * float64(multiplier))
+		}
+	} else {
+		if val, err := strconv.ParseInt(capacity, 10, 64); err == nil {
+			return val * multiplier
+		}
+	}
+
+	return 0
 }
 
 // GetCksByID 根据ID获取Cookie详情
@@ -103,11 +193,18 @@ func UpdateCks(c *gin.Context) {
 		cks.Ck = req.Ck
 	}
 	cks.IsValid = req.IsValid
-	if req.Space != 0 {
-		cks.Space = req.Space
-	}
 	if req.LeftSpace != 0 {
 		cks.LeftSpace = req.LeftSpace
+	}
+	if req.UsedSpace != 0 {
+		cks.UsedSpace = req.UsedSpace
+	}
+	if req.Username != "" {
+		cks.Username = req.Username
+	}
+	cks.VipStatus = req.VipStatus
+	if req.ServiceType != "" {
+		cks.ServiceType = req.ServiceType
 	}
 	if req.Remark != "" {
 		cks.Remark = req.Remark
@@ -157,4 +254,81 @@ func GetCksByIDGlobal(c *gin.Context) {
 
 	response := converter.ToCksResponse(cks)
 	SuccessResponse(c, response)
+}
+
+// RefreshCapacity 刷新账号容量信息
+func RefreshCapacity(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	// 获取账号信息
+	cks, err := repoManager.CksRepository.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "账号不存在", http.StatusNotFound)
+		return
+	}
+
+	// 获取平台信息以确定服务类型
+	pan, err := repoManager.PanRepository.FindByID(cks.PanID)
+	if err != nil {
+		ErrorResponse(c, "平台不存在", http.StatusBadRequest)
+		return
+	}
+
+	// 根据平台名称确定服务类型
+	var serviceType panutils.ServiceType
+	switch pan.Name {
+	case "quark":
+		serviceType = panutils.Quark
+	case "alipan":
+		serviceType = panutils.Alipan
+	case "baidu":
+		serviceType = panutils.BaiduPan
+	case "uc":
+		serviceType = panutils.UC
+	default:
+		ErrorResponse(c, "不支持的平台类型", http.StatusBadRequest)
+		return
+	}
+
+	// 创建网盘服务实例
+	factory := panutils.GetInstance()
+	service, err := factory.CreatePanServiceByType(serviceType, &panutils.PanConfig{})
+	if err != nil {
+		ErrorResponse(c, "创建网盘服务失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 获取最新的用户信息
+	userInfo, err := service.GetUserInfo(cks.Ck)
+	if err != nil {
+		ErrorResponse(c, "无法获取用户信息，刷新失败: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
+
+	// 更新账号信息
+	cks.Username = userInfo.Username
+	cks.VipStatus = userInfo.VIPStatus
+	cks.ServiceType = userInfo.ServiceType
+	cks.Space = userInfo.TotalSpace
+	cks.LeftSpace = leftSpaceBytes
+	cks.UsedSpace = userInfo.UsedSpace
+	cks.IsValid = userInfo.VIPStatus // 根据VIP状态更新有效性
+
+	err = repoManager.CksRepository.Update(cks)
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, gin.H{
+		"message": "容量信息刷新成功",
+		"cks":     converter.ToCksResponse(cks),
+	})
 }

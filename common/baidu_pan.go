@@ -1,5 +1,9 @@
 package pan
 
+import (
+	"fmt"
+)
+
 // BaiduPanService 百度网盘服务
 type BaiduPanService struct {
 	*BasePanService
@@ -43,4 +47,57 @@ func (b *BaiduPanService) GetFiles(pdirFid string) (*TransferResult, error) {
 func (b *BaiduPanService) DeleteFiles(fileList []string) (*TransferResult, error) {
 	// TODO: 实现百度网盘文件删除
 	return ErrorResult("百度网盘文件删除功能暂未实现"), nil
+}
+
+// GetUserInfo 获取用户信息
+func (b *BaiduPanService) GetUserInfo(cookie string) (*UserInfo, error) {
+	// 设置Cookie
+	b.SetHeader("Cookie", cookie)
+
+	// 调用百度网盘用户信息API
+	userInfoURL := "https://pan.baidu.com/api/gettemplatevariable"
+	data := map[string]interface{}{
+		"fields": "['username','uk','vip_type','vip_endtime','total_capacity','used_capacity']",
+	}
+
+	resp, err := b.HTTPPost(userInfoURL, data, nil)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败: %v", err)
+	}
+
+	// 解析响应
+	var result struct {
+		Errno int `json:"errno"`
+		Data  struct {
+			Username      string `json:"username"`
+			Uk            string `json:"uk"`
+			VipType       int    `json:"vip_type"`
+			VipEndtime    string `json:"vip_endtime"`
+			TotalCapacity string `json:"total_capacity"`
+			UsedCapacity  string `json:"used_capacity"`
+		} `json:"data"`
+	}
+
+	if err := b.ParseJSONResponse(resp, &result); err != nil {
+		return nil, fmt.Errorf("解析用户信息失败: %v", err)
+	}
+
+	if result.Errno != 0 {
+		return nil, fmt.Errorf("API返回错误: %d", result.Errno)
+	}
+
+	// 转换VIP状态
+	vipStatus := result.Data.VipType > 0
+
+	// 解析容量字符串
+	totalCapacityBytes := ParseCapacityString(result.Data.TotalCapacity)
+	usedCapacityBytes := ParseCapacityString(result.Data.UsedCapacity)
+
+	return &UserInfo{
+		Username:    result.Data.Username,
+		VIPStatus:   vipStatus,
+		UsedSpace:   usedCapacityBytes,
+		TotalSpace:  totalCapacityBytes,
+		ServiceType: "baidu",
+	}, nil
 }

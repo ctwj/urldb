@@ -127,14 +127,18 @@ func ToPanResponseList(pans []entity.Pan) []dto.PanResponse {
 // ToCksResponse 将Cks实体转换为CksResponse
 func ToCksResponse(cks *entity.Cks) dto.CksResponse {
 	return dto.CksResponse{
-		ID:        cks.ID,
-		PanID:     cks.PanID,
-		Idx:       cks.Idx,
-		Ck:        cks.Ck,
-		IsValid:   cks.IsValid,
-		Space:     cks.Space,
-		LeftSpace: cks.LeftSpace,
-		Remark:    cks.Remark,
+		ID:          cks.ID,
+		PanID:       cks.PanID,
+		Idx:         cks.Idx,
+		Ck:          cks.Ck,
+		IsValid:     cks.IsValid,
+		Space:       cks.Space,
+		LeftSpace:   cks.LeftSpace,
+		UsedSpace:   cks.UsedSpace,
+		Username:    cks.Username,
+		VipStatus:   cks.VipStatus,
+		ServiceType: cks.ServiceType,
+		Remark:      cks.Remark,
 	}
 }
 

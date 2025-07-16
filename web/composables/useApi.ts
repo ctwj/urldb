@@ -331,12 +331,22 @@ export const useCksApi = () => {
     return parseApiResponse(response)
   }
 
+  const refreshCapacity = async (id: number) => {
+    const response = await $fetch(`/cks/${id}/refresh-capacity`, {
+      baseURL: config.public.apiBase,
+      method: 'POST',
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    return parseApiResponse(response)
+  }
+
   return {
     getCks,
     getCksByID,
     createCks,
     updateCks,
     deleteCks,
+    refreshCapacity,
   }
 }
 

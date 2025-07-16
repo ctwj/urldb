@@ -614,3 +614,99 @@ type PasswordResult struct {
 		Fid string `json:"fid"`
 	} `json:"first_file"`
 }
+
+// GetUserInfo 获取用户信息
+func (q *QuarkPanService) GetUserInfo(cookie string) (*UserInfo, error) {
+	// 临时设置cookie
+	originalCookie := q.GetHeader("Cookie")
+	q.SetHeader("Cookie", cookie)
+	defer q.SetHeader("Cookie", originalCookie) // 恢复原始cookie
+
+	// 获取用户基本信息
+	queryParams := map[string]string{
+		"platform": "pc",
+		"fr":       "pc",
+	}
+
+	data, err := q.HTTPGet("https://pan.quark.cn/account/info", queryParams)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败: %v", err)
+	}
+
+	var response struct {
+		Success bool   `json:"success"`
+		Code    string `json:"code"`
+		Data    struct {
+			Nickname  string   `json:"nickname"`
+			AvatarUri string   `json:"avatarUri"`
+			Mobilekps string   `json:"mobilekps"`
+			Config    struct{} `json:"config"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(data, &response); err != nil {
+		return nil, fmt.Errorf("解析用户信息失败: %v", err)
+	}
+
+	if !response.Success || response.Code != "OK" {
+		return nil, fmt.Errorf("获取用户信息失败: API返回错误")
+	}
+
+	// 获取用户详细信息（容量和会员信息）
+	queryParams1 := map[string]string{
+		"pr":              "ucpro",
+		"fr":              "pc",
+		"uc_param_str":    "",
+		"fetch_subscribe": "true",
+		"_ch":             "home",
+		"fetch_identity":  "true",
+	}
+	data1, err := q.HTTPGet("https://drive-pc.quark.cn/1/clouddrive/member", queryParams1)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户详细信息失败: %v", err)
+	}
+
+	var memberResponse struct {
+		Status  int    `json:"status"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			TotalCapacity     int64  `json:"secret_total_capacity"`
+			SecretUseCapacity int64  `json:"secret_use_capacity"`
+			MemberType        string `json:"member_type"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(data1, &memberResponse); err != nil {
+		return nil, fmt.Errorf("解析用户详细信息失败: %v", err)
+	}
+
+	if memberResponse.Status != 200 || memberResponse.Code != 0 {
+		return nil, fmt.Errorf("获取用户详细信息失败: %s", memberResponse.Message)
+	}
+
+	// 判断VIP状态
+	vipStatus := memberResponse.Data.MemberType != "NORMAL"
+
+	return &UserInfo{
+		Username:    response.Data.Nickname,
+		VIPStatus:   vipStatus,
+		UsedSpace:   memberResponse.Data.SecretUseCapacity,
+		TotalSpace:  memberResponse.Data.TotalCapacity,
+		ServiceType: "quark",
+	}, nil
+}
+
+// formatBytes 格式化字节数为可读格式
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
