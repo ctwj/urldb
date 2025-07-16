@@ -65,12 +65,12 @@
             </div>
           </div>
           <div class="space-y-2">
-            <button @click="goToResourceManagement" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <NuxtLink to="/resources" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-200">查看所有资源</span>
                 <i class="fas fa-chevron-right text-gray-400"></i>
               </div>
-            </button>
+            </NuxtLink>
             <NuxtLink to="/add-resource" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-200">批量添加资源</span>
@@ -287,6 +287,7 @@ const { $api } = useNuxtApp()
 
 const user = ref(null)
 const stats = ref(null)
+const platforms = ref([])
 const pageLoading = ref(true) // 添加页面加载状态
 const systemConfig = ref(null) // 添加系统配置状态
 
@@ -326,27 +327,41 @@ const fetchSystemConfig = async () => {
 // 检查认证状态
 const checkAuth = () => {
   console.log('admin - checkAuth 开始')
-  userStore.initAuth()
+  // 中间件已经处理了认证检查，这里只需要确保用户状态已初始化
+  if (!userStore.isAuthenticated) {
+    userStore.initAuth()
+  }
   
   console.log('admin - isAuthenticated:', userStore.isAuthenticated)
   console.log('admin - user:', userStore.userInfo)
   
-  if (!userStore.isAuthenticated) {
-    console.log('admin - 用户未认证，重定向到首页')
-    router.push('/')
-    return
-  }
-  
-  console.log('admin - 用户已认证，继续')
+  console.log('admin - 认证检查完成')
 }
 
 // 获取统计信息
 const fetchStats = async () => {
   try {
-    const response = await $api.get('/stats')
-    stats.value = response.data
+    const { useResourceApi } = await import('~/composables/useApi')
+    const resourceApi = useResourceApi()
+    const response = await resourceApi.getResources({ page: 1, page_size: 1 })
+    // 这里只取stats字段
+    stats.value = response.stats || null
   } catch (error) {
     console.error('获取统计信息失败:', error)
+  }
+}
+
+// 获取平台列表
+const fetchPlatforms = async () => {
+  try {
+    const { usePanApi } = await import('~/composables/useApi')
+    const panApi = usePanApi()
+    const response = await panApi.getPans()
+    platforms.value = Array.isArray(response) ? response : []
+    console.log('获取到的平台数据:', platforms.value)
+  } catch (error) {
+    console.error('获取平台列表失败:', error)
+    platforms.value = []
   }
 }
 
@@ -402,10 +417,13 @@ const goToHotKeywords = () => {
 // 页面加载时检查认证
 onMounted(async () => {
   try {
-    checkAuth()
+    // 移除checkAuth调用，因为中间件已经处理了认证
+    // checkAuth()
+    
     await Promise.all([
       fetchStats(),
-      fetchSystemConfig()
+      fetchSystemConfig(),
+      fetchPlatforms()
     ])
   } catch (error) {
     console.error('admin页面初始化失败:', error)

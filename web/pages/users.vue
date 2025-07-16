@@ -151,7 +151,7 @@
 
 <script setup>
 const router = useRouter()
-const { $api } = useNuxtApp()
+const userStore = useUserStore()
 
 const users = ref([])
 const showCreateModal = ref(false)
@@ -167,8 +167,8 @@ const form = ref({
 
 // 检查认证
 const checkAuth = () => {
-  const token = localStorage.getItem('token')
-  if (!token) {
+  userStore.initAuth()
+  if (!userStore.isAuthenticated) {
     router.push('/login')
     return
   }
@@ -177,8 +177,10 @@ const checkAuth = () => {
 // 获取用户列表
 const fetchUsers = async () => {
   try {
-    const response = await $api.get('/users')
-    users.value = response.data
+    const { useUserApi } = await import('~/composables/useApi')
+    const userApi = useUserApi()
+    const response = await userApi.getUsers()
+    users.value = Array.isArray(response) ? response : (response?.items || [])
   } catch (error) {
     console.error('获取用户列表失败:', error)
   }
@@ -187,7 +189,9 @@ const fetchUsers = async () => {
 // 创建用户
 const createUser = async () => {
   try {
-    await $api.post('/users', form.value)
+    const { useUserApi } = await import('~/composables/useApi')
+    const userApi = useUserApi()
+    await userApi.createUser(form.value)
     await fetchUsers()
     closeModal()
   } catch (error) {
@@ -198,7 +202,9 @@ const createUser = async () => {
 // 更新用户
 const updateUser = async () => {
   try {
-    await $api.put(`/users/${editingUser.value.id}`, form.value)
+    const { useUserApi } = await import('~/composables/useApi')
+    const userApi = useUserApi()
+    await userApi.updateUser(editingUser.value.id, form.value)
     await fetchUsers()
     closeModal()
   } catch (error) {
@@ -211,7 +217,9 @@ const deleteUser = async (id) => {
   if (!confirm('确定要删除这个用户吗？')) return
   
   try {
-    await $api.delete(`/users/${id}`)
+    const { useUserApi } = await import('~/composables/useApi')
+    const userApi = useUserApi()
+    await userApi.deleteUser(id)
     await fetchUsers()
   } catch (error) {
     console.error('删除用户失败:', error)

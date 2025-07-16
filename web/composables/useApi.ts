@@ -645,3 +645,67 @@ export const useMonitorApi = () => {
     getBasicStats,
   }
 } 
+
+// 用户管理相关API
+export const useUserApi = () => {
+  const config = useRuntimeConfig()
+  
+  const getAuthHeaders = () => {
+    const userStore = useUserStore()
+    return userStore.authHeaders
+  }
+  
+  const getUsers = async (params?: any) => {
+    const response = await $fetch('/users', {
+      baseURL: config.public.apiBase,
+      params,
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    return parseApiResponse(response)
+  }
+
+  const getUser = async (id: number) => {
+    const response = await $fetch(`/users/${id}`, {
+      baseURL: config.public.apiBase,
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    return parseApiResponse(response)
+  }
+
+  const createUser = async (data: any) => {
+    const response = await $fetch('/users', {
+      baseURL: config.public.apiBase,
+      method: 'POST',
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    return parseApiResponse(response)
+  }
+
+  const updateUser = async (id: number, data: any) => {
+    const response = await $fetch(`/users/${id}`, {
+      baseURL: config.public.apiBase,
+      method: 'PUT',
+      body: data,
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    return parseApiResponse(response)
+  }
+
+  const deleteUser = async (id: number) => {
+    const response = await $fetch(`/users/${id}`, {
+      baseURL: config.public.apiBase,
+      method: 'DELETE',
+      headers: getAuthHeaders() as Record<string, string>
+    })
+    return parseApiResponse(response)
+  }
+
+  return {
+    getUsers,
+    getUser,
+    createUser,
+    updateUser,
+    deleteUser,
+  }
+} 
