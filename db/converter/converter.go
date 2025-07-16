@@ -126,7 +126,7 @@ func ToPanResponseList(pans []entity.Pan) []dto.PanResponse {
 
 // ToCksResponse 将Cks实体转换为CksResponse
 func ToCksResponse(cks *entity.Cks) dto.CksResponse {
-	return dto.CksResponse{
+	response := dto.CksResponse{
 		ID:          cks.ID,
 		PanID:       cks.PanID,
 		Idx:         cks.Idx,
@@ -140,6 +140,19 @@ func ToCksResponse(cks *entity.Cks) dto.CksResponse {
 		ServiceType: cks.ServiceType,
 		Remark:      cks.Remark,
 	}
+
+	// 设置平台信息
+	if cks.Pan.ID != 0 {
+		response.Pan = &dto.PanResponse{
+			ID:     cks.Pan.ID,
+			Name:   cks.Pan.Name,
+			Key:    cks.Pan.Key,
+			Icon:   cks.Pan.Icon,
+			Remark: cks.Pan.Remark,
+		}
+	}
+
+	return response
 }
 
 // ToCksResponseList 将Cks实体列表转换为CksResponse列表

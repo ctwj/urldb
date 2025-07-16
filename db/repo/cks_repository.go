@@ -54,3 +54,20 @@ func (r *CksRepositoryImpl) UpdateSpace(id uint, space, leftSpace int64) error {
 func (r *CksRepositoryImpl) DeleteByPanID(panID uint) error {
 	return r.db.Where("pan_id = ?", panID).Delete(&entity.Cks{}).Error
 }
+
+// FindAll 查找所有Cks，预加载Pan关联数据
+func (r *CksRepositoryImpl) FindAll() ([]entity.Cks, error) {
+	var cks []entity.Cks
+	err := r.db.Preload("Pan").Find(&cks).Error
+	return cks, err
+}
+
+// FindByID 根据ID查找Cks，预加载Pan关联数据
+func (r *CksRepositoryImpl) FindByID(id uint) (*entity.Cks, error) {
+	var cks entity.Cks
+	err := r.db.Preload("Pan").First(&cks, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &cks, nil
+}

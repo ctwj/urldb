@@ -671,9 +671,9 @@ func (q *QuarkPanService) GetUserInfo(cookie string) (*UserInfo, error) {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 		Data    struct {
-			TotalCapacity     int64  `json:"secret_total_capacity"`
-			SecretUseCapacity int64  `json:"secret_use_capacity"`
-			MemberType        string `json:"member_type"`
+			TotalCapacity int64  `json:"total_capacity"`
+			UseCapacity   int64  `json:"use_capacity"`
+			MemberType    string `json:"member_type"`
 		} `json:"data"`
 	}
 
@@ -691,7 +691,7 @@ func (q *QuarkPanService) GetUserInfo(cookie string) (*UserInfo, error) {
 	return &UserInfo{
 		Username:    response.Data.Nickname,
 		VIPStatus:   vipStatus,
-		UsedSpace:   memberResponse.Data.SecretUseCapacity,
+		UsedSpace:   memberResponse.Data.UseCapacity,
 		TotalSpace:  memberResponse.Data.TotalCapacity,
 		ServiceType: "quark",
 	}, nil

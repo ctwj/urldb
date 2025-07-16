@@ -76,19 +76,18 @@
                 <th class="px-4 py-3 text-left text-sm font-medium">总空间</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">已使用</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">剩余空间</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">使用率</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">备注</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">操作</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
               <tr v-if="loading" class="text-center py-8">
-                <td colspan="10" class="text-gray-500 dark:text-gray-400">
+                <td colspan="9" class="text-gray-500 dark:text-gray-400">
                   <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
                 </td>
               </tr>
               <tr v-else-if="filteredCksList.length === 0" class="text-center py-8">
-                <td colspan="10" class="text-gray-500 dark:text-gray-400">
+                <td colspan="9" class="text-gray-500 dark:text-gray-400">
                   <div class="flex flex-col items-center justify-center py-12">
                     <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 48 48">
                       <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
@@ -131,21 +130,10 @@
                   {{ formatFileSize(cks.space) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                  {{ formatFileSize(cks.space - cks.left_space) }}
+                  {{ formatFileSize(Math.max(0, cks.used_space || (cks.space - cks.left_space))) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                  {{ formatFileSize(cks.left_space) }}
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                  <div class="flex items-center">
-                    <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                      <div 
-                        class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        :style="{ width: getUsagePercentage(cks) + '%' }"
-                      ></div>
-                    </div>
-                    <span class="text-xs text-gray-500">{{ getUsagePercentage(cks).toFixed(1) }}%</span>
-                  </div>
+                  {{ formatFileSize(Math.max(0, cks.left_space)) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                   <span v-if="cks.remark" :title="cks.remark">{{ cks.remark }}</span>
@@ -506,7 +494,12 @@ const getPlatformIcon = (platformName) => {
 
 // 格式化文件大小
 const formatFileSize = (bytes) => {
-  if (!bytes || bytes === 0) return '-'
+  if (!bytes || bytes <= 0) return '0 B'
+  
+  const tb = bytes / (1024 * 1024 * 1024 * 1024)
+  if (tb >= 1) {
+    return tb.toFixed(2) + ' TB'
+  }
   
   const gb = bytes / (1024 * 1024 * 1024)
   if (gb >= 1) {
@@ -524,13 +517,6 @@ const formatFileSize = (bytes) => {
   }
   
   return bytes + ' B'
-}
-
-// 获取使用率百分比
-const getUsagePercentage = (cks) => {
-  if (!cks.space || cks.space === 0) return 0
-  const used = cks.used_space || (cks.space - cks.left_space)
-  return (used / cks.space) * 100
 }
 
 // 过滤和分页计算
