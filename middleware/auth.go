@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ctwj/panResManage/db/entity"
+	"github.com/ctwj/panResManage/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -26,7 +27,11 @@ type Claims struct {
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
+		utils.Info("AuthMiddleware - 收到请求: %s %s", c.Request.Method, c.Request.URL.Path)
+		utils.Info("AuthMiddleware - Authorization头: %s", authHeader)
+
 		if authHeader == "" {
+			utils.Error("AuthMiddleware - 未提供认证令牌")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未提供认证令牌"})
 			c.Abort()
 			return
@@ -34,18 +39,24 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// 检查Bearer前缀
 		if !strings.HasPrefix(authHeader, "Bearer ") {
+			utils.Error("AuthMiddleware - 无效的认证格式: %s", authHeader)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的认证格式"})
 			c.Abort()
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		utils.Info("AuthMiddleware - 解析令牌: %s", tokenString[:10]+"...")
+
 		claims, err := parseToken(tokenString)
 		if err != nil {
+			utils.Error("AuthMiddleware - 令牌解析失败: %v", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的令牌"})
 			c.Abort()
 			return
 		}
+
+		utils.Info("AuthMiddleware - 令牌验证成功，用户: %s, 角色: %s", claims.Username, claims.Role)
 
 		// 将用户信息存储到上下文中
 		c.Set("user_id", claims.UserID)
@@ -95,18 +106,23 @@ func GenerateToken(user *entity.User) (string, error) {
 
 // parseToken 解析JWT令牌
 func parseToken(tokenString string) (*Claims, error) {
+	utils.Info("parseToken - 开始解析令牌")
+
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecret, nil
 	})
 
 	if err != nil {
+		utils.Error("parseToken - JWT解析失败: %v", err)
 		return nil, err
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		utils.Info("parseToken - 令牌解析成功，用户ID: %d", claims.UserID)
 		return claims, nil
 	}
 
+	utils.Error("parseToken - 令牌无效或签名错误")
 	return nil, jwt.ErrSignatureInvalid
 }
 

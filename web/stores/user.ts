@@ -36,7 +36,10 @@ export const useUserStore = defineStore('user', {
     
     // 获取认证头
     authHeaders: (state) => {
-      return state.token ? { Authorization: `Bearer ${state.token}` } : {}
+      const headers = state.token ? { Authorization: `Bearer ${state.token}` } : {}
+      console.log('authHeaders getter - token:', state.token ? 'exists' : 'not found')
+      console.log('authHeaders getter - headers:', headers)
+      return headers
     }
   },
 

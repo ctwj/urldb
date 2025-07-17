@@ -10,10 +10,12 @@ type SystemConfigRequest struct {
 	Copyright       string `json:"copyright"`
 
 	// 自动处理配置组
-	AutoProcessReadyResources bool `json:"auto_process_ready_resources"`                    // 自动处理待处理资源
-	AutoProcessInterval       int  `json:"auto_process_interval" validate:"min=1,max=1440"` // 自动处理间隔（分钟）
-	AutoTransferEnabled       bool `json:"auto_transfer_enabled"`                           // 开启自动转存
-	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled"`                    // 自动拉取热播剧名字
+	AutoProcessReadyResources bool `json:"auto_process_ready_resources"`                        // 自动处理待处理资源
+	AutoProcessInterval       int  `json:"auto_process_interval" validate:"min=1,max=1440"`     // 自动处理间隔（分钟）
+	AutoTransferEnabled       bool `json:"auto_transfer_enabled"`                               // 开启自动转存
+	AutoTransferLimitDays     int  `json:"auto_transfer_limit_days" validate:"min=0,max=365"`   // 自动转存限制天数（0表示不限制）
+	AutoTransferMinSpace      int  `json:"auto_transfer_min_space" validate:"min=100,max=1024"` // 最小存储空间（GB）
+	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled"`                        // 自动拉取热播剧名字
 
 	// API配置
 	ApiToken string `json:"api_token"` // 公开API访问令牌
@@ -40,6 +42,8 @@ type SystemConfigResponse struct {
 	AutoProcessReadyResources bool `json:"auto_process_ready_resources"` // 自动处理待处理资源
 	AutoProcessInterval       int  `json:"auto_process_interval"`        // 自动处理间隔（分钟）
 	AutoTransferEnabled       bool `json:"auto_transfer_enabled"`        // 开启自动转存
+	AutoTransferLimitDays     int  `json:"auto_transfer_limit_days"`     // 自动转存限制天数（0表示不限制）
+	AutoTransferMinSpace      int  `json:"auto_transfer_min_space"`      // 最小存储空间（GB）
 	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled"` // 自动拉取热播剧名字
 
 	// API配置

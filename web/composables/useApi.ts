@@ -545,11 +545,15 @@ export const useSystemConfigApi = () => {
   }
 
   const updateSystemConfig = async (data: any) => {
+    const authHeaders = getAuthHeaders()
+    console.log('updateSystemConfig - authHeaders:', authHeaders)
+    console.log('updateSystemConfig - token exists:', !!authHeaders.Authorization)
+    
     const response = await $fetch('/system/config', {
       baseURL: config.public.apiBase,
       method: 'POST',
       body: data,
-      headers: getAuthHeaders() as Record<string, string>
+      headers: authHeaders as Record<string, string>
     })
     return parseApiResponse(response)
   }

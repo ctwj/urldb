@@ -29,6 +29,8 @@ func SystemConfigToResponse(config *entity.SystemConfig) *dto.SystemConfigRespon
 		AutoProcessReadyResources: config.AutoProcessReadyResources,
 		AutoProcessInterval:       config.AutoProcessInterval,
 		AutoTransferEnabled:       config.AutoTransferEnabled,
+		AutoTransferLimitDays:     config.AutoTransferLimitDays,
+		AutoTransferMinSpace:      config.AutoTransferMinSpace,
 		AutoFetchHotDramaEnabled:  config.AutoFetchHotDramaEnabled,
 
 		// API配置
@@ -58,6 +60,8 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) *entity.SystemConfig {
 		AutoProcessReadyResources: req.AutoProcessReadyResources,
 		AutoProcessInterval:       req.AutoProcessInterval,
 		AutoTransferEnabled:       req.AutoTransferEnabled,
+		AutoTransferLimitDays:     req.AutoTransferLimitDays,
+		AutoTransferMinSpace:      req.AutoTransferMinSpace,
 		AutoFetchHotDramaEnabled:  req.AutoFetchHotDramaEnabled,
 
 		// API配置

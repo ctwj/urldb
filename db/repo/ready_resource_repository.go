@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"time"
+
 	"github.com/ctwj/panResManage/db/entity"
 
 	"gorm.io/gorm"
@@ -13,6 +15,7 @@ type ReadyResourceRepository interface {
 	FindByIP(ip string) ([]entity.ReadyResource, error)
 	BatchCreate(resources []entity.ReadyResource) error
 	DeleteByURL(url string) error
+	FindAllWithinDays(days int) ([]entity.ReadyResource, error)
 }
 
 // ReadyResourceRepositoryImpl ReadyResource的Repository实现
@@ -52,4 +55,16 @@ func (r *ReadyResourceRepositoryImpl) BatchCreate(resources []entity.ReadyResour
 // DeleteByURL 根据URL删除
 func (r *ReadyResourceRepositoryImpl) DeleteByURL(url string) error {
 	return r.db.Where("url = ?", url).Delete(&entity.ReadyResource{}).Error
+}
+
+// FindAllWithinDays 获取n天内的待处理资源，n=0时不限制
+func (r *ReadyResourceRepositoryImpl) FindAllWithinDays(days int) ([]entity.ReadyResource, error) {
+	var resources []entity.ReadyResource
+	db := r.db.Model(&entity.ReadyResource{})
+	if days > 0 {
+		since := time.Now().AddDate(0, 0, -days)
+		db = db.Where("create_time >= ?", since)
+	}
+	err := db.Find(&resources).Error
+	return resources, err
 }

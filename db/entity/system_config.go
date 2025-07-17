@@ -21,6 +21,8 @@ type SystemConfig struct {
 	AutoProcessReadyResources bool `json:"auto_process_ready_resources" gorm:"default:false"` // 自动处理待处理资源
 	AutoProcessInterval       int  `json:"auto_process_interval" gorm:"default:30"`           // 自动处理间隔（分钟）
 	AutoTransferEnabled       bool `json:"auto_transfer_enabled" gorm:"default:false"`        // 开启自动转存
+	AutoTransferLimitDays     int  `json:"auto_transfer_limit_days" gorm:"default:0"`         // 自动转存限制天数（0表示不限制）
+	AutoTransferMinSpace      int  `json:"auto_transfer_min_space" gorm:"default:100"`        // 最小存储空间（GB）
 	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled" gorm:"default:false"` // 自动拉取热播剧名字
 
 	// API配置
