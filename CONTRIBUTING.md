@@ -16,7 +16,7 @@
 
 ### 1. Fork 项目
 
-1. 访问 [L9Pan GitHub 仓库](https://github.com/ctwj/panResManage)
+1. 访问 [GitHub 仓库](https://github.com/ctwj/panResManage)
 2. 点击右上角的 Fork 按钮
 3. 选择您的 GitHub 账户
 

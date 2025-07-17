@@ -163,9 +163,10 @@ func UpdateSystemConfig(c *gin.Context) {
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
 		repoManager.PanRepository,
+		repoManager.CksRepository,
 	)
 	if scheduler != nil {
-		scheduler.UpdateSchedulerStatus(req.AutoFetchHotDramaEnabled, req.AutoProcessReadyResources)
+		scheduler.UpdateSchedulerStatusWithAutoTransfer(req.AutoFetchHotDramaEnabled, req.AutoProcessReadyResources, req.AutoTransferEnabled)
 	}
 
 	// 返回更新后的配置

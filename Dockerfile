@@ -1,13 +1,31 @@
-# 多阶段构建
+# 前端构建阶段
 FROM node:18-alpine AS frontend-builder
+
+# 安装pnpm
+RUN npm install -g pnpm
 
 WORKDIR /app/web
 COPY web/package*.json ./
-RUN npm ci --only=production
+COPY web/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY web/ ./
-RUN npm run build
+RUN pnpm run build
 
+# 前端运行阶段
+FROM node:18-alpine AS frontend
+
+RUN npm install -g pnpm
+
+WORKDIR /app
+COPY --from=frontend-builder /app/web/.output ./.output
+COPY --from=frontend-builder /app/web/package*.json ./
+
+EXPOSE 3000
+
+CMD ["node", ".output/server/index.mjs"]
+
+# 后端构建阶段
 FROM golang:1.21-alpine AS backend-builder
 
 WORKDIR /app
@@ -17,7 +35,8 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
-FROM alpine:latest
+# 后端运行阶段
+FROM alpine:latest AS backend
 
 RUN apk --no-cache add ca-certificates
 
@@ -25,9 +44,6 @@ WORKDIR /root/
 
 # 复制后端二进制文件
 COPY --from=backend-builder /app/main .
-
-# 复制前端构建文件
-COPY --from=frontend-builder /app/web/.output /root/web
 
 # 创建uploads目录
 RUN mkdir -p uploads

@@ -18,10 +18,10 @@ var (
 )
 
 // GetGlobalScheduler 获取全局调度器实例（单例模式）
-func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository) *GlobalScheduler {
+func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository, cksRepo repo.CksRepository) *GlobalScheduler {
 	once.Do(func() {
 		globalScheduler = &GlobalScheduler{
-			scheduler: NewScheduler(hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo, panRepo),
+			scheduler: NewScheduler(hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo, panRepo, cksRepo),
 		}
 	})
 	return globalScheduler
@@ -137,6 +137,93 @@ func (gs *GlobalScheduler) UpdateSchedulerStatus(autoFetchHotDramaEnabled bool, 
 		if gs.scheduler.IsReadyResourceRunning() {
 			Info("系统配置禁用自动处理待处理资源，停止定时任务")
 			gs.scheduler.StopReadyResourceScheduler()
+		}
+	}
+}
+
+// StartAutoTransferScheduler 启动自动转存定时任务
+func (gs *GlobalScheduler) StartAutoTransferScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if gs.scheduler.IsAutoTransferRunning() {
+		Info("自动转存定时任务已在运行中")
+		return
+	}
+
+	gs.scheduler.StartAutoTransferScheduler()
+	Info("全局调度器已启动自动转存定时任务")
+}
+
+// StopAutoTransferScheduler 停止自动转存定时任务
+func (gs *GlobalScheduler) StopAutoTransferScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if !gs.scheduler.IsAutoTransferRunning() {
+		Info("自动转存定时任务未在运行")
+		return
+	}
+
+	gs.scheduler.StopAutoTransferScheduler()
+	Info("全局调度器已停止自动转存定时任务")
+}
+
+// IsAutoTransferRunning 检查自动转存定时任务是否在运行
+func (gs *GlobalScheduler) IsAutoTransferRunning() bool {
+	gs.mutex.RLock()
+	defer gs.mutex.RUnlock()
+	return gs.scheduler.IsAutoTransferRunning()
+}
+
+// ProcessAutoTransfer 手动触发自动转存处理
+func (gs *GlobalScheduler) ProcessAutoTransfer() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+	gs.scheduler.processAutoTransfer()
+}
+
+// UpdateSchedulerStatusWithAutoTransfer 根据系统配置更新调度器状态（包含自动转存）
+func (gs *GlobalScheduler) UpdateSchedulerStatusWithAutoTransfer(autoFetchHotDramaEnabled bool, autoProcessReadyResources bool, autoTransferEnabled bool) {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	// 处理热播剧自动拉取功能
+	if autoFetchHotDramaEnabled {
+		if !gs.scheduler.IsRunning() {
+			Info("系统配置启用自动拉取热播剧，启动定时任务")
+			gs.scheduler.StartHotDramaScheduler()
+		}
+	} else {
+		if gs.scheduler.IsRunning() {
+			Info("系统配置禁用自动拉取热播剧，停止定时任务")
+			gs.scheduler.StopHotDramaScheduler()
+		}
+	}
+
+	// 处理待处理资源自动处理功能
+	if autoProcessReadyResources {
+		if !gs.scheduler.IsReadyResourceRunning() {
+			Info("系统配置启用自动处理待处理资源，启动定时任务")
+			gs.scheduler.StartReadyResourceScheduler()
+		}
+	} else {
+		if gs.scheduler.IsReadyResourceRunning() {
+			Info("系统配置禁用自动处理待处理资源，停止定时任务")
+			gs.scheduler.StopReadyResourceScheduler()
+		}
+	}
+
+	// 处理自动转存功能
+	if autoTransferEnabled {
+		if !gs.scheduler.IsAutoTransferRunning() {
+			Info("系统配置启用自动转存，启动定时任务")
+			gs.scheduler.StartAutoTransferScheduler()
+		}
+	} else {
+		if gs.scheduler.IsAutoTransferRunning() {
+			Info("系统配置禁用自动转存，停止定时任务")
+			gs.scheduler.StopAutoTransferScheduler()
 		}
 	}
 }

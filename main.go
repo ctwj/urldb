@@ -43,9 +43,10 @@ func main() {
 		repoManager.ResourceRepository,
 		repoManager.SystemConfigRepository,
 		repoManager.PanRepository,
+		repoManager.CksRepository,
 	)
 
-	// 检查系统配置，决定是否启动待处理资源自动处理任务
+	// 检查系统配置，决定是否启动各种自动任务
 	systemConfig, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
 	if err != nil {
 		utils.Error("获取系统配置失败: %v", err)
@@ -64,6 +65,14 @@ func main() {
 			utils.Info("已启动热播剧自动拉取任务")
 		} else {
 			utils.Info("系统配置中自动拉取热播剧功能已禁用，跳过启动定时任务")
+		}
+
+		// 检查是否启动自动转存任务
+		if systemConfig.AutoTransferEnabled {
+			scheduler.StartAutoTransferScheduler()
+			utils.Info("已启动自动转存任务")
+		} else {
+			utils.Info("系统配置中自动转存功能已禁用，跳过启动定时任务")
 		}
 	}
 
@@ -198,6 +207,11 @@ func main() {
 		api.POST("/scheduler/ready-resource/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StartReadyResourceScheduler)
 		api.POST("/scheduler/ready-resource/stop", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StopReadyResourceScheduler)
 		api.POST("/scheduler/ready-resource/trigger", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.TriggerReadyResourceScheduler)
+
+		// 自动转存管理路由
+		api.POST("/scheduler/auto-transfer/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StartAutoTransferScheduler)
+		api.POST("/scheduler/auto-transfer/stop", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StopAutoTransferScheduler)
+		api.POST("/scheduler/auto-transfer/trigger", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.TriggerAutoTransferScheduler)
 	}
 
 	// 静态文件服务

@@ -17,8 +17,10 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    build: .
+  backend:
+    build:
+      context: .
+      target: backend
     ports:
       - "8080:8080"
     environment:
@@ -33,6 +35,17 @@ services:
         condition: service_healthy
     volumes:
       - ./uploads:/root/uploads
+
+  frontend:
+    build:
+      context: .
+      target: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      API_BASE: http://localhost:8080/api
+    depends_on:
+      - backend
 
 volumes:
   postgres_data: 

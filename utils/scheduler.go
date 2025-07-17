@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -19,11 +20,14 @@ type Scheduler struct {
 	resourceRepo         repo.ResourceRepository
 	systemConfigRepo     repo.SystemConfigRepository
 	panRepo              repo.PanRepository
+	cksRepo              repo.CksRepository
 	stopChan             chan bool
 	isRunning            bool
 	readyResourceRunning bool
+	autoTransferRunning  bool
 	processingMutex      sync.Mutex // 防止ready_resource任务重叠执行
 	hotDramaMutex        sync.Mutex // 防止热播剧任务重叠执行
+	autoTransferMutex    sync.Mutex // 防止自动转存任务重叠执行
 
 	// 平台映射缓存
 	panCache     map[string]*uint // serviceType -> panID
@@ -31,7 +35,7 @@ type Scheduler struct {
 }
 
 // NewScheduler 创建新的定时任务管理器
-func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository) *Scheduler {
+func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository, cksRepo repo.CksRepository) *Scheduler {
 	return &Scheduler{
 		doubanService:        NewDoubanService(),
 		hotDramaRepo:         hotDramaRepo,
@@ -39,11 +43,14 @@ func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.R
 		resourceRepo:         resourceRepo,
 		systemConfigRepo:     systemConfigRepo,
 		panRepo:              panRepo,
+		cksRepo:              cksRepo,
 		stopChan:             make(chan bool),
 		isRunning:            false,
 		readyResourceRunning: false,
+		autoTransferRunning:  false,
 		processingMutex:      sync.Mutex{},
 		hotDramaMutex:        sync.Mutex{},
+		autoTransferMutex:    sync.Mutex{},
 		panCache:             make(map[string]*uint),
 	}
 }
@@ -570,4 +577,226 @@ func (s *Scheduler) getPanIDByServiceType(serviceType panutils.ServiceType) *uin
 // IsReadyResourceRunning 检查待处理资源自动处理任务是否在运行
 func (s *Scheduler) IsReadyResourceRunning() bool {
 	return s.readyResourceRunning
+}
+
+// StartAutoTransferScheduler 启动自动转存定时任务
+func (s *Scheduler) StartAutoTransferScheduler() {
+	if s.autoTransferRunning {
+		Info("自动转存定时任务已在运行中")
+		return
+	}
+
+	s.autoTransferRunning = true
+	Info("启动自动转存定时任务")
+
+	go func() {
+		// 获取系统配置中的间隔时间
+		config, err := s.systemConfigRepo.GetOrCreateDefault()
+		interval := 5 * time.Minute // 默认5分钟
+		if err == nil && config.AutoProcessInterval > 0 {
+			interval = time.Duration(config.AutoProcessInterval) * time.Minute
+		}
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		Info("自动转存定时任务已启动，间隔时间: %v", interval)
+
+		// 立即执行一次
+		s.processAutoTransfer()
+
+		for {
+			select {
+			case <-ticker.C:
+				// 使用TryLock防止任务重叠执行
+				if s.autoTransferMutex.TryLock() {
+					go func() {
+						defer s.autoTransferMutex.Unlock()
+						s.processAutoTransfer()
+					}()
+				} else {
+					Info("上一次自动转存任务还在执行中，跳过本次执行")
+				}
+			case <-s.stopChan:
+				Info("停止自动转存定时任务")
+				return
+			}
+		}
+	}()
+}
+
+// StopAutoTransferScheduler 停止自动转存定时任务
+func (s *Scheduler) StopAutoTransferScheduler() {
+	if !s.autoTransferRunning {
+		Info("自动转存定时任务未在运行")
+		return
+	}
+
+	s.stopChan <- true
+	s.autoTransferRunning = false
+	Info("已发送停止信号给自动转存定时任务")
+}
+
+// IsAutoTransferRunning 检查自动转存定时任务是否在运行
+func (s *Scheduler) IsAutoTransferRunning() bool {
+	return s.autoTransferRunning
+}
+
+// processAutoTransfer 处理自动转存
+func (s *Scheduler) processAutoTransfer() {
+	Info("开始处理自动转存...")
+
+	// 检查系统配置，确认是否启用自动转存
+	config, err := s.systemConfigRepo.GetOrCreateDefault()
+	if err != nil {
+		Error("获取系统配置失败: %v", err)
+		return
+	}
+
+	if !config.AutoTransferEnabled {
+		Info("自动转存功能已禁用")
+		return
+	}
+
+	// 获取所有有效的网盘账号
+	accounts, err := s.cksRepo.FindAll()
+	if err != nil {
+		Error("获取网盘账号失败: %v", err)
+		return
+	}
+
+	if len(accounts) == 0 {
+		Info("没有可用的网盘账号")
+		return
+	}
+
+	Info("找到 %d 个网盘账号，开始自动转存处理...", len(accounts))
+
+	// 获取需要转存的资源
+	resources, err := s.getResourcesForTransfer(config)
+	if err != nil {
+		Error("获取需要转存的资源失败: %v", err)
+		return
+	}
+
+	if len(resources) == 0 {
+		Info("没有需要转存的资源")
+		return
+	}
+
+	Info("找到 %d 个需要转存的资源", len(resources))
+
+	// 执行自动转存
+	transferCount := 0
+	for _, resource := range resources {
+		if err := s.transferResource(resource, accounts, config); err != nil {
+			Error("转存资源失败 (ID: %d): %v", resource.ID, err)
+		} else {
+			transferCount++
+			Info("成功转存资源: %s", resource.Title)
+		}
+	}
+
+	Info("自动转存处理完成，共转存 %d 个资源", transferCount)
+}
+
+// getResourcesForTransfer 获取需要转存的资源
+func (s *Scheduler) getResourcesForTransfer(config *entity.SystemConfig) ([]*entity.Resource, error) {
+	// TODO: 实现获取需要转存的资源逻辑
+	// 1. 获取所有有效的资源
+	// 2. 根据配置的转存限制天数过滤资源
+	// 3. 排除已经转存过的资源
+	// 4. 按优先级排序（可以根据浏览次数、创建时间等）
+
+	Info("获取需要转存的资源 - 限制天数: %d", config.AutoTransferLimitDays)
+
+	// 临时返回空数组，等待具体实现
+	return []*entity.Resource{}, nil
+}
+
+// transferResource 转存单个资源
+func (s *Scheduler) transferResource(resource *entity.Resource, accounts []entity.Cks, config *entity.SystemConfig) error {
+	// TODO: 实现单个资源的转存逻辑
+	// 1. 选择合适的网盘账号（根据剩余空间、VIP状态等）
+	// 2. 检查账号剩余空间是否满足最小空间要求
+	// 3. 调用网盘API进行转存
+	// 4. 更新资源状态和转存记录
+	// 5. 更新账号使用空间
+
+	Info("开始转存资源: %s (ID: %d)", resource.Title, resource.ID)
+
+	// 选择最佳账号
+	selectedAccount := s.selectBestAccount(accounts, config)
+	if selectedAccount == nil {
+		return fmt.Errorf("没有合适的网盘账号")
+	}
+
+	Info("选择账号: %s (剩余空间: %d GB)", selectedAccount.Username, selectedAccount.LeftSpace/1024/1024/1024)
+
+	// TODO: 执行实际的转存操作
+	// 这里需要调用网盘API进行转存
+
+	return nil
+}
+
+// selectBestAccount 选择最佳网盘账号
+func (s *Scheduler) selectBestAccount(accounts []entity.Cks, config *entity.SystemConfig) *entity.Cks {
+	// TODO: 实现账号选择逻辑
+	// 1. 过滤出有效的账号
+	// 2. 检查剩余空间是否满足最小要求
+	// 3. 优先选择VIP账号
+	// 4. 优先选择剩余空间大的账号
+	// 5. 考虑账号的使用频率（避免单个账号过度使用）
+
+	minSpaceBytes := int64(config.AutoTransferMinSpace) * 1024 * 1024 * 1024 // 转换为字节
+
+	var bestAccount *entity.Cks
+	var maxScore int64 = -1
+
+	for _, account := range accounts {
+		if !account.IsValid {
+			continue
+		}
+
+		// 检查剩余空间
+		if account.LeftSpace < minSpaceBytes {
+			continue
+		}
+
+		// 计算账号评分
+		score := s.calculateAccountScore(&account)
+		if score > maxScore {
+			maxScore = score
+			bestAccount = &account
+		}
+	}
+
+	return bestAccount
+}
+
+// calculateAccountScore 计算账号评分
+func (s *Scheduler) calculateAccountScore(account *entity.Cks) int64 {
+	// TODO: 实现账号评分算法
+	// 1. VIP账号加分
+	// 2. 剩余空间大的账号加分
+	// 3. 使用率低的账号加分
+	// 4. 可以根据历史使用情况调整评分
+
+	score := int64(0)
+
+	// VIP账号加分
+	if account.VipStatus {
+		score += 1000
+	}
+
+	// 剩余空间加分（每GB加1分）
+	score += account.LeftSpace / (1024 * 1024 * 1024)
+
+	// 使用率加分（使用率越低分数越高）
+	if account.Space > 0 {
+		usageRate := float64(account.UsedSpace) / float64(account.Space)
+		score += int64((1 - usageRate) * 500) // 使用率越低，加分越多
+	}
+
+	return score
 }
