@@ -149,6 +149,45 @@
                 </div>
               </div>
 
+              <!-- 自动转存配置（仅在开启时显示） -->
+              <div v-if="config.autoTransferEnabled" class="ml-6 space-y-4">
+                <!-- 自动转存限制天数 -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    自动转存限制（n天内资源）
+                  </label>
+                  <input 
+                    v-model.number="config.autoTransferLimitDays" 
+                    type="number" 
+                    min="0"
+                    max="365"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="30"
+                  />
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    只转存指定天数内的资源，0表示不限制时间
+                  </p>
+                </div>
+
+                <!-- 最小存储空间 -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    最小存储空间（GB）
+                  </label>
+                  <input 
+                    v-model.number="config.autoTransferMinSpace" 
+                    type="number" 
+                    min="100"
+                    max="1024"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    placeholder="500"
+                  />
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    当网盘剩余空间小于此值时，停止自动转存（100-1024GB）
+                  </p>
+                </div>
+              </div>
+
               <!-- 自动拉取热播剧 -->
               <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div class="flex-1">
@@ -334,6 +373,8 @@ const config = ref({
   autoProcessReadyResources: false,
   autoProcessInterval: 30,
   autoTransferEnabled: false, // 新增
+  autoTransferLimitDays: 30, // 新增：自动转存限制天数
+  autoTransferMinSpace: 500, // 新增：最小存储空间（GB）
   autoFetchHotDramaEnabled: false, // 新增
   
   // 其他配置
@@ -382,6 +423,8 @@ const loadConfig = async () => {
         autoProcessReadyResources: response.auto_process_ready_resources || false,
         autoProcessInterval: response.auto_process_interval || 30,
         autoTransferEnabled: response.auto_transfer_enabled || false, // 新增
+        autoTransferLimitDays: response.auto_transfer_limit_days || 30, // 新增：自动转存限制天数
+        autoTransferMinSpace: response.auto_transfer_min_space || 500, // 新增：最小存储空间（GB）
         autoFetchHotDramaEnabled: response.auto_fetch_hot_drama_enabled || false, // 新增
         pageSize: response.page_size || 100,
         maintenanceMode: response.maintenance_mode || false,
@@ -411,6 +454,8 @@ const saveConfig = async () => {
       auto_process_ready_resources: config.value.autoProcessReadyResources,
       auto_process_interval: config.value.autoProcessInterval,
       auto_transfer_enabled: config.value.autoTransferEnabled, // 新增
+      auto_transfer_limit_days: config.value.autoTransferLimitDays, // 新增：自动转存限制天数
+      auto_transfer_min_space: config.value.autoTransferMinSpace, // 新增：最小存储空间（GB）
       auto_fetch_hot_drama_enabled: config.value.autoFetchHotDramaEnabled, // 新增
       page_size: config.value.pageSize,
       maintenance_mode: config.value.maintenanceMode,
