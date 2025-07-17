@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"net/http"
-	"res_db/utils"
 
+	"github.com/ctwj/panResManage/utils"
 	"github.com/gin-gonic/gin"
 )
 

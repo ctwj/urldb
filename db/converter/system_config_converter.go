@@ -3,8 +3,8 @@ package converter
 import (
 	"time"
 
-	"res_db/db/dto"
-	"res_db/db/entity"
+	"github.com/ctwj/panResManage/db/dto"
+	"github.com/ctwj/panResManage/db/entity"
 )
 
 // SystemConfigToResponse 将系统配置实体转换为响应DTO

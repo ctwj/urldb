@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"res_db/db"
-	"res_db/db/entity"
 	"runtime"
 	"time"
 
+	"github.com/ctwj/panResManage/db"
+	"github.com/ctwj/panResManage/db/entity"
 	"github.com/gin-gonic/gin"
 )
 

@@ -1,4 +1,4 @@
-module res_db
+module github.com/ctwj/panResManage
 
 go 1.23.0
 

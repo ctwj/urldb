@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"res_db/db/repo"
+	"github.com/ctwj/panResManage/db/repo"
 )
 
 var repoManager *repo.RepositoryManager

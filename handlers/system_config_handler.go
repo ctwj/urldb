@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"net/http"
-	"res_db/db/converter"
-	"res_db/db/dto"
-	"res_db/db/repo"
-	"res_db/utils"
+
+	"github.com/ctwj/panResManage/db/converter"
+	"github.com/ctwj/panResManage/db/dto"
+	"github.com/ctwj/panResManage/db/repo"
+	"github.com/ctwj/panResManage/utils"
 
 	"github.com/gin-gonic/gin"
 )

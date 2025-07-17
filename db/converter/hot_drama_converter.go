@@ -1,8 +1,8 @@
 package converter
 
 import (
-	"res_db/db/dto"
-	"res_db/db/entity"
+	"github.com/ctwj/panResManage/db/dto"
+	"github.com/ctwj/panResManage/db/entity"
 )
 
 // HotDramaToResponse 将热播剧实体转换为响应DTO

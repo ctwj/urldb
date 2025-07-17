@@ -2,8 +2,9 @@ package utils
 
 import (
 	"log"
-	"res_db/db/repo"
 	"sync"
+
+	"github.com/ctwj/panResManage/db/repo"
 )
 
 // GlobalScheduler 全局调度器管理器

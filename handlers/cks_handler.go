@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	panutils "res_db/common"
-	"res_db/db/converter"
-	"res_db/db/dto"
-	"res_db/db/entity"
+	panutils "github.com/ctwj/panResManage/common"
+	"github.com/ctwj/panResManage/db/converter"
+	"github.com/ctwj/panResManage/db/dto"
+	"github.com/ctwj/panResManage/db/entity"
 
 	"github.com/gin-gonic/gin"
 )

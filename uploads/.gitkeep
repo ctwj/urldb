@@ -1,1 +1,2 @@
-# 此文件用于保持uploads目录在Git中 
+# This file keeps the uploads directory in git
+# Uploaded files will be ignored by .gitignore 

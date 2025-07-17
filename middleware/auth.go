@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"res_db/db/entity"
+	"github.com/ctwj/panResManage/db/entity"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

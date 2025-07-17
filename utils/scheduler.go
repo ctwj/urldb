@@ -2,13 +2,14 @@ package utils
 
 import (
 	"log"
-	panutils "res_db/common"
-	commonutils "res_db/common/utils"
-	"res_db/db/entity"
-	"res_db/db/repo"
 	"strings"
 	"sync"
 	"time"
+
+	panutils "github.com/ctwj/panResManage/common"
+	commonutils "github.com/ctwj/panResManage/common/utils"
+	"github.com/ctwj/panResManage/db/entity"
+	"github.com/ctwj/panResManage/db/repo"
 )
 
 // Scheduler 定时任务管理器

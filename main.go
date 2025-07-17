@@ -3,12 +3,13 @@ package main
 import (
 	"log"
 	"os"
-	"res_db/utils"
 
-	"res_db/db"
-	"res_db/db/repo"
-	"res_db/handlers"
-	"res_db/middleware"
+	"github.com/ctwj/panResManage/utils"
+
+	"github.com/ctwj/panResManage/db"
+	"github.com/ctwj/panResManage/db/repo"
+	"github.com/ctwj/panResManage/handlers"
+	"github.com/ctwj/panResManage/middleware"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

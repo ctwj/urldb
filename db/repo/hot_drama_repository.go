@@ -1,7 +1,7 @@
 package repo
 
 import (
-	"res_db/db/entity"
+	"github.com/ctwj/panResManage/db/entity"
 
 	"gorm.io/gorm"
 )

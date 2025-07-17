@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"res_db/db/converter"
-	"res_db/db/dto"
+	"github.com/ctwj/panResManage/db/converter"
+	"github.com/ctwj/panResManage/db/dto"
 
 	"github.com/gin-gonic/gin"
 )

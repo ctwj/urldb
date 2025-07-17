@@ -2,8 +2,10 @@ package repo
 
 import (
 	"fmt"
-	"res_db/db/entity"
+
 	"time"
+
+	"github.com/ctwj/panResManage/db/entity"
 
 	"gorm.io/gorm"
 )

@@ -5,11 +5,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/ctwj/panResManage/db/entity"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-
-	"res_db/db/entity"
 )
 
 var DB *gorm.DB
