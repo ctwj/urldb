@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"log"
 	"sync"
 
 	"github.com/ctwj/panResManage/db/repo"
@@ -34,12 +33,12 @@ func (gs *GlobalScheduler) StartHotDramaScheduler() {
 	defer gs.mutex.Unlock()
 
 	if gs.scheduler.IsRunning() {
-		log.Println("热播剧定时任务已在运行中")
+		Info("热播剧定时任务已在运行中")
 		return
 	}
 
 	gs.scheduler.StartHotDramaScheduler()
-	log.Println("全局调度器已启动热播剧定时任务")
+	Info("全局调度器已启动热播剧定时任务")
 }
 
 // StopHotDramaScheduler 停止热播剧定时任务
@@ -48,12 +47,12 @@ func (gs *GlobalScheduler) StopHotDramaScheduler() {
 	defer gs.mutex.Unlock()
 
 	if !gs.scheduler.IsRunning() {
-		log.Println("热播剧定时任务未在运行")
+		Info("热播剧定时任务未在运行")
 		return
 	}
 
 	gs.scheduler.StopHotDramaScheduler()
-	log.Println("全局调度器已停止热播剧定时任务")
+	Info("全局调度器已停止热播剧定时任务")
 }
 
 // IsHotDramaSchedulerRunning 检查热播剧定时任务是否在运行
@@ -74,12 +73,12 @@ func (gs *GlobalScheduler) StartReadyResourceScheduler() {
 	defer gs.mutex.Unlock()
 
 	if gs.scheduler.IsReadyResourceRunning() {
-		log.Println("待处理资源自动处理任务已在运行中")
+		Info("待处理资源自动处理任务已在运行中")
 		return
 	}
 
 	gs.scheduler.StartReadyResourceScheduler()
-	log.Println("全局调度器已启动待处理资源自动处理任务")
+	Info("全局调度器已启动待处理资源自动处理任务")
 }
 
 // StopReadyResourceScheduler 停止待处理资源自动处理任务
@@ -88,12 +87,12 @@ func (gs *GlobalScheduler) StopReadyResourceScheduler() {
 	defer gs.mutex.Unlock()
 
 	if !gs.scheduler.IsReadyResourceRunning() {
-		log.Println("待处理资源自动处理任务未在运行")
+		Info("待处理资源自动处理任务未在运行")
 		return
 	}
 
 	gs.scheduler.StopReadyResourceScheduler()
-	log.Println("全局调度器已停止待处理资源自动处理任务")
+	Info("全局调度器已停止待处理资源自动处理任务")
 }
 
 // IsReadyResourceRunning 检查待处理资源自动处理任务是否在运行
@@ -118,12 +117,12 @@ func (gs *GlobalScheduler) UpdateSchedulerStatus(autoFetchHotDramaEnabled bool, 
 	// 处理热播剧自动拉取功能
 	if autoFetchHotDramaEnabled {
 		if !gs.scheduler.IsRunning() {
-			log.Println("系统配置启用自动拉取热播剧，启动定时任务")
+			Info("系统配置启用自动拉取热播剧，启动定时任务")
 			gs.scheduler.StartHotDramaScheduler()
 		}
 	} else {
 		if gs.scheduler.IsRunning() {
-			log.Println("系统配置禁用自动拉取热播剧，停止定时任务")
+			Info("系统配置禁用自动拉取热播剧，停止定时任务")
 			gs.scheduler.StopHotDramaScheduler()
 		}
 	}
@@ -131,12 +130,12 @@ func (gs *GlobalScheduler) UpdateSchedulerStatus(autoFetchHotDramaEnabled bool, 
 	// 处理待处理资源自动处理功能
 	if autoProcessReadyResources {
 		if !gs.scheduler.IsReadyResourceRunning() {
-			log.Println("系统配置启用自动处理待处理资源，启动定时任务")
+			Info("系统配置启用自动处理待处理资源，启动定时任务")
 			gs.scheduler.StartReadyResourceScheduler()
 		}
 	} else {
 		if gs.scheduler.IsReadyResourceRunning() {
-			log.Println("系统配置禁用自动处理待处理资源，停止定时任务")
+			Info("系统配置禁用自动处理待处理资源，停止定时任务")
 			gs.scheduler.StopReadyResourceScheduler()
 		}
 	}

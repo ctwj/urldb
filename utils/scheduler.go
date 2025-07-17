@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -52,12 +51,12 @@ func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.R
 // StartHotDramaScheduler 启动热播剧定时任务
 func (s *Scheduler) StartHotDramaScheduler() {
 	if s.isRunning {
-		log.Println("热播剧定时任务已在运行中")
+		Info("热播剧定时任务已在运行中")
 		return
 	}
 
 	s.isRunning = true
-	log.Println("启动热播剧定时任务")
+	Info("启动热播剧定时任务")
 
 	go func() {
 		ticker := time.NewTicker(12 * time.Hour) // 每12小时执行一次
@@ -76,10 +75,10 @@ func (s *Scheduler) StartHotDramaScheduler() {
 						s.fetchHotDramaData()
 					}()
 				} else {
-					log.Println("上一次热播剧任务还在执行中，跳过本次执行")
+					Info("上一次热播剧任务还在执行中，跳过本次执行")
 				}
 			case <-s.stopChan:
-				log.Println("停止热播剧定时任务")
+				Info("停止热播剧定时任务")
 				return
 			}
 		}
@@ -89,18 +88,18 @@ func (s *Scheduler) StartHotDramaScheduler() {
 // StopHotDramaScheduler 停止热播剧定时任务
 func (s *Scheduler) StopHotDramaScheduler() {
 	if !s.isRunning {
-		log.Println("热播剧定时任务未在运行")
+		Info("热播剧定时任务未在运行")
 		return
 	}
 
 	s.stopChan <- true
 	s.isRunning = false
-	log.Println("已发送停止信号给热播剧定时任务")
+	Info("已发送停止信号给热播剧定时任务")
 }
 
 // fetchHotDramaData 获取热播剧数据
 func (s *Scheduler) fetchHotDramaData() {
-	log.Println("开始获取热播剧数据...")
+	Info("开始获取热播剧数据...")
 
 	// 直接处理电影和电视剧数据，不再需要FetchHotDramaNames
 	s.processHotDramaNames([]string{})
@@ -108,7 +107,7 @@ func (s *Scheduler) fetchHotDramaData() {
 
 // processHotDramaNames 处理热播剧名字
 func (s *Scheduler) processHotDramaNames(dramaNames []string) {
-	log.Printf("开始处理热播剧数据，共 %d 个", len(dramaNames))
+	Info("开始处理热播剧数据，共 %d 个", len(dramaNames))
 
 	// 收集所有数据
 	var allDramas []*entity.HotDrama
@@ -122,43 +121,43 @@ func (s *Scheduler) processHotDramaNames(dramaNames []string) {
 	allDramas = append(allDramas, tvDramas...)
 
 	// 清空数据库
-	log.Printf("准备清空数据库，当前共有 %d 条数据", len(allDramas))
+	Info("准备清空数据库，当前共有 %d 条数据", len(allDramas))
 	if err := s.hotDramaRepo.DeleteAll(); err != nil {
-		log.Printf("清空数据库失败: %v", err)
+		Error("清空数据库失败: %v", err)
 		return
 	}
-	log.Println("数据库清空完成")
+	Info("数据库清空完成")
 
 	// 批量插入所有数据
 	if len(allDramas) > 0 {
-		log.Printf("开始批量插入 %d 条数据", len(allDramas))
+		Info("开始批量插入 %d 条数据", len(allDramas))
 		if err := s.hotDramaRepo.BatchCreate(allDramas); err != nil {
-			log.Printf("批量插入数据失败: %v", err)
+			Error("批量插入数据失败: %v", err)
 		} else {
-			log.Printf("成功批量插入 %d 条数据", len(allDramas))
+			Info("成功批量插入 %d 条数据", len(allDramas))
 		}
 	} else {
-		log.Println("没有数据需要插入")
+		Info("没有数据需要插入")
 	}
 
-	log.Println("热播剧数据处理完成")
+	Info("热播剧数据处理完成")
 }
 
 // processMovieData 处理电影数据
 func (s *Scheduler) processMovieData() []*entity.HotDrama {
-	log.Println("开始处理电影数据...")
+	Info("开始处理电影数据...")
 
 	var movieDramas []*entity.HotDrama
 
 	// 使用GetTypePage方法获取电影数据
 	movieResult, err := s.doubanService.GetTypePage("热门", "全部")
 	if err != nil {
-		log.Printf("获取电影榜单失败: %v", err)
+		Error("获取电影榜单失败: %v", err)
 		return movieDramas
 	}
 
 	if movieResult.Success && movieResult.Data != nil {
-		log.Printf("电影获取到 %d 个数据", len(movieResult.Data.Items))
+		Info("电影获取到 %d 个数据", len(movieResult.Data.Items))
 
 		for _, item := range movieResult.Data.Items {
 			drama := &entity.HotDrama{
@@ -182,40 +181,40 @@ func (s *Scheduler) processMovieData() []*entity.HotDrama {
 			}
 
 			movieDramas = append(movieDramas, drama)
-			log.Printf("收集电影: %s (评分: %.1f, 年份: %s, 地区: %s)",
+			Info("收集电影: %s (评分: %.1f, 年份: %s, 地区: %s)",
 				item.Title, item.Rating.Value, item.Year, item.Region)
 		}
 	} else {
-		log.Printf("电影获取数据失败或为空")
+		Warn("电影获取数据失败或为空")
 	}
 
-	log.Printf("电影数据处理完成，共收集 %d 条数据", len(movieDramas))
+	Info("电影数据处理完成，共收集 %d 条数据", len(movieDramas))
 	return movieDramas
 }
 
 // processTvData 处理电视剧数据
 func (s *Scheduler) processTvData() []*entity.HotDrama {
-	log.Println("开始处理电视剧数据...")
+	Info("开始处理电视剧数据...")
 
 	var tvDramas []*entity.HotDrama
 
 	// 获取所有tv类型
 	tvTypes := s.doubanService.GetAllTvTypes()
-	log.Printf("获取到 %d 个tv类型: %v", len(tvTypes), tvTypes)
+	Info("获取到 %d 个tv类型: %v", len(tvTypes), tvTypes)
 
 	// 遍历每个type，分别请求数据
 	for _, tvType := range tvTypes {
-		log.Printf("正在处理tv类型: %s", tvType)
+		Info("正在处理tv类型: %s", tvType)
 
 		// 使用GetTypePage方法请求数据
 		tvResult, err := s.doubanService.GetTypePage("tv", tvType)
 		if err != nil {
-			log.Printf("获取tv类型 %s 数据失败: %v", tvType, err)
+			Error("获取tv类型 %s 数据失败: %v", tvType, err)
 			continue
 		}
 
 		if tvResult.Success && tvResult.Data != nil {
-			log.Printf("tv类型 %s 获取到 %d 个数据", tvType, len(tvResult.Data.Items))
+			Info("tv类型 %s 获取到 %d 个数据", tvType, len(tvResult.Data.Items))
 
 			for _, item := range tvResult.Data.Items {
 				drama := &entity.HotDrama{
@@ -239,18 +238,18 @@ func (s *Scheduler) processTvData() []*entity.HotDrama {
 				}
 
 				tvDramas = append(tvDramas, drama)
-				log.Printf("收集tv类型 %s: %s (评分: %.1f, 年份: %s, 地区: %s)",
+				Info("收集tv类型 %s: %s (评分: %.1f, 年份: %s, 地区: %s)",
 					tvType, item.Title, item.Rating.Value, item.Year, item.Region)
 			}
 		} else {
-			log.Printf("tv类型 %s 获取数据失败或为空", tvType)
+			Warn("tv类型 %s 获取数据失败或为空", tvType)
 		}
 
 		// 每个type请求间隔1秒，避免请求过于频繁
 		time.Sleep(1 * time.Second)
 	}
 
-	log.Printf("电视剧数据处理完成，共收集 %d 条数据", len(tvDramas))
+	Info("电视剧数据处理完成，共收集 %d 条数据", len(tvDramas))
 	return tvDramas
 }
 
@@ -268,12 +267,12 @@ func (s *Scheduler) GetHotDramaNames() ([]string, error) {
 // StartReadyResourceScheduler 启动待处理资源自动处理任务
 func (s *Scheduler) StartReadyResourceScheduler() {
 	if s.readyResourceRunning {
-		log.Println("待处理资源自动处理任务已在运行中")
+		Info("待处理资源自动处理任务已在运行中")
 		return
 	}
 
 	s.readyResourceRunning = true
-	log.Println("启动待处理资源自动处理任务")
+	Info("启动待处理资源自动处理任务")
 
 	go func() {
 		// 获取系统配置中的间隔时间
@@ -286,7 +285,7 @@ func (s *Scheduler) StartReadyResourceScheduler() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		log.Printf("待处理资源自动处理任务已启动，间隔时间: %v", interval)
+		Info("待处理资源自动处理任务已启动，间隔时间: %v", interval)
 
 		// 立即执行一次
 		s.processReadyResources()
@@ -301,10 +300,10 @@ func (s *Scheduler) StartReadyResourceScheduler() {
 						s.processReadyResources()
 					}()
 				} else {
-					log.Println("上一次待处理资源任务还在执行中，跳过本次执行")
+					Info("上一次待处理资源任务还在执行中，跳过本次执行")
 				}
 			case <-s.stopChan:
-				log.Println("停止待处理资源自动处理任务")
+				Info("停止待处理资源自动处理任务")
 				return
 			}
 		}
@@ -314,44 +313,44 @@ func (s *Scheduler) StartReadyResourceScheduler() {
 // StopReadyResourceScheduler 停止待处理资源自动处理任务
 func (s *Scheduler) StopReadyResourceScheduler() {
 	if !s.readyResourceRunning {
-		log.Println("待处理资源自动处理任务未在运行")
+		Info("待处理资源自动处理任务未在运行")
 		return
 	}
 
 	s.stopChan <- true
 	s.readyResourceRunning = false
-	log.Println("已发送停止信号给待处理资源自动处理任务")
+	Info("已发送停止信号给待处理资源自动处理任务")
 }
 
 // processReadyResources 处理待处理资源
 func (s *Scheduler) processReadyResources() {
-	log.Println("开始处理待处理资源...")
+	Info("开始处理待处理资源...")
 
 	// 检查系统配置，确认是否启用自动处理
 	config, err := s.systemConfigRepo.GetOrCreateDefault()
 	if err != nil {
-		log.Printf("获取系统配置失败: %v", err)
+		Error("获取系统配置失败: %v", err)
 		return
 	}
 
 	if !config.AutoProcessReadyResources {
-		log.Println("自动处理待处理资源功能已禁用")
+		Info("自动处理待处理资源功能已禁用")
 		return
 	}
 
 	// 获取所有待处理资源
 	readyResources, err := s.readyResourceRepo.FindAll()
 	if err != nil {
-		log.Printf("获取待处理资源失败: %v", err)
+		Error("获取待处理资源失败: %v", err)
 		return
 	}
 
 	if len(readyResources) == 0 {
-		log.Println("没有待处理的资源")
+		Info("没有待处理的资源")
 		return
 	}
 
-	log.Printf("找到 %d 个待处理资源，开始处理...", len(readyResources))
+	Info("找到 %d 个待处理资源，开始处理...", len(readyResources))
 
 	processedCount := 0
 	factory := panutils.GetInstance() // 使用单例模式
@@ -360,45 +359,45 @@ func (s *Scheduler) processReadyResources() {
 		//readyResource.URL 是 查重
 		exits, err := s.resourceRepo.FindExists(readyResource.URL)
 		if err != nil {
-			log.Printf("查重失败: %v", err)
+			Error("查重失败: %v", err)
 			continue
 		}
 		if exits {
-			log.Printf("资源已存在: %s", readyResource.URL)
+			Info("资源已存在: %s", readyResource.URL)
 			s.readyResourceRepo.Delete(readyResource.ID)
 			continue
 		}
 
 		if err := s.convertReadyResourceToResource(readyResource, factory); err != nil {
-			log.Printf("处理资源失败 (ID: %d): %v", readyResource.ID, err)
+			Error("处理资源失败 (ID: %d): %v", readyResource.ID, err)
 		}
 		s.readyResourceRepo.Delete(readyResource.ID)
 		processedCount++
-		log.Printf("成功处理资源: %s", readyResource.URL)
+		Info("成功处理资源: %s", readyResource.URL)
 	}
 
-	log.Printf("待处理资源处理完成，共处理 %d 个资源", processedCount)
+	Info("待处理资源处理完成，共处理 %d 个资源", processedCount)
 }
 
 // convertReadyResourceToResource 将待处理资源转换为正式资源
 func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyResource, factory *panutils.PanFactory) error {
-	log.Printf("开始处理资源: %s", readyResource.URL)
+	Debug("开始处理资源: %s", readyResource.URL)
 
 	// 提取分享ID和服务类型
 	shareID, serviceType := panutils.ExtractShareId(readyResource.URL)
 	if serviceType == panutils.NotFound {
-		log.Printf("不支持的链接地址: %s", readyResource.URL)
+		Warn("不支持的链接地址: %s", readyResource.URL)
 		return nil
 	}
 
-	log.Printf("检测到服务类型: %s, 分享ID: %s", serviceType.String(), shareID)
+	Debug("检测到服务类型: %s, 分享ID: %s", serviceType.String(), shareID)
 
 	// 不是夸克，直接保存，
 	if serviceType != panutils.Quark {
 		// 检测是否有效
 		checkResult, _ := commonutils.CheckURL(readyResource.URL)
 		if !checkResult.Status {
-			log.Printf("链接无效: %s", readyResource.URL)
+			Warn("链接无效: %s", readyResource.URL)
 			return nil
 		}
 
@@ -418,7 +417,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 	// 通过工厂获取对应的网盘服务单例
 	panService, err := factory.CreatePanService(readyResource.URL, config)
 	if err != nil {
-		log.Printf("获取网盘服务失败: %v", err)
+		Error("获取网盘服务失败: %v", err)
 		return err
 	}
 
@@ -456,12 +455,12 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 	// 统一处理：尝试转存获取标题
 	result, err := panService.Transfer(shareID)
 	if err != nil {
-		log.Printf("网盘信息获取失败: %v", err)
+		Error("网盘信息获取失败: %v", err)
 		return err
 	}
 
 	if !result.Success {
-		log.Printf("网盘信息获取失败: %s", result.Message)
+		Error("网盘信息获取失败: %s", result.Message)
 		return nil
 	}
 
@@ -492,7 +491,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 		return s.resourceRepo.Create(resource)
 	}
 
-	log.Printf("转存结果格式异常")
+	Error("转存结果格式异常")
 	return nil
 }
 
@@ -510,7 +509,7 @@ func (s *Scheduler) initPanCache() {
 		// 获取所有平台数据
 		pans, err := s.panRepo.FindAll()
 		if err != nil {
-			log.Printf("初始化平台缓存失败: %v", err)
+			Error("初始化平台缓存失败: %v", err)
 			return
 		}
 
@@ -534,9 +533,9 @@ func (s *Scheduler) initPanCache() {
 		for serviceType, panName := range serviceTypeToPanName {
 			if panID, exists := panNameToID[panName]; exists {
 				s.panCache[serviceType] = panID
-				log.Printf("平台映射缓存: %s -> %s (ID: %d)", serviceType, panName, *panID)
+				Debug("平台映射缓存: %s -> %s (ID: %d)", serviceType, panName, *panID)
 			} else {
-				log.Printf("警告: 未找到平台 %s 对应的数据库记录", panName)
+				Warn("警告: 未找到平台 %s 对应的数据库记录", panName)
 			}
 		}
 
@@ -545,7 +544,7 @@ func (s *Scheduler) initPanCache() {
 			s.panCache["unknown"] = otherID
 		}
 
-		log.Printf("平台映射缓存初始化完成，共 %d 个映射", len(s.panCache))
+		Info("平台映射缓存初始化完成，共 %d 个映射", len(s.panCache))
 	})
 }
 
@@ -560,11 +559,11 @@ func (s *Scheduler) getPanIDByServiceType(serviceType panutils.ServiceType) *uin
 
 	// 如果找不到，返回 other 平台的ID
 	if otherID, exists := s.panCache["other"]; exists {
-		log.Printf("未找到服务类型 %s 的映射，使用默认平台 other", serviceTypeStr)
+		Warn("未找到服务类型 %s 的映射，使用默认平台 other", serviceTypeStr)
 		return otherID
 	}
 
-	log.Printf("未找到服务类型 %s 的映射，且没有默认平台，返回nil", serviceTypeStr)
+	Warn("未找到服务类型 %s 的映射，且没有默认平台，返回nil", serviceTypeStr)
 	return nil
 }
 

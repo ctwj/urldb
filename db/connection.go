@@ -2,10 +2,10 @@ package db
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/ctwj/panResManage/db/entity"
+	"github.com/ctwj/panResManage/utils"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -66,7 +66,7 @@ func InitDB() error {
 		&entity.HotDrama{},
 	)
 	if err != nil {
-		log.Fatal("数据库迁移失败:", err)
+		utils.Fatal("数据库迁移失败: %v", err)
 	}
 
 	// 创建索引以提高查询性能
@@ -74,10 +74,10 @@ func InitDB() error {
 
 	// 插入默认数据（只在数据库为空时）
 	if err := insertDefaultDataIfEmpty(); err != nil {
-		log.Printf("插入默认数据失败: %v", err)
+		utils.Error("插入默认数据失败: %v", err)
 	}
 
-	log.Println("数据库连接成功")
+	utils.Info("数据库连接成功")
 	return nil
 }
 
@@ -123,7 +123,7 @@ func createIndexes(db *gorm.DB) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_tags_resource_id ON resource_tags(resource_id)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_tags_tag_id ON resource_tags(tag_id)")
 
-	log.Println("数据库索引创建完成")
+	utils.Info("数据库索引创建完成")
 }
 
 // insertDefaultDataIfEmpty 只在数据库为空时插入默认数据
@@ -136,11 +136,11 @@ func insertDefaultDataIfEmpty() error {
 
 	// 如果pan表已有数据，跳过插入
 	if panCount > 0 {
-		log.Println("pan表已有数据，跳过默认数据插入")
+		utils.Info("pan表已有数据，跳过默认数据插入")
 		return nil
 	}
 
-	log.Println("pan表为空，开始插入默认数据...")
+	utils.Info("pan表为空，开始插入默认数据...")
 
 	// 插入默认分类（使用FirstOrCreate避免重复）
 	defaultCategories := []entity.Category{
@@ -154,7 +154,7 @@ func insertDefaultDataIfEmpty() error {
 
 	for _, category := range defaultCategories {
 		if err := DB.Where("name = ?", category.Name).FirstOrCreate(&category).Error; err != nil {
-			log.Printf("插入分类 %s 失败: %v", category.Name, err)
+			utils.Error("插入分类 %s 失败: %v", category.Name, err)
 			// 继续执行，不因为单个分类失败而停止
 		}
 	}
@@ -180,7 +180,7 @@ func insertDefaultDataIfEmpty() error {
 
 	for _, pan := range defaultPans {
 		if err := DB.Where("name = ?", pan.Name).FirstOrCreate(&pan).Error; err != nil {
-			log.Printf("插入平台 %s 失败: %v", pan.Name, err)
+			utils.Error("插入平台 %s 失败: %v", pan.Name, err)
 			// 继续执行，不因为单个平台失败而停止
 		}
 	}
@@ -198,6 +198,6 @@ func insertDefaultDataIfEmpty() error {
 		return err
 	}
 
-	log.Println("默认数据插入完成")
+	utils.Info("默认数据插入完成")
 	return nil
 }

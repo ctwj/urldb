@@ -1,13 +1,13 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/ctwj/panResManage/db/converter"
 	"github.com/ctwj/panResManage/db/dto"
 	"github.com/ctwj/panResManage/db/entity"
+	"github.com/ctwj/panResManage/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -126,7 +126,7 @@ func UpdateTag(c *gin.Context) {
 	}
 
 	// 添加调试信息
-	fmt.Printf("更新标签 - ID: %d, 请求CategoryID: %v, 当前CategoryID: %v\n", id, req.CategoryID, tag.CategoryID)
+	utils.Debug("更新标签 - ID: %d, 请求CategoryID: %v, 当前CategoryID: %v", id, req.CategoryID, tag.CategoryID)
 
 	if req.Name != "" {
 		tag.Name = req.Name
@@ -138,7 +138,7 @@ func UpdateTag(c *gin.Context) {
 	tag.CategoryID = req.CategoryID
 
 	// 添加调试信息
-	fmt.Printf("更新后CategoryID: %v\n", tag.CategoryID)
+	utils.Debug("更新后CategoryID: %v", tag.CategoryID)
 
 	// 使用专门的更新方法，确保能更新null值
 	err = repoManager.TagRepository.UpdateWithNulls(tag)

@@ -17,14 +17,20 @@ import (
 )
 
 func main() {
+	// 初始化日志系统
+	if err := utils.InitLogger(nil); err != nil {
+		log.Fatal("初始化日志系统失败:", err)
+	}
+	defer utils.GetLogger().Close()
+
 	// 加载环境变量
 	if err := godotenv.Load(); err != nil {
-		log.Println("未找到.env文件，使用默认配置")
+		utils.Info("未找到.env文件，使用默认配置")
 	}
 
 	// 初始化数据库
 	if err := db.InitDB(); err != nil {
-		log.Fatal("数据库连接失败:", err)
+		utils.Fatal("数据库连接失败: %v", err)
 	}
 
 	// 创建Repository管理器
@@ -42,22 +48,22 @@ func main() {
 	// 检查系统配置，决定是否启动待处理资源自动处理任务
 	systemConfig, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
 	if err != nil {
-		log.Printf("获取系统配置失败: %v", err)
+		utils.Error("获取系统配置失败: %v", err)
 	} else {
 		// 检查是否启动待处理资源自动处理任务
 		if systemConfig.AutoProcessReadyResources {
 			scheduler.StartReadyResourceScheduler()
-			log.Println("已启动待处理资源自动处理任务")
+			utils.Info("已启动待处理资源自动处理任务")
 		} else {
-			log.Println("系统配置中自动处理待处理资源功能已禁用，跳过启动定时任务")
+			utils.Info("系统配置中自动处理待处理资源功能已禁用，跳过启动定时任务")
 		}
 
 		// 检查是否启动热播剧自动拉取任务
 		if systemConfig.AutoFetchHotDramaEnabled {
 			scheduler.StartHotDramaScheduler()
-			log.Println("已启动热播剧自动拉取任务")
+			utils.Info("已启动热播剧自动拉取任务")
 		} else {
-			log.Println("系统配置中自动拉取热播剧功能已禁用，跳过启动定时任务")
+			utils.Info("系统配置中自动拉取热播剧功能已禁用，跳过启动定时任务")
 		}
 	}
 
@@ -202,6 +208,6 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("服务器启动在端口 %s", port)
+	utils.Info("服务器启动在端口 %s", port)
 	r.Run(":" + port)
 }

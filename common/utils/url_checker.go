@@ -146,7 +146,7 @@ func checkUC(shareID string) (bool, error) {
 
 	// 检查是否需要访问码
 	if strings.Contains(bodyStr, "class=\"main-body\"") && strings.Contains(bodyStr, "class=\"input-wrap\"") {
-		fmt.Println("发现访问码输入框，判断为有效（需密码）")
+		// 发现访问码输入框，判断为有效（需密码）
 		return true, nil
 	}
 
@@ -461,7 +461,7 @@ func checkBaidu(shareID string) (bool, error) {
 func CheckURL(urlStr string) (CheckResult, error) {
 	shareID, service := extractShareID(urlStr)
 	if shareID == "" || service == NotFoundStr {
-		fmt.Printf("无法识别的链接或网盘服务: %s\n", urlStr)
+		// 无法识别的链接或网盘服务
 		return CheckResult{URL: urlStr, Status: false}, nil
 	}
 
@@ -484,7 +484,7 @@ func CheckURL(urlStr string) (CheckResult, error) {
 		return CheckResult{URL: urlStr, Status: result}, nil
 	}
 
-	fmt.Printf("未找到服务 %s 的检测函数\n", service)
+	// 未找到服务的检测函数
 	return CheckResult{URL: urlStr, Status: false}, nil
 }
 
@@ -541,7 +541,7 @@ func Test() {
 			defer wg.Done()
 			result, err := CheckURL(u)
 			if err != nil {
-				fmt.Printf("检查 %s 时出错: %v\n", u, err)
+				// 检查时出错
 				result = CheckResult{URL: u, Status: false}
 			}
 			results <- result
@@ -553,8 +553,8 @@ func Test() {
 		close(results)
 	}()
 
-	fmt.Println("\n检测结果：")
-	for result := range results {
-		fmt.Printf("%s - %s\n", result.URL, map[bool]string{true: "有效", false: "无效"}[result.Status])
+	// 检测结果：
+	for range results {
+		// 输出检测结果
 	}
 }

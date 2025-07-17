@@ -140,44 +140,44 @@ func (ds *DoubanService) GetTypePage(category, rankingType string) (*DoubanResul
 		"loc_id": "108288",
 	}
 
-	log.Printf("请求参数: %+v", params)
-	log.Printf("请求URL: %s/subject_collection/%s/items", ds.baseURL, rankingType)
+	Debug("请求参数: %+v", params)
+	Debug("请求URL: %s/subject_collection/%s/items", ds.baseURL, rankingType)
 
 	var response *resty.Response
 	var err error
 
 	// 尝试调用豆瓣API
-	log.Printf("开始发送HTTP请求...")
+	Debug("开始发送HTTP请求...")
 	response, err = ds.client.R().
 		SetQueryParams(params).
 		Get(ds.baseURL + "/subject_collection/" + rankingType + "/items")
 
 	if err != nil {
-		log.Printf("=== 豆瓣API调用失败 ===")
-		log.Printf("错误详情: %v", err)
+		Error("=== 豆瓣API调用失败 ===")
+		Error("错误详情: %v", err)
 		return &DoubanResult{
 			Success: false,
 			Message: "API调用失败: " + err.Error(),
 		}, nil
 	}
 
-	log.Printf("=== HTTP请求成功 ===")
-	log.Printf("响应状态码: %d", response.StatusCode())
-	log.Printf("响应体长度: %d bytes", len(response.Body()))
+	Debug("=== HTTP请求成功 ===")
+	Debug("响应状态码: %d", response.StatusCode())
+	Debug("响应体长度: %d bytes", len(response.Body()))
 
 	// 记录响应体的前500个字符用于调试
 	responseBody := string(response.Body())
-	log.Printf("响应体原始长度: %d 字符", len(responseBody))
+	Debug("响应体原始长度: %d 字符", len(responseBody))
 
 	if len(responseBody) > 500 {
-		log.Printf("响应体前500字符: %s...", responseBody[:500])
+		Debug("响应体前500字符: %s...", responseBody[:500])
 	} else {
-		log.Printf("完整响应体: %s", responseBody)
+		Debug("完整响应体: %s", responseBody)
 	}
 
 	// 检查响应体是否包含有效JSON
 	if len(responseBody) == 0 {
-		log.Printf("=== 响应体为空 ===")
+		Warn("=== 响应体为空 ===")
 		return &DoubanResult{
 			Success: false,
 			Message: "响应体为空",
@@ -187,13 +187,13 @@ func (ds *DoubanService) GetTypePage(category, rankingType string) (*DoubanResul
 	// 尝试解析JSON
 	var apiResponse map[string]interface{}
 	if err := json.Unmarshal(response.Body(), &apiResponse); err != nil {
-		log.Printf("=== 解析API响应失败 ===")
-		log.Printf("JSON解析错误: %v", err)
-		log.Printf("响应体内容: %s", string(response.Body()))
+		Error("=== 解析API响应失败 ===")
+		Error("JSON解析错误: %v", err)
+		Debug("响应体内容: %s", string(response.Body()))
 
 		// 尝试检查是否是HTML错误页面
 		if len(responseBody) > 100 && (strings.Contains(responseBody, "<html>") || strings.Contains(responseBody, "<!DOCTYPE")) {
-			log.Printf("检测到HTML响应，可能是错误页面")
+			Warn("检测到HTML响应，可能是错误页面")
 			return &DoubanResult{
 				Success: false,
 				Message: "返回HTML错误页面",
