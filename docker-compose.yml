@@ -4,7 +4,7 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: res_db
+      POSTGurl_db: url_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
@@ -28,7 +28,7 @@ services:
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: password
-      DB_NAME: res_db
+      DB_NAME: url_db
       PORT: 8080
     depends_on:
       postgres:

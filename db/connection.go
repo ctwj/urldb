@@ -37,7 +37,7 @@ func InitDB() error {
 
 	dbname := os.Getenv("DB_NAME")
 	if dbname == "" {
-		dbname = "res_db"
+		dbname = "url_db"
 	}
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",

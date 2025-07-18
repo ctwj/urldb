@@ -75,7 +75,7 @@ pnpm dev
 ### 数据库设置
 
 ```sql
-CREATE DATABASE res_db;
+CREATE DATABASE url_db;
 ```
 
 ## 📝 开发规范

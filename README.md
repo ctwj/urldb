@@ -1,4 +1,4 @@
-# 🚀 urldb - 网盘资源数据库
+# 🚀 urlDB - 网盘资源数据库
 
 <div align="center>
 
@@ -37,20 +37,6 @@
 - **📊 自动转存分享** - 有效资源，如果属于支持类型将自动转存分享
 - **📱 多账号管理** - 同平台支持多账号管理
 
-### 🛠️ 管理功能
-- **📦 批量操作** - 批量添加、导入、管理资源
-- **🔄 自动处理** - 待处理资源自动转存和分享
-- **📈 热播剧管理** - 热门影视资源自动更新
-- **⚙️ 系统配置** - 灵活的系统参数配置
-
-### 🎨 用户体验
-- **📱 响应式设计** - 支持桌面端和移动端
-- **🌙 深色模式** - 支持明暗主题切换
-- **⚡ 高性能** - 基于Go的高并发后端
-- **🎯 现代化UI** - 基于Tailwind CSS的美观界面
-
----
-
 ## 🏗️ 技术架构
 
 ### 后端技术栈
@@ -67,11 +53,6 @@
 - **🎨 Tailwind CSS** - 实用优先的CSS框架
 - **🔧 Pinia** - 状态管理
 
-### 开发工具
-- **🐳 Docker** - 容器化部署
-- **📦 pnpm** - 快速包管理器
-- **🔍 Air** - Go热重载工具
-
 ---
 
 ## 🚀 快速开始
@@ -86,16 +67,6 @@
   - **pnpm** (推荐) 或 npm
 
 ### 方式一：Docker 部署（推荐）
-
-#### 使用启动脚本（最简单）
-```bash
-# 克隆项目
-git clone https://github.com/ctwj/urldb.git
-cd urldb
-
-# 使用启动脚本
-./docker-start.sh
-```
 
 #### 手动启动
 ```bash
@@ -149,7 +120,7 @@ pnpm dev
 #### 4. 数据库设置
 ```sql
 -- 创建数据库
-CREATE DATABASE res_db;
+CREATE DATABASE url_db;
 ```
 
 ---
@@ -196,7 +167,7 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=your_password
-DB_NAME=res_db
+DB_NAME=url_db
 
 # 服务器配置
 PORT=8080
@@ -233,41 +204,9 @@ PORT=8080
 
 我们欢迎所有形式的贡献！
 
-### 如何贡献
-
-1**Fork** 本仓库2 **创建** 功能分支 (`git checkout -b feature/AmazingFeature`)
-3** 更改 (`git commit -mAdd some AmazingFeature'`)
-4. **推送** 到分支 (`git push origin feature/AmazingFeature`)
-5. **创建** Pull Request
-
-
 ## 📄 许可证
 
-本项目采用 [MIT License](LICENSE) 许可证。
-
-```
-MIT License
-
-Copyright (c) 2024 L9Pan
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+本项目采用 [GPL License](LICENSE) 许可证。
 
 ---
 
