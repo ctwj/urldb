@@ -39,7 +39,7 @@
                   type="text" 
                   required
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="网盘资源管理系统"
+                  placeholder="网盘资源数据库"
                 />
               </div>
 
@@ -52,7 +52,7 @@
                   v-model="config.siteDescription" 
                   type="text" 
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="专业的网盘资源管理系统"
+                  placeholder="专业的网盘资源数据库"
                 />
               </div>
 
@@ -91,7 +91,7 @@
                   v-model="config.copyright" 
                   type="text" 
                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="© 2024 网盘资源管理系统"
+                  placeholder="© 2024 网盘资源数据库"
                 />
               </div>
             </div>
@@ -363,11 +363,11 @@ const { getSystemConfig, updateSystemConfig } = useSystemConfigApi()
 const loading = ref(false)
 const config = ref({
   // SEO 配置
-  siteTitle: '网盘资源管理系统',
-  siteDescription: '专业的网盘资源管理系统',
+  siteTitle: '网盘资源数据库',
+  siteDescription: '专业的网盘资源数据库',
   keywords: '网盘,资源管理,文件分享',
   author: '系统管理员',
-  copyright: '© 2024 网盘资源管理系统',
+  copyright: '© 2024 网盘资源数据库',
   
   // 自动处理配置
   autoProcessReadyResources: false,
@@ -388,7 +388,7 @@ const systemConfig = ref(null)
 
 // 页面元数据 - 移到变量声明之后
 useHead({
-  title: () => systemConfig.value?.site_title ? `${systemConfig.value.site_title} - 系统配置` : '系统配置 - 网盘资源管理系统',
+  title: () => systemConfig.value?.site_title ? `${systemConfig.value.site_title} - 系统配置` : '系统配置 - 网盘资源数据库',
   meta: [
     { 
       name: 'description', 
@@ -415,11 +415,11 @@ const loadConfig = async () => {
     // 使用新的统一响应格式，直接使用response
     if (response) {
       config.value = {
-        siteTitle: response.site_title || '网盘资源管理系统',
-        siteDescription: response.site_description || '专业的网盘资源管理系统',
+        siteTitle: response.site_title || '网盘资源数据库',
+        siteDescription: response.site_description || '专业的网盘资源数据库',
         keywords: response.keywords || '网盘,资源管理,文件分享',
         author: response.author || '系统管理员',
-        copyright: response.copyright || '© 2024 网盘资源管理系统',
+        copyright: response.copyright || '© 2024 网盘资源数据库',
         autoProcessReadyResources: response.auto_process_ready_resources || false,
         autoProcessInterval: response.auto_process_interval || 30,
         autoTransferEnabled: response.auto_transfer_enabled || false, // 新增

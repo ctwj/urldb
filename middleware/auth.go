@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ctwj/panResManage/db/entity"
-	"github.com/ctwj/panResManage/utils"
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

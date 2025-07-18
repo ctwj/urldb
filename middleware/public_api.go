@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/ctwj/panResManage/db/repo"
+	"github.com/ctwj/urldb/db/repo"
 	"github.com/gin-gonic/gin"
 )
 

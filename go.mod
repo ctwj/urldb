@@ -1,4 +1,4 @@
-module github.com/ctwj/panResManage
+module github.com/ctwj/urldb
 
 go 1.23.0
 

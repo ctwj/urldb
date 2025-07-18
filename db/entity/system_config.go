@@ -11,7 +11,7 @@ type SystemConfig struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	// SEO 配置
-	SiteTitle       string `json:"site_title" gorm:"size:200;not null;default:'网盘资源管理系统'"`
+	SiteTitle       string `json:"site_title" gorm:"size:200;not null;default:'网盘资源数据库'"`
 	SiteDescription string `json:"site_description" gorm:"size:500"`
 	Keywords        string `json:"keywords" gorm:"size:500"`
 	Author          string `json:"author" gorm:"size:100"`

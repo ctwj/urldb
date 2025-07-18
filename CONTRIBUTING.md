@@ -16,7 +16,7 @@
 
 ### 1. Fork 项目
 
-1. 访问 [GitHub 仓库](https://github.com/ctwj/panResManage)
+1. 访问 [GitHub 仓库](https://github.com/ctwj/urldb)
 2. 点击右上角的 Fork 按钮
 3. 选择您的 GitHub 账户
 
@@ -30,7 +30,7 @@ cd resManage
 ### 3. 添加上游仓库
 
 ```bash
-git remote add upstream https://github.com/ctwj/panResManage.git
+git remote add upstream https://github.com/ctwj/urldb.git
 ```
 
 ### 4. 创建功能分支

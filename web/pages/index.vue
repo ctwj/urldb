@@ -20,7 +20,7 @@
       <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4">
           <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
-            {{ systemConfig?.site_title || '网盘资源管理系统' }}
+            {{ systemConfig?.site_title || '网盘资源数据库' }}
           </a>
         </h1>
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-2 right-4 top-0 absolute">
@@ -236,7 +236,7 @@
     <footer class="mt-auto py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
       <div class="max-w-7xl mx-auto text-center text-gray-600 dark:text-gray-400 text-sm px-3 sm:px-5">
         <p class="mb-2">本站内容由网络爬虫自动抓取。本站不储存、复制、传播任何文件，仅作个人公益学习，请在获取后24小内删除!!!</p>
-        <p>{{ systemConfig?.copyright || '© 2025 网盘资源管理系统 By 老九' }}</p>
+        <p>{{ systemConfig?.copyright || '© 2025 网盘资源数据库 By 老九' }}</p>
       </div>
     </footer>
   </div>
@@ -321,11 +321,11 @@ const safeLoading = computed(() => {
 
 // 动态SEO配置
 const seoConfig = computed(() => ({
-  title: systemConfig.value?.site_title || '网盘资源管理系统',
+  title: systemConfig.value?.site_title || '网盘资源数据库',
   meta: [
     { 
       name: 'description', 
-      content: systemConfig.value?.site_description || '专业的网盘资源管理系统' 
+      content: systemConfig.value?.site_description || '专业的网盘资源数据库' 
     },
     { 
       name: 'keywords', 
@@ -337,7 +337,7 @@ const seoConfig = computed(() => ({
     },
     { 
       name: 'copyright', 
-      content: systemConfig.value?.copyright || '© 2024 网盘资源管理系统' 
+      content: systemConfig.value?.copyright || '© 2024 网盘资源数据库' 
     }
   ]
 }))
@@ -347,11 +347,11 @@ watchEffect(() => {
   try {
     if (systemConfig.value && systemConfig.value.site_title) {
       useHead({
-        title: systemConfig.value.site_title || '网盘资源管理系统',
+        title: systemConfig.value.site_title || '网盘资源数据库',
         meta: [
           { 
             name: 'description', 
-            content: systemConfig.value.site_description || '专业的网盘资源管理系统' 
+            content: systemConfig.value.site_description || '专业的网盘资源数据库' 
           },
           { 
             name: 'keywords', 
@@ -363,19 +363,19 @@ watchEffect(() => {
           },
           { 
             name: 'copyright', 
-            content: systemConfig.value.copyright || '© 2024 网盘资源管理系统' 
+            content: systemConfig.value.copyright || '© 2024 网盘资源数据库' 
           }
         ]
       })
     } else {
       // 默认SEO配置
       useHead({
-        title: '网盘资源管理系统',
+        title: '网盘资源数据库',
         meta: [
-          { name: 'description', content: '专业的网盘资源管理系统' },
+          { name: 'description', content: '专业的网盘资源数据库' },
           { name: 'keywords', content: '网盘,资源管理,文件分享' },
           { name: 'author', content: '系统管理员' },
-          { name: 'copyright', content: '© 2024 网盘资源管理系统' }
+          { name: 'copyright', content: '© 2024 网盘资源数据库' }
         ]
       })
     }
@@ -383,12 +383,12 @@ watchEffect(() => {
     console.error('设置页面元数据时出错:', error)
     // 使用默认配置作为后备
     useHead({
-      title: '网盘资源管理系统',
+      title: '网盘资源数据库',
       meta: [
-        { name: 'description', content: '专业的网盘资源管理系统' },
+        { name: 'description', content: '专业的网盘资源数据库' },
         { name: 'keywords', content: '网盘,资源管理,文件分享' },
         { name: 'author', content: '系统管理员' },
-        { name: 'copyright', content: '© 2024 网盘资源管理系统' }
+        { name: 'copyright', content: '© 2024 网盘资源数据库' }
       ]
     })
   }

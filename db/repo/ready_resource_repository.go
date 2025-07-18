@@ -3,7 +3,7 @@ package repo
 import (
 	"time"
 
-	"github.com/ctwj/panResManage/db/entity"
+	"github.com/ctwj/urldb/db/entity"
 
 	"gorm.io/gorm"
 )

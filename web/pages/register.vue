@@ -210,7 +210,7 @@ const handleRegister = async () => {
 
 // 设置页面标题
 useHead({
-  title: '用户注册 - 网盘资源管理系统'
+  title: '用户注册 - 网盘资源数据库'
 })
 </script>
 

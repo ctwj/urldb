@@ -1,7 +1,7 @@
 package repo
 
 import (
-	"github.com/ctwj/panResManage/db/entity"
+	"github.com/ctwj/urldb/db/entity"
 
 	"gorm.io/gorm"
 )
@@ -57,11 +57,11 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() (*entity.SystemConfig,
 	if err != nil {
 		// 创建默认配置
 		defaultConfig := &entity.SystemConfig{
-			SiteTitle:                 "网盘资源管理系统",
-			SiteDescription:           "专业的网盘资源管理系统",
+			SiteTitle:                 "网盘资源数据库",
+			SiteDescription:           "专业的网盘资源数据库",
 			Keywords:                  "网盘,资源管理,文件分享",
 			Author:                    "系统管理员",
-			Copyright:                 "© 2024 网盘资源管理系统",
+			Copyright:                 "© 2024 网盘资源数据库",
 			AutoProcessReadyResources: false,
 			AutoProcessInterval:       30,
 			PageSize:                  100,

@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/ctwj/panResManage/utils"
+	"github.com/ctwj/urldb/utils"
 	"github.com/gin-gonic/gin"
 )
 

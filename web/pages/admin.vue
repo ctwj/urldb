@@ -19,7 +19,7 @@
         <div class="flex justify-between items-center mb-4">
           <h1 class="text-2xl sm:text-3xl font-bold">
             <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
-              {{ systemConfig?.site_title || '网盘资源管理系统' }}
+              {{ systemConfig?.site_title || '网盘资源数据库' }}
             </NuxtLink>
           </h1>
                       <div class="flex items-center gap-4">
@@ -320,11 +320,11 @@ const systemConfig = ref(null) // 添加系统配置状态
 
 // 页面元数据 - 移到变量声明之后
 useHead({
-  title: () => systemConfig.value?.site_title ? `${systemConfig.value.site_title} - 管理后台` : '管理后台 - 网盘资源管理系统',
+  title: () => systemConfig.value?.site_title ? `${systemConfig.value.site_title} - 管理后台` : '管理后台 - 网盘资源数据库',
   meta: [
     { 
       name: 'description', 
-      content: () => systemConfig.value?.site_description || '网盘资源管理系统管理后台' 
+      content: () => systemConfig.value?.site_description || '网盘资源数据库管理后台' 
     },
     { 
       name: 'keywords', 

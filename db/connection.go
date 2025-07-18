@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ctwj/panResManage/db/entity"
-	"github.com/ctwj/panResManage/utils"
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

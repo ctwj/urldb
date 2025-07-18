@@ -4,12 +4,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/ctwj/panResManage/utils"
+	"github.com/ctwj/urldb/utils"
 
-	"github.com/ctwj/panResManage/db"
-	"github.com/ctwj/panResManage/db/repo"
-	"github.com/ctwj/panResManage/handlers"
-	"github.com/ctwj/panResManage/middleware"
+	"github.com/ctwj/urldb/db"
+	"github.com/ctwj/urldb/db/repo"
+	"github.com/ctwj/urldb/handlers"
+	"github.com/ctwj/urldb/middleware"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

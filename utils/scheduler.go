@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	panutils "github.com/ctwj/panResManage/common"
-	commonutils "github.com/ctwj/panResManage/common/utils"
-	"github.com/ctwj/panResManage/db/entity"
-	"github.com/ctwj/panResManage/db/repo"
+	panutils "github.com/ctwj/urldb/common"
+	commonutils "github.com/ctwj/urldb/common/utils"
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 )
 
 // Scheduler 定时任务管理器

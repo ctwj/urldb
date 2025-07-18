@@ -36,11 +36,11 @@ export default defineNuxtConfig({
   ],
   app: {
     head: {
-      title: '开源网盘资源管理系统',
+      title: '开源网盘资源数据库',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: '开源网盘资源管理系统 - 一个现代化的资源管理系统' }
+        { name: 'description', content: '开源网盘资源数据库 - 一个现代化的资源管理系统' }
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }

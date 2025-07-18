@@ -331,7 +331,7 @@ const getAuthHeaders = () => {
 
 // 页面元数据
 useHead({
-  title: '标签管理 - 网盘资源管理系统',
+  title: '标签管理 - 网盘资源数据库',
   meta: [
     { name: 'description', content: '管理网盘资源标签' },
     { name: 'keywords', content: '标签管理,资源管理' }

@@ -1,4 +1,4 @@
-# 🚀 panResManage - 网盘资源管理系统
+# 🚀 urldb - 网盘资源数据库
 
 <div align="center>
 
@@ -8,7 +8,7 @@
 ![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791go=postgresql&logoColor=white)
 
-**一个现代化的网盘资源管理系统，支持多网盘自动化转存分享**
+**一个现代化的网盘资源数据库，支持多网盘自动化转存分享**
 
 🌐 [在线演示](#) | 📖 [文档](#) | 🐛 问题反馈](#) | ⭐ [给个星标](#)
 
@@ -90,8 +90,8 @@
 #### 使用启动脚本（最简单）
 ```bash
 # 克隆项目
-git clone https://github.com/ctwj/panResManage.git
-cd panResManage
+git clone https://github.com/ctwj/urldb.git
+cd urldb
 
 # 使用启动脚本
 ./docker-start.sh
@@ -100,8 +100,8 @@ cd panResManage
 #### 手动启动
 ```bash
 # 克隆项目
-git clone https://github.com/ctwj/panResManage.git
-cd panResManage
+git clone https://github.com/ctwj/urldb.git
+cd urldb
 
 # 使用 Docker Compose 启动
 docker compose up --build -d
@@ -115,8 +115,8 @@ docker compose up --build -d
 
 #### 1. 克隆项目
 ```bash
-git clone https://github.com/ctwj/panResManage.git
-cd panResManage
+git clone https://github.com/ctwj/urldb.git
+cd urldb
 ```
 
 #### 2. 后端设置
@@ -284,8 +284,8 @@ SOFTWARE.
 
 ## 📞 联系我们
 
-- **项目地址**: [https://github.com/ctwj/panResManage](https://github.com/ctwj/panResManage)
-- **问题反馈**: [Issues](https://github.com/ctwj/panResManage/issues)
+- **项目地址**: [https://github.com/ctwj/urldb](https://github.com/ctwj/urldb)
+- **问题反馈**: [Issues](https://github.com/ctwj/urldb/issues)
 - **邮箱**: 510199617@qq.com
 
 ---

@@ -26,7 +26,7 @@
         </nav>
         <div class="flex-1">
           <h1 class="text-2xl sm:text-3xl font-bold">
-            <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源管理系统</NuxtLink>
+            <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源数据库</NuxtLink>
           </h1>
         </div>
       </div>

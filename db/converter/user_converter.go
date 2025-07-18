@@ -1,8 +1,8 @@
 package converter
 
 import (
-	"github.com/ctwj/panResManage/db/dto"
-	"github.com/ctwj/panResManage/db/entity"
+	"github.com/ctwj/urldb/db/dto"
+	"github.com/ctwj/urldb/db/entity"
 )
 
 // ToUserResponse 将User实体转换为UserResponse

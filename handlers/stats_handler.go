@@ -4,8 +4,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/ctwj/panResManage/db"
-	"github.com/ctwj/panResManage/db/entity"
+	"github.com/ctwj/urldb/db"
+	"github.com/ctwj/urldb/db/entity"
 	"github.com/gin-gonic/gin"
 )
 

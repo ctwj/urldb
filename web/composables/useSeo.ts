@@ -40,16 +40,16 @@ export const useSeo = () => {
     if (systemConfig.value?.site_title) {
       return `${systemConfig.value.site_title} - ${pageTitle}`
     }
-    return `${pageTitle} - 网盘资源管理系统`
+    return `${pageTitle} - 网盘资源数据库`
   }
 
   // 生成页面元数据
   const generateMeta = (customMeta?: Record<string, string>) => {
     const defaultMeta = {
-      description: systemConfig.value?.site_description || '专业的网盘资源管理系统',
+      description: systemConfig.value?.site_description || '专业的网盘资源数据库',
       keywords: systemConfig.value?.keywords || '网盘,资源管理,文件分享',
       author: systemConfig.value?.author || '系统管理员',
-      copyright: systemConfig.value?.copyright || '© 2024 网盘资源管理系统'
+      copyright: systemConfig.value?.copyright || '© 2024 网盘资源数据库'
     }
 
     return {

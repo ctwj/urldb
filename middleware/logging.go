@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ctwj/panResManage/utils"
+	"github.com/ctwj/urldb/utils"
 )
 
 // responseWriter 包装http.ResponseWriter以捕获响应状态码和内容
