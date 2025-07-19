@@ -18,7 +18,7 @@ services:
       retries: 5
 
   backend:
-    image: ctwj/urldb-frontend:0.0.1
+    image: ctwj/urldb-backend:0.0.1
     expose:
       - "8080"
     environment:
@@ -37,7 +37,7 @@ services:
       - app-network
 
   frontend:
-    image: ctwj/urldb-backend:0.0.1
+    image: ctwj/urldb-frontend:0.0.1
     expose:
       - "3000"
     environment:
