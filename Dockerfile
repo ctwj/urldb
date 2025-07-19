@@ -1,6 +1,6 @@
 # 前端构建阶段
 FROM node:18-bookworm-slim AS frontend-builder
-
+ENV OXC_PARSER_FORCE_WASM=true
 # 安装pnpm
 RUN npm install -g pnpm
 
