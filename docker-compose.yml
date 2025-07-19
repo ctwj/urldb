@@ -18,9 +18,7 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: .
-      target: backend
+    image: ctwj/urldb-frontend:0.0.1
     expose:
       - "8080"
     environment:
@@ -39,9 +37,7 @@ services:
       - app-network
 
   frontend:
-    build:
-      context: .
-      target: frontend
+    image: ctwj/urldb-backend:0.0.1
     expose:
       - "3000"
     environment:
@@ -54,7 +50,7 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
+      - "3030:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro

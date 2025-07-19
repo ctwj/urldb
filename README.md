@@ -1,6 +1,6 @@
 # 🚀 urlDB - 网盘资源数据库
 
-<div align="center>
+<div align="center">
 
 ![Go Version](https://img.shields.io/badge/Go-1230?logo=go&logoColor=white)
 ![Vue Version](https://img.shields.io/badge/Vue-334FC08D?logo=vue.js&logoColor=white)
@@ -10,7 +10,7 @@
 
 **一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘 **
 
-🌐 [在线演示](#) | 📖 [文档](#) | 🐛 问题反馈](#) | ⭐ [给个星标](#)
+🌐 [在线演示](#) | 📖 [文档](#) | 🐛 [问题反馈](#) | ⭐ [给个星标](#)
 
 ### 支持的网盘平台
 
@@ -24,7 +24,6 @@
 | UC网盘 | ✅ 支持 | 🚧 开发中 | 🚧 开发中 |
 | 123云盘 | ✅ 支持 | 🚧 开发中 | 🚧 开发中 |
 | 115网盘 | ✅ 支持 | 🚧 开发中 | 🚧 开发中 |
-| UC网盘 | ✅ 支持 | 🚧 开发中 | 🚧 开发中 |
 
 </div>
 
@@ -82,7 +81,6 @@
 
 ### 方式一：Docker 部署（推荐）
 
-#### 手动启动
 ```bash
 # 克隆项目
 git clone https://github.com/ctwj/urldb.git
@@ -163,9 +161,13 @@ l9pan/
 │   ├── 📁 composables/       # 组合式函数
 │   └── 📁 stores/            # 状态管理
 ├── 📁 docs/                   # 项目文档
+├── 📁 nginx/                  # Nginx配置
+│   ├── 📄 nginx.conf         # 主配置文件
+│   └── 📁 conf.d/            # 站点配置
 ├── 📄 main.go                # 主程序入口
 ├── 📄 Dockerfile             # Docker配置
 ├── 📄 docker-compose.yml     # Docker Compose配置
+├── 📄 docker-start-nginx.sh  # Nginx启动脚本
 └── 📄 README.md              # 项目说明
 ```
 
@@ -234,7 +236,7 @@ PORT=8080
 
 ---
 
-<div align="center>
+<div align="center">
 
 **如果这个项目对您有帮助，请给我们一个 ⭐ Star！**
 
