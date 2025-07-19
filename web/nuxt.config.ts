@@ -60,6 +60,6 @@ export default defineNuxtConfig({
   ssr: true,
   nitro: {
     logLevel: 'verbose',
-    preset: 'node'
+    preset: 'node-server'
   }
 })
