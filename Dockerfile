@@ -1,12 +1,6 @@
 # 前端构建阶段
-FROM node:18-alpine AS frontend-builder
+FROM node:20-slim AS frontend-builder
 
-# 安装必要的构建工具（Rust工具链）
-RUN apk add --no-cache --virtual .build-deps \
-    python3 \
-    make \
-    g++ \
-    && npm config set python python3
 # 安装pnpm
 RUN npm install -g pnpm
 
@@ -43,8 +37,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
 # 后端运行阶段
 FROM alpine:latest AS backend
-
-RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
