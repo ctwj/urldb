@@ -6,6 +6,7 @@ import Components from 'unplugin-vue-components/vite'
 export default defineNuxtConfig({
   devtools: { enabled: true },
   vite: {
+    clearScreen: false,
     plugins: [
       AutoImport({
         imports: [
@@ -58,6 +59,7 @@ export default defineNuxtConfig({
   },
   ssr: true,
   nitro: {
+    logLevel: 'verbose',
     preset: 'node'
   }
 })
