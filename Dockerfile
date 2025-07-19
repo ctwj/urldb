@@ -1,5 +1,5 @@
 # 前端构建阶段
-FROM node:18-alpine AS frontend-builder
+FROM node:18-bookworm-slim AS frontend-builder
 
 # 安装pnpm
 RUN npm install -g pnpm
