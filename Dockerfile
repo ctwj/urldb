@@ -26,7 +26,7 @@ EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
 
 # 后端构建阶段
-FROM golang:1.21-alpine AS backend-builder
+FROM golang:1.24.5-alpine AS backend-builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
