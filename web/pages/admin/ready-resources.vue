@@ -14,22 +14,6 @@
     </div>
 
     <div class="max-w-7xl mx-auto">
-      <!-- 头部 -->
-      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center flex items-center">
-        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
-          <NuxtLink 
-            to="/admin" 
-            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-arrow-left"></i> 返回
-          </NuxtLink>
-        </nav>
-        <div class="flex-1">
-          <h1 class="text-2xl sm:text-3xl font-bold">
-            <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源数据库</NuxtLink>
-          </h1>
-        </div>
-      </div>
 
       <!-- 自动处理配置状态 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-6">

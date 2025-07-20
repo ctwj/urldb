@@ -109,7 +109,7 @@
 <script setup lang="ts">
 interface VersionInfo {
   version: string
-  build_time: string
+  build_time: string | Date
   git_commit: string
   git_branch: string
   go_version: string
@@ -182,13 +182,13 @@ const refreshVersion = () => {
 }
 
 // 格式化时间
-const formatTime = (timeStr: string) => {
-  if (!timeStr) return 'N/A'
+const formatTime = (timeInput: string | Date) => {
+  if (!timeInput) return 'N/A'
   try {
-    const date = new Date(timeStr)
+    const date = timeInput instanceof Date ? timeInput : new Date(timeInput)
     return date.toLocaleString('zh-CN')
   } catch {
-    return timeStr
+    return String(timeInput)
   }
 }
 

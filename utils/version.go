@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -22,11 +23,20 @@ type VersionInfo struct {
 
 // 编译时注入的版本信息
 var (
-	Version   = "1.0.0"
+	Version   = getVersionFromFile()
 	BuildTime = time.Now().Format("2006-01-02 15:04:05")
 	GitCommit = "unknown"
 	GitBranch = "unknown"
 )
+
+// getVersionFromFile 从VERSION文件读取版本号
+func getVersionFromFile() string {
+	data, err := os.ReadFile("VERSION")
+	if err != nil {
+		return "1.0.0" // 默认版本
+	}
+	return strings.TrimSpace(string(data))
+}
 
 // GetVersionInfo 获取版本信息
 func GetVersionInfo() *VersionInfo {
