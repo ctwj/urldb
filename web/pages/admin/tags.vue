@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
     <!-- 全局加载状态 -->
     <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
@@ -13,207 +13,182 @@
       </div>
     </div>
 
-    <div class="max-w-7xl mx-auto">
-      <!-- 头部 -->
-      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center flex items-center">
-        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
-          <NuxtLink 
-            to="/admin" 
-            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-arrow-left"></i> 返回
-          </NuxtLink>
-        </nav>
-        <div class="flex-1">
-          <h1 class="text-2xl sm:text-3xl font-bold">
-            <NuxtLink to="/admin" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">标签管理</NuxtLink>
-          </h1>
-        </div>
-      </div>
+    <div class="">
+      <div class="max-w-7xl mx-auto">
 
-      <!-- 操作按钮 -->
+        <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
         <div class="flex gap-2">
           <button 
             @click="showAddModal = true"
-            class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+            class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-white text-sm flex items-center gap-2"
           >
             <i class="fas fa-plus"></i> 添加标签
           </button>
         </div>
         <div class="flex gap-2">
-          <!-- 分类筛选 -->
-          <select 
-            v-model="selectedCategory"
-            @change="onCategoryChange"
-            class="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-gray-100 text-sm"
-          >
-            <option value="">全部分类</option>
-            <option v-for="category in categories" :key="category.id" :value="category.id">
-              {{ category.name }}
-            </option>
-          </select>
           <div class="relative">
-            <input 
-              v-model="searchQuery"
-              @keyup="debounceSearch"
-              type="text" 
-              class="w-64 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 transition-all text-sm"
-              placeholder="搜索标签名称..."
-            />
-            <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <i class="fas fa-search text-gray-400 text-sm"></i>
-            </div>
+                <input 
+                  v-model="searchQuery"
+                  @keyup="debounceSearch"
+                  type="text" 
+                  class="w-64 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 transition-all text-sm"
+                  placeholder="搜索标签名称..."
+                />
+                <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <i class="fas fa-search text-gray-400 text-sm"></i>
+                </div>
+              </div>
+              <button 
+                @click="refreshData"
+                class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
+              >
+                <i class="fas fa-refresh"></i> 刷新
+              </button>
+        </div>
+      </div>
+
+        <!-- 标签列表 -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-full">
+              <thead>
+                <tr class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100">
+                  <th class="px-4 py-3 text-left text-sm font-medium">ID</th>
+                  <th class="px-4 py-3 text-left text-sm font-medium">标签名称</th>
+                  <th class="px-4 py-3 text-left text-sm font-medium">分类</th>
+                  <th class="px-4 py-3 text-left text-sm font-medium">描述</th>
+                  <th class="px-4 py-3 text-left text-sm font-medium">资源数量</th>
+                  <th class="px-4 py-3 text-left text-sm font-medium">创建时间</th>
+                  <th class="px-4 py-3 text-left text-sm font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tr v-if="loading" class="text-center py-8">
+                  <td colspan="7" class="text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
+                  </td>
+                </tr>
+                <tr v-else-if="tags.length === 0" class="text-center py-8">
+                  <td colspan="7" class="text-gray-500 dark:text-gray-400">
+                    <div class="flex flex-col items-center justify-center py-12">
+                      <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                        <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
+                        <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
+                      </svg>
+                      <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无标签</div>
+                      <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加标签"按钮创建新标签</div>
+                      <button 
+                        @click="showAddModal = true" 
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
+                      >
+                        <i class="fas fa-plus"></i> 添加标签
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr 
+                  v-for="tag in tags" 
+                  :key="tag.id"
+                  class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ tag.id }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                    <span :title="tag.name">{{ tag.name }}</span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                    <span v-if="tag.category_name" class="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-full text-xs">
+                      {{ tag.category_name }}
+                    </span>
+                    <span v-else class="text-gray-400 dark:text-gray-500 italic text-xs">未分类</span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                    <span v-if="tag.description" :title="tag.description">{{ tag.description }}</span>
+                    <span v-else class="text-gray-400 dark:text-gray-500 italic">无描述</span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                    <span class="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 rounded-full text-xs">
+                      {{ tag.resource_count || 0 }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                    {{ formatTime(tag.created_at) }}
+                  </td>
+                  <td class="px-4 py-3 text-sm">
+                    <div class="flex items-center gap-2">
+                      <button 
+                        @click="editTag(tag)"
+                        class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                        title="编辑标签"
+                      >
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button 
+                        @click="deleteTag(tag.id)"
+                        class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                        title="删除标签"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+        </div>
+
+        <!-- 分页 -->
+        <div v-if="totalPages > 1" class="flex flex-wrap justify-center gap-1 sm:gap-2 mt-6">
           <button 
-            @click="refreshData"
-            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
+            v-if="currentPage > 1"
+            @click="goToPage(currentPage - 1)"
+            class="bg-white text-gray-700 hover:bg-gray-50 px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm flex items-center"
           >
-            <i class="fas fa-refresh"></i> 刷新
+            <i class="fas fa-chevron-left mr-1"></i> 上一页
+          </button>
+          
+          <button 
+            @click="goToPage(1)"
+            :class="currentPage === 1 ? 'bg-slate-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+            class="px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
+          >
+            1
+          </button>
+          
+          <button 
+            v-if="totalPages > 1"
+            @click="goToPage(2)"
+            :class="currentPage === 2 ? 'bg-slate-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+            class="px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
+          >
+            2
+          </button>
+          
+          <span v-if="currentPage > 2" class="px-2 py-1 sm:px-3 sm:py-2 text-gray-500 text-sm">...</span>
+          
+          <button 
+            v-if="currentPage !== 1 && currentPage !== 2 && currentPage > 2"
+            class="bg-slate-800 text-white px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
+          >
+            {{ currentPage }}
+          </button>
+          
+          <button 
+            v-if="currentPage < totalPages"
+            @click="goToPage(currentPage + 1)"
+            class="bg-white text-gray-700 hover:bg-gray-50 px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm flex items-center"
+          >
+            下一页 <i class="fas fa-chevron-right ml-1"></i>
           </button>
         </div>
-      </div>
 
-      <!-- 标签列表 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-full">
-            <thead>
-              <tr class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100">
-                <th class="px-4 py-3 text-left text-sm font-medium">ID</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">标签名称</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">分类</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">描述</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">资源数量</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">创建时间</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-              <tr v-if="loading" class="text-center py-8">
-                <td colspan="7" class="text-gray-500 dark:text-gray-400">
-                  <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
-                </td>
-              </tr>
-              <tr v-else-if="tags.length === 0" class="text-center py-8">
-                <td colspan="7" class="text-gray-500 dark:text-gray-400">
-                  <div class="flex flex-col items-center justify-center py-12">
-                    <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-                      <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
-                      <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
-                    </svg>
-                    <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无标签</div>
-                    <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加标签"按钮创建新标签</div>
-                    <button 
-                      @click="showAddModal = true" 
-                      class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
-                    >
-                      <i class="fas fa-plus"></i> 添加标签
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr 
-                v-for="tag in tags" 
-                :key="tag.id"
-                class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ tag.id }}</td>
-                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                  <span :title="tag.name">{{ tag.name }}</span>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                  <span v-if="tag.category_name" class="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-full text-xs">
-                    {{ tag.category_name }}
-                  </span>
-                  <span v-else class="text-gray-400 dark:text-gray-500 italic text-xs">未分类</span>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                  <span v-if="tag.description" :title="tag.description">{{ tag.description }}</span>
-                  <span v-else class="text-gray-400 dark:text-gray-500 italic">无描述</span>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                  <span class="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 rounded-full text-xs">
-                    {{ tag.resource_count || 0 }}
-                  </span>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                  {{ formatTime(tag.created_at) }}
-                </td>
-                <td class="px-4 py-3 text-sm">
-                  <div class="flex items-center gap-2">
-                    <button 
-                      @click="editTag(tag)"
-                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                      title="编辑标签"
-                    >
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button 
-                      @click="deleteTag(tag.id)"
-                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                      title="删除标签"
-                    >
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- 分页 -->
-      <div v-if="totalPages > 1" class="flex flex-wrap justify-center gap-1 sm:gap-2 mt-6">
-        <button 
-          v-if="currentPage > 1"
-          @click="goToPage(currentPage - 1)"
-          class="bg-white text-gray-700 hover:bg-gray-50 px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm flex items-center"
-        >
-          <i class="fas fa-chevron-left mr-1"></i> 上一页
-        </button>
-        
-        <button 
-          @click="goToPage(1)"
-          :class="currentPage === 1 ? 'bg-slate-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-          class="px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
-        >
-          1
-        </button>
-        
-        <button 
-          v-if="totalPages > 1"
-          @click="goToPage(2)"
-          :class="currentPage === 2 ? 'bg-slate-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-          class="px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
-        >
-          2
-        </button>
-        
-        <span v-if="currentPage > 2" class="px-2 py-1 sm:px-3 sm:py-2 text-gray-500 text-sm">...</span>
-        
-        <button 
-          v-if="currentPage !== 1 && currentPage !== 2 && currentPage > 2"
-          class="bg-slate-800 text-white px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
-        >
-          {{ currentPage }}
-        </button>
-        
-        <button 
-          v-if="currentPage < totalPages"
-          @click="goToPage(currentPage + 1)"
-          class="bg-white text-gray-700 hover:bg-gray-50 px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm flex items-center"
-        >
-          下一页 <i class="fas fa-chevron-right ml-1"></i>
-        </button>
-      </div>
-
-      <!-- 统计信息 -->
-      <div v-if="totalPages <= 1" class="mt-4 text-center">
-        <div class="inline-flex items-center bg-white dark:bg-gray-800 rounded-lg shadow px-6 py-3">
-          <div class="text-sm text-gray-600 dark:text-gray-400">
-            共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个标签
+        <!-- 统计信息 -->
+        <div v-if="totalPages <= 1" class="mt-4 text-center">
+          <div class="inline-flex items-center bg-white dark:bg-gray-800 rounded-lg shadow px-6 py-3">
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+              共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个标签
+            </div>
           </div>
         </div>
       </div>
@@ -291,6 +266,11 @@
 </template>
 
 <script setup lang="ts">
+// 设置页面布局
+definePageMeta({
+  layout: 'admin'
+})
+
 const router = useRouter()
 const userStore = useUserStore()
 const config = useRuntimeConfig()

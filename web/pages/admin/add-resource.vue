@@ -81,6 +81,11 @@
 </template>
 
 <script setup lang="ts">
+// 设置页面布局
+definePageMeta({
+  layout: 'admin'
+})
+
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BatchAddResource from '~/components/BatchAddResource.vue'

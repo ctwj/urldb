@@ -212,6 +212,12 @@ func main() {
 		api.POST("/scheduler/auto-transfer/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StartAutoTransferScheduler)
 		api.POST("/scheduler/auto-transfer/stop", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.StopAutoTransferScheduler)
 		api.POST("/scheduler/auto-transfer/trigger", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.TriggerAutoTransferScheduler)
+
+		// 版本管理路由
+		api.GET("/version", handlers.GetVersion)
+		api.GET("/version/string", handlers.GetVersionString)
+		api.GET("/version/full", handlers.GetFullVersionInfo)
+		api.GET("/version/check-update", handlers.CheckUpdate)
 	}
 
 	// 静态文件服务

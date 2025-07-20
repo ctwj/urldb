@@ -1,5 +1,6 @@
 <template>
   <div>
+    <!-- 暗色模式切换按钮 -->
     <button
       class="fixed top-4 right-4 z-50 w-8 h-8 flex items-center justify-center rounded-full shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all duration-200 hover:bg-blue-100 dark:hover:bg-blue-900 hover:scale-110 focus:outline-none"
       @click="toggleDarkMode"
@@ -15,6 +16,7 @@
         </svg>
       </span>
     </button>
+    
     <NuxtPage />
   </div>
 </template>
@@ -25,6 +27,7 @@ import { ref, onMounted } from 'vue'
 
 const theme = lightTheme
 const isDark = ref(false)
+
 const toggleDarkMode = () => {
   isDark.value = !isDark.value
   if (isDark.value) {
@@ -35,7 +38,9 @@ const toggleDarkMode = () => {
     localStorage.setItem('theme', 'light')
   }
 }
+
 onMounted(() => {
+  // 初始化主题
   if (localStorage.getItem('theme') === 'dark') {
     isDark.value = true
     document.documentElement.classList.add('dark')

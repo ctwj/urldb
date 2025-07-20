@@ -347,16 +347,16 @@ curl -X GET "http://localhost:8080/api/public/hot-dramas?page=1&page_size=5" \
     </div>
 
     <!-- 页脚 -->
-    <footer class="mt-auto py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <div class="max-w-7xl mx-auto text-center text-gray-600 dark:text-gray-400 text-sm px-3 sm:px-5">
-        <p class="mb-2">本站内容由网络爬虫自动抓取。本站不储存、复制、传播任何文件，仅作个人公益学习，请在获取后24小内删除!!!</p>
-        <p>© 2025 网盘资源数据库 By 老九</p>
-      </div>
-    </footer>
+    <AppFooter />
   </div>
 </template>
 
 <script setup>
+// 设置页面布局
+definePageMeta({
+  layout: 'admin'
+})
+
 // 页面元数据
 useHead({
   title: 'API文档 - 网盘资源数据库',

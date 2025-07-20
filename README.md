@@ -175,6 +175,54 @@ l9pan/
 
 ## 🔧 配置说明
 
+### 版本管理
+
+项目使用GitHub进行版本管理，支持自动创建Release和标签。
+
+#### 版本管理脚本
+
+```bash
+# 显示当前版本信息
+./scripts/version.sh show
+
+# 更新版本号
+./scripts/version.sh patch    # 修订版本 (1.0.0 -> 1.0.1)
+./scripts/version.sh minor    # 次版本 (1.0.0 -> 1.1.0)
+./scripts/version.sh major    # 主版本 (1.0.0 -> 2.0.0)
+
+# 发布版本到GitHub
+./scripts/version.sh release
+
+# 生成版本信息文件
+./scripts/version.sh update
+
+# 查看帮助
+./scripts/version.sh help
+```
+
+#### 自动发布流程
+
+1. **更新版本号**: 修改 `VERSION` 文件
+2. **同步文件**: 更新 `package.json`、`docker-compose.yml`、`README.md`
+3. **创建Git标签**: 自动创建版本标签
+4. **推送代码**: 推送代码和标签到GitHub
+5. **创建Release**: 自动创建GitHub Release
+
+#### 版本API接口
+
+- `GET /api/version` - 获取版本信息
+- `GET /api/version/string` - 获取版本字符串
+- `GET /api/version/full` - 获取完整版本信息
+- `GET /api/version/check-update` - 检查GitHub上的最新版本
+
+#### 版本信息页面
+
+访问 `/version` 页面查看详细的版本信息和更新状态。
+
+#### 详细文档
+
+查看 [GitHub版本管理指南](docs/github-version-management.md) 了解完整的版本管理流程。
+
 ### 环境变量配置
 
 ```bash

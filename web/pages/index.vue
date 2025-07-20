@@ -23,6 +23,7 @@
             {{ systemConfig?.site_title || '网盘资源数据库' }}
           </a>
         </h1>
+        
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-2 right-4 top-0 absolute">
           <NuxtLink to="/hot-dramas" class="hidden sm:flex">
             <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
@@ -232,12 +233,7 @@
     />
 
     <!-- 页脚 -->
-    <footer class="mt-auto py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-      <div class="max-w-7xl mx-auto text-center text-gray-600 dark:text-gray-400 text-sm px-3 sm:px-5">
-        <p class="mb-2">本站内容由网络爬虫自动抓取。本站不储存、复制、传播任何文件，仅作个人公益学习，请在获取后24小内删除!!!</p>
-        <p>{{ systemConfig?.copyright || '© 2025 网盘资源数据库 By 老九' }}</p>
-      </div>
-    </footer>
+    <AppFooter />
   </div>
 </template>
 
@@ -253,6 +249,8 @@ useHead({
 
 // 获取运行时配置
 const config = useRuntimeConfig()
+
+
 
 // 获取路由参数
 const route = useRoute()

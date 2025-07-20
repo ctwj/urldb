@@ -87,6 +87,11 @@
 </template>
 
 <script setup>
+// 设置页面布局
+definePageMeta({
+  layout: 'admin'
+})
+
 import { ref, onMounted, computed } from 'vue'
 import Chart from 'chart.js/auto'
 

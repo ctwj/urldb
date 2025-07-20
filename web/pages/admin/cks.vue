@@ -13,23 +13,8 @@
       </div>
     </div>
 
-    <div class="max-w-7xl mx-auto">
-      <!-- 头部 -->
-      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center flex items-center">
-        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
-          <NuxtLink 
-            to="/admin" 
-            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-arrow-left"></i> 返回
-          </NuxtLink>
-        </nav>
-        <div class="flex-1">
-          <h1 class="text-2xl sm:text-3xl font-bold">
-            <NuxtLink to="/admin" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">平台账号管理</NuxtLink>
-          </h1>
-        </div>
-      </div>
+    <div>
+      <n-alert class="mb-4" title="平台账号管理当前只支持夸克" type="warning" />
 
       <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
@@ -42,17 +27,8 @@
           </button>
         </div>
         <div class="flex gap-2">
-          <div class="relative">
-            <input 
-              v-model="searchQuery"
-              @keyup="debounceSearch"
-              type="text" 
-              class="w-64 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 transition-all text-sm"
-              placeholder="搜索平台名称..."
-            />
-            <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <i class="fas fa-search text-gray-400 text-sm"></i>
-            </div>
+          <div class="relative w-40">
+            <n-select v-model:value="platform" :options="platformOptions" />
           </div>
           <button 
             @click="refreshData"
@@ -311,7 +287,7 @@
 
 <script setup>
 definePageMeta({
-  middleware: 'auth'
+  layout: 'admin'
 })
 
 const router = useRouter()
@@ -337,6 +313,18 @@ const totalPages = ref(1)
 const loading = ref(true)
 const pageLoading = ref(true)
 const submitting = ref(false)
+const platform = ref(null)
+
+const { data: pansData } = await useAsyncData('pans', () => $fetch('/api/pans'))
+const pans = computed(() => {
+  return (pansData.value).data.list || []
+})
+const platformOptions = computed(() => {
+  return pans.value.map(pan => ({
+    label: pan.remark,
+    value: pan.id
+  }))
+})
 
 // 检查认证
 const checkAuth = () => {

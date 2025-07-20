@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-3 sm:p-5">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
     <!-- 全局加载状态 -->
     <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
@@ -14,22 +14,6 @@
     </div>
 
     <div class="max-w-7xl mx-auto">
-      <!-- 头部 -->
-      <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center flex items-center">
-        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
-          <NuxtLink 
-            to="/admin" 
-            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-arrow-left"></i> 返回
-          </NuxtLink>
-        </nav>
-        <div class="flex-1">
-          <h1 class="text-2xl sm:text-3xl font-bold">
-            <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">网盘资源数据库</NuxtLink>
-          </h1>
-        </div>
-      </div>
 
       <!-- 搜索和筛选区域 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-6">
@@ -107,12 +91,6 @@
       <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
         <div class="flex gap-2">
-          <NuxtLink 
-            to="/add-resource" 
-            class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-plus"></i> 添加资源
-          </NuxtLink>
           <button 
             @click="showBatchModal = true" 
             class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
@@ -384,6 +362,11 @@
 </template>
 
 <script setup lang="ts">
+// 设置页面布局
+definePageMeta({
+  layout: 'admin'
+})
+
 interface Resource {
   id: number
   title: string
