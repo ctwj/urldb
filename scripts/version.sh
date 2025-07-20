@@ -95,6 +95,19 @@ update_version_in_files() {
         echo -e "  ✅ 更新 web/package.json"
     fi
     
+    # 更新useVersion.ts中的默认版本
+    if [ -f "web/composables/useVersion.ts" ]; then
+        # 使用更简单的模式匹配，先获取当前版本号
+        current_use_version=$(grep -o "version: '[0-9]\+\.[0-9]\+\.[0-9]\+'" web/composables/useVersion.ts | head -1)
+        if [ -n "$current_use_version" ]; then
+            sed -i.bak "s/$current_use_version/version: '${new_version}'/" web/composables/useVersion.ts
+            rm -f web/composables/useVersion.ts.bak
+            echo -e "  ✅ 更新 web/composables/useVersion.ts"
+        else
+            echo -e "  ⚠️  未找到useVersion.ts中的版本号"
+        fi
+    fi
+    
     # 更新Docker镜像标签
     if [ -f "docker-compose.yml" ]; then
         sed -i.bak "s/image:.*:.*/image: urldb:${new_version}/" docker-compose.yml

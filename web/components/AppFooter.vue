@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 // 使用版本信息组合式函数
-const { versionInfo } = useVersion()
+const { versionInfo, fetchVersionInfo } = useVersion()
 
 // 获取系统配置
 const { data: systemConfigData } = await useAsyncData('systemConfig', 
@@ -20,4 +20,9 @@ const { data: systemConfigData } = await useAsyncData('systemConfig',
 )
 
 const systemConfig = computed(() => (systemConfigData.value as any)?.data || { copyright: '© 2025 网盘资源数据库 By 老九' })
+
+// 组件挂载时获取版本信息
+onMounted(() => {
+  fetchVersionInfo()
+})
 </script> 
