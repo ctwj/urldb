@@ -20,7 +20,7 @@ services:
       - app-network
 
   backend:
-    image: ctwj/urldb-backend:0.0.1
+    image: ctwj/urldb-backend:1.0.6
     expose:
       - "8080"
     environment:
@@ -39,7 +39,7 @@ services:
       - app-network
 
   frontend:
-    image: ctwj/urldb-frontend:0.0.1
+    image: ctwj/urldb-frontend:1.0.6
     environment:
       API_BASE: http://backend:8080/api
     depends_on:

@@ -110,9 +110,22 @@ update_version_in_files() {
     
     # 更新Docker镜像标签
     if [ -f "docker-compose.yml" ]; then
-        sed -i.bak "s/image:.*:.*/image: urldb:${new_version}/" docker-compose.yml
+        # 获取当前镜像版本
+        current_backend_version=$(grep -o "ctwj/urldb-backend:[0-9]\+\.[0-9]\+\.[0-9]\+" docker-compose.yml | head -1)
+        current_frontend_version=$(grep -o "ctwj/urldb-frontend:[0-9]\+\.[0-9]\+\.[0-9]\+" docker-compose.yml | head -1)
+        
+        if [ -n "$current_backend_version" ]; then
+            sed -i.bak "s|$current_backend_version|ctwj/urldb-backend:${new_version}|" docker-compose.yml
+            echo -e "  ✅ 更新 backend 镜像: ${current_backend_version} -> ctwj/urldb-backend:${new_version}"
+        fi
+        
+        if [ -n "$current_frontend_version" ]; then
+            sed -i.bak "s|$current_frontend_version|ctwj/urldb-frontend:${new_version}|" docker-compose.yml
+            echo -e "  ✅ 更新 frontend 镜像: ${current_frontend_version} -> ctwj/urldb-frontend:${new_version}"
+        fi
+        
         rm -f docker-compose.yml.bak
-        echo -e "  ✅ 更新 docker-compose.yml"
+        echo -e "  ✅ 更新 docker-compose.yml 完成"
     fi
     
     # 更新README中的版本信息
