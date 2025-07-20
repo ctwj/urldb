@@ -21,11 +21,17 @@ func GetStats(c *gin.Context) {
 	db.DB.Model(&entity.Tag{}).Count(&totalTags)
 	db.DB.Model(&entity.Resource{}).Select("COALESCE(SUM(view_count), 0)").Scan(&totalViews)
 
+	// 获取今日更新数量
+	var todayUpdates int64
+	today := time.Now().Format("2006-01-02")
+	db.DB.Model(&entity.Resource{}).Where("DATE(updated_at) = ?", today).Count(&todayUpdates)
+
 	SuccessResponse(c, gin.H{
 		"total_resources":  totalResources,
 		"total_categories": totalCategories,
 		"total_tags":       totalTags,
 		"total_views":      totalViews,
+		"today_updates":    todayUpdates,
 	})
 }
 
