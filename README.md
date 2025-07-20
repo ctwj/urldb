@@ -245,6 +245,13 @@ PORT=8080
 | backend | 8080 | Go API 后端服务 |
 | postgres | 5432 | PostgreSQL 数据库 |
 
+### 构建
+
+docker build -t ctwj/urldb-frontend:1.0.6 --target frontend .
+docker build -t ctwj/urldb-backend:1.0.6 --target backend .
+docker push ctwj/urldb-frontend:1.0.6
+docker push ctwj/urldb-backend:1.0.6
+
 ---
 
 ## 📚 API 文档
