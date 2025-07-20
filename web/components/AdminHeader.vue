@@ -59,6 +59,19 @@
       <span>欢迎，{{ userStore.user?.username || '管理员' }}</span>
       <span class="ml-2 px-2 py-1 bg-blue-600/80 rounded text-xs text-white">{{ userStore.user?.role || 'admin' }}</span>
     </div>
+    
+    <!-- 自动转存状态提示 -->
+    <div 
+      v-if="systemConfig?.auto_transfer_enabled" 
+      class="absolute right-4 bottom-4 flex items-center gap-2 rounded-lg px-3 py-2"
+    >
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+        <span class="text-xs text-white font-medium">
+          自动转存已开启
+        </span>
+      </div>
+    </div>
   </div>
 </template>
 
