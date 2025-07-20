@@ -7,7 +7,7 @@
         <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
           <h1 class="text-2xl sm:text-3xl font-bold mb-4">
             <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
-              网盘资源数据库 - API文档
+              老九网盘资源数据库 - API文档
             </a>
           </h1>
           <p class="text-gray-300 max-w-2xl mx-auto">公开API接口文档，支持资源添加、搜索和热门剧获取等功能</p>
@@ -359,9 +359,9 @@ definePageMeta({
 
 // 页面元数据
 useHead({
-  title: 'API文档 - 网盘资源数据库',
+  title: 'API文档 - 老九网盘资源数据库',
   meta: [
-    { name: 'description', content: '网盘资源数据库的公开API接口文档' },
+    { name: 'description', content: '老九网盘资源数据库的公开API接口文档' },
     { name: 'keywords', content: 'API,接口文档,网盘资源管理' }
   ]
 })

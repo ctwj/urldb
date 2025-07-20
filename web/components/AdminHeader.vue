@@ -4,7 +4,7 @@
     <div class="mb-4">
       <h1 class="text-2xl sm:text-3xl font-bold mb-2">
         <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
-          {{ systemConfig?.site_title || '网盘资源数据库' }}
+          {{ systemConfig?.site_title || '老九网盘资源数据库' }}
         </NuxtLink>
       </h1>
       <!-- 面包屑导航 -->
@@ -106,7 +106,7 @@ const { data: systemConfigData } = await useAsyncData('systemConfig',
   () => $fetch('/api/system-config')
 )
 
-const systemConfig = computed(() => (systemConfigData.value as any)?.data || { site_title: '网盘资源数据库' })
+const systemConfig = computed(() => (systemConfigData.value as any)?.data || { site_title: '老九网盘资源数据库' })
 
 // 退出登录
 const logout = async () => {

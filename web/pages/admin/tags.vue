@@ -15,6 +15,7 @@
 
     <div class="">
       <div class="max-w-7xl mx-auto">
+      <n-alert class="mb-4" title="提交的数据中，如果包含标签，数据添加成功，会自动添加标签" type="info" />
 
         <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
@@ -311,7 +312,7 @@ const getAuthHeaders = () => {
 
 // 页面元数据
 useHead({
-  title: '标签管理 - 网盘资源数据库',
+  title: '标签管理 - 老九网盘资源数据库',
   meta: [
     { name: 'description', content: '管理网盘资源标签' },
     { name: 'keywords', content: '标签管理,资源管理' }

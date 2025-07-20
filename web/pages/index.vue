@@ -20,7 +20,7 @@
       <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4">
           <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
-            {{ systemConfig?.site_title || '网盘资源数据库' }}
+            {{ systemConfig?.site_title || '老九网盘资源数据库' }}
           </a>
         </h1>
         
@@ -240,9 +240,9 @@
 <script setup lang="ts">
 // 页面元数据
 useHead({
-  title: '网盘资源数据库 - 首页',
+  title: '老九网盘资源数据库 - 首页',
   meta: [
-    { name: 'description', content: '网盘资源数据库 - 一个现代化的资源管理系统' },
+    { name: 'description', content: '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘' },
     { name: 'keywords', content: '网盘资源,资源管理,数据库' }
   ]
 })
@@ -307,7 +307,7 @@ const total = (resourcesData.value as any)?.data?.total as number
 const safeResources = computed(() => (resourcesData.value as any)?.data?.resources || [])
 const safeStats = computed(() => (statsData.value as any)?.data || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_updates: 0 })
 const platforms = computed(() => panList || [])
-const systemConfig = computed(() => sysConfig || { site_title: '网盘资源数据库' })
+const systemConfig = computed(() => sysConfig || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
 
 // 计算属性

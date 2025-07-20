@@ -42,7 +42,7 @@
       <div class="space-y-2">
         <div class="flex flex-wrap gap-1 w-full text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
           <div v-for="pan in pans" :key="pan.id"  class="h-6 px-1 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-            <span v-html="pan.icon"></span> {{ pan.name }}
+            <span v-html="pan.icon"></span>&nbsp;{{ pan.name }}
           </div>
         </div>
       </div>

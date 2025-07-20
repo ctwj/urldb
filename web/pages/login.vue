@@ -155,7 +155,7 @@ const handleLogin = async () => {
 
 // 设置页面标题
 useHead({
-  title: '管理员登录 - 网盘资源数据库'
+  title: '管理员登录 - 老九网盘资源数据库'
 })
 </script>
 

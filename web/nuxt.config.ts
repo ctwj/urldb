@@ -38,11 +38,11 @@ export default defineNuxtConfig({
   ],
   app: {
     head: {
-      title: '开源网盘资源数据库',
+      title: '老九网盘资源数据库',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: '开源网盘资源数据库 - 一个现代化的资源管理系统' }
+        { name: 'description', content: '老九网盘资源管理数据庫，现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘' }
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }

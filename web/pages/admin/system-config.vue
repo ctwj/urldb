@@ -18,14 +18,10 @@
         <!-- 配置表单 -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <form @submit.prevent="saveConfig" class="space-y-6">
-            <!-- SEO 配置 -->
-            <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <i class="fas fa-search text-blue-600"></i>
-                SEO 配置
-              </h2>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <n-tabs type="line" animated>
+              <n-tab-pane name="SEO 配置" tab="seo">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- 网站标题 -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -36,7 +32,7 @@
                     type="text" 
                     required
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="网盘资源数据库"
+                    placeholder="老九网盘资源数据库"
                   />
                 </div>
 
@@ -49,7 +45,7 @@
                     v-model="config.siteDescription" 
                     type="text" 
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="专业的网盘资源数据库"
+                    placeholder="专业的老九网盘资源数据库"
                   />
                 </div>
 
@@ -88,20 +84,13 @@
                     v-model="config.copyright" 
                     type="text" 
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="© 2024 网盘资源数据库"
+                    placeholder="© 2024 老九网盘资源数据库"
                   />
                 </div>
               </div>
-            </div>
-
-            <!-- 自动处理配置 -->
-            <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <i class="fas fa-cogs text-green-600"></i>
-                自动处理配置
-              </h2>
-              
-              <div class="space-y-4">
+              </n-tab-pane>
+              <n-tab-pane name="自动处理配置" tab="自动处理配置">
+                <div class="space-y-4">
                 <!-- 待处理资源自动处理 -->
                 <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div class="flex-1">
@@ -225,16 +214,9 @@
                   </p>
                 </div>
               </div>
-            </div>
-
-            <!-- 其他配置 -->
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <i class="fas fa-info-circle text-purple-600"></i>
-                其他配置
-              </h2>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              </n-tab-pane>
+              <n-tab-pane name="其他配置" tab="其他配置">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- 每页显示数量 -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -273,16 +255,9 @@
                   </div>
                 </div>
               </div>
-            </div>
-
-            <!-- API配置 -->
-            <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <i class="fas fa-key text-orange-600"></i>
-                API 配置
-              </h2>
-              
-              <div class="space-y-4">
+              </n-tab-pane>
+              <n-tab-pane name="API配置" tab="API配置">
+                <div class="space-y-4">
                 <!-- API Token -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -324,7 +299,8 @@
                   </div>
                 </div>
               </div>
-            </div>
+              </n-tab-pane>
+            </n-tabs>
 
             <!-- 保存按钮 -->
             <div class="flex justify-end space-x-4 pt-6">
@@ -366,11 +342,11 @@ const { getSystemConfig, updateSystemConfig } = useSystemConfigApi()
 const loading = ref(false)
 const config = ref({
   // SEO 配置
-  siteTitle: '网盘资源数据库',
-  siteDescription: '专业的网盘资源数据库',
+  siteTitle: '老九网盘资源数据库',
+  siteDescription: '专业的老九网盘资源数据库',
   keywords: '网盘,资源管理,文件分享',
   author: '系统管理员',
-  copyright: '© 2024 网盘资源数据库',
+  copyright: '© 2024 老九网盘资源数据库',
   
   // 自动处理配置
   autoProcessReadyResources: false,
@@ -391,7 +367,7 @@ const systemConfig = ref(null)
 
 // 页面元数据 - 移到变量声明之后
 useHead({
-  title: () => systemConfig.value?.site_title ? `${systemConfig.value.site_title} - 系统配置` : '系统配置 - 网盘资源数据库',
+  title: () => systemConfig.value?.site_title ? `${systemConfig.value.site_title} - 系统配置` : '系统配置 - 老九网盘资源数据库',
   meta: [
     { 
       name: 'description', 
@@ -418,11 +394,11 @@ const loadConfig = async () => {
     // 使用新的统一响应格式，直接使用response
     if (response) {
       config.value = {
-        siteTitle: response.site_title || '网盘资源数据库',
-        siteDescription: response.site_description || '专业的网盘资源数据库',
+        siteTitle: response.site_title || '老九网盘资源数据库',
+        siteDescription: response.site_description || '专业的老九网盘资源数据库',
         keywords: response.keywords || '网盘,资源管理,文件分享',
         author: response.author || '系统管理员',
-        copyright: response.copyright || '© 2024 网盘资源数据库',
+        copyright: response.copyright || '© 2024 老九网盘资源数据库',
         autoProcessReadyResources: response.auto_process_ready_resources || false,
         autoProcessInterval: response.auto_process_interval || 30,
         autoTransferEnabled: response.auto_transfer_enabled || false, // 新增
