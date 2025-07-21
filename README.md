@@ -186,9 +186,9 @@ l9pan/
 ./scripts/version.sh show
 
 # 更新版本号
-./scripts/version.sh patch    # 修订版本 (1.0.0 -> 1.0.1)
-./scripts/version.sh minor    # 次版本 (1.0.0 -> 1.1.0)
-./scripts/version.sh major    # 主版本 (1.0.0 -> 2.0.0)
+./scripts/version.sh patch    # 修订版本 1.0.7)
+./scripts/version.sh minor    # 次版本 1.0.7)
+./scripts/version.sh major    # 主版本 1.0.7)
 
 # 发布版本到GitHub
 ./scripts/version.sh release
