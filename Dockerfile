@@ -3,6 +3,7 @@ FROM node:20-slim AS frontend-builder
 
 # 安装pnpm
 RUN npm install -g pnpm
+ENV NODE_ENV=production
 
 WORKDIR /app/web
 COPY web/package*.json ./
