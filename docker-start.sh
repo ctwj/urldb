@@ -38,7 +38,7 @@ $DOCKER_COMPOSE ps
 
 echo ""
 echo "✅ 系统启动完成！"
-echo "🌐 前端访问地址: http://localhost:3000"
+echo "🌐 前端访问地址: http://localhost:3030"
 echo "🔧 后端API地址: http://localhost:8080"
 echo "🗄️  数据库地址: localhost:5432"
 echo ""

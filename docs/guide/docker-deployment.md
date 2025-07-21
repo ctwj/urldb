@@ -47,6 +47,7 @@ docker compose ps
 
 可以通过修改 `docker-compose.yml` 文件中的环境变量来配置服务：
 
+后端 backend
 ```yaml
 environment:
   DB_HOST: postgres
@@ -55,7 +56,12 @@ environment:
   DB_PASSWORD: password
   DB_NAME: url_db
   PORT: 8080
-  API_BASE: http://localhost:8080/api
+```
+
+前端 frontend
+```yaml
+environment:
+  API_BASE: /api
 ```
 
 ### 端口映射

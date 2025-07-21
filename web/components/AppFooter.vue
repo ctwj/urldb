@@ -4,7 +4,15 @@
       <p class="mb-2">本站内容由网络爬虫自动抓取。本站不储存、复制、传播任何文件，仅作个人公益学习，请在获取后24小内删除!!!</p>
       <p class="flex items-center justify-center gap-2">
         <span>{{ systemConfig?.copyright || '© 2025 老九网盘资源数据库 By 老九' }}</span>
-        <span v-if="versionInfo.version" class="text-gray-400 dark:text-gray-500">| v{{ versionInfo.version }}</span>
+        <span v-if="versionInfo.version" class="text-gray-400 dark:text-gray-500">| v  <n-a 
+            href="https://github.com/ctwj/urldb"
+            target="_blank"
+            rel="noopener noreferrer"
+            referrerpolicy="no-referrer"
+            aria-label="在 GitHub 上查看版本信息"
+            class="github-link"
+          ><span>{{ versionInfo.version }}</span></n-a>
+        </span>
       </p>
     </div>
   </footer>

@@ -23,7 +23,7 @@ docker compose up --build -d
 
 启动成功后，您可以通过以下地址访问：
 
-- **前端界面**: http://localhost:3000
+- **前端界面**: http://localhost:3030
 默认用户密码： admin/password
 
 

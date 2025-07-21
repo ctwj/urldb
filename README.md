@@ -90,7 +90,7 @@ cd urldb
 docker compose up --build -d
 
 # 访问应用
-# 前端: http://localhost:3000
+# 前端: http://localhost:3030
 # 后端API: http://localhost:8080
 ```
 

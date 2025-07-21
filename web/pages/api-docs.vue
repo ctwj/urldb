@@ -354,7 +354,7 @@ curl -X GET "http://localhost:8080/api/public/hot-dramas?page=1&page_size=5" \
 <script setup>
 // 设置页面布局
 definePageMeta({
-  layout: 'admin'
+  layout: 'default'
 })
 
 // 页面元数据

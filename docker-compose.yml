@@ -41,7 +41,7 @@ services:
   frontend:
     image: ctwj/urldb-frontend:1.0.6
     environment:
-      API_BASE: http://backend:8080/api
+      API_BASE: /api
     depends_on:
       - backend
     networks:
