@@ -17,7 +17,7 @@ func GetResources(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	categoryID := c.Query("category_id")
 	panID := c.Query("pan_id")
-	search := c.Query("search")
+	realSearch := c.Query("search")
 
 	var resources []entity.Resource
 	var total int64
@@ -26,13 +26,13 @@ func GetResources(c *gin.Context) {
 	// 设置响应头，启用缓存
 	c.Header("Cache-Control", "public, max-age=300") // 5分钟缓存
 
-	if search != "" && panID != "" {
+	if realSearch != "" && panID != "" {
 		// 平台内搜索
 		panIDUint, _ := strconv.ParseUint(panID, 10, 32)
-		resources, total, err = repoManager.ResourceRepository.SearchByPanID(search, uint(panIDUint), page, pageSize)
-	} else if search != "" {
+		resources, total, err = repoManager.ResourceRepository.SearchByPanID(realSearch, uint(panIDUint), page, pageSize)
+	} else if realSearch != "" {
 		// 全局搜索
-		resources, total, err = repoManager.ResourceRepository.Search(search, nil, page, pageSize)
+		resources, total, err = repoManager.ResourceRepository.Search(realSearch, nil, page, pageSize)
 	} else if panID != "" {
 		// 按平台筛选
 		panIDUint, _ := strconv.ParseUint(panID, 10, 32)
@@ -44,6 +44,13 @@ func GetResources(c *gin.Context) {
 	} else {
 		// 使用分页查询，避免加载所有数据
 		resources, total, err = repoManager.ResourceRepository.FindWithRelationsPaginated(page, pageSize)
+	}
+
+	// 新增：只要有search参数就记录
+	if realSearch != "" {
+		ip := c.ClientIP()
+		userAgent := c.GetHeader("User-Agent")
+		repoManager.SearchStatRepository.RecordSearch(realSearch, ip, userAgent)
 	}
 
 	if err != nil {

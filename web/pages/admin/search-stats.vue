@@ -82,6 +82,28 @@
           </div>
         </div>
       </div>
+
+      <!-- 搜索记录 -->
+      <div class="bg-white rounded-lg shadow p-6 mt-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">搜索记录</h2>
+        <table class="w-full table-auto text-sm">
+          <thead>
+            <tr>
+              <th class="px-2 py-2 text-left">关键词</th>
+              <th class="px-2 py-2 text-left">次数</th>
+              <th class="px-2 py-2 text-left">日期</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in searchList" :key="item.id">
+              <td class="px-2 py-2">{{ item.keyword }}</td>
+              <td class="px-2 py-2">{{ item.count }}</td>
+              <td class="px-2 py-2">{{ item.date ? (new Date(item.date)).toLocaleDateString() : '' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-if="searchList.length === 0" class="text-gray-400 text-center py-8">暂无搜索记录</div>
+      </div>
     </div>
   </div>
 </template>
@@ -106,6 +128,8 @@ const stats = ref({
   }
 })
 
+const searchList = ref([])
+
 const trendChart = ref(null)
 let chart = null
 
@@ -122,10 +146,8 @@ const loadSearchStats = async () => {
     const response = await fetch('/api/search-stats')
     if (response.ok) {
       const data = await response.json()
-      stats.value = data
-      
-      // 更新图表
-      updateChart()
+      searchList.value = data.data || []
+      // 其它统计数据赋值...
     }
   } catch (error) {
     console.error('加载搜索统计失败:', error)

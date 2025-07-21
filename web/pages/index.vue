@@ -326,7 +326,10 @@ onMounted(() => {
 })
 
 // 搜索处理
-const handleSearch = async () => {
+const handleSearch = async (e?: any) => {
+  if (e && e.target && typeof e.target.value === 'string') {
+    searchQuery.value = e.target.value
+  }
   currentPage.value = 1
   
   // 更新URL参数
