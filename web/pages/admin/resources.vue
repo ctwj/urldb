@@ -599,7 +599,7 @@ const handleBatchAction = async () => {
     switch (batchAction.value) {
       case 'delete':
         if (confirm(`确定要删除选中的 ${selectedResources.value.length} 个资源吗？`)) {
-          await Promise.all(selectedResources.value.map(id => resourceApi.deleteResource(id)))
+          await resourceApi.batchDeleteResources(selectedResources.value)
           alert('批量删除成功')
         }
         break

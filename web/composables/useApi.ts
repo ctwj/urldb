@@ -50,7 +50,9 @@ export const useResourceApi = () => {
   const getResourcesByPan = (panId: number, params?: any) => useApiFetch('/resources', { params: { ...params, pan_id: panId } }).then(parseApiResponse)
   // 新增：统一的资源访问次数上报
   const incrementViewCount = (id: number) => useApiFetch(`/resources/${id}/view`, { method: 'POST' })
-  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount }
+  // 新增：批量删除资源
+  const batchDeleteResources = (ids: number[]) => useApiFetch('/resources/batch', { method: 'DELETE', body: { ids } }).then(parseApiResponse)
+  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources }
 }
 
 export const useAuthApi = () => {

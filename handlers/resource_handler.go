@@ -46,11 +46,14 @@ func GetResources(c *gin.Context) {
 		resources, total, err = repoManager.ResourceRepository.FindWithRelationsPaginated(page, pageSize)
 	}
 
-	// 新增：只要有search参数就记录
+	// 新增：只要有search参数就记录（但管理员不记录）
 	if realSearch != "" {
-		ip := c.ClientIP()
-		userAgent := c.GetHeader("User-Agent")
-		repoManager.SearchStatRepository.RecordSearch(realSearch, ip, userAgent)
+		user, _ := c.Get("user")
+		if user == nil || (user != nil && user.(entity.User).Role != "admin") {
+			ip := c.ClientIP()
+			userAgent := c.GetHeader("User-Agent")
+			repoManager.SearchStatRepository.RecordSearch(realSearch, ip, userAgent)
+		}
 	}
 
 	if err != nil {
@@ -285,4 +288,22 @@ func IncrementResourceViewCount(c *gin.Context) {
 		return
 	}
 	SuccessResponse(c, gin.H{"message": "浏览次数+1"})
+}
+
+// BatchDeleteResources 批量删除资源
+func BatchDeleteResources(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) == 0 {
+		ErrorResponse(c, "参数错误", 400)
+		return
+	}
+	count := 0
+	for _, id := range req.IDs {
+		if err := repoManager.ResourceRepository.Delete(id); err == nil {
+			count++
+		}
+	}
+	SuccessResponse(c, gin.H{"deleted": count, "message": "批量删除成功"})
 }
