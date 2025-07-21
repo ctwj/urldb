@@ -420,10 +420,7 @@ const selectedResources = ref<number[]>([])
 const selectAll = ref(false)
 
 // API
-const { useResourceApi } = await import('~/composables/useApi')
-const { usePanApi } = await import('~/composables/useApi')
-const { useCategoryApi } = await import('~/composables/useApi')
-const { useTagApi } = await import('~/composables/useApi')
+import { useResourceApi, usePanApi, useCategoryApi, useTagApi } from '~/composables/useApi'
 
 const resourceApi = useResourceApi()
 const panApi = usePanApi()

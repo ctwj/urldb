@@ -315,7 +315,11 @@ const pageLoading = ref(true)
 const submitting = ref(false)
 const platform = ref(null)
 
-const { data: pansData } = await useAsyncData('pans', () => $fetch('/api/pans'))
+import { useCksApi, usePanApi } from '~/composables/useApi'
+const cksApi = useCksApi()
+const panApi = usePanApi()
+
+const { data: pansData } = await useAsyncData('pans', () => panApi.getPans())
 const pans = computed(() => {
   return (pansData.value).data.list || []
 })
@@ -339,8 +343,6 @@ const checkAuth = () => {
 const fetchCks = async () => {
   loading.value = true
   try {
-    const { useCksApi } = await import('~/composables/useApi')
-    const cksApi = useCksApi()
     const response = await cksApi.getCks()
     cksList.value = Array.isArray(response) ? response : []
   } catch (error) {
@@ -354,8 +356,6 @@ const fetchCks = async () => {
 // 获取平台列表
 const fetchPlatforms = async () => {
   try {
-    const { usePanApi } = await import('~/composables/useApi')
-    const panApi = usePanApi()
     const response = await panApi.getPans()
     platforms.value = Array.isArray(response) ? response : []
   } catch (error) {
@@ -367,8 +367,6 @@ const fetchPlatforms = async () => {
 const createCks = async () => {
   submitting.value = true
   try {
-    const { useCksApi } = await import('~/composables/useApi')
-    const cksApi = useCksApi()
     await cksApi.createCks(form.value)
     await fetchCks()
     closeModal()
@@ -384,8 +382,6 @@ const createCks = async () => {
 const updateCks = async () => {
   submitting.value = true
   try {
-    const { useCksApi } = await import('~/composables/useApi')
-    const cksApi = useCksApi()
     await cksApi.updateCks(editingCks.value.id, form.value)
     await fetchCks()
     closeModal()
@@ -402,8 +398,6 @@ const deleteCks = async (id) => {
   if (!confirm('确定要删除这个账号吗？')) return
   
   try {
-    const { useCksApi } = await import('~/composables/useApi')
-    const cksApi = useCksApi()
     await cksApi.deleteCks(id)
     await fetchCks()
   } catch (error) {
@@ -417,8 +411,6 @@ const refreshCapacity = async (id) => {
   if (!confirm('确定要刷新此账号的容量信息吗？')) return
   
   try {
-    const { useCksApi } = await import('~/composables/useApi')
-    const cksApi = useCksApi()
     await cksApi.refreshCapacity(id)
     await fetchCks()
     alert('容量信息已刷新！')

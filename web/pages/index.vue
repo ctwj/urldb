@@ -250,7 +250,12 @@ useHead({
 // 获取运行时配置
 const config = useRuntimeConfig()
 
+import { useResourceApi, useStatsApi, usePanApi, useSystemConfigApi } from '~/composables/useApi'
 
+const resourceApi = useResourceApi()
+const statsApi = useStatsApi()
+const panApi = usePanApi()
+const systemConfigApi = useSystemConfigApi()
 
 // 获取路由参数
 const route = useRoute()
@@ -268,51 +273,36 @@ const isLoadingMore = ref(false)
 const hasMoreData = ref(true)
 const pageLoading = ref(false)
 
-console.log(pageSize.value, currentPage.value)
-
 // 使用 useAsyncData 获取资源数据
 const { data: resourcesData, pending, refresh } = await useAsyncData(
   () => `resources-${currentPage.value}-${searchQuery.value}-${selectedPlatform.value}`,
-  () => $fetch('/api/resources', {
-    params: {
-      page: currentPage.value,
-      page_size: pageSize.value,
-      search: searchQuery.value,
-      pan_id: selectedPlatform.value
-    }
+  () => resourceApi.getResources({
+    page: currentPage.value,
+    page_size: pageSize.value,
+    search: searchQuery.value,
+    pan_id: selectedPlatform.value
   })
 )
 
 // 获取统计数据
-const { data: statsData } = await useAsyncData('stats', 
-  () => $fetch('/api/stats')
-)
+const { data: statsData } = await useAsyncData('stats', () => statsApi.getStats())
 
 // 获取平台数据
-const { data: platformsData } = await useAsyncData('platforms', 
-  () => $fetch('/api/pans')
-)
+const { data: platformsData } = await useAsyncData('platforms', () => panApi.getPans())
 
 // 获取系统配置
-const { data: systemConfigData } = await useAsyncData('systemConfig', 
-  () => $fetch('/api/system-config')
-)
-
-const sysConfig = (systemConfigData.value as any)?.data as any
-const panList = (platformsData.value as any)?.data?.list as any[]
-const resourceList = (resourcesData.value as any)?.data?.resources as any[]
-const total = (resourcesData.value as any)?.data?.total as number
+const { data: systemConfigData } = await useAsyncData('systemConfig', () => systemConfigApi.getSystemConfig())
 
 // 从 SSR 数据中获取值
-const safeResources = computed(() => (resourcesData.value as any)?.data?.resources || [])
-const safeStats = computed(() => (statsData.value as any)?.data || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_updates: 0 })
-const platforms = computed(() => panList || [])
-const systemConfig = computed(() => sysConfig || { site_title: '老九网盘资源数据库' })
+const safeResources = computed(() => (resourcesData.value as any)?.resources || [])
+const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_updates: 0 })
+const platforms = computed(() => platformsData.value || [])
+const systemConfig = computed(() => (systemConfigData.value as any) || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
 
 // 计算属性
 const totalPages = computed(() => {
-  const total = (resourcesData.value as any)?.data?.total || 0
+  const total = (resourcesData.value as any)?.total || 0
   return Math.ceil(total / pageSize.value)
 })
 

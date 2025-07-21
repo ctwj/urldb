@@ -209,6 +209,8 @@ definePageMeta({
 })
 
 import { ref, computed, onMounted, watch } from 'vue'
+import { useHotDramaApi } from '~/composables/useApi'
+const hotDramaApi = useHotDramaApi()
 
 // 响应式数据
 const loading = ref(false)
@@ -250,32 +252,20 @@ const averageRating = computed(() => {
 const fetchDramas = async () => {
   loading.value = true
   try {
-    const { useHotDramaApi } = await import('~/composables/useApi')
-    const hotDramaApi = useHotDramaApi()
-    
     const params = {
       page: 1,
-      page_size: 1000 // 获取大量数据，实际会返回所有数据
+      page_size: 1000
     }
-    
     if (selectedCategory.value) {
       params.category = selectedCategory.value
     }
-
     const response = await hotDramaApi.getHotDramas(params)
-    console.log('API响应:', response)
-    
-    // 使用新的统一响应格式
     if (response && response.items) {
       dramas.value = response.items
       total.value = response.total || 0
-      console.log('设置数据:', dramas.value.length, '条')
-      console.log('第一条数据:', dramas.value[0])
     } else {
-      // 兼容旧格式
       dramas.value = Array.isArray(response) ? response : []
       total.value = dramas.value.length
-      console.log('兼容格式数据:', dramas.value.length, '条')
     }
   } catch (error) {
     console.error('获取热播剧列表失败:', error)

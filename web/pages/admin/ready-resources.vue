@@ -334,11 +334,8 @@ const totalCount = ref(0)
 const totalPages = ref(0)
 
 // 获取待处理资源API
-const { useReadyResourceApi } = await import('~/composables/useApi')
+import { useReadyResourceApi, useSystemConfigApi } from '~/composables/useApi'
 const readyResourceApi = useReadyResourceApi()
-
-// 获取系统配置API
-const { useSystemConfigApi } = await import('~/composables/useApi')
 const systemConfigApi = useSystemConfigApi()
 
 // 获取系统配置

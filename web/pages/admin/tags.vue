@@ -331,16 +331,8 @@ const checkAuth = () => {
 // 获取分类列表
 const fetchCategories = async () => {
   try {
-    const response = await $fetch('/categories', {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    
-    if (response && typeof response === 'object' && 'code' in response && response.code === 200) {
-      categories.value = (response as any).data?.items || []
-    } else {
-      categories.value = (response as any).items || []
-    }
+    const response = await categoryApi.getCategories()
+    categories.value = Array.isArray(response) ? response : []
   } catch (error) {
     console.error('获取分类列表失败:', error)
   }
@@ -355,34 +347,15 @@ const fetchTags = async () => {
       page_size: pageSize.value,
       search: searchQuery.value
     }
-    
     let response: any
     if (selectedCategory.value) {
-      // 如果选择了分类，使用按分类查询的接口
-      response = await $fetch(`/categories/${selectedCategory.value}/tags`, {
-        baseURL: config.public.apiBase,
-        params,
-        headers: getAuthHeaders() as Record<string, string>
-      })
+      response = await tagApi.getTagsByCategory(selectedCategory.value, params)
     } else {
-      // 否则使用普通查询接口
-      response = await $fetch('/tags', {
-        baseURL: config.public.apiBase,
-        params,
-        headers: getAuthHeaders() as Record<string, string>
-      })
+      response = await tagApi.getTags(params)
     }
-    
-    // 解析响应
-    if (response && typeof response === 'object' && 'code' in response && response.code === 200) {
-      tags.value = response.data?.items || []
-      totalCount.value = response.data?.total || 0
-      totalPages.value = Math.ceil(totalCount.value / pageSize.value)
-    } else {
-      tags.value = response.items || []
-      totalCount.value = response.total || 0
-      totalPages.value = Math.ceil(totalCount.value / pageSize.value)
-    }
+    tags.value = response.items || []
+    totalCount.value = response.total || 0
+    totalPages.value = Math.ceil(totalCount.value / pageSize.value)
   } catch (error) {
     console.error('获取标签列表失败:', error)
   } finally {
@@ -436,11 +409,7 @@ const deleteTag = async (tagId: number) => {
   }
   
   try {
-    await $fetch(`/tags/${tagId}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
+    await tagApi.deleteTag(tagId)
     await fetchTags()
   } catch (error) {
     console.error('删除标签失败:', error)
@@ -465,19 +434,9 @@ const handleSubmit = async () => {
     }
     
     if (editingTag.value) {
-      await $fetch(`/tags/${editingTag.value.id}`, {
-        baseURL: config.public.apiBase,
-        method: 'PUT',
-        body: submitData,
-        headers: getAuthHeaders() as Record<string, string>
-      })
+      await tagApi.updateTag(editingTag.value.id, submitData)
     } else {
-      await $fetch('/tags', {
-        baseURL: config.public.apiBase,
-        method: 'POST',
-        body: submitData,
-        headers: getAuthHeaders() as Record<string, string>
-      })
+      await tagApi.createTag(submitData)
     }
     
     closeModal()

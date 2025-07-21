@@ -198,6 +198,8 @@ definePageMeta({
 const router = useRouter()
 const userStore = useUserStore()
 const config = useRuntimeConfig()
+import { useCategoryApi } from '~/composables/useApi'
+const categoryApi = useCategoryApi()
 
 // 页面状态
 const pageLoading = ref(true)
@@ -257,23 +259,10 @@ const fetchCategories = async () => {
       page_size: pageSize.value,
       search: searchQuery.value
     }
-
-    const response = await $fetch('/categories', {
-      baseURL: config.public.apiBase,
-      params
-    })
-
-
-    // 解析响应
-    if (response && typeof response === 'object' && 'code' in response && response.code === 200) {
-      categories.value = response.data.items || []
-      totalCount.value = response.data.total || 0
-      totalPages.value = Math.ceil(totalCount.value / pageSize.value)
-    } else {
-      categories.value = response.items || []
-      totalCount.value = response.total || 0
-      totalPages.value = Math.ceil(totalCount.value / pageSize.value)
-    }
+    const response = await categoryApi.getCategories(params)
+    categories.value = Array.isArray(response) ? response : []
+    totalCount.value = response.total || 0
+    totalPages.value = Math.ceil(totalCount.value / pageSize.value)
   } catch (error) {
     console.error('获取分类列表失败:', error)
   } finally {
@@ -318,13 +307,8 @@ const deleteCategory = async (categoryId: number) => {
   if (!confirm(`确定要删除分类吗？`)) {
     return
   }
-
   try {
-    await $fetch(`/categories/${categoryId}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    })
+    await categoryApi.deleteCategory(categoryId)
     await fetchCategories()
   } catch (error) {
     console.error('删除分类失败:', error)
@@ -335,23 +319,11 @@ const deleteCategory = async (categoryId: number) => {
 const handleSubmit = async () => {
   try {
     submitting.value = true
-
     if (editingCategory.value) {
-      await $fetch(`/categories/${editingCategory.value.id}`, {
-        baseURL: config.public.apiBase,
-        method: 'PUT',
-        body: formData.value,
-        headers: getAuthHeaders()
-      })
+      await categoryApi.updateCategory(editingCategory.value.id, formData.value)
     } else {
-      await $fetch('/categories', {
-        baseURL: config.public.apiBase,
-        method: 'POST',
-        body: formData.value,
-        headers: getAuthHeaders()
-      })
+      await categoryApi.createCategory(formData.value)
     }
-
     closeModal()
     await fetchCategories()
   } catch (error) {

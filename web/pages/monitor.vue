@@ -245,6 +245,8 @@ definePageMeta({
 })
 
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useMonitorApi } from '~/composables/useApi'
+const monitorApi = useMonitorApi()
 
 // 响应式数据
 const loading = ref(false)
@@ -283,8 +285,6 @@ const formatTimestamp = (timestamp: number) => {
 // 获取系统信息
 const fetchSystemInfo = async () => {
   try {
-    const { useMonitorApi } = await import('~/composables/useApi')
-    const monitorApi = useMonitorApi()
     const response = await monitorApi.getSystemInfo()
     systemInfo.value = response
   } catch (error) {
@@ -295,8 +295,6 @@ const fetchSystemInfo = async () => {
 // 获取性能统计
 const fetchPerformanceStats = async () => {
   try {
-    const { useMonitorApi } = await import('~/composables/useApi')
-    const monitorApi = useMonitorApi()
     const response = await monitorApi.getPerformanceStats()
     performanceStats.value = response
   } catch (error) {
@@ -307,8 +305,6 @@ const fetchPerformanceStats = async () => {
 // 获取基础统计
 const fetchBasicStats = async () => {
   try {
-    const { useMonitorApi } = await import('~/composables/useApi')
-    const monitorApi = useMonitorApi()
     const response = await monitorApi.getBasicStats()
     basicStats.value = response
   } catch (error) {

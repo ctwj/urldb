@@ -244,15 +244,17 @@ definePageMeta({
 const userStore = useUserStore()
 
 // 统计数据
-const { data: statsData } = await useAsyncData('stats', () => $fetch('/api/stats'))
-const stats = computed(() => (statsData.value as any)?.data || {})
+import { useStatsApi, usePanApi } from '~/composables/useApi'
+
+const statsApi = useStatsApi()
+const panApi = usePanApi()
+
+const { data: statsData } = await useAsyncData('stats', () => statsApi.getStats())
+const stats = computed(() => (statsData.value as any) || {})
 
 // 平台数据
-const { data: pansData } = await useAsyncData('pans', () => $fetch('/api/pans'))
-console.log()
-const pans = computed(() => {
-  return (pansData.value as any).data.list || []
-})
+const { data: pansData } = await useAsyncData('pans', () => panApi.getPans())
+const pans = computed(() => (pansData.value as any) || [])
 
 // 分类管理相关
 const goToCategoryManagement = () => {

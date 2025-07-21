@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
   try {
     // 在服务端调用后端 API
     const response = await $fetch('/resources', {
-      baseURL: config.public.apiBase,
+      baseURL: String(process.server ? config.public.apiServer : config.public.apiBase),
       query,
       headers: {
         'Content-Type': 'application/json'

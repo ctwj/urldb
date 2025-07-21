@@ -1,6 +1,6 @@
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const apiBase = config.public.apiBase || 'http://localhost:8080/api'
+  const apiBase = String(process.server ? config.public.apiServer : config.public.apiBase)
   
   try {
     const response = await $fetch(`${apiBase}/version`)
@@ -11,4 +11,4 @@ export default defineEventHandler(async (event) => {
       statusMessage: error.statusMessage || '获取版本信息失败'
     })
   }
-}) 
+})

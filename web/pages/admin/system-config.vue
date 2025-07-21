@@ -334,9 +334,10 @@ definePageMeta({
 })
 
 import { ref, onMounted } from 'vue'
+import { useSystemConfigApi } from '~/composables/useApi'
 
 // API
-const { getSystemConfig, updateSystemConfig } = useSystemConfigApi()
+const systemConfigApi = useSystemConfigApi()
 
 // 响应式数据
 const loading = ref(false)
@@ -388,7 +389,7 @@ useHead({
 const loadConfig = async () => {
   try {
     loading.value = true
-    const response = await getSystemConfig()
+    const response = await systemConfigApi.getSystemConfig()
     console.log('系统配置响应:', response)
     
     // 使用新的统一响应格式，直接使用response
@@ -441,7 +442,7 @@ const saveConfig = async () => {
       api_token: config.value.apiToken // 保存API Token
     }
     
-    const response = await updateSystemConfig(requestData)
+    const response = await systemConfigApi.updateSystemConfig(requestData)
     // 使用新的统一响应格式，直接检查response是否存在
     if (response) {
       alert('配置保存成功！')

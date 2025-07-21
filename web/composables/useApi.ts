@@ -1,3 +1,6 @@
+import { useApiFetch } from './useApiFetch'
+import { useUserStore } from '~/stores/user'
+
 // 统一响应解析函数
 export const parseApiResponse = <T>(response: any): T => {
   console.log('parseApiResponse - 原始响应:', response)
@@ -37,700 +40,112 @@ export const parseApiResponse = <T>(response: any): T => {
   return response
 }
 
-// 使用 $fetch 替代 axios，更好地处理 SSR
 export const useResourceApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getResources = async (params?: any) => {
-    const response = await $fetch('/resources', {
-      baseURL: config.public.apiBase,
-      params,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const getResource = async (id: number) => {
-    const response = await $fetch(`/resources/${id}`, {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const createResource = async (data: any) => {
-    const response = await $fetch('/resources', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const updateResource = async (id: number, data: any) => {
-    const response = await $fetch(`/resources/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'PUT',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const deleteResource = async (id: number) => {
-    const response = await $fetch(`/resources/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const searchResources = async (params: any) => {
-    const response = await $fetch('/search', {
-      baseURL: config.public.apiBase,
-      params,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const getResourcesByPan = async (panId: number, params?: any) => {
-    const response = await $fetch('/resources', {
-      baseURL: config.public.apiBase,
-      params: { ...params, pan_id: panId },
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getResources,
-    getResource,
-    createResource,
-    updateResource,
-    deleteResource,
-    searchResources,
-    getResourcesByPan,
-  }
+  const getResources = (params?: any) => useApiFetch('/resources', { params }).then(parseApiResponse)
+  const getResource = (id: number) => useApiFetch(`/resources/${id}`).then(parseApiResponse)
+  const createResource = (data: any) => useApiFetch('/resources', { method: 'POST', body: data }).then(parseApiResponse)
+  const updateResource = (id: number, data: any) => useApiFetch(`/resources/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteResource = (id: number) => useApiFetch(`/resources/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const searchResources = (params: any) => useApiFetch('/search', { params }).then(parseApiResponse)
+  const getResourcesByPan = (panId: number, params?: any) => useApiFetch('/resources', { params: { ...params, pan_id: panId } }).then(parseApiResponse)
+  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan }
 }
 
-// 认证相关API
 export const useAuthApi = () => {
-  const config = useRuntimeConfig()
-  
-  const login = async (data: any) => {
-    const response = await $fetch('/auth/login', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data
-    })
-    return parseApiResponse(response)
+  const login = (data: any) => useApiFetch('/auth/login', { method: 'POST', body: data }).then(parseApiResponse)
+  const register = (data: any) => useApiFetch('/auth/register', { method: 'POST', body: data }).then(parseApiResponse)
+  const getProfile = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : ''
+    return useApiFetch('/auth/profile', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).then(parseApiResponse)
   }
-
-  const register = async (data: any) => {
-    const response = await $fetch('/auth/register', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data
-    })
-    return parseApiResponse(response)
-  }
-
-  const getProfile = async () => {
-    const token = localStorage.getItem('token')
-    const response = await $fetch('/auth/profile', {
-      baseURL: config.public.apiBase,
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    login,
-    register,
-    getProfile,
-  }
+  return { login, register, getProfile }
 }
 
-// 分类相关API
 export const useCategoryApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getCategories = async () => {
-    const response = await $fetch('/categories', {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const createCategory = async (data: any) => {
-    const response = await $fetch('/categories', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const updateCategory = async (id: number, data: any) => {
-    const response = await $fetch(`/categories/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'PUT',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const deleteCategory = async (id: number) => {
-    const response = await $fetch(`/categories/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getCategories,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-  }
+  const getCategories = () => useApiFetch('/categories').then(parseApiResponse)
+  const createCategory = (data: any) => useApiFetch('/categories', { method: 'POST', body: data }).then(parseApiResponse)
+  const updateCategory = (id: number, data: any) => useApiFetch(`/categories/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteCategory = (id: number) => useApiFetch(`/categories/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  return { getCategories, createCategory, updateCategory, deleteCategory }
 }
 
-// 平台相关API
 export const usePanApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getPans = async () => {
-    const response = await $fetch('/pans', {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const getPan = async (id: number) => {
-    const response = await $fetch(`/pans/${id}`, {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const createPan = async (data: any) => {
-    const response = await $fetch('/pans', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const updatePan = async (id: number, data: any) => {
-    const response = await $fetch(`/pans/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'PUT',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const deletePan = async (id: number) => {
-    const response = await $fetch(`/pans/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getPans,
-    getPan,
-    createPan,
-    updatePan,
-    deletePan,
-  }
+  const getPans = () => useApiFetch('/pans').then(parseApiResponse)
+  const getPan = (id: number) => useApiFetch(`/pans/${id}`).then(parseApiResponse)
+  const createPan = (data: any) => useApiFetch('/pans', { method: 'POST', body: data }).then(parseApiResponse)
+  const updatePan = (id: number, data: any) => useApiFetch(`/pans/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deletePan = (id: number) => useApiFetch(`/pans/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  return { getPans, getPan, createPan, updatePan, deletePan }
 }
 
-// Cookie相关API
 export const useCksApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getCks = async (params?: any) => {
-    const response = await $fetch('/cks', {
-      baseURL: config.public.apiBase,
-      params,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const getCksByID = async (id: number) => {
-    const response = await $fetch(`/cks/${id}`, {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const createCks = async (data: any) => {
-    const response = await $fetch('/cks', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const updateCks = async (id: number, data: any) => {
-    const response = await $fetch(`/cks/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'PUT',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const deleteCks = async (id: number) => {
-    const response = await $fetch(`/cks/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const refreshCapacity = async (id: number) => {
-    const response = await $fetch(`/cks/${id}/refresh-capacity`, {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getCks,
-    getCksByID,
-    createCks,
-    updateCks,
-    deleteCks,
-    refreshCapacity,
-  }
+  const getCks = (params?: any) => useApiFetch('/cks', { params }).then(parseApiResponse)
+  const getCksByID = (id: number) => useApiFetch(`/cks/${id}`).then(parseApiResponse)
+  const createCks = (data: any) => useApiFetch('/cks', { method: 'POST', body: data }).then(parseApiResponse)
+  const updateCks = (id: number, data: any) => useApiFetch(`/cks/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteCks = (id: number) => useApiFetch(`/cks/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const refreshCapacity = (id: number) => useApiFetch(`/cks/${id}/refresh-capacity`, { method: 'POST' }).then(parseApiResponse)
+  return { getCks, getCksByID, createCks, updateCks, deleteCks, refreshCapacity }
 }
 
-// 标签相关API
 export const useTagApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getTags = async () => {
-    const response = await $fetch('/tags', {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const getTagsByCategory = async (categoryId: number, params?: any) => {
-    const response = await $fetch(`/categories/${categoryId}/tags`, {
-      baseURL: config.public.apiBase,
-      params,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const getTag = async (id: number) => {
-    const response = await $fetch(`/tags/${id}`, {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const createTag = async (data: any) => {
-    const response = await $fetch('/tags', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const updateTag = async (id: number, data: any) => {
-    const response = await $fetch(`/tags/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'PUT',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const deleteTag = async (id: number) => {
-    const response = await $fetch(`/tags/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const getResourceTags = async (resourceId: number) => {
-    const response = await $fetch(`/resources/${resourceId}/tags`, {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getTags,
-    getTagsByCategory,
-    getTag,
-    createTag,
-    updateTag,
-    deleteTag,
-    getResourceTags,
-  }
+  const getTags = () => useApiFetch('/tags').then(parseApiResponse)
+  const getTagsByCategory = (categoryId: number, params?: any) => useApiFetch(`/categories/${categoryId}/tags`, { params }).then(parseApiResponse)
+  const getTag = (id: number) => useApiFetch(`/tags/${id}`).then(parseApiResponse)
+  const createTag = (data: any) => useApiFetch('/tags', { method: 'POST', body: data }).then(parseApiResponse)
+  const updateTag = (id: number, data: any) => useApiFetch(`/tags/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteTag = (id: number) => useApiFetch(`/tags/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const getResourceTags = (resourceId: number) => useApiFetch(`/resources/${resourceId}/tags`).then(parseApiResponse)
+  return { getTags, getTagsByCategory, getTag, createTag, updateTag, deleteTag, getResourceTags }
 }
 
-// 待处理资源相关API
 export const useReadyResourceApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getReadyResources = async (params?: any) => {
-    const response = await $fetch('/ready-resources', {
-      baseURL: config.public.apiBase,
-      params,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const createReadyResource = async (data: any) => {
-    const response = await $fetch('/ready-resources', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const batchCreateReadyResources = async (data: any) => {
-    const response = await $fetch('/ready-resources/batch', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const createReadyResourcesFromText = async (text: string) => {
+  const getReadyResources = (params?: any) => useApiFetch('/ready-resources', { params }).then(parseApiResponse)
+  const createReadyResource = (data: any) => useApiFetch('/ready-resources', { method: 'POST', body: data }).then(parseApiResponse)
+  const batchCreateReadyResources = (data: any) => useApiFetch('/ready-resources/batch', { method: 'POST', body: data }).then(parseApiResponse)
+  const createReadyResourcesFromText = (text: string) => {
     const formData = new FormData()
     formData.append('text', text)
-    
-    const response = await $fetch('/ready-resources/text', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: formData,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
+    return useApiFetch('/ready-resources/text', { method: 'POST', body: formData }).then(parseApiResponse)
   }
-
-  const deleteReadyResource = async (id: number) => {
-    const response = await $fetch(`/ready-resources/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const clearReadyResources = async () => {
-    const response = await $fetch('/ready-resources', {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getReadyResources,
-    createReadyResource,
-    batchCreateReadyResources,
-    createReadyResourcesFromText,
-    deleteReadyResource,
-    clearReadyResources,
-  }
+  const deleteReadyResource = (id: number) => useApiFetch(`/ready-resources/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const clearReadyResources = () => useApiFetch('/ready-resources', { method: 'DELETE' }).then(parseApiResponse)
+  return { getReadyResources, createReadyResource, batchCreateReadyResources, createReadyResourcesFromText, deleteReadyResource, clearReadyResources }
 }
 
-// 统计相关API
 export const useStatsApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getStats = async () => {
-    const response = await $fetch('/stats', {
-      baseURL: config.public.apiBase,
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getStats,
-  }
+  const getStats = () => useApiFetch('/stats').then(parseApiResponse)
+  return { getStats }
 }
 
-// 系统配置相关API
 export const useSystemConfigApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getSystemConfig = async () => {
-    const response = await $fetch('/system/config', {
-      baseURL: config.public.apiBase,
-      // GET接口不需要认证头
-    })
-    return parseApiResponse(response)
-  }
-
-  const updateSystemConfig = async (data: any) => {
-    const authHeaders = getAuthHeaders()
-    console.log('updateSystemConfig - authHeaders:', authHeaders)
-    console.log('updateSystemConfig - token exists:', !!authHeaders.Authorization)
-    
-    const response = await $fetch('/system/config', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: authHeaders as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getSystemConfig,
-    updateSystemConfig,
-  }
+  const getSystemConfig = () => useApiFetch('/system/config').then(parseApiResponse)
+  const updateSystemConfig = (data: any) => useApiFetch('/system/config', { method: 'POST', body: data }).then(parseApiResponse)
+  return { getSystemConfig, updateSystemConfig }
 }
 
-// 热播剧相关API
 export const useHotDramaApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getHotDramas = async (params?: any) => {
-    const response = await $fetch('/hot-dramas', {
-      baseURL: config.public.apiBase,
-      params,
-    })
-    return parseApiResponse(response)
-  }
-
-  const createHotDrama = async (data: any) => {
-    const response = await $fetch('/hot-dramas', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const updateHotDrama = async (id: number, data: any) => {
-    const response = await $fetch(`/hot-dramas/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'PUT',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const deleteHotDrama = async (id: number) => {
-    const response = await $fetch(`/hot-dramas/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const fetchHotDramas = async () => {
-    const response = await $fetch('/hot-dramas/fetch', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getHotDramas,
-    createHotDrama,
-    updateHotDrama,
-    deleteHotDrama,
-    fetchHotDramas,
-  }
+  const getHotDramas = (params?: any) => useApiFetch('/hot-dramas', { params }).then(parseApiResponse)
+  const createHotDrama = (data: any) => useApiFetch('/hot-dramas', { method: 'POST', body: data }).then(parseApiResponse)
+  const updateHotDrama = (id: number, data: any) => useApiFetch(`/hot-dramas/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteHotDrama = (id: number) => useApiFetch(`/hot-dramas/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const fetchHotDramas = () => useApiFetch('/hot-dramas/fetch', { method: 'POST' }).then(parseApiResponse)
+  return { getHotDramas, createHotDrama, updateHotDrama, deleteHotDrama, fetchHotDramas }
 }
 
-// 监控相关API
 export const useMonitorApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getPerformanceStats = async () => {
-    const response = await $fetch('/performance', {
-      baseURL: config.public.apiBase,
-    })
-    return parseApiResponse(response)
-  }
+  const getPerformanceStats = () => useApiFetch('/performance').then(parseApiResponse)
+  const getSystemInfo = () => useApiFetch('/system/info').then(parseApiResponse)
+  const getBasicStats = () => useApiFetch('/stats').then(parseApiResponse)
+  return { getPerformanceStats, getSystemInfo, getBasicStats }
+}
 
-  const getSystemInfo = async () => {
-    const response = await $fetch('/system/info', {
-      baseURL: config.public.apiBase,
-    })
-    return parseApiResponse(response)
-  }
-
-  const getBasicStats = async () => {
-    const response = await $fetch('/stats', {
-      baseURL: config.public.apiBase,
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getPerformanceStats,
-    getSystemInfo,
-    getBasicStats,
-  }
-} 
-
-// 用户管理相关API
 export const useUserApi = () => {
-  const config = useRuntimeConfig()
-  
-  const getAuthHeaders = () => {
-    const userStore = useUserStore()
-    return userStore.authHeaders
-  }
-  
-  const getUsers = async (params?: any) => {
-    const response = await $fetch('/users', {
-      baseURL: config.public.apiBase,
-      params,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const getUser = async (id: number) => {
-    const response = await $fetch(`/users/${id}`, {
-      baseURL: config.public.apiBase,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const createUser = async (data: any) => {
-    const response = await $fetch('/users', {
-      baseURL: config.public.apiBase,
-      method: 'POST',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const updateUser = async (id: number, data: any) => {
-    const response = await $fetch(`/users/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'PUT',
-      body: data,
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const deleteUser = async (id: number) => {
-    const response = await $fetch(`/users/${id}`, {
-      baseURL: config.public.apiBase,
-      method: 'DELETE',
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  const changePassword = async (id: number, newPassword: string) => {
-    const response = await $fetch(`/users/${id}/password`, {
-      baseURL: config.public.apiBase,
-      method: 'PUT',
-      body: { new_password: newPassword },
-      headers: getAuthHeaders() as Record<string, string>
-    })
-    return parseApiResponse(response)
-  }
-
-  return {
-    getUsers,
-    getUser,
-    createUser,
-    updateUser,
-    deleteUser,
-    changePassword,
-  }
+  const getUsers = (params?: any) => useApiFetch('/users', { params }).then(parseApiResponse)
+  const getUser = (id: number) => useApiFetch(`/users/${id}`).then(parseApiResponse)
+  const createUser = (data: any) => useApiFetch('/users', { method: 'POST', body: data }).then(parseApiResponse)
+  const updateUser = (id: number, data: any) => useApiFetch(`/users/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteUser = (id: number) => useApiFetch(`/users/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const changePassword = (id: number, newPassword: string) => useApiFetch(`/users/${id}/password`, { method: 'PUT', body: { new_password: newPassword } }).then(parseApiResponse)
+  return { getUsers, getUser, createUser, updateUser, deleteUser, changePassword }
 } 
