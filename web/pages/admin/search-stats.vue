@@ -116,6 +116,8 @@ definePageMeta({
 
 import { ref, onMounted, computed } from 'vue'
 import Chart from 'chart.js/auto'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { parseApiResponse } from '~/composables/useApi'
 
 const stats = ref({
   todaySearches: 0,
@@ -143,12 +145,23 @@ const getPercentage = (count) => {
 // 加载搜索统计
 const loadSearchStats = async () => {
   try {
-    const response = await fetch('/api/search-stats')
-    if (response.ok) {
-      const data = await response.json()
-      searchList.value = data.data || []
-      // 其它统计数据赋值...
-    }
+    // 1. 汇总卡片
+    const summary = await useApiFetch('/search-stats/summary').then(parseApiResponse)
+    stats.value.todaySearches = summary.today || 0
+    stats.value.weekSearches = summary.week || 0
+    stats.value.monthSearches = summary.month || 0
+    // 2. 热门关键词
+    const hotKeywords = await useApiFetch('/search-stats/hot-keywords').then(parseApiResponse)
+    stats.value.hotKeywords = hotKeywords || []
+    // 3. 趋势
+    const trend = await useApiFetch('/search-stats/trend').then(parseApiResponse)
+    stats.value.searchTrend.days = (trend || []).map(item => item.date ? (new Date(item.date)).toLocaleDateString() : '')
+    stats.value.searchTrend.values = (trend || []).map(item => item.total_searches)
+    // 4. 搜索记录
+    const data = await useApiFetch('/search-stats').then(parseApiResponse)
+    searchList.value = data || []
+    // 5. 更新图表
+    setTimeout(updateChart, 100)
   } catch (error) {
     console.error('加载搜索统计失败:', error)
   }

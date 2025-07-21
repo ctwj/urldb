@@ -186,6 +186,7 @@ func main() {
 		api.GET("/search-stats/keyword/:keyword/trend", handlers.GetKeywordTrend)
 		api.POST("/search-stats", handlers.RecordSearch)
 		api.POST("/search-stats/record", handlers.RecordSearch)
+		api.GET("/search-stats/summary", handlers.GetSearchStatsSummary)
 
 		// 系统配置路由
 		api.GET("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemConfig)

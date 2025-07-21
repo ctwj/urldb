@@ -142,3 +142,13 @@ func GetKeywordTrend(c *gin.Context) {
 	response := converter.ToDailySearchStatResponseList(trend)
 	SuccessResponse(c, response)
 }
+
+// GetSearchStatsSummary 获取搜索统计汇总
+func GetSearchStatsSummary(c *gin.Context) {
+	summary, err := repoManager.SearchStatRepository.GetSummary()
+	if err != nil {
+		ErrorResponse(c, "获取搜索统计汇总失败", 500)
+		return
+	}
+	SuccessResponse(c, summary)
+}

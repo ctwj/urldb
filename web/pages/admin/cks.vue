@@ -321,7 +321,8 @@ const panApi = usePanApi()
 
 const { data: pansData } = await useAsyncData('pans', () => panApi.getPans())
 const pans = computed(() => {
-  return (pansData.value).data.list || []
+  // 统一接口格式后直接为数组
+  return Array.isArray(pansData.value) ? pansData.value : (pansData.value?.list || [])
 })
 const platformOptions = computed(() => {
   return pans.value.map(pan => ({

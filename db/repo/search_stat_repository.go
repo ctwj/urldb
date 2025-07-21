@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -16,6 +17,7 @@ type SearchStatRepository interface {
 	GetHotKeywords(days int, limit int) ([]entity.KeywordStat, error)
 	GetSearchTrend(days int) ([]entity.DailySearchStat, error)
 	GetKeywordTrend(keyword string, days int) ([]entity.DailySearchStat, error)
+	GetSummary() (map[string]int64, error)
 }
 
 // SearchStatRepositoryImpl 搜索统计Repository实现
@@ -30,51 +32,34 @@ func NewSearchStatRepository(db *gorm.DB) SearchStatRepository {
 	}
 }
 
-// RecordSearch 记录搜索
+// RecordSearch 记录搜索（每次都插入新记录）
 func (r *SearchStatRepositoryImpl) RecordSearch(keyword, ip, userAgent string) error {
-	today := time.Now().Truncate(24 * time.Hour)
-
-	// 查找今天是否已有该关键词的记录
-	var stat entity.SearchStat
-	err := r.db.Where("keyword = ? AND date = ?", keyword, today).First(&stat).Error
-
-	if err == gorm.ErrRecordNotFound {
-		// 创建新记录
-		stat = entity.SearchStat{
-			Keyword:   keyword,
-			Count:     1,
-			Date:      today,
-			IP:        ip,
-			UserAgent: userAgent,
-		}
-		return r.db.Create(&stat).Error
-	} else if err != nil {
-		return err
+	stat := entity.SearchStat{
+		Keyword:   keyword,
+		Count:     1,
+		Date:      time.Now(), // 可保留 date 字段，实际用 created_at 统计
+		IP:        ip,
+		UserAgent: userAgent,
 	}
-
-	// 更新现有记录
-	stat.Count++
-	stat.IP = ip
-	stat.UserAgent = userAgent
-	return r.db.Save(&stat).Error
+	return r.db.Create(&stat).Error
 }
 
 // GetDailyStats 获取每日统计
 func (r *SearchStatRepositoryImpl) GetDailyStats(days int) ([]entity.DailySearchStat, error) {
 	var stats []entity.DailySearchStat
 
-	query := `
+	query := fmt.Sprintf(`
 		SELECT 
 			date,
 			SUM(count) as total_searches,
 			COUNT(DISTINCT keyword) as unique_keywords
 		FROM search_stats 
-		WHERE date >= CURRENT_DATE - INTERVAL '? days'
+		WHERE date >= CURRENT_DATE - INTERVAL '%d days'
 		GROUP BY date 
 		ORDER BY date DESC
-	`
+	`, days)
 
-	err := r.db.Raw(query, days).Scan(&stats).Error
+	err := r.db.Raw(query).Scan(&stats).Error
 	return stats, err
 }
 
@@ -82,19 +67,19 @@ func (r *SearchStatRepositoryImpl) GetDailyStats(days int) ([]entity.DailySearch
 func (r *SearchStatRepositoryImpl) GetHotKeywords(days int, limit int) ([]entity.KeywordStat, error) {
 	var keywords []entity.KeywordStat
 
-	query := `
+	query := fmt.Sprintf(`
 		SELECT 
 			keyword,
 			SUM(count) as count,
 			RANK() OVER (ORDER BY SUM(count) DESC) as rank
 		FROM search_stats 
-		WHERE date >= CURRENT_DATE - INTERVAL '? days'
+		WHERE date >= CURRENT_DATE - INTERVAL '%d days'
 		GROUP BY keyword 
 		ORDER BY count DESC 
 		LIMIT ?
-	`
+	`, days)
 
-	err := r.db.Raw(query, days, limit).Scan(&keywords).Error
+	err := r.db.Raw(query, limit).Scan(&keywords).Error
 	return keywords, err
 }
 
@@ -102,18 +87,18 @@ func (r *SearchStatRepositoryImpl) GetHotKeywords(days int, limit int) ([]entity
 func (r *SearchStatRepositoryImpl) GetSearchTrend(days int) ([]entity.DailySearchStat, error) {
 	var stats []entity.DailySearchStat
 
-	query := `
+	query := fmt.Sprintf(`
 		SELECT 
 			date,
 			SUM(count) as total_searches,
 			COUNT(DISTINCT keyword) as unique_keywords
 		FROM search_stats 
-		WHERE date >= CURRENT_DATE - INTERVAL '? days'
+		WHERE date >= CURRENT_DATE - INTERVAL '%d days'
 		GROUP BY date 
 		ORDER BY date ASC
-	`
+	`, days)
 
-	err := r.db.Raw(query, days).Scan(&stats).Error
+	err := r.db.Raw(query).Scan(&stats).Error
 	return stats, err
 }
 
@@ -121,17 +106,54 @@ func (r *SearchStatRepositoryImpl) GetSearchTrend(days int) ([]entity.DailySearc
 func (r *SearchStatRepositoryImpl) GetKeywordTrend(keyword string, days int) ([]entity.DailySearchStat, error) {
 	var stats []entity.DailySearchStat
 
-	query := `
+	query := fmt.Sprintf(`
 		SELECT 
 			date,
 			SUM(count) as total_searches,
 			COUNT(DISTINCT keyword) as unique_keywords
 		FROM search_stats 
-		WHERE keyword = ? AND date >= CURRENT_DATE - INTERVAL '? days'
+		WHERE keyword = ? AND date >= CURRENT_DATE - INTERVAL '%d days'
 		GROUP BY date 
 		ORDER BY date ASC
-	`
+	`, days)
 
-	err := r.db.Raw(query, keyword, days).Scan(&stats).Error
+	err := r.db.Raw(query, keyword).Scan(&stats).Error
 	return stats, err
+}
+
+// GetSummary 获取搜索统计汇总
+func (r *SearchStatRepositoryImpl) GetSummary() (map[string]int64, error) {
+	var total, today, week, month, keywords int64
+	now := time.Now()
+	todayStr := now.Format("2006-01-02")
+	weekStart := now.AddDate(0, 0, -int(now.Weekday())+1).Format("2006-01-02") // 周一
+	monthStart := now.Format("2006-01") + "-01"
+
+	// 总搜索次数
+	if err := r.db.Model(&entity.SearchStat{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
+	// 今日搜索次数
+	if err := r.db.Model(&entity.SearchStat{}).Where("DATE(created_at) = ?", todayStr).Count(&today).Error; err != nil {
+		return nil, err
+	}
+	// 本周搜索次数
+	if err := r.db.Model(&entity.SearchStat{}).Where("created_at >= ?", weekStart).Count(&week).Error; err != nil {
+		return nil, err
+	}
+	// 本月搜索次数
+	if err := r.db.Model(&entity.SearchStat{}).Where("created_at >= ?", monthStart).Count(&month).Error; err != nil {
+		return nil, err
+	}
+	// 总关键词数
+	if err := r.db.Model(&entity.SearchStat{}).Distinct("keyword").Count(&keywords).Error; err != nil {
+		return nil, err
+	}
+	return map[string]int64{
+		"total":    total,
+		"today":    today,
+		"week":     week,
+		"month":    month,
+		"keywords": keywords,
+	}, nil
 }
