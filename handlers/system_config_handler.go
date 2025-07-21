@@ -179,3 +179,14 @@ func UpdateSystemConfig(c *gin.Context) {
 	configResponse := converter.SystemConfigToResponse(updatedConfig)
 	SuccessResponse(c, configResponse)
 }
+
+// 新增：公开获取系统配置（不含api_token）
+func GetPublicSystemConfig(c *gin.Context) {
+	config, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
+	if err != nil {
+		ErrorResponse(c, "获取系统配置失败", http.StatusInternalServerError)
+		return
+	}
+	configResponse := converter.SystemConfigToPublicResponse(config)
+	SuccessResponse(c, configResponse)
+}

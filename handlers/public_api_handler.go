@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"net/http"
-
 	"strconv"
 
 	"github.com/ctwj/urldb/db/converter"
@@ -35,41 +33,25 @@ func NewPublicAPIHandler() *PublicAPIHandler {
 func (h *PublicAPIHandler) AddSingleResource(c *gin.Context) {
 	var req dto.ReadyResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "请求参数错误: " + err.Error(),
-			"code":    400,
-		})
+		ErrorResponse(c, "请求参数错误: "+err.Error(), 400)
 		return
 	}
 
 	// 验证必填字段
 	if req.Title == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "标题不能为空",
-			"code":    400,
-		})
+		ErrorResponse(c, "标题不能为空", 400)
 		return
 	}
 
 	if req.Url == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "URL不能为空",
-			"code":    400,
-		})
+		ErrorResponse(c, "URL不能为空", 400)
 		return
 	}
 
 	// 转换为实体
 	readyResource := converter.RequestToReadyResource(&req)
 	if readyResource == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "数据转换失败",
-			"code":    500,
-		})
+		ErrorResponse(c, "数据转换失败", 500)
 		return
 	}
 
@@ -79,21 +61,12 @@ func (h *PublicAPIHandler) AddSingleResource(c *gin.Context) {
 	// 保存到数据库
 	err := repoManager.ReadyResourceRepository.Create(readyResource)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "添加资源失败: " + err.Error(),
-			"code":    500,
-		})
+		ErrorResponse(c, "添加资源失败: "+err.Error(), 500)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "资源添加成功，已进入待处理列表",
-		"data": gin.H{
-			"id": readyResource.ID,
-		},
-		"code": 200,
+	SuccessResponse(c, gin.H{
+		"id": readyResource.ID,
 	})
 }
 
@@ -113,40 +86,24 @@ func (h *PublicAPIHandler) AddSingleResource(c *gin.Context) {
 func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 	var req dto.BatchReadyResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "请求参数错误: " + err.Error(),
-			"code":    400,
-		})
+		ErrorResponse(c, "请求参数错误: "+err.Error(), 400)
 		return
 	}
 
 	if len(req.Resources) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "资源列表不能为空",
-			"code":    400,
-		})
+		ErrorResponse(c, "资源列表不能为空", 400)
 		return
 	}
 
 	// 验证每个资源
 	for i, resource := range req.Resources {
 		if resource.Title == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"message": "第" + strconv.Itoa(i+1) + "个资源标题不能为空",
-				"code":    400,
-			})
+			ErrorResponse(c, "第"+strconv.Itoa(i+1)+"个资源标题不能为空", 400)
 			return
 		}
 
 		if resource.Url == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"message": "第" + strconv.Itoa(i+1) + "个资源URL不能为空",
-				"code":    400,
-			})
+			ErrorResponse(c, "第"+strconv.Itoa(i+1)+"个资源URL不能为空", 400)
 			return
 		}
 	}
@@ -164,14 +121,9 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "批量添加成功，共添加 " + strconv.Itoa(len(createdResources)) + " 个资源",
-		"data": gin.H{
-			"created_count": len(createdResources),
-			"created_ids":   createdResources,
-		},
-		"code": 200,
+	SuccessResponse(c, gin.H{
+		"created_count": len(createdResources),
+		"created_ids":   createdResources,
 	})
 }
 
@@ -230,11 +182,7 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 	// 执行搜索
 	resources, total, err := repoManager.ResourceRepository.SearchWithFilters(params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "搜索失败: " + err.Error(),
-			"code":    500,
-		})
+		ErrorResponse(c, "搜索失败: "+err.Error(), 500)
 		return
 	}
 
@@ -252,16 +200,11 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "搜索成功",
-		"data": gin.H{
-			"resources": resourceResponses,
-			"total":     total,
-			"page":      page,
-			"page_size": pageSize,
-		},
-		"code": 200,
+	SuccessResponse(c, gin.H{
+		"list":  resourceResponses,
+		"total": total,
+		"page":  page,
+		"limit": pageSize,
 	})
 }
 
@@ -295,11 +238,7 @@ func (h *PublicAPIHandler) GetHotDramas(c *gin.Context) {
 	// 获取热门剧
 	hotDramas, total, err := repoManager.HotDramaRepository.FindAll(page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "获取热门剧失败: " + err.Error(),
-			"code":    500,
-		})
+		ErrorResponse(c, "获取热门剧失败: "+err.Error(), 500)
 		return
 	}
 
@@ -322,15 +261,10 @@ func (h *PublicAPIHandler) GetHotDramas(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "获取热门剧成功",
-		"data": gin.H{
-			"hot_dramas": hotDramaResponses,
-			"total":      total,
-			"page":       page,
-			"page_size":  pageSize,
-		},
-		"code": 200,
+	SuccessResponse(c, gin.H{
+		"hot_dramas": hotDramaResponses,
+		"total":      total,
+		"page":       page,
+		"page_size":  pageSize,
 	})
 }

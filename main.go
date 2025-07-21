@@ -124,6 +124,7 @@ func main() {
 		api.DELETE("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteResource)
 		api.GET("/resources/:id", handlers.GetResourceByID)
 		api.GET("/resources/check-exists", handlers.CheckResourceExists)
+		api.POST("/resources/:id/view", handlers.IncrementResourceViewCount)
 
 		// 分类管理
 		api.GET("/categories", handlers.GetCategories)
@@ -183,11 +184,13 @@ func main() {
 		api.GET("/search-stats/daily", handlers.GetDailyStats)
 		api.GET("/search-stats/trend", handlers.GetSearchTrend)
 		api.GET("/search-stats/keyword/:keyword/trend", handlers.GetKeywordTrend)
+		api.POST("/search-stats", handlers.RecordSearch)
 		api.POST("/search-stats/record", handlers.RecordSearch)
 
 		// 系统配置路由
-		api.GET("/system/config", handlers.GetSystemConfig)
+		api.GET("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemConfig)
 		api.POST("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSystemConfig)
+		api.GET("/public/system-config", handlers.GetPublicSystemConfig)
 
 		// 热播剧管理路由（查询接口无需认证）
 		api.GET("/hot-dramas", handlers.GetHotDramaList)

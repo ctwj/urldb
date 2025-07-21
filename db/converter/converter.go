@@ -3,6 +3,7 @@ package converter
 import (
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/gin-gonic/gin"
 )
 
 // ToResourceResponse 将Resource实体转换为ResourceResponse
@@ -204,5 +205,27 @@ func RequestToReadyResource(req *dto.ReadyResourceRequest) *entity.ReadyResource
 		Img:         req.Img,
 		Source:      req.Source,
 		Extra:       req.Extra,
+	}
+}
+
+// SystemConfigToPublicResponse 返回不含 api_token 的系统配置响应
+func SystemConfigToPublicResponse(config *entity.SystemConfig) gin.H {
+	return gin.H{
+		"id":                           config.ID,
+		"created_at":                   config.CreatedAt.Format("2006-01-02 15:04:05"),
+		"updated_at":                   config.UpdatedAt.Format("2006-01-02 15:04:05"),
+		"site_title":                   config.SiteTitle,
+		"site_description":             config.SiteDescription,
+		"keywords":                     config.Keywords,
+		"author":                       config.Author,
+		"copyright":                    config.Copyright,
+		"auto_process_ready_resources": config.AutoProcessReadyResources,
+		"auto_process_interval":        config.AutoProcessInterval,
+		"auto_transfer_enabled":        config.AutoTransferEnabled,
+		"auto_transfer_limit_days":     config.AutoTransferLimitDays,
+		"auto_transfer_min_space":      config.AutoTransferMinSpace,
+		"auto_fetch_hot_drama_enabled": config.AutoFetchHotDramaEnabled,
+		"page_size":                    config.PageSize,
+		"maintenance_mode":             config.MaintenanceMode,
 	}
 }

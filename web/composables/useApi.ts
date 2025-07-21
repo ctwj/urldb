@@ -3,7 +3,7 @@ import { useUserStore } from '~/stores/user'
 
 // 统一响应解析函数
 export const parseApiResponse = <T>(response: any): T => {
-  console.log('parseApiResponse - 原始响应:', response)
+  log('parseApiResponse - 原始响应:', response)
   
   // 检查是否是新的统一响应格式
   if (response && typeof response === 'object' && 'code' in response && 'data' in response) {
@@ -48,7 +48,9 @@ export const useResourceApi = () => {
   const deleteResource = (id: number) => useApiFetch(`/resources/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const searchResources = (params: any) => useApiFetch('/search', { params }).then(parseApiResponse)
   const getResourcesByPan = (panId: number, params?: any) => useApiFetch('/resources', { params: { ...params, pan_id: panId } }).then(parseApiResponse)
-  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan }
+  // 新增：统一的资源访问次数上报
+  const incrementViewCount = (id: number) => useApiFetch(`/resources/${id}/view`, { method: 'POST' })
+  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount }
 }
 
 export const useAuthApi = () => {
@@ -148,4 +150,17 @@ export const useUserApi = () => {
   const deleteUser = (id: number) => useApiFetch(`/users/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const changePassword = (id: number, newPassword: string) => useApiFetch(`/users/${id}/password`, { method: 'PUT', body: { new_password: newPassword } }).then(parseApiResponse)
   return { getUsers, getUser, createUser, updateUser, deleteUser, changePassword }
+} 
+
+// 公开获取系统配置API
+export const usePublicSystemConfigApi = () => {
+  const getPublicSystemConfig = () => useApiFetch('/public/system-config').then(res => res)
+  return { getPublicSystemConfig }
+} 
+
+// 日志函数：只在开发环境打印
+function log(...args: any[]) {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(...args)
+  }
 } 

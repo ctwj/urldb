@@ -55,7 +55,7 @@
 
       <!-- 搜索区域 -->
       <div class="w-full max-w-3xl mx-auto mb-4 sm:mb-8 px-2 sm:px-0">
-        <div class="relative">
+        <!-- <div class="relative">
           <input 
             v-model="searchQuery"
             @keyup="handleSearch"
@@ -66,7 +66,16 @@
           <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
             <i class="fas fa-search text-gray-400"></i>
           </div>
-        </div>
+        </div> -->
+        <ClientOnly>
+          <div class="relative">
+            <n-input round placeholder="搜索" v-model="searchQuery" @blur="handleSearch" @keyup.enter="handleSearch">
+              <template #suffix>
+                <i class="fas fa-search text-gray-400"></i>
+              </template>
+            </n-input>
+          </div>
+        </ClientOnly>
         
         <!-- 平台类型筛选 -->
         <div class="mt-3 flex flex-wrap gap-2" id="platformFilters">
@@ -250,19 +259,19 @@ useHead({
 // 获取运行时配置
 const config = useRuntimeConfig()
 
-import { useResourceApi, useStatsApi, usePanApi, useSystemConfigApi } from '~/composables/useApi'
+import { useResourceApi, useStatsApi, usePanApi, useSystemConfigApi, usePublicSystemConfigApi } from '~/composables/useApi'
 
 const resourceApi = useResourceApi()
 const statsApi = useStatsApi()
 const panApi = usePanApi()
-const systemConfigApi = useSystemConfigApi()
+const publicSystemConfigApi = usePublicSystemConfigApi()
 
 // 获取路由参数
 const route = useRoute()
 const router = useRouter()
 
 // 响应式数据
-const searchQuery = ref(route.query.q as string || '')
+const searchQuery = ref(route.query.search as string || '')
 const currentPage = ref(parseInt(route.query.page as string) || 1)
 const pageSize = ref(200)
 const selectedPlatform = ref(route.query.platform as string || '')
@@ -291,12 +300,12 @@ const { data: statsData } = await useAsyncData('stats', () => statsApi.getStats(
 const { data: platformsData } = await useAsyncData('platforms', () => panApi.getPans())
 
 // 获取系统配置
-const { data: systemConfigData } = await useAsyncData('systemConfig', () => systemConfigApi.getSystemConfig())
+const { data: systemConfigData } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
 
 // 从 SSR 数据中获取值
 const safeResources = computed(() => (resourcesData.value as any)?.resources || [])
 const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_updates: 0 })
-const platforms = computed(() => platformsData.value || [])
+const platforms = computed(() => (platformsData.value as any) || [])
 const systemConfig = computed(() => (systemConfigData.value as any) || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
 
@@ -323,9 +332,9 @@ const handleSearch = async () => {
   // 更新URL参数
   const query = { ...route.query }
   if (searchQuery.value.trim()) {
-    query.q = searchQuery.value.trim()
+    query.search = searchQuery.value.trim()
   } else {
-    delete query.q
+    delete query.search
   }
   if (selectedPlatform.value) {
     query.platform = selectedPlatform.value
@@ -364,12 +373,23 @@ const filterByPlatform = async (platformId: string) => {
 
 // 获取平台名称
 const getPlatformIcon = (panId: string) => {
-  const platform = platforms.value.find(p => p.id === panId)
+  const platform = (platforms.value as any).find((p: any) => p.id === panId)
   return platform?.icon || '未知平台'
 }
 
+// 跳转到链接
+const openLink = async (url: string, resourceId: number) => {
+  try {
+    await fetch(`/api/resources/${resourceId}/view`, { method: 'POST' })
+  } catch (e) {}
+  window.open(url, '_blank')
+}
+
 // 切换链接显示
-const toggleLink = (resource: any) => {
+const toggleLink = async (resource: any) => {
+  try {
+    await resourceApi.incrementViewCount(resource.id)
+  } catch (e) {}
   selectedResource.value = resource
   showLinkModal.value = true
 }
@@ -391,11 +411,6 @@ const copyToClipboard = async (text: any) => {
   } catch (error) {
     console.error('复制失败:', error)
   }
-}
-
-// 跳转到链接
-const openLink = (url: string) => {
-  window.open(url, '_blank')
 }
 
 // 格式化相对时间

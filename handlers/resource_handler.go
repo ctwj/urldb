@@ -245,6 +245,10 @@ func SearchResources(c *gin.Context) {
 	} else {
 		// 有搜索关键词时，执行搜索
 		resources, total, err = repoManager.ResourceRepository.Search(query, nil, page, pageSize)
+		// 新增：记录搜索关键词
+		ip := c.ClientIP()
+		userAgent := c.GetHeader("User-Agent")
+		repoManager.SearchStatRepository.RecordSearch(query, ip, userAgent)
 	}
 
 	if err != nil {
@@ -258,4 +262,20 @@ func SearchResources(c *gin.Context) {
 		"page":      page,
 		"page_size": pageSize,
 	})
+}
+
+// 增加资源浏览次数
+func IncrementResourceViewCount(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		ErrorResponse(c, "无效的资源ID", http.StatusBadRequest)
+		return
+	}
+	err = repoManager.ResourceRepository.IncrementViewCount(uint(id))
+	if err != nil {
+		ErrorResponse(c, "增加浏览次数失败", http.StatusInternalServerError)
+		return
+	}
+	SuccessResponse(c, gin.H{"message": "浏览次数+1"})
 }

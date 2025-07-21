@@ -341,6 +341,36 @@ curl -X GET "http://localhost:8080/api/public/resources/search?keyword=测试" \
 curl -X GET "http://localhost:8080/api/public/hot-dramas?page=1&page_size=5" \
   -H "X-API-Token: $API_TOKEN"</code></pre>
             </div>
+            <h4 class="font-semibold text-gray-900 dark:text-white mb-3">前端 fetch 示例</h4>
+            <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
+              <pre class="text-sm overflow-x-auto"><code>
+// 资源搜索
+fetch('/api/public/resources/search?q=测试', { headers: { 'X-API-Token': 'your_token' } })
+  .then(res => res.json())
+  .then(res => {
+    if (res.success) {
+      const list = res.data.list // 资源列表
+      const total = res.data.total
+    } else {
+      alert(res.message)
+    }
+  })
+// 单个添加资源
+fetch('/api/public/resources/add', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-API-Token': 'your_token' },
+  body: JSON.stringify({ title: 'xxx', url: 'xxx' })
+})
+  .then(res => res.json())
+  .then(res => {
+    if (res.success) {
+      alert('添加成功，ID：' + res.data.id)
+    } else {
+      alert(res.message)
+    }
+  })
+              </code></pre>
+            </div>
           </div>
         </div>
       </div>
