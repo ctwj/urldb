@@ -20,7 +20,7 @@
           <form @submit.prevent="saveConfig" class="space-y-6">
 
             <n-tabs type="line" animated>
-              <n-tab-pane name="SEO 配置" tab="seo">
+              <n-tab-pane name="SEO 配置" tab="SEO 配置">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- 网站标题 -->
                 <div>

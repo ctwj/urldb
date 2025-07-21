@@ -449,9 +449,10 @@ const fetchData = async () => {
     }
     
     const response = await resourceApi.getResources(params) as any
-    
-    if (response && response.resources) {
-      resources.value = response.resources
+    console.log('DEBUG', response)
+
+    if (response && response.data) {
+      resources.value = response.data
       totalCount.value = response.total || 0
       totalPages.value = Math.ceil((response.total || 0) / pageSize.value)
     } else if (Array.isArray(response)) {

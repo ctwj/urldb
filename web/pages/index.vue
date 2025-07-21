@@ -303,7 +303,7 @@ const { data: platformsData } = await useAsyncData('platforms', () => panApi.get
 const { data: systemConfigData } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
 
 // 从 SSR 数据中获取值
-const safeResources = computed(() => (resourcesData.value as any)?.resources || [])
+const safeResources = computed(() => (resourcesData.value as any)?.data || [])
 const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_updates: 0 })
 const platforms = computed(() => (platformsData.value as any) || [])
 const systemConfig = computed(() => (systemConfigData.value as any) || { site_title: '老九网盘资源数据库' })

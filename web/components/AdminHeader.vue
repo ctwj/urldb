@@ -76,6 +76,9 @@
 </template>
 
 <script setup lang="ts">
+import { useApiFetch } from '~/composables/useApiFetch'
+import { parseApiResponse } from '~/composables/useApi'
+
 interface Props {
   title?: string
 }
@@ -116,10 +119,10 @@ const currentPageDescription = computed(() => pageConfig.value.description)
 
 // 获取系统配置
 const { data: systemConfigData } = await useAsyncData('systemConfig', 
-  () => $fetch('/api/system-config')
+  () => useApiFetch('/system/config').then(parseApiResponse)
 )
-
-const systemConfig = computed(() => (systemConfigData.value as any)?.data || { site_title: '老九网盘资源数据库' })
+console.log('DEBUG', systemConfigData.value)
+const systemConfig = computed(() => (systemConfigData.value as any) || { site_title: '老九网盘资源数据库' })
 
 // 退出登录
 const logout = async () => {

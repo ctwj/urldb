@@ -15,44 +15,35 @@ import (
 func GetResources(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	categoryID := c.Query("category_id")
-	panID := c.Query("pan_id")
-	realSearch := c.Query("search")
 
-	var resources []entity.Resource
-	var total int64
-	var err error
-
-	// 设置响应头，启用缓存
-	c.Header("Cache-Control", "public, max-age=300") // 5分钟缓存
-
-	if realSearch != "" && panID != "" {
-		// 平台内搜索
-		panIDUint, _ := strconv.ParseUint(panID, 10, 32)
-		resources, total, err = repoManager.ResourceRepository.SearchByPanID(realSearch, uint(panIDUint), page, pageSize)
-	} else if realSearch != "" {
-		// 全局搜索
-		resources, total, err = repoManager.ResourceRepository.Search(realSearch, nil, page, pageSize)
-	} else if panID != "" {
-		// 按平台筛选
-		panIDUint, _ := strconv.ParseUint(panID, 10, 32)
-		resources, total, err = repoManager.ResourceRepository.FindByPanIDPaginated(uint(panIDUint), page, pageSize)
-	} else if categoryID != "" {
-		// 按分类筛选
-		categoryIDUint, _ := strconv.ParseUint(categoryID, 10, 32)
-		resources, total, err = repoManager.ResourceRepository.FindByCategoryIDPaginated(uint(categoryIDUint), page, pageSize)
-	} else {
-		// 使用分页查询，避免加载所有数据
-		resources, total, err = repoManager.ResourceRepository.FindWithRelationsPaginated(page, pageSize)
+	params := map[string]interface{}{
+		"page":      page,
+		"page_size": pageSize,
 	}
 
-	// 新增：只要有search参数就记录（但管理员不记录）
-	if realSearch != "" {
+	if search := c.Query("search"); search != "" {
+		params["search"] = search
+	}
+	if panID := c.Query("pan_id"); panID != "" {
+		if id, err := strconv.ParseUint(panID, 10, 32); err == nil {
+			params["pan_id"] = uint(id)
+		}
+	}
+	if categoryID := c.Query("category_id"); categoryID != "" {
+		if id, err := strconv.ParseUint(categoryID, 10, 32); err == nil {
+			params["category_id"] = uint(id)
+		}
+	}
+
+	resources, total, err := repoManager.ResourceRepository.SearchWithFilters(params)
+
+	// 搜索统计（仅非管理员）
+	if search, ok := params["search"].(string); ok && search != "" {
 		user, _ := c.Get("user")
 		if user == nil || (user != nil && user.(entity.User).Role != "admin") {
 			ip := c.ClientIP()
 			userAgent := c.GetHeader("User-Agent")
-			repoManager.SearchStatRepository.RecordSearch(realSearch, ip, userAgent)
+			repoManager.SearchStatRepository.RecordSearch(search, ip, userAgent)
 		}
 	}
 
@@ -62,7 +53,7 @@ func GetResources(c *gin.Context) {
 	}
 
 	SuccessResponse(c, gin.H{
-		"resources": converter.ToResourceResponseList(resources),
+		"data":      converter.ToResourceResponseList(resources),
 		"total":     total,
 		"page":      page,
 		"page_size": pageSize,
