@@ -200,25 +200,6 @@ l9pan/
 ./scripts/version.sh help
 ```
 
-#### 自动发布流程
-
-1. **更新版本号**: 修改 `VERSION` 文件
-2. **同步文件**: 更新 `package.json`、`docker-compose.yml`、`README.md`
-3. **创建Git标签**: 自动创建版本标签
-4. **推送代码**: 推送代码和标签到GitHub
-5. **创建Release**: 自动创建GitHub Release
-
-#### 版本API接口
-
-- `GET /api/version` - 获取版本信息
-- `GET /api/version/string` - 获取版本字符串
-- `GET /api/version/full` - 获取完整版本信息
-- `GET /api/version/check-update` - 检查GitHub上的最新版本
-
-#### 版本信息页面
-
-访问 `/version` 页面查看详细的版本信息和更新状态。
-
 #### 详细文档
 
 查看 [GitHub版本管理指南](docs/github-version-management.md) 了解完整的版本管理流程。
@@ -241,16 +222,17 @@ PORT=8080
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| frontend | 3000 | Nuxt.js 前端应用 |
-| backend | 8080 | Go API 后端服务 |
-| postgres | 5432 | PostgreSQL 数据库 |
+| server | 3030 | 应用 |
+| postgres | 5431 | PostgreSQL 数据库 |
 
-### 构建
+### 镜像构建
 
-docker build -t ctwj/urldb-frontend:1.0.6 --target frontend .
-docker build -t ctwj/urldb-backend:1.0.6 --target backend .
-docker push ctwj/urldb-frontend:1.0.6
-docker push ctwj/urldb-backend:1.0.6
+```
+docker build -t ctwj/urldb-frontend:1.0.7 --target frontend .
+docker build -t ctwj/urldb-backend:1.0.7 --target backend .
+docker push ctwj/urldb-frontend:1.0.7
+docker push ctwj/urldb-backend:1.0.7
+```
 
 ---
 
