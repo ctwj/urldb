@@ -31,6 +31,7 @@ type ResourceRepository interface {
 	GetCachedLatestResources(limit int) ([]entity.Resource, error)
 	InvalidateCache() error
 	FindExists(url string, excludeID ...uint) (bool, error)
+	BatchFindByURLs(urls []string) ([]entity.Resource, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -343,4 +344,13 @@ func (r *ResourceRepositoryImpl) FindExists(url string, excludeID ...uint) (bool
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *ResourceRepositoryImpl) BatchFindByURLs(urls []string) ([]entity.Resource, error) {
+	var resources []entity.Resource
+	if len(urls) == 0 {
+		return resources, nil
+	}
+	err := r.db.Where("url IN ?", urls).Find(&resources).Error
+	return resources, err
 }

@@ -33,6 +33,8 @@
 </template>
 
 <script setup lang="ts">
+import { useSystemConfigStore } from '~/stores/systemConfig'
+
 // 页面加载状态
 const pageLoading = ref(false)
 
@@ -66,8 +68,9 @@ watch(() => route.path, () => {
   }, 300)
 })
 
-// 页面加载时显示加载状态
+const systemConfigStore = useSystemConfigStore()
 onMounted(() => {
+  systemConfigStore.initConfig()
   pageLoading.value = true
   setTimeout(() => {
     pageLoading.value = false

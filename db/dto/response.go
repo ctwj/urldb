@@ -27,6 +27,9 @@ type ResourceResponse struct {
 	CreatedAt    time.Time     `json:"created_at"`
 	UpdatedAt    time.Time     `json:"updated_at"`
 	Tags         []TagResponse `json:"tags"`
+	Cover        string        `json:"cover"`
+	Author       string        `json:"author"`
+	ErrorMsg     string        `json:"error_msg"`
 }
 
 // CategoryResponse 分类响应

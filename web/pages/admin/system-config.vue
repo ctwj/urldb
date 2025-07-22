@@ -335,6 +335,8 @@ definePageMeta({
 
 import { ref, onMounted } from 'vue'
 import { useSystemConfigApi } from '~/composables/useApi'
+import { useSystemConfigStore } from '~/stores/systemConfig'
+const systemConfigStore = useSystemConfigStore()
 
 // API
 const systemConfigApi = useSystemConfigApi()
@@ -446,8 +448,9 @@ const saveConfig = async () => {
     // 使用新的统一响应格式，直接检查response是否存在
     if (response) {
       alert('配置保存成功！')
-      // 重新加载配置以获取最新数据
       await loadConfig()
+      // 自动更新 systemConfig store（强制刷新）
+      await systemConfigStore.initConfig(true)
     } else {
       alert('保存配置失败：未知错误')
     }

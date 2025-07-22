@@ -73,3 +73,7 @@ func (r *BaseRepositoryImpl[T]) FindWithPagination(page, limit int) ([]T, int64,
 	err := r.db.Offset(offset).Limit(limit).Find(&entities).Error
 	return entities, total, err
 }
+
+func (r *BaseRepositoryImpl[T]) GetDB() *gorm.DB {
+	return r.db
+}

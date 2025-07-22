@@ -22,6 +22,9 @@ func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 		IsPublic:    resource.IsPublic,
 		CreatedAt:   resource.CreatedAt,
 		UpdatedAt:   resource.UpdatedAt,
+		Cover:       resource.Cover,
+		Author:      resource.Author,
+		ErrorMsg:    resource.ErrorMsg,
 	}
 
 	// 设置分类名称

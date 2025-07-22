@@ -1,29 +1,5 @@
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
-    <!-- 页面头部 -->
-    <div class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-      <div class="max-w-4xl mx-auto px-4 py-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-4">
-            <button 
-              @click="$router.back()" 
-              class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            >
-              <i class="fas fa-arrow-left text-xl"></i>
-            </button>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">添加资源</h1>
-          </div>
-          <div class="flex items-center space-x-2">
-            <NuxtLink 
-              to="/admin" 
-              class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors text-sm"
-            >
-              <i class="fas fa-cog mr-1"></i>管理后台
-            </NuxtLink>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- 主要内容 -->
     <div class="max-w-4xl mx-auto px-4 py-8">
@@ -64,12 +40,6 @@
             @error="handleError"
             @cancel="handleCancel"
           />
-
-          <!-- API说明 -->
-          <ApiDocumentation 
-            v-else
-            @cancel="handleCancel"
-          />
         </div>
       </div>
     </div>
@@ -103,7 +73,6 @@ const errorMsg = ref('')
 const tabs = [
   { label: '批量添加', value: 'batch' },
   { label: '单个添加', value: 'single' },
-  { label: 'API说明', value: 'api' },
 ]
 const mode = ref('batch')
 

@@ -16,6 +16,7 @@ type ReadyResourceRepository interface {
 	BatchCreate(resources []entity.ReadyResource) error
 	DeleteByURL(url string) error
 	FindAllWithinDays(days int) ([]entity.ReadyResource, error)
+	BatchFindByURLs(urls []string) ([]entity.ReadyResource, error)
 }
 
 // ReadyResourceRepositoryImpl ReadyResource的Repository实现
@@ -66,5 +67,14 @@ func (r *ReadyResourceRepositoryImpl) FindAllWithinDays(days int) ([]entity.Read
 		db = db.Where("create_time >= ?", since)
 	}
 	err := db.Find(&resources).Error
+	return resources, err
+}
+
+func (r *ReadyResourceRepositoryImpl) BatchFindByURLs(urls []string) ([]entity.ReadyResource, error) {
+	var resources []entity.ReadyResource
+	if len(urls) == 0 {
+		return resources, nil
+	}
+	err := r.db.Where("url IN ?", urls).Find(&resources).Error
 	return resources, err
 }

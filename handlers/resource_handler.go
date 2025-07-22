@@ -125,6 +125,9 @@ func CreateResource(c *gin.Context) {
 		CategoryID:  req.CategoryID,
 		IsValid:     req.IsValid,
 		IsPublic:    req.IsPublic,
+		Cover:       req.Cover,
+		Author:      req.Author,
+		ErrorMsg:    req.ErrorMsg,
 	}
 
 	err := repoManager.ResourceRepository.Create(resource)
@@ -193,6 +196,15 @@ func UpdateResource(c *gin.Context) {
 	}
 	resource.IsValid = req.IsValid
 	resource.IsPublic = req.IsPublic
+	if req.Cover != "" {
+		resource.Cover = req.Cover
+	}
+	if req.Author != "" {
+		resource.Author = req.Author
+	}
+	if req.ErrorMsg != "" {
+		resource.ErrorMsg = req.ErrorMsg
+	}
 
 	// 处理标签关联
 	if len(req.TagIDs) > 0 {

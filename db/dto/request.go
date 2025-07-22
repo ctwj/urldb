@@ -58,6 +58,9 @@ type CreateResourceRequest struct {
 	IsValid     bool   `json:"is_valid"`
 	IsPublic    bool   `json:"is_public"`
 	TagIDs      []uint `json:"tag_ids"`
+	Cover       string `json:"cover"`
+	Author      string `json:"author"`
+	ErrorMsg    string `json:"error_msg"`
 }
 
 // UpdateResourceRequest 更新资源请求
@@ -72,6 +75,9 @@ type UpdateResourceRequest struct {
 	IsValid     bool   `json:"is_valid"`
 	IsPublic    bool   `json:"is_public"`
 	TagIDs      []uint `json:"tag_ids"`
+	Cover       string `json:"cover"`
+	Author      string `json:"author"`
+	ErrorMsg    string `json:"error_msg"`
 }
 
 // CreateCategoryRequest 创建分类请求

@@ -22,6 +22,9 @@ type Resource struct {
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	Cover       string         `json:"cover" gorm:"size:500;comment:封面"`
+	Author      string         `json:"author" gorm:"size:100;comment:作者"`
+	ErrorMsg    string         `json:"error_msg" gorm:"size:255;comment:转存失败原因"`
 
 	// 关联关系
 	Category Category `json:"category" gorm:"foreignKey:CategoryID"`

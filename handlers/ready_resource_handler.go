@@ -54,6 +54,21 @@ func CreateReadyResource(c *gin.Context) {
 		return
 	}
 
+	if req.URL != "" {
+		// 检查待处理资源表
+		readyList, _ := repoManager.ReadyResourceRepository.BatchFindByURLs([]string{req.URL})
+		if len(readyList) > 0 {
+			ErrorResponse(c, "该URL已存在于待处理资源列表", http.StatusBadRequest)
+			return
+		}
+		// 检查资源表
+		resourceList, _ := repoManager.ResourceRepository.BatchFindByURLs([]string{req.URL})
+		if len(resourceList) > 0 {
+			ErrorResponse(c, "该URL已存在于资源列表", http.StatusBadRequest)
+			return
+		}
+	}
+
 	resource := &entity.ReadyResource{
 		Title:       req.Title,
 		Description: req.Description,
@@ -86,8 +101,50 @@ func BatchCreateReadyResources(c *gin.Context) {
 		return
 	}
 
+	// 1. 先收集所有待提交的URL，去重
+	urlSet := make(map[string]struct{})
+	for _, reqResource := range req.Resources {
+		if reqResource.URL == "" {
+			continue
+		}
+		urlSet[reqResource.URL] = struct{}{}
+	}
+	uniqueUrls := make([]string, 0, len(urlSet))
+	for url := range urlSet {
+		uniqueUrls = append(uniqueUrls, url)
+	}
+
+	// 2. 批量查询待处理资源表中已存在的URL
+	existReadyUrls := make(map[string]struct{})
+	if len(uniqueUrls) > 0 {
+		readyList, _ := repoManager.ReadyResourceRepository.BatchFindByURLs(uniqueUrls)
+		for _, r := range readyList {
+			existReadyUrls[r.URL] = struct{}{}
+		}
+	}
+
+	// 3. 批量查询资源表中已存在的URL
+	existResourceUrls := make(map[string]struct{})
+	if len(uniqueUrls) > 0 {
+		resourceList, _ := repoManager.ResourceRepository.BatchFindByURLs(uniqueUrls)
+		for _, r := range resourceList {
+			existResourceUrls[r.URL] = struct{}{}
+		}
+	}
+
+	// 4. 过滤掉已存在的URL
 	var resources []entity.ReadyResource
 	for _, reqResource := range req.Resources {
+		url := reqResource.URL
+		if url == "" {
+			continue
+		}
+		if _, ok := existReadyUrls[url]; ok {
+			continue
+		}
+		if _, ok := existResourceUrls[url]; ok {
+			continue
+		}
 		resource := entity.ReadyResource{
 			Title:       reqResource.Title,
 			Description: reqResource.Description,
@@ -100,6 +157,14 @@ func BatchCreateReadyResources(c *gin.Context) {
 			IP:          reqResource.IP,
 		}
 		resources = append(resources, resource)
+	}
+
+	if len(resources) == 0 {
+		SuccessResponse(c, gin.H{
+			"count":   0,
+			"message": "无新增资源，所有URL均已存在",
+		})
+		return
 	}
 
 	err := repoManager.ReadyResourceRepository.BatchCreate(resources)

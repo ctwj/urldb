@@ -61,23 +61,40 @@
     </div>
     
     <!-- 自动转存状态提示 -->
-    <div 
-      v-if="systemConfig?.auto_transfer_enabled" 
-      class="absolute right-4 bottom-4 flex items-center gap-2 rounded-lg px-3 py-2"
-    >
-      <div class="flex items-center gap-2">
-        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-        <span class="text-xs text-white font-medium">
-          自动转存已开启
-        </span>
+    <ClientOnly>
+      <div 
+        
+        class="absolute right-4 bottom-4 flex items-center gap-2 rounded-lg px-3 py-2"
+      >
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full animate-pulse" :class="{ 
+            'bg-red-400': !systemConfig?.auto_process_ready_resources,
+            'bg-green-400': systemConfig?.auto_process_ready_resources
+            }"></div>
+          <span class="text-xs text-white font-medium">
+            自动处理已<span>{{ systemConfig?.auto_process_ready_resources ? '开启' : '关闭' }}</span>
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full animate-pulse" :class="{ 
+            'bg-red-400': !systemConfig?.auto_transfer_enabled,
+            'bg-green-400': systemConfig?.auto_transfer_enabled
+            }"></div>
+          <span class="text-xs text-white font-medium">
+            自动转存已<span>{{ systemConfig?.auto_transfer_enabled ? '开启' : '关闭' }}</span>
+          </span>
+        </div>
       </div>
-    </div>
+    </ClientOnly>
+    
   </div>
 </template>
 
 <script setup lang="ts">
 import { useApiFetch } from '~/composables/useApiFetch'
 import { parseApiResponse } from '~/composables/useApi'
+import { ref, onMounted } from 'vue'
+import { useSystemConfigStore } from '~/stores/systemConfig'
 
 interface Props {
   title?: string
@@ -106,7 +123,7 @@ const pageConfig = computed(() => {
     '/admin/search-stats': { title: '搜索统计', icon: 'fas fa-chart-bar', description: '搜索数据分析' },
     '/admin/hot-dramas': { title: '热播剧管理', icon: 'fas fa-film', description: '管理热门剧集' },
     '/monitor': { title: '系统监控', icon: 'fas fa-desktop', description: '系统性能监控' },
-    '/add-resource': { title: '添加资源', icon: 'fas fa-plus', description: '添加新资源' },
+    '/admin/add-resource': { title: '添加资源', icon: 'fas fa-plus', description: '添加新资源' },
     '/api-docs': { title: 'API文档', icon: 'fas fa-book', description: '接口文档说明' },
     '/admin/version': { title: '版本信息', icon: 'fas fa-code-branch', description: '系统版本详情' }
   }
@@ -117,12 +134,12 @@ const currentPageTitle = computed(() => pageConfig.value.title)
 const currentPageIcon = computed(() => pageConfig.value.icon)
 const currentPageDescription = computed(() => pageConfig.value.description)
 
-// 获取系统配置
-const { data: systemConfigData } = await useAsyncData('systemConfig', 
-  () => useApiFetch('/system/config').then(parseApiResponse)
-)
-console.log('DEBUG', systemConfigData.value)
-const systemConfig = computed(() => (systemConfigData.value as any) || { site_title: '老九网盘资源数据库' })
+const systemConfigStore = useSystemConfigStore()
+const systemConfig = computed(() => systemConfigStore.config)
+
+onMounted(() => {
+  systemConfigStore.initConfig()
+})
 
 // 退出登录
 const logout = async () => {
