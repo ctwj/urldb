@@ -160,6 +160,14 @@ export const useUserStore = defineStore('user', {
         return { success: true }
       } catch (error: any) {
         console.error('获取用户资料失败:', error)
+        // 检查是否为"无效的令牌"错误
+        if (error?.data?.error === '无效的令牌' || error?.message?.includes('无效的令牌')) {
+          this.logout()
+          if (process.client) {
+            window.location.href = '/login'
+          }
+          return { success: false, message: '登录已过期，请重新登录' }
+        }
         // 如果获取失败，可能是token过期，清除登录状态
         this.logout()
         return { success: false, message: error.message }

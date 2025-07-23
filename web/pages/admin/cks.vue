@@ -118,6 +118,14 @@
                 <td class="px-4 py-3 text-sm">
                   <div class="flex items-center gap-2">
                     <button 
+                      @click="toggleStatus(cks)"
+                      :class="cks.is_valid ? 'text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300' : 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300'"
+                      class="transition-colors"
+                      :title="cks.is_valid ? '禁用账号' : '启用账号'"
+                    >
+                      <i :class="cks.is_valid ? 'fas fa-ban' : 'fas fa-check'"></i>
+                    </button>
+                    <button 
                       @click="refreshCapacity(cks.id)"
                       class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 transition-colors"
                       title="刷新容量"
@@ -344,8 +352,10 @@ const checkAuth = () => {
 const fetchCks = async () => {
   loading.value = true
   try {
+    console.log('开始获取账号列表...')
     const response = await cksApi.getCks()
     cksList.value = Array.isArray(response) ? response : []
+    console.log('获取账号列表成功，数据:', cksList.value)
   } catch (error) {
     console.error('获取账号列表失败:', error)
   } finally {
@@ -418,6 +428,24 @@ const refreshCapacity = async (id) => {
   } catch (error) {
     console.error('刷新容量失败:', error)
     alert('刷新容量失败: ' + (error.message || '未知错误'))
+  }
+}
+
+// 切换账号状态
+const toggleStatus = async (cks) => {
+  const newStatus = !cks.is_valid
+  if (!confirm(`确定要${cks.is_valid ? '禁用' : '启用'}此账号吗？`)) return
+  
+  try {
+    console.log('切换状态 - 账号ID:', cks.id, '当前状态:', cks.is_valid, '新状态:', newStatus)
+    await cksApi.updateCks(cks.id, { is_valid: newStatus })
+    console.log('状态更新成功，正在刷新数据...')
+    await fetchCks()
+    console.log('数据刷新完成')
+    alert(`账号已${newStatus ? '启用' : '禁用'}！`)
+  } catch (error) {
+    console.error('切换账号状态失败:', error)
+    alert(`切换账号状态失败: ${error.message || '未知错误'}`)
   }
 }
 

@@ -13,6 +13,7 @@ type CksRepository interface {
 	FindByIsValid(isValid bool) ([]entity.Cks, error)
 	UpdateSpace(id uint, space, leftSpace int64) error
 	DeleteByPanID(panID uint) error
+	UpdateWithAllFields(cks *entity.Cks) error
 }
 
 // CksRepositoryImpl Cks的Repository实现
@@ -70,4 +71,9 @@ func (r *CksRepositoryImpl) FindByID(id uint) (*entity.Cks, error) {
 		return nil, err
 	}
 	return &cks, nil
+}
+
+// UpdateWithAllFields 更新Cks，包括零值字段
+func (r *CksRepositoryImpl) UpdateWithAllFields(cks *entity.Cks) error {
+	return r.db.Save(cks).Error
 }

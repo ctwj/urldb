@@ -192,6 +192,8 @@ func UpdateCks(c *gin.Context) {
 	if req.Ck != "" {
 		cks.Ck = req.Ck
 	}
+	// 对于 bool 类型，我们需要检查请求中是否包含该字段
+	// 由于 Go 的 JSON 解析，如果字段存在且为 false，也会被正确解析
 	cks.IsValid = req.IsValid
 	if req.LeftSpace != 0 {
 		cks.LeftSpace = req.LeftSpace
@@ -210,7 +212,8 @@ func UpdateCks(c *gin.Context) {
 		cks.Remark = req.Remark
 	}
 
-	err = repoManager.CksRepository.Update(cks)
+	// 使用专门的方法更新，确保更新所有字段包括零值
+	err = repoManager.CksRepository.UpdateWithAllFields(cks)
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
