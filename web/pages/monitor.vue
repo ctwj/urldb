@@ -297,6 +297,8 @@ const fetchPerformanceStats = async () => {
   try {
     const response = await monitorApi.getPerformanceStats()
     performanceStats.value = response
+    console.log('性能统计数据:', response)
+    console.log('数据库连接信息:', (response as any).database)
   } catch (error) {
     console.error('获取性能统计失败:', error)
   }

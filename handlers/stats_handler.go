@@ -6,6 +6,7 @@ import (
 
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -44,16 +45,23 @@ func GetPerformanceStats(c *gin.Context) {
 	sqlDB, err := db.DB.DB()
 	var dbStats gin.H
 	if err == nil {
+		stats := sqlDB.Stats()
 		dbStats = gin.H{
-			"max_open_connections": sqlDB.Stats().MaxOpenConnections,
-			"open_connections":     sqlDB.Stats().OpenConnections,
-			"in_use":               sqlDB.Stats().InUse,
-			"idle":                 sqlDB.Stats().Idle,
+			"max_open_connections": stats.MaxOpenConnections,
+			"open_connections":     stats.OpenConnections,
+			"in_use":               stats.InUse,
+			"idle":                 stats.Idle,
+			"wait_count":           stats.WaitCount,
+			"wait_duration":        stats.WaitDuration,
 		}
+		// 添加调试日志
+		utils.Info("数据库连接池状态 - MaxOpen: %d, Open: %d, InUse: %d, Idle: %d",
+			stats.MaxOpenConnections, stats.OpenConnections, stats.InUse, stats.Idle)
 	} else {
 		dbStats = gin.H{
-			"error": "无法获取数据库连接池状态",
+			"error": "无法获取数据库连接池状态: " + err.Error(),
 		}
+		utils.Error("获取数据库连接池状态失败: %v", err)
 	}
 
 	SuccessResponse(c, gin.H{

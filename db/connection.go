@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/utils"
@@ -53,6 +54,17 @@ func InitDB() error {
 	if err != nil {
 		return err
 	}
+
+	// 配置数据库连接池
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return err
+	}
+
+	// 设置连接池参数
+	sqlDB.SetMaxIdleConns(10)           // 最大空闲连接数
+	sqlDB.SetMaxOpenConns(100)          // 最大打开连接数
+	sqlDB.SetConnMaxLifetime(time.Hour) // 连接最大生命周期
 
 	// 自动迁移数据库表结构
 	err = DB.AutoMigrate(
