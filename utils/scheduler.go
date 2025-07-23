@@ -10,6 +10,7 @@ import (
 	commonutils "github.com/ctwj/urldb/common/utils"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
+	"gorm.io/gorm"
 )
 
 // Scheduler 定时任务管理器
@@ -284,7 +285,7 @@ func (s *Scheduler) StartReadyResourceScheduler() {
 	go func() {
 		// 获取系统配置中的间隔时间
 		config, err := s.systemConfigRepo.GetOrCreateDefault()
-		interval := 5 * time.Minute // 默认5分钟
+		interval := 3 * time.Minute // 默认5分钟
 		if err == nil && config.AutoProcessInterval > 0 {
 			interval = time.Duration(config.AutoProcessInterval) * time.Minute
 		}
@@ -658,22 +659,45 @@ func (s *Scheduler) processAutoTransfer() {
 		return
 	}
 
-	// 获取所有有效的网盘账号
+	// 获取quark平台ID
+	panRepoImpl, ok := s.panRepo.(interface{ GetDB() *gorm.DB })
+	if !ok {
+		Error("panRepo不支持GetDB方法")
+		return
+	}
+	var quarkPan entity.Pan
+	err = panRepoImpl.GetDB().Where("name = ?", "quark").First(&quarkPan).Error
+	if err != nil {
+		Error("未找到quark平台: %v", err)
+		return
+	}
+	quarkPanID := quarkPan.ID
+
+	// 获取所有账号
 	accounts, err := s.cksRepo.FindAll()
 	if err != nil {
 		Error("获取网盘账号失败: %v", err)
 		return
 	}
 
-	if len(accounts) == 0 {
-		Info("没有可用的网盘账号")
+	// 过滤：只保留已激活、quark平台、剩余空间足够的账号
+	minSpaceBytes := int64(config.AutoTransferMinSpace) * 1024 * 1024 * 1024
+	var validAccounts []entity.Cks
+	for _, acc := range accounts {
+		if acc.IsValid && acc.PanID == quarkPanID && acc.LeftSpace >= minSpaceBytes {
+			validAccounts = append(validAccounts, acc)
+		}
+	}
+
+	if len(validAccounts) == 0 {
+		Info("没有可用的quark网盘账号")
 		return
 	}
 
-	Info("找到 %d 个网盘账号，开始自动转存处理...", len(accounts))
+	Info("找到 %d 个可用quark网盘账号，开始自动转存处理...", len(validAccounts))
 
 	// 获取需要转存的资源
-	resources, err := s.getResourcesForTransfer(config)
+	resources, err := s.getResourcesForTransfer(config, quarkPanID)
 	if err != nil {
 		Error("获取需要转存的资源失败: %v", err)
 		return
@@ -686,55 +710,120 @@ func (s *Scheduler) processAutoTransfer() {
 
 	Info("找到 %d 个需要转存的资源", len(resources))
 
-	// 执行自动转存
-	transferCount := 0
-	for _, resource := range resources {
-		if err := s.transferResource(resource, accounts, config); err != nil {
-			Error("转存资源失败 (ID: %d): %v", resource.ID, err)
-		} else {
-			transferCount++
-			Info("成功转存资源: %s", resource.Title)
-		}
+	// 并发自动转存
+	resourceCh := make(chan *entity.Resource, len(resources))
+	for _, res := range resources {
+		resourceCh <- res
 	}
+	close(resourceCh)
 
-	Info("自动转存处理完成，共转存 %d 个资源", transferCount)
+	var wg sync.WaitGroup
+	for _, account := range validAccounts {
+		wg.Add(1)
+		go func(acc entity.Cks) {
+			defer wg.Done()
+			factory := panutils.GetInstance() // 使用单例模式
+			for res := range resourceCh {
+				if err := s.transferResource(res, []entity.Cks{acc}, config, factory); err != nil {
+					Error("转存资源失败 (ID: %d): %v", res.ID, err)
+				} else {
+					Info("成功转存资源: %s", res.Title)
+				}
+			}
+		}(account)
+	}
+	wg.Wait()
+	Info("自动转存处理完成，账号数: %d，资源数: %d", len(validAccounts), len(resources))
 }
 
 // getResourcesForTransfer 获取需要转存的资源
-func (s *Scheduler) getResourcesForTransfer(config *entity.SystemConfig) ([]*entity.Resource, error) {
-	// TODO: 实现获取需要转存的资源逻辑
-	// 1. 获取所有有效的资源
-	// 2. 根据配置的转存限制天数过滤资源
-	// 3. 排除已经转存过的资源
-	// 4. 按优先级排序（可以根据浏览次数、创建时间等）
-
-	Info("获取需要转存的资源 - 限制天数: %d", config.AutoTransferLimitDays)
-
-	// 临时返回空数组，等待具体实现
-	return []*entity.Resource{}, nil
-}
-
-// transferResource 转存单个资源
-func (s *Scheduler) transferResource(resource *entity.Resource, accounts []entity.Cks, config *entity.SystemConfig) error {
-	// TODO: 实现单个资源的转存逻辑
-	// 1. 选择合适的网盘账号（根据剩余空间、VIP状态等）
-	// 2. 检查账号剩余空间是否满足最小空间要求
-	// 3. 调用网盘API进行转存
-	// 4. 更新资源状态和转存记录
-	// 5. 更新账号使用空间
-
-	Info("开始转存资源: %s (ID: %d)", resource.Title, resource.ID)
-
-	// 选择最佳账号
-	selectedAccount := s.selectBestAccount(accounts, config)
-	if selectedAccount == nil {
-		return fmt.Errorf("没有合适的网盘账号")
+func (s *Scheduler) getResourcesForTransfer(config *entity.SystemConfig, quarkPanID uint) ([]*entity.Resource, error) {
+	days := config.AutoTransferLimitDays
+	var sinceTime time.Time
+	if days > 0 {
+		sinceTime = time.Now().AddDate(0, 0, -days)
+	} else {
+		sinceTime = time.Time{}
 	}
 
-	Info("选择账号: %s (剩余空间: %d GB)", selectedAccount.Username, selectedAccount.LeftSpace/1024/1024/1024)
+	repoImpl, ok := s.resourceRepo.(*repo.ResourceRepositoryImpl)
+	if !ok {
+		return nil, fmt.Errorf("resourceRepo不是ResourceRepositoryImpl类型")
+	}
+	return repoImpl.GetResourcesForTransfer(quarkPanID, sinceTime)
+}
 
-	// TODO: 执行实际的转存操作
-	// 这里需要调用网盘API进行转存
+var resourceUpdateMutex sync.Mutex // 全局互斥锁，保证多协程安全
+
+// transferResource 转存单个资源
+func (s *Scheduler) transferResource(resource *entity.Resource, accounts []entity.Cks, config *entity.SystemConfig, factory *panutils.PanFactory) error {
+	if len(accounts) == 0 {
+		return fmt.Errorf("没有可用的网盘账号")
+	}
+	account := accounts[0]
+
+	service, err := factory.CreatePanService(resource.URL, &panutils.PanConfig{
+		URL:         resource.URL,
+		ExpiredType: 0,
+		IsType:      0,
+		Cookie:      account.Ck,
+	})
+	if err != nil {
+		return fmt.Errorf("创建网盘服务失败: %v", err)
+	}
+
+	shareID, _ := commonutils.ExtractShareIdString(resource.URL)
+	result, err := service.Transfer(shareID)
+	if err != nil {
+		resourceUpdateMutex.Lock()
+		defer resourceUpdateMutex.Unlock()
+		s.resourceRepo.Update(&entity.Resource{
+			ID:       resource.ID,
+			ErrorMsg: err.Error(),
+		})
+		return fmt.Errorf("转存失败: %v", err)
+	}
+
+	if result == nil || !result.Success {
+		errMsg := "转存失败"
+		if result != nil && result.Message != "" {
+			errMsg = result.Message
+		}
+		resourceUpdateMutex.Lock()
+		defer resourceUpdateMutex.Unlock()
+		s.resourceRepo.Update(&entity.Resource{
+			ID:       resource.ID,
+			ErrorMsg: errMsg,
+		})
+		return fmt.Errorf("转存失败: %s", errMsg)
+	}
+
+	// 提取转存链接、fid等
+	var saveURL, fid string
+	if data, ok := result.Data.(map[string]interface{}); ok {
+		if v, ok := data["shareUrl"]; ok {
+			saveURL, _ = v.(string)
+		}
+		if v, ok := data["fid"]; ok {
+			fid, _ = v.(string)
+		}
+	}
+	if saveURL == "" {
+		saveURL = result.ShareURL
+	}
+
+	resourceUpdateMutex.Lock()
+	defer resourceUpdateMutex.Unlock()
+	err = s.resourceRepo.Update(&entity.Resource{
+		ID:       resource.ID,
+		SaveURL:  saveURL,
+		CkID:     &account.ID,
+		Fid:      fid,
+		ErrorMsg: "",
+	})
+	if err != nil {
+		return fmt.Errorf("保存转存结果失败: %v", err)
+	}
 
 	return nil
 }

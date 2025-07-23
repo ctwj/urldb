@@ -17,7 +17,7 @@ type ResourceResponse struct {
 	Description  string        `json:"description"`
 	URL          string        `json:"url"`
 	PanID        *uint         `json:"pan_id"`
-	QuarkURL     string        `json:"quark_url"`
+	SaveURL      string        `json:"save_url"`
 	FileSize     string        `json:"file_size"`
 	CategoryID   *uint         `json:"category_id"`
 	CategoryName string        `json:"category_name"`

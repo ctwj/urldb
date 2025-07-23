@@ -14,7 +14,7 @@ func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 		Description: resource.Description,
 		URL:         resource.URL,
 		PanID:       resource.PanID,
-		QuarkURL:    resource.QuarkURL,
+		SaveURL:     resource.SaveURL,
 		FileSize:    resource.FileSize,
 		CategoryID:  resource.CategoryID,
 		ViewCount:   resource.ViewCount,

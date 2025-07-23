@@ -42,6 +42,7 @@ type PanConfig struct {
 	ExpiredType int    `json:"expiredType"` // 1: 分享永久, 2: 临时
 	AdFid       string `json:"adFid"`       // 夸克专用 - 分享时带上这个文件的fid
 	Stoken      string `json:"stoken"`
+	Cookie      string `json:"cookie"`
 }
 
 // TransferResult 转存结果

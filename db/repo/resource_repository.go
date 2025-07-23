@@ -32,6 +32,7 @@ type ResourceRepository interface {
 	InvalidateCache() error
 	FindExists(url string, excludeID ...uint) (bool, error)
 	BatchFindByURLs(urls []string) ([]entity.Resource, error)
+	GetResourcesForTransfer(panID uint, sinceTime time.Time) ([]*entity.Resource, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -353,4 +354,18 @@ func (r *ResourceRepositoryImpl) BatchFindByURLs(urls []string) ([]entity.Resour
 	}
 	err := r.db.Where("url IN ?", urls).Find(&resources).Error
 	return resources, err
+}
+
+// GetResourcesForTransfer 获取需要转存的资源
+func (r *ResourceRepositoryImpl) GetResourcesForTransfer(panID uint, sinceTime time.Time) ([]*entity.Resource, error) {
+	var resources []*entity.Resource
+	query := r.db.Where("pan_id = ? AND (save_url = '' OR save_url IS NULL) AND (error_msg = '' OR error_msg IS NULL)", panID)
+	if !sinceTime.IsZero() {
+		query = query.Where("created_at >= ?", sinceTime)
+	}
+	err := query.Order("created_at DESC").Find(&resources).Error
+	if err != nil {
+		return nil, err
+	}
+	return resources, nil
 }

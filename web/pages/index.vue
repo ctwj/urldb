@@ -287,7 +287,9 @@ const route = useRoute()
 const router = useRouter()
 
 // 响应式数据
-const searchQuery = ref(route.query.search as string || '')
+const initSerch = route.query.search || ''
+const oldQuery = ref(initSerch)
+const searchQuery = ref(oldQuery)
 const currentPage = ref(parseInt(route.query.page as string) || 1)
 const pageSize = ref(200)
 const selectedPlatform = ref(route.query.platform as string || '')
@@ -346,6 +348,10 @@ const handleSearch = async (e?: any) => {
   if (e && e.target && typeof e.target.value === 'string') {
     searchQuery.value = e.target.value
   }
+  if (oldQuery.value === searchQuery.value) {
+    return
+  }
+  oldQuery.value = searchQuery.value
   currentPage.value = 1
   
   // 更新URL参数

@@ -120,7 +120,7 @@ func CreateResource(c *gin.Context) {
 		Description: req.Description,
 		URL:         req.URL,
 		PanID:       req.PanID,
-		QuarkURL:    req.QuarkURL,
+		SaveURL:     req.SaveURL,
 		FileSize:    req.FileSize,
 		CategoryID:  req.CategoryID,
 		IsValid:     req.IsValid,
@@ -185,8 +185,8 @@ func UpdateResource(c *gin.Context) {
 	if req.PanID != nil {
 		resource.PanID = req.PanID
 	}
-	if req.QuarkURL != "" {
-		resource.QuarkURL = req.QuarkURL
+	if req.SaveURL != "" {
+		resource.SaveURL = req.SaveURL
 	}
 	if req.FileSize != "" {
 		resource.FileSize = req.FileSize

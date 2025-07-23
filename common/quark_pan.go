@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +43,7 @@ func NewQuarkPanService(config *PanConfig) *QuarkPanService {
 			"Referer":            "https://pan.quark.cn/",
 			"Referrer-Policy":    "strict-origin-when-cross-origin",
 			"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+			"Cookie":             config.Cookie,
 		})
 	})
 
@@ -66,6 +68,25 @@ func (q *QuarkPanService) UpdateConfig(config *PanConfig) {
 	defer q.configMutex.Unlock()
 
 	q.config = config
+	// 设置Cookie到header
+	if config.Cookie != "" {
+		q.SetHeader("Cookie", config.Cookie)
+	}
+}
+
+// SetCookie 设置Cookie
+func (q *QuarkPanService) SetCookie(cookie string) {
+	q.SetHeader("Cookie", cookie)
+	q.configMutex.Lock()
+	if q.config != nil {
+		q.config.Cookie = cookie
+	}
+	q.configMutex.Unlock()
+}
+
+// GetCookie 获取当前Cookie
+func (q *QuarkPanService) GetCookie() string {
+	return q.GetHeader("Cookie")
 }
 
 // GetServiceType 获取服务类型
@@ -383,11 +404,23 @@ func (q *QuarkPanService) getShareSave(shareID, stoken string, fidList, fidToken
 	return &response.Data, nil
 }
 
+// 生成指定长度的时间戳
+func (q *QuarkPanService) generateTimestamp(length int) int64 {
+	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+	timestampStr := strconv.FormatInt(timestamp, 10)
+	if len(timestampStr) > length {
+		timestampStr = timestampStr[:length]
+	}
+	timestamp, _ = strconv.ParseInt(timestampStr, 10, 64)
+	return timestamp
+}
+
 // getShareBtn 分享按钮
 func (q *QuarkPanService) getShareBtn(fidList []string, title string) (*ShareBtnResult, error) {
 	data := map[string]interface{}{
 		"fid_list":     fidList,
 		"title":        title,
+		"url_type":     1,
 		"expired_type": 1, // 永久分享
 	}
 
@@ -397,7 +430,7 @@ func (q *QuarkPanService) getShareBtn(fidList []string, title string) (*ShareBtn
 		"uc_param_str": "",
 	}
 
-	respData, err := q.HTTPPost("https://drive-pc.quark.cn/1/clouddrive/share/create", data, queryParams)
+	respData, err := q.HTTPPost("https://drive-pc.quark.cn/1/clouddrive/share", data, queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -427,9 +460,11 @@ func (q *QuarkPanService) getShareTask(taskID string, retryIndex int) (*TaskResu
 		"uc_param_str": "",
 		"task_id":      taskID,
 		"retry_index":  fmt.Sprintf("%d", retryIndex),
+		"__dt":         "21192",
+		"__t":          fmt.Sprintf("%d", q.generateTimestamp(13)),
 	}
 
-	respData, err := q.HTTPGet("https://drive-pc.quark.cn/1/clouddrive/share/sharepage/task", queryParams)
+	respData, err := q.HTTPGet("https://drive-pc.quark.cn/1/clouddrive/task", queryParams)
 	if err != nil {
 		return nil, err
 	}
@@ -457,10 +492,13 @@ func (q *QuarkPanService) getSharePassword(shareID string) (*PasswordResult, err
 		"pr":           "ucpro",
 		"fr":           "pc",
 		"uc_param_str": "",
-		"share_id":     shareID,
 	}
 
-	respData, err := q.HTTPGet("https://drive-pc.quark.cn/1/clouddrive/share/sharepage/password", queryParams)
+	data := map[string]interface{}{
+		"share_id": shareID,
+	}
+
+	respData, err := q.HTTPPost("https://drive-pc.quark.cn/1/clouddrive/share/password", data, queryParams)
 	if err != nil {
 		return nil, err
 	}

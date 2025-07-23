@@ -13,7 +13,7 @@ type Resource struct {
 	Description string         `json:"description" gorm:"type:text;comment:资源描述"`
 	URL         string         `json:"url" gorm:"size:128;comment:资源链接"`
 	PanID       *uint          `json:"pan_id" gorm:"comment:平台ID"`
-	QuarkURL    string         `json:"quark_url" gorm:"size:500;comment:夸克链接"`
+	SaveURL     string         `json:"save_url" gorm:"size:500;comment:转存后的链接"`
 	FileSize    string         `json:"file_size" gorm:"size:100;comment:文件大小"`
 	CategoryID  *uint          `json:"category_id" gorm:"comment:分类ID"`
 	ViewCount   int            `json:"view_count" gorm:"default:0;comment:浏览次数"`
@@ -25,6 +25,8 @@ type Resource struct {
 	Cover       string         `json:"cover" gorm:"size:500;comment:封面"`
 	Author      string         `json:"author" gorm:"size:100;comment:作者"`
 	ErrorMsg    string         `json:"error_msg" gorm:"size:255;comment:转存失败原因"`
+	CkID        *uint          `json:"ck_id" gorm:"comment:账号ID"`
+	Fid         string         `json:"fid" gorm:"size:128;comment:网盘文件ID"`
 
 	// 关联关系
 	Category Category `json:"category" gorm:"foreignKey:CategoryID"`
