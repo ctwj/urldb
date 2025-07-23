@@ -3,7 +3,6 @@ FROM node:20-slim AS frontend-builder
 
 # 安装pnpm
 RUN npm install -g pnpm
-ENV NODE_ENV=production
 
 WORKDIR /app/web
 COPY web/package*.json ./
@@ -14,16 +13,15 @@ COPY web/ ./
 RUN pnpm run build
 
 # 前端运行阶段
-FROM node:18-alpine AS frontend
+FROM node:20-alpine AS frontend
 
-RUN npm install -g pnpm
+# RUN npm install -g pnpm
+ENV NODE_ENV=production
 
 WORKDIR /app
 COPY --from=frontend-builder /app/web/.output ./.output
 COPY --from=frontend-builder /app/web/package*.json ./
-
 EXPOSE 3000
-
 CMD ["node", ".output/server/index.mjs"]
 
 # 后端构建阶段
