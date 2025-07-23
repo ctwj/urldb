@@ -1,5 +1,5 @@
   <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col">
+  <div v-if="!systemConfig.maintenance_mode" class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col">
     <!-- 全局加载状态 -->
     <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
@@ -244,6 +244,22 @@
     <!-- 页脚 -->
     <AppFooter />
   </div>
+  <div v-if="systemConfig.maintenance_mode" class="fixed inset-0 z-[1000000] flex items-center justify-center bg-gradient-to-br from-yellow-100/80 via-gray-900/90 to-yellow-200/80 backdrop-blur-sm">
+    <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl px-8 py-10 flex flex-col items-center max-w-xs w-full border border-yellow-200 dark:border-yellow-700">
+      <i class="fas fa-tools text-yellow-500 text-5xl mb-6 animate-bounce-slow"></i>
+      <h3 class="text-2xl font-extrabold text-yellow-600 dark:text-yellow-400 mb-2 tracking-wide drop-shadow">系统维护中</h3>
+      <p class="text-base text-gray-600 dark:text-gray-300 mb-6 text-center leading-relaxed">
+        我们正在进行系统升级和维护，预计很快恢复服务。<br>
+        请稍后再试，感谢您的理解与支持！
+      </p>
+      <!-- 动态点点动画 -->
+      <div class="flex space-x-1 mt-2">
+        <span class="w-2 h-2 bg-yellow-400 rounded-full animate-blink"></span>
+        <span class="w-2 h-2 bg-yellow-500 rounded-full animate-blink delay-200"></span>
+        <span class="w-2 h-2 bg-yellow-600 rounded-full animate-blink delay-400"></span>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -306,7 +322,7 @@ const { data: systemConfigData } = await useAsyncData('systemConfig', () => publ
 const safeResources = computed(() => (resourcesData.value as any)?.data || [])
 const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_updates: 0 })
 const platforms = computed(() => (platformsData.value as any) || [])
-const systemConfig = computed(() => (systemConfigData.value as any) || { site_title: '老九网盘资源数据库' })
+const systemConfig = computed(() => (systemConfigData.value as any).data || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
 
 // 计算属性
@@ -552,4 +568,20 @@ const loadMore = async () => {
     opacity: .5;
   }
 }
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0);}
+  50% { transform: translateY(-12px);}
+}
+.animate-bounce-slow {
+  animation: bounce-slow 1.6s infinite;
+}
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.2;}
+  40% { opacity: 1;}
+}
+.animate-blink {
+  animation: blink 1.4s infinite both;
+}
+.animate-blink.delay-200 { animation-delay: 0.2s; }
+.animate-blink.delay-400 { animation-delay: 0.4s; }
 </style> 

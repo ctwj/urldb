@@ -91,27 +91,48 @@
               </n-tab-pane>
               <n-tab-pane name="自动处理配置" tab="自动处理配置">
                 <div class="space-y-4">
-                <!-- 待处理资源自动处理 -->
-                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div class="flex-1">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">
-                      待处理资源自动处理
-                    </h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      开启后，系统将自动处理待处理的资源，无需手动操作
+                  <div class="flex flex-col gap-1">
+                    <!-- 待处理资源自动处理 -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="flex-1">
+                      <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                        待处理资源自动处理
+                      </h3>
+                      <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        开启后，系统将自动处理待处理的资源，无需手动操作
+                      </p>
+                    </div>
+                    <div class="ml-4">
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          v-model="config.autoProcessReadyResources" 
+                          type="checkbox" 
+                          class="sr-only peer"
+                        />
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                  <div v-if="config.autoProcessReadyResources" class="ml-6">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      自动处理间隔 (分钟)
+                    </label>
+                    <input 
+                      v-model.number="config.autoProcessInterval" 
+                      type="number" 
+                      min="1"
+                      max="1440"
+                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="30"
+                    />
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      建议设置 5-60 分钟，避免过于频繁的处理
                     </p>
                   </div>
-                  <div class="ml-4">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        v-model="config.autoProcessReadyResources" 
-                        type="checkbox" 
-                        class="sr-only peer"
-                      />
-                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
+
                 </div>
+                
+                
 
                 <!-- 自动转存 -->
                 <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -197,22 +218,7 @@
                 </div>
 
                 <!-- 自动处理间隔 -->
-                <div v-if="config.autoProcessReadyResources" class="ml-6">
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    自动处理间隔 (分钟)
-                  </label>
-                  <input 
-                    v-model.number="config.autoProcessInterval" 
-                    type="number" 
-                    min="1"
-                    max="1440"
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="30"
-                  />
-                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    建议设置 5-60 分钟，避免过于频繁的处理
-                  </p>
-                </div>
+                
               </div>
               </n-tab-pane>
               <n-tab-pane name="其他配置" tab="其他配置">
