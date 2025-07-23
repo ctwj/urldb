@@ -2,15 +2,10 @@
 FROM node:20-slim AS frontend-builder
 
 # 安装pnpm
-RUN npm install -g pnpm
-
 WORKDIR /app/web
-COPY web/package*.json ./
-COPY web/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
 COPY web/ ./
-RUN pnpm run build
+RUN npm install --frozen-lockfile
+RUN npm run build
 
 # 前端运行阶段
 FROM node:20-alpine AS frontend
