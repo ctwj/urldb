@@ -27,6 +27,7 @@ type Resource struct {
 	ErrorMsg    string         `json:"error_msg" gorm:"size:255;comment:转存失败原因"`
 	CkID        *uint          `json:"ck_id" gorm:"comment:账号ID"`
 	Fid         string         `json:"fid" gorm:"size:128;comment:网盘文件ID"`
+	Key         string         `json:"key" gorm:"size:64;index;comment:资源组标识，相同key表示同一组资源"`
 
 	// 关联关系
 	Category Category `json:"category" gorm:"foreignKey:CategoryID"`

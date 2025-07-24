@@ -58,6 +58,16 @@ func (h *PublicAPIHandler) AddSingleResource(c *gin.Context) {
 	// 设置来源
 	readyResource.Source = "公开API"
 
+	// 如果没有提供key，则自动生成
+	if readyResource.Key == "" {
+		key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
+		if err != nil {
+			ErrorResponse(c, "生成资源组标识失败: "+err.Error(), 500)
+			return
+		}
+		readyResource.Key = key
+	}
+
 	// 保存到数据库
 	err := repoManager.ReadyResourceRepository.Create(readyResource)
 	if err != nil {
@@ -66,7 +76,8 @@ func (h *PublicAPIHandler) AddSingleResource(c *gin.Context) {
 	}
 
 	SuccessResponse(c, gin.H{
-		"id": readyResource.ID,
+		"id":  readyResource.ID,
+		"key": readyResource.Key,
 	})
 }
 

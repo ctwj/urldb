@@ -117,11 +117,13 @@ type CreateReadyResourceRequest struct {
 	Source      string  `json:"source"`
 	Extra       string  `json:"extra"`
 	IP          *string `json:"ip"`
+	Key         string  `json:"key"`
 }
 
 // BatchCreateReadyResourceRequest 批量创建待处理资源请求
 type BatchCreateReadyResourceRequest struct {
 	Resources []CreateReadyResourceRequest `json:"resources" binding:"required"`
+	Key       string                       `json:"key"`
 }
 
 // SearchRequest 搜索请求

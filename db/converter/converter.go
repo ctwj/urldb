@@ -179,6 +179,7 @@ func ToReadyResourceResponse(resource *entity.ReadyResource) dto.ReadyResourceRe
 		Img:        resource.Img,
 		Source:     resource.Source,
 		Extra:      resource.Extra,
+		Key:        resource.Key,
 		CreateTime: resource.CreateTime,
 		IP:         resource.IP,
 	}
@@ -208,6 +209,7 @@ func RequestToReadyResource(req *dto.ReadyResourceRequest) *entity.ReadyResource
 		Img:         req.Img,
 		Source:      req.Source,
 		Extra:       req.Extra,
+		Key:         req.Key,
 	}
 }
 

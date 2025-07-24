@@ -5,6 +5,7 @@ import (
 
 	"github.com/ctwj/urldb/db/entity"
 
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"gorm.io/gorm"
 )
 
@@ -13,10 +14,13 @@ type ReadyResourceRepository interface {
 	BaseRepository[entity.ReadyResource]
 	FindByURL(url string) (*entity.ReadyResource, error)
 	FindByIP(ip string) ([]entity.ReadyResource, error)
+	FindByKey(key string) ([]entity.ReadyResource, error)
 	BatchCreate(resources []entity.ReadyResource) error
 	DeleteByURL(url string) error
+	DeleteByKey(key string) error
 	FindAllWithinDays(days int) ([]entity.ReadyResource, error)
 	BatchFindByURLs(urls []string) ([]entity.ReadyResource, error)
+	GenerateUniqueKey() (string, error)
 }
 
 // ReadyResourceRepositoryImpl ReadyResource的Repository实现
@@ -77,4 +81,35 @@ func (r *ReadyResourceRepositoryImpl) BatchFindByURLs(urls []string) ([]entity.R
 	}
 	err := r.db.Where("url IN ?", urls).Find(&resources).Error
 	return resources, err
+}
+
+// FindByKey 根据Key查找
+func (r *ReadyResourceRepositoryImpl) FindByKey(key string) ([]entity.ReadyResource, error) {
+	var resources []entity.ReadyResource
+	err := r.db.Where("key = ?", key).Find(&resources).Error
+	return resources, err
+}
+
+// DeleteByKey 根据Key删除
+func (r *ReadyResourceRepositoryImpl) DeleteByKey(key string) error {
+	return r.db.Where("key = ?", key).Delete(&entity.ReadyResource{}).Error
+}
+
+// GenerateUniqueKey 生成唯一的6位Base62 key
+func (r *ReadyResourceRepositoryImpl) GenerateUniqueKey() (string, error) {
+	for i := 0; i < 20; i++ {
+		key, err := gonanoid.Generate("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 6)
+		if err != nil {
+			return "", err
+		}
+		var count int64
+		err = r.db.Model(&entity.ReadyResource{}).Where("key = ?", key).Count(&count).Error
+		if err != nil {
+			return "", err
+		}
+		if count == 0 {
+			return key, nil
+		}
+	}
+	return "", gorm.ErrInvalidData
 }

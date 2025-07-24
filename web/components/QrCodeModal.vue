@@ -96,14 +96,16 @@ import QRCode from 'qrcode'
 
 interface Props {
   visible: boolean
-  url: string
+  url?: string
 }
 
 interface Emits {
   (e: 'close'): void
 }
 
-const props = defineProps<Props>()
+const props =  withDefaults(defineProps<Props>(), {
+  url: ''
+})
 const emit = defineEmits<Emits>()
 
 const qrCanvas = ref<HTMLCanvasElement>()

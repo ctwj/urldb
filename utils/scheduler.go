@@ -486,6 +486,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 			PanID:       s.getPanIDByServiceType(serviceType),
 			IsValid:     true,
 			IsPublic:    true,
+			Key:         readyResource.Key,
 		}
 
 		// 如果有分类信息，尝试查找或创建分类

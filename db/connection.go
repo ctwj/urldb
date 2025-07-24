@@ -125,6 +125,11 @@ func createIndexes(db *gorm.DB) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_is_valid ON resources(is_valid)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_is_public ON resources(is_public)")
 
+	// 待处理资源表索引
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_ready_resource_key ON ready_resource(key)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_ready_resource_url ON ready_resource(url)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_ready_resource_create_time ON ready_resource(create_time DESC)")
+
 	// 搜索统计表索引
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_search_stats_query ON search_stats(query)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_search_stats_created_at ON search_stats(created_at DESC)")

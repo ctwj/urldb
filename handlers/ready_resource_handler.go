@@ -69,6 +69,16 @@ func CreateReadyResource(c *gin.Context) {
 		}
 	}
 
+	// 如果没有提供key，则自动生成
+	if req.Key == "" {
+		key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
+		if err != nil {
+			ErrorResponse(c, "生成资源组标识失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		req.Key = key
+	}
+
 	resource := &entity.ReadyResource{
 		Title:       req.Title,
 		Description: req.Description,
@@ -79,6 +89,7 @@ func CreateReadyResource(c *gin.Context) {
 		Source:      req.Source,
 		Extra:       req.Extra,
 		IP:          req.IP,
+		Key:         req.Key,
 	}
 
 	err := repoManager.ReadyResourceRepository.Create(resource)
@@ -89,6 +100,7 @@ func CreateReadyResource(c *gin.Context) {
 
 	SuccessResponse(c, gin.H{
 		"id":      resource.ID,
+		"key":     resource.Key,
 		"message": "待处理资源创建成功",
 	})
 }
@@ -132,7 +144,18 @@ func BatchCreateReadyResources(c *gin.Context) {
 		}
 	}
 
-	// 4. 过滤掉已存在的URL
+	// 4. 生成批量key（如果请求中没有提供）
+	batchKey := req.Key
+	if batchKey == "" {
+		key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
+		if err != nil {
+			ErrorResponse(c, "生成批量资源组标识失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		batchKey = key
+	}
+
+	// 5. 过滤掉已存在的URL
 	var resources []entity.ReadyResource
 	for _, reqResource := range req.Resources {
 		url := reqResource.URL
@@ -145,6 +168,13 @@ func BatchCreateReadyResources(c *gin.Context) {
 		if _, ok := existResourceUrls[url]; ok {
 			continue
 		}
+
+		// 使用批量key或单个key
+		resourceKey := batchKey
+		if reqResource.Key != "" {
+			resourceKey = reqResource.Key
+		}
+
 		resource := entity.ReadyResource{
 			Title:       reqResource.Title,
 			Description: reqResource.Description,
@@ -155,6 +185,7 @@ func BatchCreateReadyResources(c *gin.Context) {
 			Source:      reqResource.Source,
 			Extra:       reqResource.Extra,
 			IP:          reqResource.IP,
+			Key:         resourceKey,
 		}
 		resources = append(resources, resource)
 	}
@@ -175,6 +206,7 @@ func BatchCreateReadyResources(c *gin.Context) {
 
 	SuccessResponse(c, gin.H{
 		"count":   len(resources),
+		"key":     batchKey,
 		"message": "批量创建成功",
 	})
 }
@@ -259,5 +291,62 @@ func ClearReadyResources(c *gin.Context) {
 	SuccessResponse(c, gin.H{
 		"deleted_count": len(resources),
 		"message":       "所有待处理资源已清空",
+	})
+}
+
+// GetReadyResourcesByKey 根据key获取待处理资源
+func GetReadyResourcesByKey(c *gin.Context) {
+	key := c.Param("key")
+	if key == "" {
+		ErrorResponse(c, "key参数不能为空", http.StatusBadRequest)
+		return
+	}
+
+	resources, err := repoManager.ReadyResourceRepository.FindByKey(key)
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	responses := converter.ToReadyResourceResponseList(resources)
+
+	SuccessResponse(c, gin.H{
+		"data":  responses,
+		"key":   key,
+		"count": len(resources),
+	})
+}
+
+// DeleteReadyResourcesByKey 根据key删除待处理资源
+func DeleteReadyResourcesByKey(c *gin.Context) {
+	key := c.Param("key")
+	if key == "" {
+		ErrorResponse(c, "key参数不能为空", http.StatusBadRequest)
+		return
+	}
+
+	// 先查询要删除的资源数量
+	resources, err := repoManager.ReadyResourceRepository.FindByKey(key)
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(resources) == 0 {
+		ErrorResponse(c, "未找到指定key的资源", http.StatusNotFound)
+		return
+	}
+
+	// 删除所有具有相同key的资源
+	err = repoManager.ReadyResourceRepository.DeleteByKey(key)
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, gin.H{
+		"deleted_count": len(resources),
+		"key":           key,
+		"message":       "资源组删除成功",
 	})
 }

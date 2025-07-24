@@ -25,7 +25,7 @@ export default defineNuxtConfig({
       })
     ],
     optimizeDeps: {
-      include: ['naive-ui', 'vueuc', 'date-fns'],
+      include: ['vueuc', 'date-fns'],
       exclude: ["oxc-parser"] // 强制使用 WASM 版本
     }
   },

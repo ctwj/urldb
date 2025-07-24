@@ -88,6 +88,7 @@ type ReadyResourceResponse struct {
 	Img         string    `json:"img"`
 	Source      string    `json:"source"`
 	Extra       string    `json:"extra"`
+	Key         string    `json:"key"`
 	CreateTime  time.Time `json:"create_time"`
 	IP          *string   `json:"ip"`
 }
