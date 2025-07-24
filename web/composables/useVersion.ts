@@ -18,7 +18,7 @@ interface VersionResponse {
 
 export const useVersion = () => {
   const versionInfo = ref<VersionInfo>({
-    version: '1.0.8',
+    version: '1.0.9',
     build_time: '',
     git_commit: 'unknown',
     git_branch: 'unknown',

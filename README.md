@@ -186,9 +186,9 @@ l9pan/
 ./scripts/version.sh show
 
 # 更新版本号
-./scripts/version.sh patch    # 修订版本 1.0.8)
-./scripts/version.sh minor    # 次版本 1.0.8)
-./scripts/version.sh major    # 主版本 1.0.8)
+./scripts/version.sh patch    # 修订版本 1.0.9)
+./scripts/version.sh minor    # 次版本 1.0.9)
+./scripts/version.sh major    # 主版本 1.0.9)
 
 # 发布版本到GitHub
 ./scripts/version.sh release
@@ -242,7 +242,7 @@ docker push ctwj/urldb-backend:1.0.7
 
 提供，批量入库和搜索api，通过 apiToken 授权
 
-> 📖 完整API文档请访问：`http://p.l9.lc/doc.html`
+> 📖 完整API文档请访问：`http://doc.l9.lc/`
 
 ## 🤝 贡献指南
 

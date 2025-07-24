@@ -20,7 +20,7 @@ services:
       - app-network
 
   backend:
-    image: ctwj/urldb-backend:1.0.8
+    image: ctwj/urldb-backend:1.0.9
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -37,7 +37,7 @@ services:
       - app-network
 
   frontend:
-    image: ctwj/urldb-frontend:1.0.8
+    image: ctwj/urldb-frontend:1.0.9
     environment:
       NUXT_PUBLIC_API_SERVER: http://backend:8080/api
       NUXT_PUBLIC_API_CLIENT: /api
