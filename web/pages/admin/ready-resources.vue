@@ -310,7 +310,8 @@ https://pan.baidu.com/s/345678</pre>
 <script setup lang="ts">
 // 设置页面布局
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin',
+  ssr: false
 })
 
 interface ReadyResource {

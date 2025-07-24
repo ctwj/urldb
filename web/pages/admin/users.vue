@@ -197,13 +197,14 @@
 <script setup lang="ts">
 // 设置页面布局
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin',
+  ssr: false
 })
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const users = ref([])
+const users = ref<any[]>([])
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showPasswordModal = ref(false)

@@ -295,7 +295,8 @@
 
 <script setup>
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin',
+  ssr: false
 })
 
 const router = useRouter()
