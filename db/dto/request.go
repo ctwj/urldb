@@ -108,22 +108,21 @@ type UpdateTagRequest struct {
 
 // CreateReadyResourceRequest 创建待处理资源请求
 type CreateReadyResourceRequest struct {
-	Title       *string `json:"title"`
-	Description string  `json:"description"`
-	URL         string  `json:"url" binding:"required"`
-	Category    string  `json:"category"`
-	Tags        string  `json:"tags"`
-	Img         string  `json:"img"`
-	Source      string  `json:"source"`
-	Extra       string  `json:"extra"`
-	IP          *string `json:"ip"`
-	Key         string  `json:"key"`
+	Title       *string  `json:"title"`
+	Description string   `json:"description"`
+	URL         []string `json:"url" binding:"required"`
+	Category    string   `json:"category"`
+	Tags        string   `json:"tags"`
+	Img         string   `json:"img"`
+	Source      string   `json:"source"`
+	Extra       string   `json:"extra"`
+	IP          *string  `json:"ip"`
+	Key         string   `json:"key"`
 }
 
 // BatchCreateReadyResourceRequest 批量创建待处理资源请求
 type BatchCreateReadyResourceRequest struct {
 	Resources []CreateReadyResourceRequest `json:"resources" binding:"required"`
-	Key       string                       `json:"key"`
 }
 
 // SearchRequest 搜索请求

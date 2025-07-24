@@ -324,7 +324,7 @@ func RefreshCapacity(c *gin.Context) {
 	cks.UsedSpace = userInfo.UsedSpace
 	cks.IsValid = userInfo.VIPStatus // 根据VIP状态更新有效性
 
-	err = repoManager.CksRepository.Update(cks)
+	err = repoManager.CksRepository.UpdateWithAllFields(cks)
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return

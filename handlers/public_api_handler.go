@@ -3,8 +3,8 @@ package handlers
 import (
 	"strconv"
 
-	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
+	"github.com/ctwj/urldb/db/entity"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,70 +15,6 @@ type PublicAPIHandler struct{}
 // NewPublicAPIHandler 创建公开API处理器
 func NewPublicAPIHandler() *PublicAPIHandler {
 	return &PublicAPIHandler{}
-}
-
-// AddSingleResource godoc
-// @Summary 单个添加资源
-// @Description 通过公开API添加单个资源到待处理列表
-// @Tags PublicAPI
-// @Accept json
-// @Produce json
-// @Param X-API-Token header string true "API访问令牌"
-// @Param data body dto.ReadyResourceRequest true "资源信息"
-// @Success 200 {object} map[string]interface{} "添加成功"
-// @Failure 400 {object} map[string]interface{} "请求参数错误"
-// @Failure 401 {object} map[string]interface{} "认证失败"
-// @Failure 500 {object} map[string]interface{} "服务器内部错误"
-// @Router /api/public/resources/add [post]
-func (h *PublicAPIHandler) AddSingleResource(c *gin.Context) {
-	var req dto.ReadyResourceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorResponse(c, "请求参数错误: "+err.Error(), 400)
-		return
-	}
-
-	// 验证必填字段
-	if req.Title == "" {
-		ErrorResponse(c, "标题不能为空", 400)
-		return
-	}
-
-	if req.Url == "" {
-		ErrorResponse(c, "URL不能为空", 400)
-		return
-	}
-
-	// 转换为实体
-	readyResource := converter.RequestToReadyResource(&req)
-	if readyResource == nil {
-		ErrorResponse(c, "数据转换失败", 500)
-		return
-	}
-
-	// 设置来源
-	readyResource.Source = "公开API"
-
-	// 如果没有提供key，则自动生成
-	if readyResource.Key == "" {
-		key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
-		if err != nil {
-			ErrorResponse(c, "生成资源组标识失败: "+err.Error(), 500)
-			return
-		}
-		readyResource.Key = key
-	}
-
-	// 保存到数据库
-	err := repoManager.ReadyResourceRepository.Create(readyResource)
-	if err != nil {
-		ErrorResponse(c, "添加资源失败: "+err.Error(), 500)
-		return
-	}
-
-	SuccessResponse(c, gin.H{
-		"id":  readyResource.ID,
-		"key": readyResource.Key,
-	})
 }
 
 // AddBatchResources godoc
@@ -106,26 +42,62 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 		return
 	}
 
-	// 验证每个资源
-	for i, resource := range req.Resources {
-		if resource.Title == "" {
-			ErrorResponse(c, "第"+strconv.Itoa(i+1)+"个资源标题不能为空", 400)
-			return
-		}
-
-		if resource.Url == "" {
-			ErrorResponse(c, "第"+strconv.Itoa(i+1)+"个资源URL不能为空", 400)
-			return
+	// 收集所有待提交的URL，去重
+	urlSet := make(map[string]struct{})
+	for _, resource := range req.Resources {
+		for _, u := range resource.Url {
+			if u != "" {
+				urlSet[u] = struct{}{}
+			}
 		}
 	}
+	uniqueUrls := make([]string, 0, len(urlSet))
+	for url := range urlSet {
+		uniqueUrls = append(uniqueUrls, url)
+	}
 
-	// 批量保存
+	// 批量查重
+	readyList, _ := repoManager.ReadyResourceRepository.BatchFindByURLs(uniqueUrls)
+	existReadyUrls := make(map[string]struct{})
+	for _, r := range readyList {
+		existReadyUrls[r.URL] = struct{}{}
+	}
+	resourceList, _ := repoManager.ResourceRepository.BatchFindByURLs(uniqueUrls)
+	existResourceUrls := make(map[string]struct{})
+	for _, r := range resourceList {
+		existResourceUrls[r.URL] = struct{}{}
+	}
+
 	var createdResources []uint
 	for _, resourceReq := range req.Resources {
-		readyResource := converter.RequestToReadyResource(&resourceReq)
-		if readyResource != nil {
-			readyResource.Source = "公开API批量添加"
-			err := repoManager.ReadyResourceRepository.Create(readyResource)
+		// 生成 key（每组同一个 key）
+		key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
+		if err != nil {
+			ErrorResponse(c, "生成资源组标识失败: "+err.Error(), 500)
+			return
+		}
+		for _, url := range resourceReq.Url {
+			if url == "" {
+				continue
+			}
+			if _, ok := existReadyUrls[url]; ok {
+				continue
+			}
+			if _, ok := existResourceUrls[url]; ok {
+				continue
+			}
+			readyResource := entity.ReadyResource{
+				Title:       &resourceReq.Title,
+				Description: resourceReq.Description,
+				URL:         url,
+				Category:    resourceReq.Category,
+				Tags:        resourceReq.Tags,
+				Img:         resourceReq.Img,
+				Source:      "api",
+				Extra:       resourceReq.Extra,
+				Key:         key,
+			}
+			err := repoManager.ReadyResourceRepository.Create(&readyResource)
 			if err == nil {
 				createdResources = append(createdResources, readyResource.ID)
 			}

@@ -46,57 +46,6 @@
 
         <!-- API接口列表 -->
         <div class="space-y-8">
-          <!-- 单个添加资源 -->
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-            <div class="bg-green-600 text-white px-6 py-4">
-              <h3 class="text-xl font-semibold flex items-center">
-                <i class="fas fa-plus-circle mr-2"></i>
-                单个添加资源
-              </h3>
-              <p class="text-green-100 mt-1">添加单个资源到待处理列表</p>
-            </div>
-            <div class="p-6">
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h4 class="font-semibold text-gray-900 dark:text-white mb-3">请求信息</h4>
-                  <div class="space-y-2 text-sm">
-                    <p><strong>方法：</strong><span class="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-1 rounded">POST</span></p>
-                    <p><strong>路径：</strong><code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/api/public/resources/add</code></p>
-                    <p><strong>认证：</strong><span class="text-red-600 dark:text-red-400">必需</span></p>
-                  </div>
-                </div>
-                <div>
-                  <h4 class="font-semibold text-gray-900 dark:text-white mb-3">请求参数</h4>
-                  <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
-                    <pre class="text-sm overflow-x-auto"><code>{
-  "title": "资源标题",
-  "description": "资源描述",
-  "url": "资源链接",
-  "category": "分类名称",
-  "tags": "标签1,标签2",
-  "img": "封面图片链接",
-  "source": "数据来源",
-  "extra": "额外信息"
-}</code></pre>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-6">
-                <h4 class="font-semibold text-gray-900 dark:text-white mb-3">响应示例</h4>
-                <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
-                  <pre class="text-sm overflow-x-auto"><code>{
-  "success": true,
-  "message": "资源添加成功，已进入待处理列表",
-  "data": {
-    "id": 123
-  },
-  "code": 200
-}</code></pre>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- 批量添加资源 -->
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             <div class="bg-purple-600 text-white px-6 py-4">
@@ -104,7 +53,7 @@
                 <i class="fas fa-layer-group mr-2"></i>
                 批量添加资源
               </h3>
-              <p class="text-purple-100 mt-1">批量添加多个资源到待处理列表</p>
+              <p class="text-purple-100 mt-1">批量添加多个资源到待处理列表，每个资源可包含多个链接（url为数组），标题和url为必填项</p>
             </div>
             <div class="p-6">
               <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -113,22 +62,28 @@
                   <div class="space-y-2 text-sm">
                     <p><strong>方法：</strong><span class="bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-1 rounded">POST</span></p>
                     <p><strong>路径：</strong><code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/api/public/resources/batch-add</code></p>
-                    <p><strong>认证：</strong><span class="text-red-600 dark:text-red-400">必需</span></p>
+                    <p><strong>认证：</strong><span class="text-red-600 dark:text-red-400">必需</span>（X-API-Token）</p>
                   </div>
                 </div>
                 <div>
                   <h4 class="font-semibold text-gray-900 dark:text-white mb-3">请求参数</h4>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">title 和 url 是必填项，其他字段均为选填</p>
                   <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
                     <pre class="text-sm overflow-x-auto"><code>{
   "resources": [
     {
       "title": "资源1",
-      "url": "链接1",
-      "description": "描述1"
+      "description": "描述1",
+      "url": ["链接1", "链接2"],
+      "category": "分类",
+      "tags": "标签1,标签2",
+      "img": "图片链接",
+      "source": "数据来源",
+      "extra": "额外信息"
     },
     {
-      "title": "资源2", 
-      "url": "链接2",
+      "title": "资源2",
+      "url": ["链接3"],
       "description": "描述2"
     }
   ]
@@ -141,7 +96,7 @@
                 <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
                   <pre class="text-sm overflow-x-auto"><code>{
   "success": true,
-  "message": "批量添加成功，共添加 2 个资源",
+  "message": "批量添加成功",
   "data": {
     "created_count": 2,
     "created_ids": [123, 124]
@@ -323,14 +278,15 @@
               <pre class="text-sm overflow-x-auto"><code># 设置API Token
 API_TOKEN="your_api_token_here"
 
-# 单个添加资源
-curl -X POST "http://localhost:8080/api/public/resources/add" \
+# 批量添加资源
+curl -X POST "http://localhost:8080/api/public/resources/batch-add" \
   -H "Content-Type: application/json" \
   -H "X-API-Token: $API_TOKEN" \
   -d '{
-    "title": "测试资源",
-    "url": "https://example.com/resource",
-    "description": "测试描述"
+    "resources": [
+      { "title": "测试资源1", "url": ["https://example.com/resource1"], "description": "描述1" },
+      { "title": "测试资源2", "url": ["https://example.com/resource2", "https://example.com/resource3"], "description": "描述2" }
+    ]
   }'
 
 # 搜索资源
@@ -355,16 +311,21 @@ fetch('/api/public/resources/search?q=测试', { headers: { 'X-API-Token': 'your
       alert(res.message)
     }
   })
-// 单个添加资源
-fetch('/api/public/resources/add', {
+// 批量添加资源
+fetch('/api/public/resources/batch-add', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'X-API-Token': 'your_token' },
-  body: JSON.stringify({ title: 'xxx', url: 'xxx' })
+  body: JSON.stringify({
+    resources: [
+      { title: 'xxx', url: ['xxx'], description: 'xxx' },
+      { title: 'yyy', url: ['yyy', 'zzz'], description: 'yyy' }
+    ]
+  })
 })
   .then(res => res.json())
   .then(res => {
     if (res.success) {
-      alert('添加成功，ID：' + res.data.id)
+      alert('添加成功，ID: ' + res.data.created_ids.join(', '))
     } else {
       alert(res.message)
     }

@@ -22,12 +22,27 @@ export function useApiFetch<T = any>(
     ...options,
     headers,
     onResponse({ response }) {
+      if (response.status === 401 ||
+        (response._data && (response._data.code === 401 || response._data.error === '无效的令牌'))
+      ) {
+        userStore.logout()
+        if (process.client) {
+          window.location.href = '/login'
+        }
+        // 触发 onResponseError 逻辑
+        throw Object.assign(new Error('登录已过期，请重新登录'), {
+          data: response._data,
+          status: response.status,
+        })
+      }
+
       // 统一处理 code/message
       if (response._data && response._data.code && response._data.code !== 200) {
         throw new Error(response._data.message || '请求失败')
       }
     },
     onResponseError({ error }: { error: any }) {
+      console.log('error', error)
       // 检查是否为"无效的令牌"错误
       if (error?.data?.error === '无效的令牌') {
         // 清除用户状态

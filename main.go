@@ -102,8 +102,6 @@ func main() {
 		publicAPI := api.Group("/public")
 		publicAPI.Use(middleware.PublicAPIAuth())
 		{
-			// 单个添加资源
-			publicAPI.POST("/resources/add", publicAPIHandler.AddSingleResource)
 			// 批量添加资源
 			publicAPI.POST("/resources/batch-add", publicAPIHandler.AddBatchResources)
 			// 资源搜索
@@ -166,7 +164,6 @@ func main() {
 
 		// 待处理资源管理
 		api.GET("/ready-resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetReadyResources)
-		api.POST("/ready-resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateReadyResource)
 		api.POST("/ready-resources/batch", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.BatchCreateReadyResources)
 		api.POST("/ready-resources/text", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateReadyResourcesFromText)
 		api.DELETE("/ready-resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteReadyResource)

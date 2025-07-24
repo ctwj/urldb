@@ -46,65 +46,6 @@ func GetReadyResources(c *gin.Context) {
 	})
 }
 
-// CreateReadyResource 创建待处理资源
-func CreateReadyResource(c *gin.Context) {
-	var req dto.CreateReadyResourceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorResponse(c, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if req.URL != "" {
-		// 检查待处理资源表
-		readyList, _ := repoManager.ReadyResourceRepository.BatchFindByURLs([]string{req.URL})
-		if len(readyList) > 0 {
-			ErrorResponse(c, "该URL已存在于待处理资源列表", http.StatusBadRequest)
-			return
-		}
-		// 检查资源表
-		resourceList, _ := repoManager.ResourceRepository.BatchFindByURLs([]string{req.URL})
-		if len(resourceList) > 0 {
-			ErrorResponse(c, "该URL已存在于资源列表", http.StatusBadRequest)
-			return
-		}
-	}
-
-	// 如果没有提供key，则自动生成
-	if req.Key == "" {
-		key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
-		if err != nil {
-			ErrorResponse(c, "生成资源组标识失败: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		req.Key = key
-	}
-
-	resource := &entity.ReadyResource{
-		Title:       req.Title,
-		Description: req.Description,
-		URL:         req.URL,
-		Category:    req.Category,
-		Tags:        req.Tags,
-		Img:         req.Img,
-		Source:      req.Source,
-		Extra:       req.Extra,
-		IP:          req.IP,
-		Key:         req.Key,
-	}
-
-	err := repoManager.ReadyResourceRepository.Create(resource)
-	if err != nil {
-		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	SuccessResponse(c, gin.H{
-		"id":      resource.ID,
-		"key":     resource.Key,
-		"message": "待处理资源创建成功",
-	})
-}
-
 // BatchCreateReadyResources 批量创建待处理资源
 func BatchCreateReadyResources(c *gin.Context) {
 	var req dto.BatchCreateReadyResourceRequest
@@ -116,10 +57,14 @@ func BatchCreateReadyResources(c *gin.Context) {
 	// 1. 先收集所有待提交的URL，去重
 	urlSet := make(map[string]struct{})
 	for _, reqResource := range req.Resources {
-		if reqResource.URL == "" {
+		if len(reqResource.URL) == 0 {
 			continue
 		}
-		urlSet[reqResource.URL] = struct{}{}
+		for _, u := range reqResource.URL {
+			if u != "" {
+				urlSet[u] = struct{}{}
+			}
+		}
 	}
 	uniqueUrls := make([]string, 0, len(urlSet))
 	for url := range urlSet {
@@ -144,50 +89,42 @@ func BatchCreateReadyResources(c *gin.Context) {
 		}
 	}
 
-	// 4. 生成批量key（如果请求中没有提供）
-	batchKey := req.Key
-	if batchKey == "" {
+	// 5. 过滤掉已存在的URL
+	var resources []entity.ReadyResource
+	for _, reqResource := range req.Resources {
+		if len(reqResource.URL) == 0 {
+			continue
+		}
 		key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
 		if err != nil {
 			ErrorResponse(c, "生成批量资源组标识失败: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		batchKey = key
-	}
+		for _, url := range reqResource.URL {
+			if url == "" {
+				continue
+			}
+			if _, ok := existReadyUrls[url]; ok {
+				continue
+			}
+			if _, ok := existResourceUrls[url]; ok {
+				continue
+			}
 
-	// 5. 过滤掉已存在的URL
-	var resources []entity.ReadyResource
-	for _, reqResource := range req.Resources {
-		url := reqResource.URL
-		if url == "" {
-			continue
+			resource := entity.ReadyResource{
+				Title:       reqResource.Title,
+				Description: reqResource.Description,
+				URL:         url,
+				Category:    reqResource.Category,
+				Tags:        reqResource.Tags,
+				Img:         reqResource.Img,
+				Source:      reqResource.Source,
+				Extra:       reqResource.Extra,
+				IP:          reqResource.IP,
+				Key:         key,
+			}
+			resources = append(resources, resource)
 		}
-		if _, ok := existReadyUrls[url]; ok {
-			continue
-		}
-		if _, ok := existResourceUrls[url]; ok {
-			continue
-		}
-
-		// 使用批量key或单个key
-		resourceKey := batchKey
-		if reqResource.Key != "" {
-			resourceKey = reqResource.Key
-		}
-
-		resource := entity.ReadyResource{
-			Title:       reqResource.Title,
-			Description: reqResource.Description,
-			URL:         reqResource.URL,
-			Category:    reqResource.Category,
-			Tags:        reqResource.Tags,
-			Img:         reqResource.Img,
-			Source:      reqResource.Source,
-			Extra:       reqResource.Extra,
-			IP:          reqResource.IP,
-			Key:         resourceKey,
-		}
-		resources = append(resources, resource)
 	}
 
 	if len(resources) == 0 {
@@ -206,7 +143,6 @@ func BatchCreateReadyResources(c *gin.Context) {
 
 	SuccessResponse(c, gin.H{
 		"count":   len(resources),
-		"key":     batchKey,
 		"message": "批量创建成功",
 	})
 }

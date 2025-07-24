@@ -296,7 +296,6 @@
                     API使用说明
                   </h3>
                   <div class="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                    <p>• 单个添加资源: POST /api/public/resources/add</p>
                     <p>• 批量添加资源: POST /api/public/resources/batch-add</p>
                     <p>• 资源搜索: GET /api/public/resources/search</p>
                     <p>• 热门剧: GET /api/public/hot-dramas</p>

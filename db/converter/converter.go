@@ -195,23 +195,23 @@ func ToReadyResourceResponseList(resources []entity.ReadyResource) []dto.ReadyRe
 }
 
 // RequestToReadyResource 将ReadyResourceRequest转换为ReadyResource实体
-func RequestToReadyResource(req *dto.ReadyResourceRequest) *entity.ReadyResource {
-	if req == nil {
-		return nil
-	}
+// func RequestToReadyResource(req *dto.ReadyResourceRequest) *entity.ReadyResource {
+// 	if req == nil {
+// 		return nil
+// 	}
 
-	return &entity.ReadyResource{
-		Title:       &req.Title,
-		Description: req.Description,
-		URL:         req.Url,
-		Category:    req.Category,
-		Tags:        req.Tags,
-		Img:         req.Img,
-		Source:      req.Source,
-		Extra:       req.Extra,
-		Key:         req.Key,
-	}
-}
+// 	return &entity.ReadyResource{
+// 		Title:       &req.Title,
+// 		Description: req.Description,
+// 		URL:         req.Url,
+// 		Category:    req.Category,
+// 		Tags:        req.Tags,
+// 		Img:         req.Img,
+// 		Source:      req.Source,
+// 		Extra:       req.Extra,
+// 		Key:         req.Key,
+// 	}
+// }
 
 // SystemConfigToPublicResponse 返回不含 api_token 的系统配置响应
 func SystemConfigToPublicResponse(config *entity.SystemConfig) gin.H {
