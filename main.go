@@ -44,6 +44,8 @@ func main() {
 		repoManager.SystemConfigRepository,
 		repoManager.PanRepository,
 		repoManager.CksRepository,
+		repoManager.TagRepository,
+		repoManager.CategoryRepository,
 	)
 
 	// 检查系统配置，决定是否启动各种自动任务

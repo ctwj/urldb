@@ -77,9 +77,3 @@
 3. 遵循项目的贡献指南
 
 ---
-
-## 链接
-
-- [项目主页](https://github.com/your-username/l9pan)
-- [问题反馈](https://github.com/your-username/l9pan/issues)
-- [讨论区](https://github.com/your-username/l9 

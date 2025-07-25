@@ -17,19 +17,16 @@ var DB *gorm.DB
 // InitDB 初始化数据库连接
 func InitDB() error {
 	host := os.Getenv("DB_HOST")
-	fmt.Printf("DB_HOST=%s\n", host)
 	if host == "" {
 		host = "localhost"
 	}
 
 	port := os.Getenv("DB_PORT")
-	fmt.Printf("DB_HOST=%s\n", port)
 	if port == "" {
 		port = "5432"
 	}
 
 	user := os.Getenv("DB_USER")
-	fmt.Printf("DB_HOST=%s\n", user)
 	if user == "" {
 		user = "postgres"
 	}

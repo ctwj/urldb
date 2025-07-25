@@ -33,6 +33,7 @@ type ResourceRepository interface {
 	FindExists(url string, excludeID ...uint) (bool, error)
 	BatchFindByURLs(urls []string) ([]entity.Resource, error)
 	GetResourcesForTransfer(panID uint, sinceTime time.Time) ([]*entity.Resource, error)
+	CreateResourceTag(resourceID, tagID uint) error
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -333,7 +334,7 @@ func (r *ResourceRepositoryImpl) InvalidateCache() error {
 // FindExists 检查是否存在相同URL的资源
 func (r *ResourceRepositoryImpl) FindExists(url string, excludeID ...uint) (bool, error) {
 	var count int64
-	query := r.db.Model(&entity.Resource{}).Where("url = ?", url)
+	query := r.db.Model(&entity.Resource{}).Where("url = ? or save_url ", url, url)
 
 	// 如果有排除ID，则排除该记录（用于更新时排除自己）
 	if len(excludeID) > 0 {
@@ -368,4 +369,13 @@ func (r *ResourceRepositoryImpl) GetResourcesForTransfer(panID uint, sinceTime t
 		return nil, err
 	}
 	return resources, nil
+}
+
+// CreateResourceTag 创建资源与标签的关联
+func (r *ResourceRepositoryImpl) CreateResourceTag(resourceID, tagID uint) error {
+	resourceTag := &entity.ResourceTag{
+		ResourceID: resourceID,
+		TagID:      tagID,
+	}
+	return r.GetDB().Create(resourceTag).Error
 }

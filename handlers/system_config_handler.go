@@ -164,6 +164,8 @@ func UpdateSystemConfig(c *gin.Context) {
 		repoManager.SystemConfigRepository,
 		repoManager.PanRepository,
 		repoManager.CksRepository,
+		repoManager.TagRepository,
+		repoManager.CategoryRepository,
 	)
 	if scheduler != nil {
 		scheduler.UpdateSchedulerStatusWithAutoTransfer(req.AutoFetchHotDramaEnabled, req.AutoProcessReadyResources, req.AutoTransferEnabled)

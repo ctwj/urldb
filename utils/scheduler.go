@@ -16,13 +16,16 @@ import (
 
 // Scheduler 定时任务管理器
 type Scheduler struct {
-	doubanService        *DoubanService
-	hotDramaRepo         repo.HotDramaRepository
-	readyResourceRepo    repo.ReadyResourceRepository
-	resourceRepo         repo.ResourceRepository
-	systemConfigRepo     repo.SystemConfigRepository
-	panRepo              repo.PanRepository
-	cksRepo              repo.CksRepository
+	doubanService     *DoubanService
+	hotDramaRepo      repo.HotDramaRepository
+	readyResourceRepo repo.ReadyResourceRepository
+	resourceRepo      repo.ResourceRepository
+	systemConfigRepo  repo.SystemConfigRepository
+	panRepo           repo.PanRepository
+	cksRepo           repo.CksRepository
+	// 新增
+	tagRepo              repo.TagRepository
+	categoryRepo         repo.CategoryRepository
 	stopChan             chan bool
 	isRunning            bool
 	readyResourceRunning bool
@@ -37,7 +40,7 @@ type Scheduler struct {
 }
 
 // NewScheduler 创建新的定时任务管理器
-func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository, cksRepo repo.CksRepository) *Scheduler {
+func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository, cksRepo repo.CksRepository, tagRepo repo.TagRepository, categoryRepo repo.CategoryRepository) *Scheduler {
 	return &Scheduler{
 		doubanService:        NewDoubanService(),
 		hotDramaRepo:         hotDramaRepo,
@@ -46,6 +49,8 @@ func NewScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.R
 		systemConfigRepo:     systemConfigRepo,
 		panRepo:              panRepo,
 		cksRepo:              cksRepo,
+		tagRepo:              tagRepo,
+		categoryRepo:         categoryRepo,
 		stopChan:             make(chan bool),
 		isRunning:            false,
 		readyResourceRunning: false,
@@ -401,6 +406,17 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 
 	Debug("检测到服务类型: %s, 分享ID: %s", serviceType.String(), shareID)
 
+	resource := &entity.Resource{
+		Title:       derefString(readyResource.Title),
+		Description: readyResource.Description,
+		URL:         readyResource.URL,
+		Cover:       readyResource.Img,
+		IsValid:     true,
+		IsPublic:    true,
+		Key:         readyResource.Key,
+		PanID:       s.getPanIDByServiceType(serviceType),
+	}
+
 	// 不是夸克，直接保存，
 	if serviceType != panutils.Quark {
 		// 检测是否有效
@@ -410,67 +426,67 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 			return nil
 		}
 
-		// 入库
-	}
-
-	// 准备配置
-	config := &panutils.PanConfig{
-		URL:         readyResource.URL,
-		Code:        "", // 可以从readyResource中获取
-		IsType:      1,  // 转存并分享后的资源信息  0 转存后分享， 1 只获取基本信息
-		ExpiredType: 1,  // 永久分享
-		AdFid:       "",
-		Stoken:      "",
-	}
-
-	// 通过工厂获取对应的网盘服务单例
-	panService, err := factory.CreatePanService(readyResource.URL, config)
-	if err != nil {
-		Error("获取网盘服务失败: %v", err)
-		return err
-	}
-
-	// 统一处理：尝试转存获取标题
-	result, err := panService.Transfer(shareID)
-	if err != nil {
-		Error("网盘信息获取失败: %v", err)
-		return err
-	}
-
-	if !result.Success {
-		Error("网盘信息获取失败: %s", result.Message)
 		return nil
-	}
-
-	// 提取转存结果
-	if resultData, ok := result.Data.(map[string]interface{}); ok {
-		title := resultData["title"].(string)
-		shareURL := resultData["shareUrl"].(string)
-		// fid := resultData["fid"].(string) // 暂时未使用
-
-		// 创建资源记录
-		resource := &entity.Resource{
-			Title:       title,
-			Description: readyResource.Description,
-			URL:         shareURL,
-			PanID:       s.getPanIDByServiceType(serviceType),
-			IsValid:     true,
-			IsPublic:    true,
-			Key:         readyResource.Key,
+	} else {
+		// 准备配置
+		config := &panutils.PanConfig{
+			URL:         readyResource.URL,
+			Code:        "", // 可以从readyResource中获取
+			IsType:      1,  // 转存并分享后的资源信息  0 转存后分享， 1 只获取基本信息
+			ExpiredType: 1,  // 永久分享
+			AdFid:       "",
+			Stoken:      "",
 		}
 
-		// 如果有分类信息，尝试查找或创建分类
-		if readyResource.Category != "" {
-			categoryID, err := s.getOrCreateCategory(readyResource.Category)
-			if err == nil {
-				resource.CategoryID = &categoryID
-			}
+		// 通过工厂获取对应的网盘服务单例
+		panService, err := factory.CreatePanService(readyResource.URL, config)
+		if err != nil {
+			Error("获取网盘服务失败: %v", err)
+			return err
 		}
 
-		return s.resourceRepo.Create(resource)
+		// 统一处理：尝试转存获取标题
+		result, err := panService.Transfer(shareID)
+		if err != nil {
+			Error("网盘信息获取失败: %v", err)
+			return err
+		}
+
+		if !result.Success {
+			Error("网盘信息获取失败: %s", result.Message)
+			return nil
+		}
+
 	}
 
-	Error("转存结果格式异常")
+	// 处理标签
+	tagIDs, err := s.handleTags(readyResource.Tags)
+	if err != nil || tagIDs == nil {
+		Error("处理标签失败: %v", err)
+		return err
+	}
+	// 处理分类
+	categoryID, err := s.resolveCategory(readyResource.Category, tagIDs)
+	if err != nil {
+		Error("处理分类失败: %v", err)
+		return err
+	}
+	if categoryID != nil {
+		resource.CategoryID = categoryID
+	}
+	// 保存资源
+	err = s.resourceRepo.Create(resource)
+	if err != nil {
+		Error("资源保存失败: %v", err)
+		return err
+	}
+	// 插入 resource_tags 关联
+	for _, tagID := range tagIDs {
+		err := s.resourceRepo.CreateResourceTag(resource.ID, tagID)
+		if err != nil {
+			Error("插入资源标签关联失败: %v", err)
+		}
+	}
 	return nil
 }
 
@@ -862,4 +878,62 @@ func (s *Scheduler) calculateAccountScore(account *entity.Cks) int64 {
 	}
 
 	return score
+}
+
+// 分割标签，支持中英文逗号
+func splitTags(tagStr string) []string {
+	tagStr = strings.ReplaceAll(tagStr, "，", ",")
+	return strings.Split(tagStr, ",")
+}
+
+// 处理标签，返回所有标签ID
+func (s *Scheduler) handleTags(tagStr string) ([]uint, error) {
+	if tagStr == "" {
+		return nil, nil
+	}
+	tagNames := splitTags(tagStr)
+	var tagIDs []uint
+	for _, name := range tagNames {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		tag, err := s.tagRepo.FindByName(name)
+		if err != nil || tag == nil {
+			// 不存在则新建
+			tag = &entity.Tag{Name: name}
+			err = s.tagRepo.Create(tag)
+			if err != nil {
+				return nil, err
+			}
+		}
+		tagIDs = append(tagIDs, tag.ID)
+	}
+	return tagIDs, nil
+}
+
+// 分类处理逻辑
+func (s *Scheduler) resolveCategory(categoryName string, tagIDs []uint) (*uint, error) {
+	if categoryName != "" {
+		cat, err := s.categoryRepo.FindByName(categoryName)
+		if err == nil && cat != nil {
+			return &cat.ID, nil
+		}
+	}
+	// 没有分类，尝试用标签反查
+	for _, tagID := range tagIDs {
+		tag, err := s.tagRepo.GetByID(tagID)
+		if err == nil && tag != nil && tag.CategoryID != nil {
+			return tag.CategoryID, nil
+		}
+	}
+	return nil, nil
+}
+
+// 工具函数，解引用string指针
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

@@ -18,6 +18,7 @@ type TagRepository interface {
 	FindWithPagination(page, pageSize int) ([]entity.Tag, int64, error)
 	Search(query string, page, pageSize int) ([]entity.Tag, int64, error)
 	UpdateWithNulls(tag *entity.Tag) error
+	GetByID(id uint) (*entity.Tag, error)
 }
 
 // TagRepositoryImpl Tag的Repository实现
@@ -143,4 +144,14 @@ func (r *TagRepositoryImpl) Search(query string, page, pageSize int) ([]entity.T
 func (r *TagRepositoryImpl) UpdateWithNulls(tag *entity.Tag) error {
 	// 使用Select方法明确指定要更新的字段，包括null值
 	return r.db.Model(tag).Select("name", "description", "category_id", "updated_at").Updates(tag).Error
+}
+
+// GetByID 通过ID查找标签
+func (r *TagRepositoryImpl) GetByID(id uint) (*entity.Tag, error) {
+	var tag entity.Tag
+	err := r.db.First(&tag, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &tag, nil
 }
