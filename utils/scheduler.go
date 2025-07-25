@@ -490,13 +490,13 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 	return nil
 }
 
-// getOrCreateCategory 获取或创建分类
-func (s *Scheduler) getOrCreateCategory(categoryName string) (uint, error) {
-	// 这里需要实现分类的查找和创建逻辑
-	// 由于没有CategoryRepository的注入，这里先返回0
-	// 你可以根据需要添加CategoryRepository的依赖
-	return 0, nil
-}
+// // getOrCreateCategory 获取或创建分类
+// func (s *Scheduler) getOrCreateCategory(categoryName string) (uint, error) {
+// 	// 这里需要实现分类的查找和创建逻辑
+// 	// 由于没有CategoryRepository的注入，这里先返回0
+// 	// 你可以根据需要添加CategoryRepository的依赖
+// 	return 0, nil
+// }
 
 // initPanCache 初始化平台映射缓存
 func (s *Scheduler) initPanCache() {

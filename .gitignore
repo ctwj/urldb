@@ -15,6 +15,7 @@ go.work.sum
 .env
 .env.local
 .env.*.local
+!web/.env
 web/.output/
 
 # IDE
