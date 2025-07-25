@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 text-center relative">
+  <div class="header-container bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 text-center relative">
     <!-- 页面标题和面包屑 -->
     <div class="mb-4">
       <h1 class="text-2xl sm:text-3xl font-bold mb-2">
@@ -150,4 +150,12 @@ const logout = async () => {
 
 <style scoped>
 /* 确保样式与首页完全一致 */
+.header-container {
+  background: url(/assets/images/banner.webp) center top/cover no-repeat,
+  linear-gradient(
+      to bottom, 
+      rgba(0,0,0,0.1) 0%, 
+      rgba(0,0,0,0.25) 100%
+  );
+}
 </style> 

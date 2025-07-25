@@ -5,6 +5,8 @@ FROM node:20-slim AS frontend-builder
 WORKDIR /app/web
 COPY web/ ./
 RUN npm install --frozen-lockfile
+ARG NUXT_PUBLIC_API_SERVER=http://backend:8080/api
+ARG NUXT_PUBLIC_API_CLIENT=/api
 RUN npm run build
 
 # 前端运行阶段

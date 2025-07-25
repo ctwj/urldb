@@ -1,6 +1,6 @@
 <template>
-  <footer class="mt-auto py-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-    <div class="max-w-7xl mx-auto text-center text-gray-600 dark:text-gray-400 text-sm px-3 sm:px-5">
+  <footer class="footer-container mt-auto py-6 border-t border-gray-700 bg-white dark:bg-gray-800">
+    <div class="max-w-7xl mx-auto text-center text-gray-400  text-sm px-3 sm:px-5">
       <p class="mb-2">本站内容由网络爬虫自动抓取。本站不储存、复制、传播任何文件，仅作个人公益学习，请在获取后24小内删除!!!</p>
       <p class="flex items-center justify-center gap-2">
         <span>{{ systemConfig?.copyright || '© 2025 老九网盘资源数据库 By 老九' }}</span>
@@ -36,3 +36,14 @@ onMounted(() => {
   fetchVersionInfo()
 })
 </script> 
+
+<style scoped>
+.footer-container{
+  background: url(/assets/images/footer-banner.webp) center top/cover no-repeat,
+  linear-gradient(
+      to bottom, 
+      rgba(0,0,0,0.1) 0%, 
+      rgba(0,0,0,0.25) 100%
+  );
+}
+</style>

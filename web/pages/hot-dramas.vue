@@ -4,7 +4,7 @@
     <div class="flex-1 p-3 sm:p-5">
       <div class="max-w-7xl mx-auto">
         <!-- 头部 -->
-        <div class="bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
+        <div class="header-container bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
           <h1 class="text-2xl sm:text-3xl font-bold mb-4">
             <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
               热播剧榜单
@@ -335,5 +335,13 @@ watch(dramas, (newDramas) => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.header-container{
+  background: url(/assets/images/banner.webp) center top/cover no-repeat,
+  linear-gradient(
+      to bottom, 
+      rgba(0,0,0,0.1) 0%, 
+      rgba(0,0,0,0.25) 100%
+  );
 }
 </style> 
