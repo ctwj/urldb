@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -429,37 +430,6 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 		return err
 	}
 
-	// 阿里云盘特殊处理：检查URL有效性
-	// if serviceType == panutils.Alipan {
-	// 	checkResult, _ := CheckURL(readyResource.URL)
-	// 	if !checkResult.Status {
-	// 		log.Printf("阿里云盘链接无效: %s", readyResource.URL)
-	// 		return nil
-	// 	}
-
-	// 	// 如果有标题，直接创建资源
-	// 	if readyResource.Title != nil && *readyResource.Title != "" {
-	// 		resource := &entity.Resource{
-	// 			Title:       *readyResource.Title,
-	// 			Description: readyResource.Description,
-	// 			URL:         readyResource.URL,
-	// 			PanID:       s.determinePanID(readyResource.URL),
-	// 			IsValid:     true,
-	// 			IsPublic:    true,
-	// 		}
-
-	// 		// 如果有分类信息，尝试查找或创建分类
-	// 		if readyResource.Category != "" {
-	// 			categoryID, err := s.getOrCreateCategory(readyResource.Category)
-	// 			if err == nil {
-	// 				resource.CategoryID = &categoryID
-	// 			}
-	// 		}
-
-	// 		return s.resourceRepo.Create(resource)
-	// 	}
-	// }
-
 	// 统一处理：尝试转存获取标题
 	result, err := panService.Transfer(shareID)
 	if err != nil {
@@ -729,6 +699,9 @@ func (s *Scheduler) processAutoTransfer() {
 					Error("转存资源失败 (ID: %d): %v", res.ID, err)
 				} else {
 					Info("成功转存资源: %s", res.Title)
+					rand.Seed(time.Now().UnixNano())
+					sleepSec := rand.Intn(3) + 1 // 1,2,3
+					time.Sleep(time.Duration(sleepSec) * time.Second)
 				}
 			}
 		}(account)
