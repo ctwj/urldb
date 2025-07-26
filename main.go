@@ -193,6 +193,7 @@ func main() {
 		// 系统配置路由
 		api.GET("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemConfig)
 		api.POST("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSystemConfig)
+		api.POST("/system/config/toggle-auto-process", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ToggleAutoProcess)
 		api.GET("/public/system-config", handlers.GetPublicSystemConfig)
 
 		// 热播剧管理路由（查询接口无需认证）

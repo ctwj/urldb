@@ -192,3 +192,54 @@ func GetPublicSystemConfig(c *gin.Context) {
 	configResponse := converter.SystemConfigToPublicResponse(config)
 	SuccessResponse(c, configResponse)
 }
+
+// 新增：切换自动处理配置
+func ToggleAutoProcess(c *gin.Context) {
+	var req struct {
+		AutoProcessReadyResources bool `json:"auto_process_ready_resources"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
+		return
+	}
+
+	// 获取当前配置
+	config, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
+	if err != nil {
+		ErrorResponse(c, "获取系统配置失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 只更新自动处理配置
+	config.AutoProcessReadyResources = req.AutoProcessReadyResources
+
+	// 保存配置
+	err = repoManager.SystemConfigRepository.Upsert(config)
+	if err != nil {
+		ErrorResponse(c, "保存系统配置失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 更新定时任务状态
+	scheduler := utils.GetGlobalScheduler(
+		repoManager.HotDramaRepository,
+		repoManager.ReadyResourceRepository,
+		repoManager.ResourceRepository,
+		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
+		repoManager.CksRepository,
+		repoManager.TagRepository,
+		repoManager.CategoryRepository,
+	)
+	if scheduler != nil {
+		scheduler.UpdateSchedulerStatusWithAutoTransfer(
+			config.AutoFetchHotDramaEnabled,
+			config.AutoProcessReadyResources,
+			config.AutoTransferEnabled,
+		)
+	}
+
+	// 返回更新后的配置
+	configResponse := converter.SystemConfigToResponse(config)
+	SuccessResponse(c, configResponse)
+}

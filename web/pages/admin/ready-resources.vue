@@ -336,8 +336,10 @@ const totalPages = ref(0)
 
 // 获取待处理资源API
 import { useReadyResourceApi, useSystemConfigApi } from '~/composables/useApi'
+import { useSystemConfigStore } from '~/stores/systemConfig'
 const readyResourceApi = useReadyResourceApi()
 const systemConfigApi = useSystemConfigApi()
+const systemConfigStore = useSystemConfigStore()
 
 // 获取系统配置
 const systemConfig = ref<any>(null)
@@ -346,6 +348,8 @@ const fetchSystemConfig = async () => {
   try {
     const response = await systemConfigApi.getSystemConfig()
     systemConfig.value = response
+    // 同时更新 Pinia store
+    systemConfigStore.setConfig(response)
   } catch (error) {
     console.error('获取系统配置失败:', error)
   }
@@ -544,32 +548,18 @@ const toggleAutoProcess = async () => {
   updatingConfig.value = true
   try {
     const newValue = !systemConfig.value?.auto_process_ready_resources
-    console.log('当前配置:', systemConfig.value)
-    console.log('新值:', newValue)
+    console.log('切换自动处理配置:', newValue)
     
-    // 先获取当前配置，然后只更新需要的字段
-    const currentConfig = await systemConfigApi.getSystemConfig() as any
-    console.log('获取到的当前配置:', currentConfig)
+    // 使用专门的切换API
+    const response = await systemConfigApi.toggleAutoProcess(newValue)
+    console.log('切换响应:', response)
     
-    const updateData = {
-      site_title: currentConfig.site_title || '',
-      site_description: currentConfig.site_description || '',
-      keywords: currentConfig.keywords || '',
-      author: currentConfig.author || '',
-      copyright: currentConfig.copyright || '',
-      auto_process_ready_resources: newValue,
-      auto_process_interval: currentConfig.auto_process_interval || 30,
-      auto_transfer_enabled: currentConfig.auto_transfer_enabled || false,
-      auto_fetch_hot_drama_enabled: currentConfig.auto_fetch_hot_drama_enabled || false,
-      page_size: currentConfig.page_size || 100,
-      maintenance_mode: currentConfig.maintenance_mode || false
-    }
-    
-    console.log('更新数据:', updateData)
-    const response = await systemConfigApi.updateSystemConfig(updateData)
-    console.log('更新响应:', response)
-    
+    // 更新本地配置状态
     systemConfig.value = response
+    
+    // 同时更新 Pinia store 中的系统配置
+    systemConfigStore.setConfig(response)
+    
     alert(`自动处理配置已${newValue ? '开启' : '关闭'}`)
   } catch (error: any) {
     console.error('切换自动处理配置失败:', error)

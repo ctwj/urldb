@@ -125,7 +125,8 @@ export const useStatsApi = () => {
 export const useSystemConfigApi = () => {
   const getSystemConfig = () => useApiFetch('/system/config').then(parseApiResponse)
   const updateSystemConfig = (data: any) => useApiFetch('/system/config', { method: 'POST', body: data }).then(parseApiResponse)
-  return { getSystemConfig, updateSystemConfig }
+  const toggleAutoProcess = (enabled: boolean) => useApiFetch('/system/config/toggle-auto-process', { method: 'POST', body: { auto_process_ready_resources: enabled } }).then(parseApiResponse)
+  return { getSystemConfig, updateSystemConfig, toggleAutoProcess }
 }
 
 export const useHotDramaApi = () => {
