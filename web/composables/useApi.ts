@@ -18,6 +18,11 @@ export const parseApiResponse = <T>(response: any): T => {
     }
   }
   
+  // 检查是否是包含items字段的响应格式（如分类接口）
+  if (response && typeof response === 'object' && 'items' in response) {
+    return response
+  }
+  
   // 检查是否是包含success字段的响应格式（如登录接口）
   if (response && typeof response === 'object' && 'success' in response && 'data' in response) {
     if (response.success) {
@@ -66,7 +71,7 @@ export const useAuthApi = () => {
 }
 
 export const useCategoryApi = () => {
-  const getCategories = () => useApiFetch('/categories').then(parseApiResponse)
+  const getCategories = (params?: any) => useApiFetch('/categories', { params }).then(parseApiResponse)
   const createCategory = (data: any) => useApiFetch('/categories', { method: 'POST', body: data }).then(parseApiResponse)
   const updateCategory = (id: number, data: any) => useApiFetch(`/categories/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteCategory = (id: number) => useApiFetch(`/categories/${id}`, { method: 'DELETE' }).then(parseApiResponse)
@@ -93,7 +98,7 @@ export const useCksApi = () => {
 }
 
 export const useTagApi = () => {
-  const getTags = () => useApiFetch('/tags').then(parseApiResponse)
+  const getTags = (params?: any) => useApiFetch('/tags', { params }).then(parseApiResponse)
   const getTagsByCategory = (categoryId: number, params?: any) => useApiFetch(`/categories/${categoryId}/tags`, { params }).then(parseApiResponse)
   const getTag = (id: number) => useApiFetch(`/tags/${id}`).then(parseApiResponse)
   const createTag = (data: any) => useApiFetch('/tags', { method: 'POST', body: data }).then(parseApiResponse)

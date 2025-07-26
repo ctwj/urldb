@@ -39,7 +39,7 @@
         required
       ></textarea>
       <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-        支持百度网盘、阿里云盘、夸克网盘等链接
+        支持百度网盘、阿里云盘、夸克网盘等链接，每行一个链接
       </p>
     </div>
 
@@ -205,7 +205,7 @@ const clearForm = () => {
   newTag.value = ''
 }
 
-// 单个添加提交
+// 单个添加提交 - 更新为使用批量添加方法
 const handleSubmit = async () => {
   loading.value = true
   try {
@@ -214,23 +214,23 @@ const handleSubmit = async () => {
     // 多行链接处理
     const urls = form.value.url.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
     
-    // 为每个URL创建一个资源
-    for (const url of urls) {
-      const resourceData = {
-        title: form.value.title, // 标题必填
-        description: form.value.description || undefined, // 添加描述
-        url: url,
+    // 使用批量添加方法，将多个URL作为一个资源的多个链接
+    const resourceData = {
+      resources: [{
+        title: form.value.title || undefined, // 后端期望 *string 类型
+        description: form.value.description || '',
+        url: urls, // 现在 url 是一个数组
         category: form.value.category || '',
         tags: form.value.tags.join(','), // 转换为逗号分隔的字符串
         img: form.value.img || '',
         source: form.value.source || '手动添加',
         extra: form.value.extra || '',
-      }
-      
-      await readyResourceApi.createReadyResource(resourceData)
+      }]
     }
     
-    emit('success', `成功添加 ${urls.length} 个资源到待处理列表`)
+    const response = await readyResourceApi.batchCreateReadyResources(resourceData)
+    
+    emit('success', `成功添加资源，包含 ${urls.length} 个链接`)
     clearForm()
   } catch (e: any) {
     emit('error', e.message || '添加失败')

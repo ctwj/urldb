@@ -260,12 +260,34 @@ const fetchCategories = async () => {
       page_size: pageSize.value,
       search: searchQuery.value
     }
+    console.log('获取分类列表参数:', params)
     const response = await categoryApi.getCategories(params)
-    categories.value = Array.isArray(response) ? response : []
-    totalCount.value = response.total || 0
-    totalPages.value = Math.ceil(totalCount.value / pageSize.value)
+    console.log('分类接口响应:', response)
+    
+    // 适配后端API响应格式
+    if (response && response.items) {
+      console.log('使用 items 格式:', response.items)
+      categories.value = response.items
+      totalCount.value = response.total || 0
+      totalPages.value = Math.ceil(totalCount.value / pageSize.value)
+    } else if (Array.isArray(response)) {
+      console.log('使用数组格式:', response)
+      // 兼容旧格式
+      categories.value = response
+      totalCount.value = response.length
+      totalPages.value = 1
+    } else {
+      console.log('使用默认格式:', response)
+      categories.value = []
+      totalCount.value = 0
+      totalPages.value = 1
+    }
+    console.log('最终分类数据:', categories.value)
   } catch (error) {
     console.error('获取分类列表失败:', error)
+    categories.value = []
+    totalCount.value = 0
+    totalPages.value = 1
   } finally {
     loading.value = false
   }

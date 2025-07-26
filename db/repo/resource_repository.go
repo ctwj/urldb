@@ -334,7 +334,7 @@ func (r *ResourceRepositoryImpl) InvalidateCache() error {
 // FindExists 检查是否存在相同URL的资源
 func (r *ResourceRepositoryImpl) FindExists(url string, excludeID ...uint) (bool, error) {
 	var count int64
-	query := r.db.Model(&entity.Resource{}).Where("url = ? or save_url ", url, url)
+	query := r.db.Model(&entity.Resource{}).Where("url = ? OR save_url = ?", url, url)
 
 	// 如果有排除ID，则排除该记录（用于更新时排除自己）
 	if len(excludeID) > 0 {

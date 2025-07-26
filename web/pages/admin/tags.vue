@@ -267,6 +267,9 @@
 </template>
 
 <script setup lang="ts">
+// API 导入
+import { useTagApi, useCategoryApi } from '~/composables/useApi'
+
 // 设置页面布局
 definePageMeta({
   layout: 'admin',
@@ -276,6 +279,13 @@ definePageMeta({
 const router = useRouter()
 const userStore = useUserStore()
 const config = useRuntimeConfig()
+
+const tagApi = useTagApi()
+const categoryApi = useCategoryApi()
+
+// 调试信息
+console.log('tagApi:', tagApi)
+console.log('categoryApi:', categoryApi)
 
 // 页面状态
 const pageLoading = ref(true)
@@ -332,10 +342,25 @@ const checkAuth = () => {
 // 获取分类列表
 const fetchCategories = async () => {
   try {
+    console.log('获取分类列表...')
     const response = await categoryApi.getCategories()
-    categories.value = Array.isArray(response) ? response : []
+    console.log('分类接口响应:', response)
+    
+    // 适配后端API响应格式
+    if (response && response.items) {
+      console.log('使用 items 格式:', response.items)
+      categories.value = response.items
+    } else if (Array.isArray(response)) {
+      console.log('使用数组格式:', response)
+      categories.value = response
+    } else {
+      console.log('使用默认格式:', response)
+      categories.value = []
+    }
+    console.log('最终分类数据:', categories.value)
   } catch (error) {
     console.error('获取分类列表失败:', error)
+    categories.value = []
   }
 }
 
@@ -348,17 +373,39 @@ const fetchTags = async () => {
       page_size: pageSize.value,
       search: searchQuery.value
     }
+    console.log('获取标签列表参数:', params)
+    
     let response: any
     if (selectedCategory.value) {
-      response = await tagApi.getTagsByCategory(selectedCategory.value, params)
+      response = await tagApi.getTagsByCategory(parseInt(selectedCategory.value), params)
     } else {
       response = await tagApi.getTags(params)
     }
-    tags.value = response.items || []
-    totalCount.value = response.total || 0
-    totalPages.value = Math.ceil(totalCount.value / pageSize.value)
+    console.log('标签接口响应:', response)
+    
+    // 适配后端API响应格式
+    if (response && response.items) {
+      console.log('使用 items 格式:', response.items)
+      tags.value = response.items
+      totalCount.value = response.total || 0
+      totalPages.value = Math.ceil(totalCount.value / pageSize.value)
+    } else if (Array.isArray(response)) {
+      console.log('使用数组格式:', response)
+      tags.value = response
+      totalCount.value = response.length
+      totalPages.value = 1
+    } else {
+      console.log('使用默认格式:', response)
+      tags.value = []
+      totalCount.value = 0
+      totalPages.value = 1
+    }
+    console.log('最终标签数据:', tags.value)
   } catch (error) {
     console.error('获取标签列表失败:', error)
+    tags.value = []
+    totalCount.value = 0
+    totalPages.value = 1
   } finally {
     loading.value = false
   }
@@ -481,15 +528,25 @@ const handleLogout = () => {
 // 页面加载
 onMounted(async () => {
   try {
+    console.log('页面开始加载...')
     checkAuth()
+    console.log('认证检查完成')
+    
+    console.log('开始获取分类列表...')
     await fetchCategories()
+    console.log('分类列表获取完成')
+    
+    console.log('开始获取标签列表...')
     await fetchTags()
+    console.log('标签列表获取完成')
     
     // 检查URL参数，如果action=add则自动打开新增弹窗
     const route = useRoute()
     if (route.query.action === 'add') {
       showAddModal.value = true
     }
+    
+    console.log('页面加载完成')
   } catch (error) {
     console.error('标签管理页面初始化失败:', error)
   } finally {

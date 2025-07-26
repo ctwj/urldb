@@ -5,12 +5,8 @@
         <div class="text-center">
           <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">管理员登录</h1>
           <p class="mt-2 text-sm text-gray-600">请输入管理员账号密码</p>
-          <div class="mt-3 p-3 bg-blue-50 rounded-lg">
-            <p class="text-xs text-blue-700">
-              <i class="fas fa-info-circle mr-1"></i>
-              默认管理员账户：admin / password
-            </p>
-          </div>
+            <!-- <div class="mt-3 p-3 bg-blue-50 rounded-lg">  
+            </div> -->
         </div>
 
         <form @submit.prevent="handleLogin" class="space-y-4">

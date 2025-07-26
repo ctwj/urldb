@@ -428,6 +428,34 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 
 		return nil
 	} else {
+		// 获取夸克网盘账号的 cookie
+		accounts, err := s.cksRepo.FindByPanID(*s.getPanIDByServiceType(serviceType))
+		if err != nil {
+			Error("获取夸克网盘账号失败: %v", err)
+			return err
+		}
+
+		if len(accounts) == 0 {
+			Error("没有可用的夸克网盘账号")
+			return fmt.Errorf("没有可用的夸克网盘账号")
+		}
+
+		// 选择第一个有效的账号
+		var selectedAccount *entity.Cks
+		for _, account := range accounts {
+			if account.IsValid {
+				selectedAccount = &account
+				break
+			}
+		}
+
+		if selectedAccount == nil {
+			Error("没有有效的夸克网盘账号")
+			return fmt.Errorf("没有有效的夸克网盘账号")
+		}
+
+		Debug("使用夸克网盘账号: %d, Cookie: %s", selectedAccount.ID, selectedAccount.Ck[:20]+"...")
+
 		// 准备配置
 		config := &panutils.PanConfig{
 			URL:         readyResource.URL,
@@ -436,6 +464,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 			ExpiredType: 1,  // 永久分享
 			AdFid:       "",
 			Stoken:      "",
+			Cookie:      selectedAccount.Ck, // 添加 cookie
 		}
 
 		// 通过工厂获取对应的网盘服务单例
@@ -457,13 +486,21 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 			return nil
 		}
 
+		// 如果获取到了标题，更新资源标题
+		if result.Title != "" {
+			resource.Title = result.Title
+		}
 	}
 
 	// 处理标签
 	tagIDs, err := s.handleTags(readyResource.Tags)
-	if err != nil || tagIDs == nil {
+	if err != nil {
 		Error("处理标签失败: %v", err)
 		return err
+	}
+	// 如果没有标签，tagIDs 可能为 nil，这是正常的
+	if tagIDs == nil {
+		tagIDs = []uint{} // 初始化为空数组
 	}
 	// 处理分类
 	categoryID, err := s.resolveCategory(readyResource.Category, tagIDs)
@@ -481,11 +518,15 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 		return err
 	}
 	// 插入 resource_tags 关联
-	for _, tagID := range tagIDs {
-		err := s.resourceRepo.CreateResourceTag(resource.ID, tagID)
-		if err != nil {
-			Error("插入资源标签关联失败: %v", err)
+	if len(tagIDs) > 0 {
+		for _, tagID := range tagIDs {
+			err := s.resourceRepo.CreateResourceTag(resource.ID, tagID)
+			if err != nil {
+				Error("插入资源标签关联失败: %v", err)
+			}
 		}
+	} else {
+		Debug("没有标签，跳过插入资源标签关联")
 	}
 	return nil
 }
@@ -889,44 +930,80 @@ func splitTags(tagStr string) []string {
 // 处理标签，返回所有标签ID
 func (s *Scheduler) handleTags(tagStr string) ([]uint, error) {
 	if tagStr == "" {
-		return nil, nil
+		Debug("标签字符串为空，返回空数组")
+		return []uint{}, nil // 返回空数组而不是 nil
 	}
+
+	Debug("开始处理标签字符串: %s", tagStr)
 	tagNames := splitTags(tagStr)
+	Debug("分割后的标签名称: %v", tagNames)
+
 	var tagIDs []uint
 	for _, name := range tagNames {
 		name = strings.TrimSpace(name)
 		if name == "" {
+			Debug("跳过空标签名称")
 			continue
 		}
+
+		Debug("查找标签: %s", name)
 		tag, err := s.tagRepo.FindByName(name)
-		if err != nil || tag == nil {
+		if err != nil {
+			Debug("标签 %s 不存在，创建新标签", name)
 			// 不存在则新建
 			tag = &entity.Tag{Name: name}
 			err = s.tagRepo.Create(tag)
 			if err != nil {
-				return nil, err
+				Error("创建标签 %s 失败: %v", name, err)
+				return nil, fmt.Errorf("创建标签 %s 失败: %v", name, err)
 			}
+			Debug("成功创建标签: %s (ID: %d)", name, tag.ID)
+		} else {
+			Debug("找到已存在的标签: %s (ID: %d)", name, tag.ID)
 		}
 		tagIDs = append(tagIDs, tag.ID)
 	}
+
+	Debug("处理完成，标签ID列表: %v", tagIDs)
 	return tagIDs, nil
 }
 
 // 分类处理逻辑
 func (s *Scheduler) resolveCategory(categoryName string, tagIDs []uint) (*uint, error) {
+	Debug("开始处理分类，分类名称: %s, 标签ID列表: %v", categoryName, tagIDs)
+
 	if categoryName != "" {
+		Debug("查找分类: %s", categoryName)
 		cat, err := s.categoryRepo.FindByName(categoryName)
-		if err == nil && cat != nil {
+		if err != nil {
+			Debug("分类 %s 不存在: %v", categoryName, err)
+		} else if cat != nil {
+			Debug("找到分类: %s (ID: %d)", categoryName, cat.ID)
 			return &cat.ID, nil
 		}
 	}
+
 	// 没有分类，尝试用标签反查
+	if len(tagIDs) == 0 {
+		Debug("没有标签，无法通过标签反查分类")
+		return nil, nil
+	}
+
+	Debug("尝试通过标签反查分类")
 	for _, tagID := range tagIDs {
+		Debug("查找标签ID: %d", tagID)
 		tag, err := s.tagRepo.GetByID(tagID)
-		if err == nil && tag != nil && tag.CategoryID != nil {
+		if err != nil {
+			Debug("查找标签ID %d 失败: %v", tagID, err)
+			continue
+		}
+		if tag != nil && tag.CategoryID != nil {
+			Debug("通过标签 %s (ID: %d) 找到分类ID: %d", tag.Name, tagID, *tag.CategoryID)
 			return tag.CategoryID, nil
 		}
 	}
+
+	Debug("未找到分类，返回nil")
 	return nil, nil
 }
 
