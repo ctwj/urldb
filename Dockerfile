@@ -45,6 +45,9 @@ COPY --from=backend-builder /app/main .
 # 创建uploads目录
 RUN mkdir -p uploads
 
+# 设置环境变量
+ENV GIN_MODE=release
+
 # 暴露端口
 EXPOSE 8080
 

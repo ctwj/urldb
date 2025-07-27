@@ -28,6 +28,18 @@ func main() {
 		utils.Info("未找到.env文件，使用默认配置")
 	}
 
+	// 设置Gin运行模式
+	if os.Getenv("GIN_MODE") == "" {
+		// 如果没有设置GIN_MODE，根据环境判断
+		if os.Getenv("ENV") == "production" {
+			gin.SetMode(gin.ReleaseMode)
+			utils.Info("设置Gin为Release模式")
+		} else {
+			gin.SetMode(gin.DebugMode)
+			utils.Info("设置Gin为Debug模式")
+		}
+	}
+
 	// 初始化数据库
 	if err := db.InitDB(); err != nil {
 		utils.Fatal("数据库连接失败: %v", err)

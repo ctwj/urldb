@@ -175,35 +175,6 @@ l9pan/
 
 ## 🔧 配置说明
 
-### 版本管理
-
-项目使用GitHub进行版本管理，支持自动创建Release和标签。
-
-#### 版本管理脚本
-
-```bash
-# 显示当前版本信息
-./scripts/version.sh show
-
-# 更新版本号
-./scripts/version.sh patch    # 修订版本 1.0.9)
-./scripts/version.sh minor    # 次版本 1.0.9)
-./scripts/version.sh major    # 主版本 1.0.9)
-
-# 发布版本到GitHub
-./scripts/version.sh release
-
-# 生成版本信息文件
-./scripts/version.sh update
-
-# 查看帮助
-./scripts/version.sh help
-```
-
-#### 详细文档
-
-查看 [GitHub版本管理指南](docs/github-version-management.md) 了解完整的版本管理流程。
-
 ### 环境变量配置
 
 ```bash
