@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -72,8 +73,8 @@ func CheckUpdate(c *gin.Context) {
 	// 从GitHub API获取最新版本信息
 	latestVersion, err := getLatestVersionFromGitHub()
 	if err != nil {
-		// 如果GitHub API失败，使用模拟数据
-		latestVersion = "1.0.0"
+		// 如果GitHub API失败，使用当前版本作为最新版本
+		latestVersion = currentVersion
 	}
 
 	hasUpdate := utils.IsVersionNewer(latestVersion, currentVersion)
@@ -96,10 +97,25 @@ func CheckUpdate(c *gin.Context) {
 
 // getLatestVersionFromGitHub 从GitHub获取最新版本
 func getLatestVersionFromGitHub() (string, error) {
-	// 使用GitHub API获取最新Release
+	// 首先尝试从VERSION文件URL获取最新版本
+	versionURL := "https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/VERSION"
+
+	resp, err := http.Get(versionURL)
+	if err == nil && resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		if err == nil {
+			version := strings.TrimSpace(string(body))
+			if version != "" {
+				return version, nil
+			}
+		}
+	}
+
+	// 如果VERSION文件获取失败，尝试GitHub API获取最新Release
 	url := "https://api.github.com/repos/ctwj/urldb/releases/latest"
 
-	resp, err := http.Get(url)
+	resp, err = http.Get(url)
 	if err != nil {
 		return "", err
 	}

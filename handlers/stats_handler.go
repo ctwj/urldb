@@ -90,7 +90,7 @@ func GetSystemInfo(c *gin.Context) {
 	SuccessResponse(c, gin.H{
 		"uptime":     time.Since(startTime).String(),
 		"start_time": startTime.Format("2006-01-02 15:04:05"),
-		"version":    "1.0.0",
+		"version":    utils.Version,
 		"environment": gin.H{
 			"gin_mode": gin.Mode(),
 		},

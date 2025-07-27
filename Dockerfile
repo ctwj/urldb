@@ -28,6 +28,9 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+# 先复制VERSION文件，确保构建时能正确读取版本号
+COPY VERSION ./
+
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
