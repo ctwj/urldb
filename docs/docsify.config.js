@@ -5,6 +5,10 @@ window.$docsify = {
   loadSidebar: true,
   subMaxLevel: 3,
   auto2top: true,
+  // 添加侧边栏配置
+  sidebarDisplayLevel: 1,
+  // 添加错误处理
+  notFoundPage: true,
   search: {
     maxAge: 86400000,
     paths: 'auto',
@@ -33,6 +37,16 @@ window.$docsify = {
                '<div style="text-align: center; color: #666; font-size: 14px;">' +
                '最后更新: ' + new Date().toLocaleDateString('zh-CN') +
                '</div>';
+      });
+      
+      // 添加侧边栏加载调试
+      hook.doneEach(function() {
+        console.log('Docsify loaded, sidebar should be visible');
+        if (document.querySelector('.sidebar-nav')) {
+          console.log('Sidebar element found');
+        } else {
+          console.log('Sidebar element not found');
+        }
       });
     }
   ]
