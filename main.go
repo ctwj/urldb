@@ -29,7 +29,8 @@ func main() {
 	}
 
 	// 设置Gin运行模式
-	if os.Getenv("GIN_MODE") == "" {
+	ginMode := os.Getenv("GIN_MODE")
+	if ginMode == "" {
 		// 如果没有设置GIN_MODE，根据环境判断
 		if os.Getenv("ENV") == "production" {
 			gin.SetMode(gin.ReleaseMode)
@@ -37,6 +38,22 @@ func main() {
 		} else {
 			gin.SetMode(gin.DebugMode)
 			utils.Info("设置Gin为Debug模式")
+		}
+	} else {
+		// 如果已经设置了GIN_MODE，根据值设置模式
+		switch ginMode {
+		case "release":
+			gin.SetMode(gin.ReleaseMode)
+			utils.Info("设置Gin为Release模式 (来自环境变量)")
+		case "debug":
+			gin.SetMode(gin.DebugMode)
+			utils.Info("设置Gin为Debug模式 (来自环境变量)")
+		case "test":
+			gin.SetMode(gin.TestMode)
+			utils.Info("设置Gin为Test模式 (来自环境变量)")
+		default:
+			gin.SetMode(gin.DebugMode)
+			utils.Info("未知的GIN_MODE值: %s，使用Debug模式", ginMode)
 		}
 	}
 
