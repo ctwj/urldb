@@ -89,6 +89,7 @@ type ReadyResourceResponse struct {
 	Source      string    `json:"source"`
 	Extra       string    `json:"extra"`
 	Key         string    `json:"key"`
+	ErrorMsg    string    `json:"error_msg"`
 	CreateTime  time.Time `json:"create_time"`
 	IP          *string   `json:"ip"`
 }

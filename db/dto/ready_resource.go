@@ -10,6 +10,7 @@ type ReadyResourceRequest struct {
 	Img         string   `json:"img" example:"https://example.com/image.jpg"`
 	Source      string   `json:"source" example:"数据来源"`
 	Extra       string   `json:"extra" example:"额外信息"`
+	ErrorMsg    string   `json:"error_msg" example:"错误信息"`
 }
 
 // BatchReadyResourceRequest 批量待处理资源请求

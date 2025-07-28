@@ -352,8 +352,9 @@ func (s *Scheduler) processReadyResources() {
 		return
 	}
 
-	// 获取所有待处理资源
+	// 获取所有没有错误的待处理资源
 	readyResources, err := s.readyResourceRepo.FindAll()
+	// readyResources, err := s.readyResourceRepo.FindWithoutErrors()
 	if err != nil {
 		Error("获取待处理资源失败: %v", err)
 		return
@@ -384,10 +385,21 @@ func (s *Scheduler) processReadyResources() {
 
 		if err := s.convertReadyResourceToResource(readyResource, factory); err != nil {
 			Error("处理资源失败 (ID: %d): %v", readyResource.ID, err)
+
+			// 保存完整的错误信息
+			readyResource.ErrorMsg = err.Error()
+
+			if updateErr := s.readyResourceRepo.Update(&readyResource); updateErr != nil {
+				Error("更新错误信息失败 (ID: %d): %v", readyResource.ID, updateErr)
+			} else {
+				Info("已保存错误信息到资源 (ID: %d): %s", readyResource.ID, err.Error())
+			}
+		} else {
+			// 处理成功，删除readyResource
+			s.readyResourceRepo.Delete(readyResource.ID)
+			processedCount++
+			Info("成功处理资源: %s", readyResource.URL)
 		}
-		s.readyResourceRepo.Delete(readyResource.ID)
-		processedCount++
-		Info("成功处理资源: %s", readyResource.URL)
 	}
 
 	Info("待处理资源处理完成，共处理 %d 个资源", processedCount)
@@ -401,7 +413,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 	shareID, serviceType := panutils.ExtractShareId(readyResource.URL)
 	if serviceType == panutils.NotFound {
 		Warn("不支持的链接地址: %s", readyResource.URL)
-		return nil
+		return NewUnsupportedLinkError(readyResource.URL)
 	}
 
 	Debug("检测到服务类型: %s, 分享ID: %s", serviceType.String(), shareID)
@@ -420,24 +432,32 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 	// 不是夸克，直接保存，
 	if serviceType != panutils.Quark {
 		// 检测是否有效
-		checkResult, _ := commonutils.CheckURL(readyResource.URL)
+		checkResult, err := commonutils.CheckURL(readyResource.URL)
+		if err != nil {
+			Error("链接检查失败: %v", err)
+			return NewLinkCheckError(readyResource.URL, err.Error())
+		}
 		if !checkResult.Status {
 			Warn("链接无效: %s", readyResource.URL)
-			return nil
+			return NewInvalidLinkError(readyResource.URL, "链接状态检查失败")
 		}
-
-		return nil
 	} else {
 		// 获取夸克网盘账号的 cookie
-		accounts, err := s.cksRepo.FindByPanID(*s.getPanIDByServiceType(serviceType))
+		panID := s.getPanIDByServiceType(serviceType)
+		if panID == nil {
+			Error("未找到对应的平台ID")
+			return NewPlatformNotFoundError(serviceType.String())
+		}
+
+		accounts, err := s.cksRepo.FindByPanID(*panID)
 		if err != nil {
 			Error("获取夸克网盘账号失败: %v", err)
-			return err
+			return NewServiceCreationError(readyResource.URL, fmt.Sprintf("获取网盘账号失败: %v", err))
 		}
 
 		if len(accounts) == 0 {
 			Error("没有可用的夸克网盘账号")
-			return fmt.Errorf("没有可用的夸克网盘账号")
+			return NewNoAccountError(serviceType.String())
 		}
 
 		// 选择第一个有效的账号
@@ -451,7 +471,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 
 		if selectedAccount == nil {
 			Error("没有有效的夸克网盘账号")
-			return fmt.Errorf("没有有效的夸克网盘账号")
+			return NewNoValidAccountError(serviceType.String())
 		}
 
 		Debug("使用夸克网盘账号: %d, Cookie: %s", selectedAccount.ID, selectedAccount.Ck[:20]+"...")
@@ -471,32 +491,32 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 		panService, err := factory.CreatePanService(readyResource.URL, config)
 		if err != nil {
 			Error("获取网盘服务失败: %v", err)
-			return err
+			return NewServiceCreationError(readyResource.URL, err.Error())
 		}
 
 		// 统一处理：尝试转存获取标题
 		result, err := panService.Transfer(shareID)
 		if err != nil {
 			Error("网盘信息获取失败: %v", err)
-			return err
+			return NewTransferFailedError(readyResource.URL, err.Error())
 		}
 
 		if !result.Success {
 			Error("网盘信息获取失败: %s", result.Message)
-			return nil
+			return NewTransferFailedError(readyResource.URL, result.Message)
 		}
 
 		// 如果获取到了标题，更新资源标题
-		if result.Title != "" {
-			resource.Title = result.Title
-		}
+		// if result.Title != "" {
+		// 	resource.Title = result.Title
+		// }
 	}
 
 	// 处理标签
 	tagIDs, err := s.handleTags(readyResource.Tags)
 	if err != nil {
 		Error("处理标签失败: %v", err)
-		return err
+		return NewTagProcessingError(err.Error())
 	}
 	// 如果没有标签，tagIDs 可能为 nil，这是正常的
 	if tagIDs == nil {
@@ -506,7 +526,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 	categoryID, err := s.resolveCategory(readyResource.Category, tagIDs)
 	if err != nil {
 		Error("处理分类失败: %v", err)
-		return err
+		return NewCategoryProcessingError(err.Error())
 	}
 	if categoryID != nil {
 		resource.CategoryID = categoryID
@@ -515,7 +535,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 	err = s.resourceRepo.Create(resource)
 	if err != nil {
 		Error("资源保存失败: %v", err)
-		return err
+		return NewResourceSaveError(readyResource.URL, err.Error())
 	}
 	// 插入 resource_tags 关联
 	if len(tagIDs) > 0 {
@@ -523,6 +543,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 			err := s.resourceRepo.CreateResourceTag(resource.ID, tagID)
 			if err != nil {
 				Error("插入资源标签关联失败: %v", err)
+				// 这里不返回错误，因为资源已经保存成功，标签关联失败不影响主要功能
 			}
 		}
 	} else {

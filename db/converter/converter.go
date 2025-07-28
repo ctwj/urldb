@@ -171,17 +171,19 @@ func ToCksResponseList(cksList []entity.Cks) []dto.CksResponse {
 // ToReadyResourceResponse 将ReadyResource实体转换为ReadyResourceResponse
 func ToReadyResourceResponse(resource *entity.ReadyResource) dto.ReadyResourceResponse {
 	return dto.ReadyResourceResponse{
-		ID:         resource.ID,
-		Title:      resource.Title,
-		URL:        resource.URL,
-		Category:   resource.Category,
-		Tags:       resource.Tags,
-		Img:        resource.Img,
-		Source:     resource.Source,
-		Extra:      resource.Extra,
-		Key:        resource.Key,
-		CreateTime: resource.CreateTime,
-		IP:         resource.IP,
+		ID:          resource.ID,
+		Title:       resource.Title,
+		Description: resource.Description,
+		URL:         resource.URL,
+		Category:    resource.Category,
+		Tags:        resource.Tags,
+		Img:         resource.Img,
+		Source:      resource.Source,
+		Extra:       resource.Extra,
+		Key:         resource.Key,
+		ErrorMsg:    resource.ErrorMsg,
+		CreateTime:  resource.CreateTime,
+		IP:          resource.IP,
 	}
 }
 

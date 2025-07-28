@@ -21,6 +21,9 @@ type ReadyResourceRepository interface {
 	FindAllWithinDays(days int) ([]entity.ReadyResource, error)
 	BatchFindByURLs(urls []string) ([]entity.ReadyResource, error)
 	GenerateUniqueKey() (string, error)
+	FindWithErrors() ([]entity.ReadyResource, error)
+	FindWithoutErrors() ([]entity.ReadyResource, error)
+	ClearErrorMsg(id uint) error
 }
 
 // ReadyResourceRepositoryImpl ReadyResource的Repository实现
@@ -112,4 +115,23 @@ func (r *ReadyResourceRepositoryImpl) GenerateUniqueKey() (string, error) {
 		}
 	}
 	return "", gorm.ErrInvalidData
+}
+
+// FindWithErrors 查找有错误信息的资源
+func (r *ReadyResourceRepositoryImpl) FindWithErrors() ([]entity.ReadyResource, error) {
+	var resources []entity.ReadyResource
+	err := r.db.Where("error_msg != '' AND error_msg IS NOT NULL").Find(&resources).Error
+	return resources, err
+}
+
+// FindWithoutErrors 查找没有错误信息的资源
+func (r *ReadyResourceRepositoryImpl) FindWithoutErrors() ([]entity.ReadyResource, error) {
+	var resources []entity.ReadyResource
+	err := r.db.Where("error_msg = '' OR error_msg IS NULL").Find(&resources).Error
+	return resources, err
+}
+
+// ClearErrorMsg 清除指定资源的错误信息
+func (r *ReadyResourceRepositoryImpl) ClearErrorMsg(id uint) error {
+	return r.db.Model(&entity.ReadyResource{}).Where("id = ?", id).Update("error_msg", "").Error
 }

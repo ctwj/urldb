@@ -16,6 +16,7 @@ const (
 	BaiduPan
 	UC
 	NotFound
+	Xunlei
 )
 
 // String 返回服务类型的字符串表示
@@ -29,6 +30,8 @@ func (s ServiceType) String() string {
 		return "baidu"
 	case UC:
 		return "uc"
+	case Xunlei:
+		return "xunlei"
 	default:
 		return "unknown"
 	}
@@ -173,6 +176,7 @@ func ExtractServiceType(url string) ServiceType {
 		"pan.baidu.com":       BaiduPan,
 		"drive.uc.cn":         UC,
 		"fast.uc.cn":          UC,
+		"pan.xunlei.com":      Xunlei,
 	}
 
 	for pattern, serviceType := range patterns {

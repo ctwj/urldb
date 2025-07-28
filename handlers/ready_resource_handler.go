@@ -286,3 +286,182 @@ func DeleteReadyResourcesByKey(c *gin.Context) {
 		"message":       "资源组删除成功",
 	})
 }
+
+// getRetryableErrorCount 统计可重试的错误数量
+func getRetryableErrorCount(resources []entity.ReadyResource) int {
+	count := 0
+
+	for _, resource := range resources {
+		if resource.ErrorMsg != "" {
+			errorMsg := strings.ToUpper(resource.ErrorMsg)
+			// 检查错误类型标记
+			if strings.Contains(resource.ErrorMsg, "[NO_ACCOUNT]") ||
+				strings.Contains(resource.ErrorMsg, "[NO_VALID_ACCOUNT]") ||
+				strings.Contains(resource.ErrorMsg, "[TRANSFER_FAILED]") ||
+				strings.Contains(resource.ErrorMsg, "[LINK_CHECK_FAILED]") {
+				count++
+			} else if strings.Contains(errorMsg, "没有可用的网盘账号") ||
+				strings.Contains(errorMsg, "没有有效的网盘账号") ||
+				strings.Contains(errorMsg, "网盘信息获取失败") ||
+				strings.Contains(errorMsg, "链接检查失败") {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// GetReadyResourcesWithErrors 获取有错误信息的待处理资源
+func GetReadyResourcesWithErrors(c *gin.Context) {
+	// 获取分页参数
+	pageStr := c.DefaultQuery("page", "1")
+	pageSizeStr := c.DefaultQuery("page_size", "100")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil || pageSize < 1 || pageSize > 1000 {
+		pageSize = 100
+	}
+
+	// 获取有错误的资源
+	resources, err := repoManager.ReadyResourceRepository.FindWithErrors()
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	responses := converter.ToReadyResourceResponseList(resources)
+
+	// 统计错误类型
+	errorTypeStats := make(map[string]int)
+	for _, resource := range resources {
+		if resource.ErrorMsg != "" {
+			// 尝试从错误信息中提取错误类型
+			if len(resource.ErrorMsg) > 0 && resource.ErrorMsg[0] == '[' {
+				endIndex := strings.Index(resource.ErrorMsg, "]")
+				if endIndex > 0 {
+					errorType := resource.ErrorMsg[1:endIndex]
+					errorTypeStats[errorType]++
+				} else {
+					errorTypeStats["UNKNOWN"]++
+				}
+			} else {
+				// 如果没有错误类型标记，尝试从错误信息中推断
+				errorMsg := strings.ToUpper(resource.ErrorMsg)
+				if strings.Contains(errorMsg, "不支持的链接") {
+					errorTypeStats["UNSUPPORTED_LINK"]++
+				} else if strings.Contains(errorMsg, "链接无效") {
+					errorTypeStats["INVALID_LINK"]++
+				} else if strings.Contains(errorMsg, "没有可用的网盘账号") {
+					errorTypeStats["NO_ACCOUNT"]++
+				} else if strings.Contains(errorMsg, "没有有效的网盘账号") {
+					errorTypeStats["NO_VALID_ACCOUNT"]++
+				} else if strings.Contains(errorMsg, "网盘信息获取失败") {
+					errorTypeStats["TRANSFER_FAILED"]++
+				} else if strings.Contains(errorMsg, "创建网盘服务失败") {
+					errorTypeStats["SERVICE_CREATION_FAILED"]++
+				} else if strings.Contains(errorMsg, "处理标签失败") {
+					errorTypeStats["TAG_PROCESSING_FAILED"]++
+				} else if strings.Contains(errorMsg, "处理分类失败") {
+					errorTypeStats["CATEGORY_PROCESSING_FAILED"]++
+				} else if strings.Contains(errorMsg, "资源保存失败") {
+					errorTypeStats["RESOURCE_SAVE_FAILED"]++
+				} else if strings.Contains(errorMsg, "未找到对应的平台ID") {
+					errorTypeStats["PLATFORM_NOT_FOUND"]++
+				} else if strings.Contains(errorMsg, "链接检查失败") {
+					errorTypeStats["LINK_CHECK_FAILED"]++
+				} else {
+					errorTypeStats["UNKNOWN"]++
+				}
+			}
+		}
+	}
+
+	SuccessResponse(c, gin.H{
+		"data":            responses,
+		"page":            page,
+		"page_size":       pageSize,
+		"total":           len(resources),
+		"count":           len(resources),
+		"error_stats":     errorTypeStats,
+		"retryable_count": getRetryableErrorCount(resources),
+	})
+}
+
+// ClearErrorMsg 清除指定资源的错误信息
+func ClearErrorMsg(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	err = repoManager.ReadyResourceRepository.ClearErrorMsg(uint(id))
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, gin.H{"message": "错误信息已清除"})
+}
+
+// RetryFailedResources 重试失败的资源
+func RetryFailedResources(c *gin.Context) {
+	// 获取有错误的资源
+	resources, err := repoManager.ReadyResourceRepository.FindWithErrors()
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(resources) == 0 {
+		SuccessResponse(c, gin.H{
+			"message": "没有需要重试的资源",
+			"count":   0,
+		})
+		return
+	}
+
+	// 只重试可重试的错误
+	clearedCount := 0
+	skippedCount := 0
+
+	for _, resource := range resources {
+		isRetryable := false
+		errorMsg := strings.ToUpper(resource.ErrorMsg)
+
+		// 检查错误类型标记
+		if strings.Contains(resource.ErrorMsg, "[NO_ACCOUNT]") ||
+			strings.Contains(resource.ErrorMsg, "[NO_VALID_ACCOUNT]") ||
+			strings.Contains(resource.ErrorMsg, "[TRANSFER_FAILED]") ||
+			strings.Contains(resource.ErrorMsg, "[LINK_CHECK_FAILED]") {
+			isRetryable = true
+		} else if strings.Contains(errorMsg, "没有可用的网盘账号") ||
+			strings.Contains(errorMsg, "没有有效的网盘账号") ||
+			strings.Contains(errorMsg, "网盘信息获取失败") ||
+			strings.Contains(errorMsg, "链接检查失败") {
+			isRetryable = true
+		}
+
+		if isRetryable {
+			if err := repoManager.ReadyResourceRepository.ClearErrorMsg(resource.ID); err == nil {
+				clearedCount++
+			}
+		} else {
+			skippedCount++
+		}
+	}
+
+	SuccessResponse(c, gin.H{
+		"message":         "已清除可重试资源的错误信息，资源将在下次调度时重新处理",
+		"total_count":     len(resources),
+		"cleared_count":   clearedCount,
+		"skipped_count":   skippedCount,
+		"retryable_count": getRetryableErrorCount(resources),
+	})
+}

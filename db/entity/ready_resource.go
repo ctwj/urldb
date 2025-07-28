@@ -18,6 +18,7 @@ type ReadyResource struct {
 	Source      string         `json:"source" gorm:"size:100;comment:数据来源"`
 	Extra       string         `json:"extra" gorm:"type:text;comment:额外附加数据"`
 	Key         string         `json:"key" gorm:"size:64;index;comment:资源组标识，相同key表示同一组资源"`
+	ErrorMsg    string         `json:"error_msg" gorm:"type:text;comment:处理失败时的错误信息"`
 	CreateTime  time.Time      `json:"create_time" gorm:"default:CURRENT_TIMESTAMP"`
 	IP          *string        `json:"ip" gorm:"size:45;comment:IP地址"`
 	CreatedAt   time.Time      `json:"created_at"`
