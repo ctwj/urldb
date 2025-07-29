@@ -149,7 +149,7 @@ func (f *PanFactory) CreatePanServiceByType(serviceType ServiceType, config *Pan
 }
 
 // GetQuarkService 获取夸克网盘服务单例
-func (f *PanFactory)/ GetQuarkService(config *PanConfig) PanService {
+func (f *PanFactory) GetQuarkService(config *PanConfig) PanService {
 	service := NewQuarkPanService(config)
 	return service
 }
@@ -190,13 +190,12 @@ func ExtractServiceType(url string) ServiceType {
 		"fast.uc.cn":          UC,
 		"pan.xunlei.com":      Xunlei,
 		"cloud.189.cn":        Tianyi,
-		"www.123pan.com":        Pan123,
-		"www.123912.com":        Pan123,
-		"www.123684.com":        Pan123,
-		"115cdn.com":        Pan115,
-		"anxia.com":        Pan115,
-		"115.com/":        Pan115,
-
+		"www.123pan.com":      Pan123,
+		"www.123912.com":      Pan123,
+		"www.123684.com":      Pan123,
+		"115cdn.com":          Pan115,
+		"anxia.com":           Pan115,
+		"115.com/":            Pan115,
 	}
 
 	for pattern, serviceType := range patterns {
