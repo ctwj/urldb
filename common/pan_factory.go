@@ -35,6 +35,12 @@ func (s ServiceType) String() string {
 		return "uc"
 	case Xunlei:
 		return "xunlei"
+	case Tianyi:
+		return "tianyi"
+	case Pan123:
+		return "123pan"
+	case Pan115:
+		return "115"
 	default:
 		return "unknown"
 	}

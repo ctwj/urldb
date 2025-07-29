@@ -575,6 +575,10 @@ func (s *Scheduler) initPanCache() {
 			"alipan":  "aliyun", // 阿里云盘在数据库中的名称是 aliyun
 			"baidu":   "baidu",
 			"uc":      "uc",
+			"xunlei":  "xunlei",
+			"tianyi":  "tianyi",
+			"123pan":  "123pan",
+			"115":     "115",
 			"unknown": "other",
 		}
 
