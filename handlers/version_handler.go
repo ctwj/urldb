@@ -28,7 +28,7 @@ func GetVersion(c *gin.Context) {
 		Success: true,
 		Data:    versionInfo,
 		Message: "版本信息获取成功",
-		Time:    time.Now(),
+		Time:    utils.GetCurrentTime(),
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -44,7 +44,7 @@ func GetVersionString(c *gin.Context) {
 			"version": versionString,
 		},
 		Message: "版本字符串获取成功",
-		Time:    time.Now(),
+		Time:    utils.GetCurrentTime(),
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -60,7 +60,7 @@ func GetFullVersionInfo(c *gin.Context) {
 			"version_info": fullInfo,
 		},
 		Message: "完整版本信息获取成功",
-		Time:    time.Now(),
+		Time:    utils.GetCurrentTime(),
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -89,7 +89,7 @@ func CheckUpdate(c *gin.Context) {
 			"update_url":       "https://github.com/ctwj/urldb/releases/latest",
 		},
 		Message: "更新检查完成",
-		Time:    time.Now(),
+		Time:    utils.GetCurrentTime(),
 	}
 
 	c.JSON(http.StatusOK, response)

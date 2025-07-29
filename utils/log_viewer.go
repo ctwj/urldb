@@ -269,7 +269,7 @@ func (lv *LogViewer) CleanOldLogs(days int) error {
 		return err
 	}
 
-	cutoffTime := time.Now().AddDate(0, 0, -days)
+	cutoffTime := GetCurrentTime().AddDate(0, 0, -days)
 	deletedCount := 0
 
 	for _, file := range files {

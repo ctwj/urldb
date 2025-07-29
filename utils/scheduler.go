@@ -777,7 +777,7 @@ func (s *Scheduler) processAutoTransfer() {
 					Error("转存资源失败 (ID: %d): %v", res.ID, err)
 				} else {
 					Info("成功转存资源: %s", res.Title)
-					rand.Seed(time.Now().UnixNano())
+					rand.Seed(GetCurrentTime().UnixNano())
 					sleepSec := rand.Intn(3) + 1 // 1,2,3
 					time.Sleep(time.Duration(sleepSec) * time.Second)
 				}
@@ -793,7 +793,7 @@ func (s *Scheduler) getResourcesForTransfer(config *entity.SystemConfig, quarkPa
 	days := config.AutoTransferLimitDays
 	var sinceTime time.Time
 	if days > 0 {
-		sinceTime = time.Now().AddDate(0, 0, -days)
+		sinceTime = GetCurrentTime().AddDate(0, 0, -days)
 	} else {
 		sinceTime = time.Time{}
 	}

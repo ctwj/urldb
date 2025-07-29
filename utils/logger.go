@@ -153,7 +153,7 @@ func (l *Logger) initLogFile() error {
 	}
 
 	// 创建新的日志文件
-	logFile := filepath.Join(l.config.LogDir, fmt.Sprintf("app_%s.log", time.Now().Format("2006-01-02")))
+	logFile := filepath.Join(l.config.LogDir, fmt.Sprintf("app_%s.log", GetCurrentTime().Format("2006-01-02")))
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return fmt.Errorf("创建日志文件失败: %v", err)
@@ -291,8 +291,8 @@ func (l *Logger) rotateLog() {
 	}
 
 	// 重命名当前日志文件
-	currentLogFile := filepath.Join(l.config.LogDir, fmt.Sprintf("app_%s.log", time.Now().Format("2006-01-02")))
-	backupLogFile := filepath.Join(l.config.LogDir, fmt.Sprintf("app_%s_%s.log", time.Now().Format("2006-01-02"), time.Now().Format("15-04-05")))
+	currentLogFile := filepath.Join(l.config.LogDir, fmt.Sprintf("app_%s.log", GetCurrentTime().Format("2006-01-02")))
+	backupLogFile := filepath.Join(l.config.LogDir, fmt.Sprintf("app_%s_%s.log", GetCurrentTime().Format("2006-01-02"), GetCurrentTime().Format("15-04-05")))
 
 	if _, err := os.Stat(currentLogFile); err == nil {
 		os.Rename(currentLogFile, backupLogFile)
@@ -314,7 +314,7 @@ func (l *Logger) cleanOldLogs() {
 		return
 	}
 
-	cutoffTime := time.Now().AddDate(0, 0, -l.config.MaxAge)
+	cutoffTime := GetCurrentTime().AddDate(0, 0, -l.config.MaxAge)
 
 	for _, file := range files {
 		fileInfo, err := os.Stat(file)

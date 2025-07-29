@@ -28,6 +28,9 @@ func main() {
 		utils.Info("未找到.env文件，使用默认配置")
 	}
 
+	// 初始化时区设置
+	utils.InitTimezone()
+
 	// 设置Gin运行模式
 	ginMode := os.Getenv("GIN_MODE")
 	if ginMode == "" {

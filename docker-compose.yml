@@ -28,6 +28,7 @@ services:
       DB_PASSWORD: password
       DB_NAME: url_db
       PORT: 8080
+      TIMEZONE: Asia/Shanghai
     depends_on:
       postgres:
         condition: service_healthy

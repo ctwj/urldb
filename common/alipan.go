@@ -3,7 +3,6 @@ package pan
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -84,7 +83,7 @@ func (a *AlipanService) Transfer(shareID string) (*TransferResult, error) {
 	config := a.config
 	a.configMutex.RUnlock()
 
-	log.Printf("开始处理阿里云盘分享: %s", shareID)
+	fmt.Printf("开始处理阿里云盘分享: %s", shareID)
 
 	// 获取access token
 	accessToken, err := a.manageAccessToken()

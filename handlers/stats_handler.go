@@ -24,7 +24,7 @@ func GetStats(c *gin.Context) {
 
 	// 获取今日更新数量
 	var todayUpdates int64
-	today := time.Now().Format("2006-01-02")
+	today := utils.GetCurrentTime().Format("2006-01-02")
 	db.DB.Model(&entity.Resource{}).Where("DATE(updated_at) = ?", today).Count(&todayUpdates)
 
 	SuccessResponse(c, gin.H{
@@ -65,7 +65,7 @@ func GetPerformanceStats(c *gin.Context) {
 	}
 
 	SuccessResponse(c, gin.H{
-		"timestamp": time.Now().Unix(),
+		"timestamp": utils.GetCurrentTime().Unix(),
 		"memory": gin.H{
 			"alloc":       m.Alloc,
 			"total_alloc": m.TotalAlloc,
@@ -89,7 +89,7 @@ func GetPerformanceStats(c *gin.Context) {
 func GetSystemInfo(c *gin.Context) {
 	SuccessResponse(c, gin.H{
 		"uptime":     time.Since(startTime).String(),
-		"start_time": startTime.Format("2006-01-02 15:04:05"),
+		"start_time": utils.FormatTime(startTime, "2006-01-02 15:04:05"),
 		"version":    utils.Version,
 		"environment": gin.H{
 			"gin_mode": gin.Mode(),
@@ -98,4 +98,4 @@ func GetSystemInfo(c *gin.Context) {
 }
 
 // 记录启动时间
-var startTime = time.Now()
+var startTime = utils.GetCurrentTime()

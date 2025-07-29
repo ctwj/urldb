@@ -24,7 +24,7 @@ type VersionInfo struct {
 // 编译时注入的版本信息
 var (
 	Version   = getVersionFromFile()
-	BuildTime = time.Now().Format("2006-01-02 15:04:05")
+	BuildTime = GetCurrentTimeString()
 	GitCommit = "unknown"
 	GitBranch = "unknown"
 )
@@ -40,7 +40,7 @@ func getVersionFromFile() string {
 
 // GetVersionInfo 获取版本信息
 func GetVersionInfo() *VersionInfo {
-	buildTime, _ := time.Parse("2006-01-02 15:04:05", BuildTime)
+	buildTime, _ := ParseTime(BuildTime)
 
 	return &VersionInfo{
 		Version:     Version,
@@ -72,7 +72,7 @@ func GetFullVersionInfo() string {
   Node版本: %s
   平台: %s/%s`,
 		info.Version,
-		info.BuildTime.Format("2006-01-02 15:04:05"),
+		FormatTime(info.BuildTime, "2006-01-02 15:04:05"),
 		info.GitCommit,
 		info.GitBranch,
 		info.GoVersion,

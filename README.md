@@ -187,6 +187,9 @@ DB_NAME=url_db
 
 # 服务器配置
 PORT=8080
+
+# 时区配置
+TIMEZONE=Asia/Shanghai
 ```
 
 ### Docker 服务说明

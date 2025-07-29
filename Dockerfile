@@ -37,6 +37,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 # 后端运行阶段
 FROM alpine:latest AS backend
 
+# 安装时区数据
+RUN apk add --no-cache tzdata
+
 WORKDIR /root/
 
 # 复制后端二进制文件
@@ -47,6 +50,7 @@ RUN mkdir -p uploads
 
 # 设置环境变量
 ENV GIN_MODE=release
+ENV TZ=Asia/Shanghai
 
 # 暴露端口
 EXPOSE 8080
