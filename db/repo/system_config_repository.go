@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/ctwj/urldb/db/entity"
 
@@ -18,17 +19,25 @@ type SystemConfigRepository interface {
 	GetConfigValue(key string) (string, error)
 	GetConfigBool(key string) (bool, error)
 	GetConfigInt(key string) (int, error)
+	GetCachedConfigs() map[string]string
+	ClearConfigCache()
 }
 
 // SystemConfigRepositoryImpl 系统配置Repository实现
 type SystemConfigRepositoryImpl struct {
 	BaseRepositoryImpl[entity.SystemConfig]
+
+	// 配置缓存
+	configCache      map[string]string // key -> value
+	configCacheOnce  sync.Once
+	configCacheMutex sync.RWMutex
 }
 
 // NewSystemConfigRepository 创建系统配置Repository
 func NewSystemConfigRepository(db *gorm.DB) SystemConfigRepository {
 	return &SystemConfigRepositoryImpl{
 		BaseRepositoryImpl: BaseRepositoryImpl[entity.SystemConfig]{db: db},
+		configCache:        make(map[string]string),
 	}
 }
 
@@ -68,6 +77,9 @@ func (r *SystemConfigRepositoryImpl) UpsertConfigs(configs []entity.SystemConfig
 			}
 		}
 	}
+
+	// 更新配置后刷新缓存
+	r.refreshConfigCache()
 	return nil
 }
 
@@ -108,12 +120,68 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 	return configs, nil
 }
 
+// initConfigCache 初始化配置缓存
+func (r *SystemConfigRepositoryImpl) initConfigCache() {
+	r.configCacheOnce.Do(func() {
+		// 获取所有配置
+		configs, err := r.FindAll()
+		if err != nil {
+			// 如果获取失败，尝试创建默认配置
+			configs, err = r.GetOrCreateDefault()
+			if err != nil {
+				return
+			}
+		}
+
+		// 初始化缓存
+		r.configCacheMutex.Lock()
+		defer r.configCacheMutex.Unlock()
+
+		for _, config := range configs {
+			r.configCache[config.Key] = config.Value
+		}
+	})
+}
+
+// refreshConfigCache 刷新配置缓存
+func (r *SystemConfigRepositoryImpl) refreshConfigCache() {
+	// 重置Once，允许重新初始化
+	r.configCacheOnce = sync.Once{}
+
+	// 清空缓存
+	r.configCacheMutex.Lock()
+	r.configCache = make(map[string]string)
+	r.configCacheMutex.Unlock()
+
+	// 重新初始化缓存
+	r.initConfigCache()
+}
+
 // GetConfigValue 获取配置值（字符串）
 func (r *SystemConfigRepositoryImpl) GetConfigValue(key string) (string, error) {
+	// 初始化缓存
+	r.initConfigCache()
+
+	// 从缓存中读取
+	r.configCacheMutex.RLock()
+	value, exists := r.configCache[key]
+	r.configCacheMutex.RUnlock()
+
+	if exists {
+		return value, nil
+	}
+
+	// 如果缓存中没有，尝试从数据库获取（可能是新添加的配置）
 	config, err := r.FindByKey(key)
 	if err != nil {
 		return "", err
 	}
+
+	// 更新缓存
+	r.configCacheMutex.Lock()
+	r.configCache[key] = config.Value
+	r.configCacheMutex.Unlock()
+
 	return config.Value, nil
 }
 
@@ -145,4 +213,30 @@ func (r *SystemConfigRepositoryImpl) GetConfigInt(key string) (int, error) {
 	var result int
 	_, err = fmt.Sscanf(value, "%d", &result)
 	return result, err
+}
+
+// GetCachedConfigs 获取所有缓存的配置（用于调试）
+func (r *SystemConfigRepositoryImpl) GetCachedConfigs() map[string]string {
+	r.initConfigCache()
+
+	r.configCacheMutex.RLock()
+	defer r.configCacheMutex.RUnlock()
+
+	// 返回缓存的副本
+	result := make(map[string]string)
+	for k, v := range r.configCache {
+		result[k] = v
+	}
+
+	return result
+}
+
+// ClearConfigCache 清空配置缓存（用于测试或手动刷新）
+func (r *SystemConfigRepositoryImpl) ClearConfigCache() {
+	r.configCacheMutex.Lock()
+	r.configCache = make(map[string]string)
+	r.configCacheMutex.Unlock()
+
+	// 重置Once，允许重新初始化
+	r.configCacheOnce = sync.Once{}
 }

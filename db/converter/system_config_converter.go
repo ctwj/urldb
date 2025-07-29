@@ -6,6 +6,7 @@ import (
 
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 )
 
 // SystemConfigToResponse 将系统配置实体列表转换为响应DTO
@@ -105,8 +106,8 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]interface{} {
 	response := map[string]interface{}{
 		entity.ConfigResponseFieldID:                        0,
-		entity.ConfigResponseFieldCreatedAt:                 time.Now().Format("2006-01-02 15:04:05"),
-		entity.ConfigResponseFieldUpdatedAt:                 time.Now().Format("2006-01-02 15:04:05"),
+		entity.ConfigResponseFieldCreatedAt:                 utils.GetCurrentTimeString(),
+		entity.ConfigResponseFieldUpdatedAt:                 utils.GetCurrentTimeString(),
 		entity.ConfigResponseFieldSiteTitle:                 entity.ConfigDefaultSiteTitle,
 		entity.ConfigResponseFieldSiteDescription:           entity.ConfigDefaultSiteDescription,
 		entity.ConfigResponseFieldKeywords:                  entity.ConfigDefaultKeywords,

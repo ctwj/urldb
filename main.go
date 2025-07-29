@@ -81,6 +81,14 @@ func main() {
 		repoManager.CategoryRepository,
 	)
 
+	// 确保默认配置存在
+	_, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
+	if err != nil {
+		utils.Error("初始化默认配置失败: %v", err)
+	} else {
+		utils.Info("默认配置初始化完成")
+	}
+
 	// 检查系统配置，决定是否启动各种自动任务
 	autoProcessReadyResources, err := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)
 	if err != nil {

@@ -17,6 +17,9 @@ const (
 	UC
 	NotFound
 	Xunlei
+	Tianyi
+	Pan123
+	Pan115
 )
 
 // String 返回服务类型的字符串表示
@@ -136,13 +139,17 @@ func (f *PanFactory) CreatePanServiceByType(serviceType ServiceType, config *Pan
 		return NewBaiduPanService(config), nil
 	case UC:
 		return NewUCService(config), nil
+	// case Xunlei:
+	// 	return NewXunleiService(config), nil
+	// case Tianyi:
+	// 	return NewTianyiService(config), nil
 	default:
 		return nil, fmt.Errorf("不支持的服务类型: %d", serviceType)
 	}
 }
 
 // GetQuarkService 获取夸克网盘服务单例
-func (f *PanFactory) GetQuarkService(config *PanConfig) PanService {
+func (f *PanFactory)/ GetQuarkService(config *PanConfig) PanService {
 	service := NewQuarkPanService(config)
 	return service
 }
@@ -169,6 +176,11 @@ func (f *PanFactory) GetUCService(config *PanConfig) PanService {
 func ExtractServiceType(url string) ServiceType {
 	url = strings.ToLower(url)
 
+	// "https://www.123pan.com/s/i4uaTd-WHn0", // 公开分享
+	// "https://www.123912.com/s/U8f2Td-ZeOX",
+	// "https://www.123684.coms/u9izjv-k3uWv",
+	// "https://www.123pan.com/s/A6cA-AKH11", // 外链不存在
+
 	patterns := map[string]ServiceType{
 		"pan.quark.cn":        Quark,
 		"www.alipan.com":      Alipan,
@@ -177,6 +189,14 @@ func ExtractServiceType(url string) ServiceType {
 		"drive.uc.cn":         UC,
 		"fast.uc.cn":          UC,
 		"pan.xunlei.com":      Xunlei,
+		"cloud.189.cn":        Tianyi,
+		"www.123pan.com":        Pan123,
+		"www.123912.com":        Pan123,
+		"www.123684.com":        Pan123,
+		"115cdn.com":        Pan115,
+		"anxia.com":        Pan115,
+		"115.com/":        Pan115,
+
 	}
 
 	for pattern, serviceType := range patterns {
@@ -196,12 +216,23 @@ func ExtractShareId(url string) (string, ServiceType) {
 	}
 
 	// 提取分享ID
+	shareID := ""
 	substring := strings.Index(url, "/s/")
+	if substring == -1 {
+		substring = strings.Index(url, "/t/") // 天翼云 是 t
+		shareID = url[substring+3:]
+	}
+	if substring == -1 {
+		substring = strings.Index(url, "/web/share?code=") // 天翼云 带密码
+		shareID = url[substring+11:]
+	}
+	if substring == -1 {
+		substring = strings.Index(url, "/p/") // 天翼云 是 p
+		shareID = url[substring+3:]
+	}
 	if substring == -1 {
 		return "", NotFound
 	}
-
-	shareID := url[substring+3:] // 去除 '/s/' 部分
 
 	// 去除可能的锚点
 	if hashIndex := strings.Index(shareID, "#"); hashIndex != -1 {

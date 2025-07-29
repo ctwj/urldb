@@ -63,26 +63,34 @@ func InitDB() error {
 	sqlDB.SetMaxOpenConns(100)          // 最大打开连接数
 	sqlDB.SetConnMaxLifetime(time.Hour) // 连接最大生命周期
 
-	// 自动迁移数据库表结构
-	err = DB.AutoMigrate(
-		&entity.User{},
-		&entity.Category{},
-		&entity.Pan{},
-		&entity.Cks{},
-		&entity.Tag{},
-		&entity.Resource{},
-		&entity.ResourceTag{},
-		&entity.ReadyResource{},
-		&entity.SearchStat{},
-		&entity.SystemConfig{},
-		&entity.HotDrama{},
-	)
-	if err != nil {
-		utils.Fatal("数据库迁移失败: %v", err)
+	// 检查是否需要迁移（只在开发环境或首次启动时）
+	if shouldRunMigration() {
+		utils.Info("开始数据库迁移...")
+		err = DB.AutoMigrate(
+			&entity.User{},
+			&entity.Category{},
+			&entity.Pan{},
+			&entity.Cks{},
+			&entity.Tag{},
+			&entity.Resource{},
+			&entity.ResourceTag{},
+			&entity.ReadyResource{},
+			&entity.SearchStat{},
+			&entity.SystemConfig{},
+			&entity.HotDrama{},
+		)
+		if err != nil {
+			utils.Fatal("数据库迁移失败: %v", err)
+		}
+		utils.Info("数据库迁移完成")
+	} else {
+		utils.Info("跳过数据库迁移（表结构已是最新）")
 	}
 
-	// 创建索引以提高查询性能
-	createIndexes(DB)
+	// 创建索引以提高查询性能（只在需要迁移时）
+	if shouldRunMigration() {
+		createIndexes(DB)
+	}
 
 	// 插入默认数据（只在数据库为空时）
 	if err := insertDefaultDataIfEmpty(); err != nil {
@@ -91,6 +99,32 @@ func InitDB() error {
 
 	utils.Info("数据库连接成功")
 	return nil
+}
+
+// shouldRunMigration 检查是否需要运行数据库迁移
+func shouldRunMigration() bool {
+	// 通过环境变量控制是否运行迁移
+	skipMigration := os.Getenv("SKIP_MIGRATION")
+	if skipMigration == "true" {
+		return false
+	}
+
+	// 检查环境变量
+	env := os.Getenv("ENV")
+	if env == "production" {
+		// 生产环境：检查是否有迁移标记
+		var count int64
+		DB.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'schema_migrations'").Count(&count)
+		if count == 0 {
+			// 没有迁移表，说明是首次部署
+			return true
+		}
+		// 有迁移表，检查是否需要迁移（这里可以添加更复杂的逻辑）
+		return false
+	}
+
+	// 开发环境：总是运行迁移
+	return true
 }
 
 // autoMigrate 自动迁移表结构
@@ -112,9 +146,7 @@ func autoMigrate() error {
 
 // createIndexes 创建数据库索引以提高查询性能
 func createIndexes(db *gorm.DB) {
-	// 资源表索引
-	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_title ON resources USING gin(to_tsvector('chinese', title))")
-	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_description ON resources USING gin(to_tsvector('chinese', description))")
+	// 资源表索引（移除全文搜索索引，使用Meilisearch替代）
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_category_id ON resources(category_id)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_pan_id ON resources(pan_id)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_created_at ON resources(created_at DESC)")
@@ -122,13 +154,17 @@ func createIndexes(db *gorm.DB) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_is_valid ON resources(is_valid)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_is_public ON resources(is_public)")
 
+	// 为Meilisearch准备的基础文本索引（用于精确匹配）
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_title ON resources(title)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_resources_description ON resources(description)")
+
 	// 待处理资源表索引
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_ready_resource_key ON ready_resource(key)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_ready_resource_url ON ready_resource(url)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_ready_resource_create_time ON ready_resource(create_time DESC)")
 
 	// 搜索统计表索引
-	db.Exec("CREATE INDEX IF NOT EXISTS idx_search_stats_query ON search_stats(query)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_search_stats_keyword ON search_stats(keyword)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_search_stats_created_at ON search_stats(created_at DESC)")
 
 	// 热播剧表索引
@@ -140,7 +176,7 @@ func createIndexes(db *gorm.DB) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_tags_resource_id ON resource_tags(resource_id)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_tags_tag_id ON resource_tags(tag_id)")
 
-	utils.Info("数据库索引创建完成")
+	utils.Info("数据库索引创建完成（已移除全文搜索索引，准备使用Meilisearch）")
 }
 
 // insertDefaultDataIfEmpty 只在数据库为空时插入默认数据
