@@ -5,6 +5,7 @@ import (
 
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
+	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
 
@@ -25,13 +26,13 @@ func NewSystemConfigHandler(systemConfigRepo repo.SystemConfigRepository) *Syste
 
 // GetConfig 获取系统配置
 func (h *SystemConfigHandler) GetConfig(c *gin.Context) {
-	config, err := h.systemConfigRepo.GetOrCreateDefault()
+	configs, err := h.systemConfigRepo.GetOrCreateDefault()
 	if err != nil {
 		ErrorResponse(c, "获取系统配置失败", http.StatusInternalServerError)
 		return
 	}
 
-	configResponse := converter.SystemConfigToResponse(config)
+	configResponse := converter.SystemConfigToResponse(configs)
 	SuccessResponse(c, configResponse)
 }
 
@@ -71,39 +72,39 @@ func (h *SystemConfigHandler) UpdateConfig(c *gin.Context) {
 	}
 
 	// 转换为实体
-	config := converter.RequestToSystemConfig(&req)
-	if config == nil {
+	configs := converter.RequestToSystemConfig(&req)
+	if configs == nil {
 		ErrorResponse(c, "数据转换失败", http.StatusInternalServerError)
 		return
 	}
 
 	// 保存配置
-	err := h.systemConfigRepo.Upsert(config)
+	err := h.systemConfigRepo.UpsertConfigs(configs)
 	if err != nil {
 		ErrorResponse(c, "保存系统配置失败", http.StatusInternalServerError)
 		return
 	}
 
 	// 返回更新后的配置
-	updatedConfig, err := h.systemConfigRepo.FindFirst()
+	updatedConfigs, err := h.systemConfigRepo.FindAll()
 	if err != nil {
 		ErrorResponse(c, "获取更新后的配置失败", http.StatusInternalServerError)
 		return
 	}
 
-	configResponse := converter.SystemConfigToResponse(updatedConfig)
+	configResponse := converter.SystemConfigToResponse(updatedConfigs)
 	SuccessResponse(c, configResponse)
 }
 
 // GetSystemConfig 获取系统配置（使用全局repoManager）
 func GetSystemConfig(c *gin.Context) {
-	config, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
+	configs, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
 	if err != nil {
 		ErrorResponse(c, "获取系统配置失败", http.StatusInternalServerError)
 		return
 	}
 
-	configResponse := converter.SystemConfigToResponse(config)
+	configResponse := converter.SystemConfigToResponse(configs)
 	SuccessResponse(c, configResponse)
 }
 
@@ -143,14 +144,14 @@ func UpdateSystemConfig(c *gin.Context) {
 	}
 
 	// 转换为实体
-	config := converter.RequestToSystemConfig(&req)
-	if config == nil {
+	configs := converter.RequestToSystemConfig(&req)
+	if configs == nil {
 		ErrorResponse(c, "数据转换失败", http.StatusInternalServerError)
 		return
 	}
 
 	// 保存配置
-	err := repoManager.SystemConfigRepository.Upsert(config)
+	err := repoManager.SystemConfigRepository.UpsertConfigs(configs)
 	if err != nil {
 		ErrorResponse(c, "保存系统配置失败", http.StatusInternalServerError)
 		return
@@ -172,24 +173,24 @@ func UpdateSystemConfig(c *gin.Context) {
 	}
 
 	// 返回更新后的配置
-	updatedConfig, err := repoManager.SystemConfigRepository.FindFirst()
+	updatedConfigs, err := repoManager.SystemConfigRepository.FindAll()
 	if err != nil {
 		ErrorResponse(c, "获取更新后的配置失败", http.StatusInternalServerError)
 		return
 	}
 
-	configResponse := converter.SystemConfigToResponse(updatedConfig)
+	configResponse := converter.SystemConfigToResponse(updatedConfigs)
 	SuccessResponse(c, configResponse)
 }
 
 // 新增：公开获取系统配置（不含api_token）
 func GetPublicSystemConfig(c *gin.Context) {
-	config, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
+	configs, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
 	if err != nil {
 		ErrorResponse(c, "获取系统配置失败", http.StatusInternalServerError)
 		return
 	}
-	configResponse := converter.SystemConfigToPublicResponse(config)
+	configResponse := converter.SystemConfigToPublicResponse(configs)
 	SuccessResponse(c, configResponse)
 }
 
@@ -204,17 +205,25 @@ func ToggleAutoProcess(c *gin.Context) {
 	}
 
 	// 获取当前配置
-	config, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
+	configs, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
 	if err != nil {
 		ErrorResponse(c, "获取系统配置失败", http.StatusInternalServerError)
 		return
 	}
 
-	// 只更新自动处理配置
-	config.AutoProcessReadyResources = req.AutoProcessReadyResources
+	// 更新自动处理配置
+	for i, config := range configs {
+		if config.Key == entity.ConfigKeyAutoProcessReadyResources {
+			configs[i].Value = "true"
+			if !req.AutoProcessReadyResources {
+				configs[i].Value = "false"
+			}
+			break
+		}
+	}
 
 	// 保存配置
-	err = repoManager.SystemConfigRepository.Upsert(config)
+	err = repoManager.SystemConfigRepository.UpsertConfigs(configs)
 	if err != nil {
 		ErrorResponse(c, "保存系统配置失败", http.StatusInternalServerError)
 		return
@@ -232,14 +241,18 @@ func ToggleAutoProcess(c *gin.Context) {
 		repoManager.CategoryRepository,
 	)
 	if scheduler != nil {
+		// 获取其他配置值
+		autoFetchHotDrama, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoFetchHotDramaEnabled)
+		autoTransfer, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
+
 		scheduler.UpdateSchedulerStatusWithAutoTransfer(
-			config.AutoFetchHotDramaEnabled,
-			config.AutoProcessReadyResources,
-			config.AutoTransferEnabled,
+			autoFetchHotDrama,
+			req.AutoProcessReadyResources,
+			autoTransfer,
 		)
 	}
 
 	// 返回更新后的配置
-	configResponse := converter.SystemConfigToResponse(config)
+	configResponse := converter.SystemConfigToResponse(configs)
 	SuccessResponse(c, configResponse)
 }

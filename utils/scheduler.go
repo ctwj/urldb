@@ -290,10 +290,9 @@ func (s *Scheduler) StartReadyResourceScheduler() {
 
 	go func() {
 		// 获取系统配置中的间隔时间
-		config, err := s.systemConfigRepo.GetOrCreateDefault()
-		interval := 3 * time.Minute // 默认5分钟
-		if err == nil && config.AutoProcessInterval > 0 {
-			interval = time.Duration(config.AutoProcessInterval) * time.Minute
+		interval := 3 * time.Minute // 默认3分钟
+		if autoProcessInterval, err := s.systemConfigRepo.GetConfigInt(entity.ConfigKeyAutoProcessInterval); err == nil && autoProcessInterval > 0 {
+			interval = time.Duration(autoProcessInterval) * time.Minute
 		}
 
 		ticker := time.NewTicker(interval)
@@ -341,13 +340,13 @@ func (s *Scheduler) processReadyResources() {
 	Info("开始处理待处理资源...")
 
 	// 检查系统配置，确认是否启用自动处理
-	config, err := s.systemConfigRepo.GetOrCreateDefault()
+	autoProcess, err := s.systemConfigRepo.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)
 	if err != nil {
 		Error("获取系统配置失败: %v", err)
 		return
 	}
 
-	if !config.AutoProcessReadyResources {
+	if !autoProcess {
 		Info("自动处理待处理资源功能已禁用")
 		return
 	}
@@ -641,10 +640,9 @@ func (s *Scheduler) StartAutoTransferScheduler() {
 
 	go func() {
 		// 获取系统配置中的间隔时间
-		config, err := s.systemConfigRepo.GetOrCreateDefault()
 		interval := 5 * time.Minute // 默认5分钟
-		if err == nil && config.AutoProcessInterval > 0 {
-			interval = time.Duration(config.AutoProcessInterval) * time.Minute
+		if autoProcessInterval, err := s.systemConfigRepo.GetConfigInt(entity.ConfigKeyAutoProcessInterval); err == nil && autoProcessInterval > 0 {
+			interval = time.Duration(autoProcessInterval) * time.Minute
 		}
 
 		ticker := time.NewTicker(interval)
@@ -697,13 +695,13 @@ func (s *Scheduler) processAutoTransfer() {
 	Info("开始处理自动转存...")
 
 	// 检查系统配置，确认是否启用自动转存
-	config, err := s.systemConfigRepo.GetOrCreateDefault()
+	autoTransferEnabled, err := s.systemConfigRepo.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
 	if err != nil {
 		Error("获取系统配置失败: %v", err)
 		return
 	}
 
-	if !config.AutoTransferEnabled {
+	if !autoTransferEnabled {
 		Info("自动转存功能已禁用")
 		return
 	}
@@ -729,8 +727,15 @@ func (s *Scheduler) processAutoTransfer() {
 		return
 	}
 
+	// 获取最小存储空间配置
+	autoTransferMinSpace, err := s.systemConfigRepo.GetConfigInt(entity.ConfigKeyAutoTransferMinSpace)
+	if err != nil {
+		Error("获取最小存储空间配置失败: %v", err)
+		return
+	}
+
 	// 过滤：只保留已激活、quark平台、剩余空间足够的账号
-	minSpaceBytes := int64(config.AutoTransferMinSpace) * 1024 * 1024 * 1024
+	minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
 	var validAccounts []entity.Cks
 	for _, acc := range accounts {
 		if acc.IsValid && acc.PanID == quarkPanID && acc.LeftSpace >= minSpaceBytes {
@@ -746,7 +751,7 @@ func (s *Scheduler) processAutoTransfer() {
 	Info("找到 %d 个可用quark网盘账号，开始自动转存处理...", len(validAccounts))
 
 	// 获取需要转存的资源
-	resources, err := s.getResourcesForTransfer(config, quarkPanID)
+	resources, err := s.getResourcesForTransfer(quarkPanID)
 	if err != nil {
 		Error("获取需要转存的资源失败: %v", err)
 		return
@@ -773,7 +778,7 @@ func (s *Scheduler) processAutoTransfer() {
 			defer wg.Done()
 			factory := panutils.GetInstance() // 使用单例模式
 			for res := range resourceCh {
-				if err := s.transferResource(res, []entity.Cks{acc}, config, factory); err != nil {
+				if err := s.transferResource(res, []entity.Cks{acc}, factory); err != nil {
 					Error("转存资源失败 (ID: %d): %v", res.ID, err)
 				} else {
 					Info("成功转存资源: %s", res.Title)
@@ -789,8 +794,15 @@ func (s *Scheduler) processAutoTransfer() {
 }
 
 // getResourcesForTransfer 获取需要转存的资源
-func (s *Scheduler) getResourcesForTransfer(config *entity.SystemConfig, quarkPanID uint) ([]*entity.Resource, error) {
-	days := config.AutoTransferLimitDays
+func (s *Scheduler) getResourcesForTransfer(quarkPanID uint) ([]*entity.Resource, error) {
+	// 获取自动转存限制天数配置
+	autoTransferLimitDays, err := s.systemConfigRepo.GetConfigInt(entity.ConfigKeyAutoTransferLimitDays)
+	if err != nil {
+		Error("获取自动转存限制天数配置失败: %v", err)
+		return nil, err
+	}
+
+	days := autoTransferLimitDays
 	var sinceTime time.Time
 	if days > 0 {
 		sinceTime = GetCurrentTime().AddDate(0, 0, -days)
@@ -808,7 +820,7 @@ func (s *Scheduler) getResourcesForTransfer(config *entity.SystemConfig, quarkPa
 var resourceUpdateMutex sync.Mutex // 全局互斥锁，保证多协程安全
 
 // transferResource 转存单个资源
-func (s *Scheduler) transferResource(resource *entity.Resource, accounts []entity.Cks, config *entity.SystemConfig, factory *panutils.PanFactory) error {
+func (s *Scheduler) transferResource(resource *entity.Resource, accounts []entity.Cks, factory *panutils.PanFactory) error {
 	if len(accounts) == 0 {
 		return fmt.Errorf("没有可用的网盘账号")
 	}
@@ -824,7 +836,23 @@ func (s *Scheduler) transferResource(resource *entity.Resource, accounts []entit
 		return fmt.Errorf("创建网盘服务失败: %v", err)
 	}
 
+	// 获取最小存储空间配置
+	autoTransferMinSpace, err := s.systemConfigRepo.GetConfigInt(entity.ConfigKeyAutoTransferMinSpace)
+	if err != nil {
+		Error("获取最小存储空间配置失败: %v", err)
+		return err
+	}
+
+	// 检查账号剩余空间
+	minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
+	if account.LeftSpace < minSpaceBytes {
+		return fmt.Errorf("账号剩余空间不足，需要 %d GB，当前剩余 %d GB", autoTransferMinSpace, account.LeftSpace/1024/1024/1024)
+	}
+
+	// 提取分享ID
 	shareID, _ := commonutils.ExtractShareIdString(resource.URL)
+
+	// 转存资源
 	result, err := service.Transfer(shareID)
 	if err != nil {
 		resourceUpdateMutex.Lock()
@@ -880,35 +908,34 @@ func (s *Scheduler) transferResource(resource *entity.Resource, accounts []entit
 	return nil
 }
 
-// selectBestAccount 选择最佳网盘账号
-func (s *Scheduler) selectBestAccount(accounts []entity.Cks, config *entity.SystemConfig) *entity.Cks {
-	// TODO: 实现账号选择逻辑
-	// 1. 过滤出有效的账号
-	// 2. 检查剩余空间是否满足最小要求
-	// 3. 优先选择VIP账号
-	// 4. 优先选择剩余空间大的账号
-	// 5. 考虑账号的使用频率（避免单个账号过度使用）
+// selectBestAccount 选择最佳账号
+func (s *Scheduler) selectBestAccount(accounts []entity.Cks) *entity.Cks {
+	if len(accounts) == 0 {
+		return nil
+	}
 
-	minSpaceBytes := int64(config.AutoTransferMinSpace) * 1024 * 1024 * 1024 // 转换为字节
+	// 获取最小存储空间配置
+	autoTransferMinSpace, err := s.systemConfigRepo.GetConfigInt(entity.ConfigKeyAutoTransferMinSpace)
+	if err != nil {
+		Error("获取最小存储空间配置失败: %v", err)
+		return &accounts[0] // 返回第一个账号
+	}
+
+	minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
 
 	var bestAccount *entity.Cks
-	var maxScore int64 = -1
+	var bestScore int64 = -1
 
-	for _, account := range accounts {
-		if !account.IsValid {
-			continue
-		}
-
-		// 检查剩余空间
+	for i := range accounts {
+		account := &accounts[i]
 		if account.LeftSpace < minSpaceBytes {
-			continue
+			continue // 跳过空间不足的账号
 		}
 
-		// 计算账号评分
-		score := s.calculateAccountScore(&account)
-		if score > maxScore {
-			maxScore = score
-			bestAccount = &account
+		score := s.calculateAccountScore(account)
+		if score > bestScore {
+			bestScore = score
+			bestAccount = account
 		}
 	}
 

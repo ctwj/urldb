@@ -7,6 +7,7 @@ import (
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/ctwj/urldb/db"
+	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
@@ -81,33 +82,34 @@ func main() {
 	)
 
 	// 检查系统配置，决定是否启动各种自动任务
-	systemConfig, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
+	autoProcessReadyResources, err := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)
 	if err != nil {
-		utils.Error("获取系统配置失败: %v", err)
+		utils.Error("获取自动处理待处理资源配置失败: %v", err)
+	} else if autoProcessReadyResources {
+		scheduler.StartReadyResourceScheduler()
+		utils.Info("已启动待处理资源自动处理任务")
 	} else {
-		// 检查是否启动待处理资源自动处理任务
-		if systemConfig.AutoProcessReadyResources {
-			scheduler.StartReadyResourceScheduler()
-			utils.Info("已启动待处理资源自动处理任务")
-		} else {
-			utils.Info("系统配置中自动处理待处理资源功能已禁用，跳过启动定时任务")
-		}
+		utils.Info("系统配置中自动处理待处理资源功能已禁用，跳过启动定时任务")
+	}
 
-		// 检查是否启动热播剧自动拉取任务
-		if systemConfig.AutoFetchHotDramaEnabled {
-			scheduler.StartHotDramaScheduler()
-			utils.Info("已启动热播剧自动拉取任务")
-		} else {
-			utils.Info("系统配置中自动拉取热播剧功能已禁用，跳过启动定时任务")
-		}
+	autoFetchHotDramaEnabled, err := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoFetchHotDramaEnabled)
+	if err != nil {
+		utils.Error("获取自动拉取热播剧配置失败: %v", err)
+	} else if autoFetchHotDramaEnabled {
+		scheduler.StartHotDramaScheduler()
+		utils.Info("已启动热播剧自动拉取任务")
+	} else {
+		utils.Info("系统配置中自动拉取热播剧功能已禁用，跳过启动定时任务")
+	}
 
-		// 检查是否启动自动转存任务
-		if systemConfig.AutoTransferEnabled {
-			scheduler.StartAutoTransferScheduler()
-			utils.Info("已启动自动转存任务")
-		} else {
-			utils.Info("系统配置中自动转存功能已禁用，跳过启动定时任务")
-		}
+	autoTransferEnabled, err := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
+	if err != nil {
+		utils.Error("获取自动转存配置失败: %v", err)
+	} else if autoTransferEnabled {
+		scheduler.StartAutoTransferScheduler()
+		utils.Info("已启动自动转存任务")
+	} else {
+		utils.Info("系统配置中自动转存功能已禁用，跳过启动定时任务")
 	}
 
 	// 创建Gin实例

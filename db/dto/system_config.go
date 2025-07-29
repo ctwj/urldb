@@ -53,3 +53,15 @@ type SystemConfigResponse struct {
 	PageSize        int  `json:"page_size"`
 	MaintenanceMode bool `json:"maintenance_mode"`
 }
+
+// SystemConfigItem 单个配置项
+type SystemConfigItem struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+	Type  string `json:"type"`
+}
+
+// SystemConfigListResponse 配置列表响应
+type SystemConfigListResponse struct {
+	Configs []SystemConfigItem `json:"configs"`
+}
