@@ -1,6 +1,6 @@
 // docsify 配置文件
 window.$docsify = {
-  name: 'URL数据库管理系统',
+  name: '老九网盘链接数据库',
   repo: 'https://github.com/ctwj/urldb',
   loadSidebar: '_sidebar.md',
   subMaxLevel: 3,
