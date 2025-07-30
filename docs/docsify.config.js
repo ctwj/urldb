@@ -2,7 +2,7 @@
 window.$docsify = {
   name: 'URL数据库管理系统',
   repo: 'https://github.com/ctwj/urldb',
-  loadSidebar: true,
+  loadSidebar: '_sidebar.md',
   subMaxLevel: 3,
   auto2top: true,
   // 添加侧边栏配置
