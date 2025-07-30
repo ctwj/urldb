@@ -393,6 +393,9 @@ func (s *Scheduler) processReadyResources() {
 			} else {
 				Info("已保存错误信息到资源 (ID: %d): %s", readyResource.ID, err.Error())
 			}
+
+			// 处理失败后删除资源，避免重复处理
+			s.readyResourceRepo.Delete(readyResource.ID)
 		} else {
 			// 处理成功，删除readyResource
 			s.readyResourceRepo.Delete(readyResource.ID)
