@@ -71,19 +71,19 @@
 ## 📸 项目截图
 
 ### 🏠 首页
-![首页](https://github.com/ctwj/urldb/assets/raw/main/github/index.webp)
+![首页](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/index.webp)
 
 ### 🔧 后台管理
-![后台管理](https://github.com/ctwj/urldb/assets/raw/main/github/admin.webp)
+![后台管理](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/admin.webp)
 
 ### ⚙️ 系统配置
-![系统配置](https://github.com/ctwj/urldb/assets/raw/main/github/config.webp)
+![系统配置](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/config.webp)
 
 ### 🔍 搜索通过
-![资源搜索](https://github.com/ctwj/urldb/assets/raw/main/github/search.webp)
+![资源搜索](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/search.webp)
 
 ### 👤 多账号管理
-![账号管理](https://github.com/ctwj/urldb/assets/raw/main/github/account.webp)
+![账号管理](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/account.webp)
 
 ---
 
