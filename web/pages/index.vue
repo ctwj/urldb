@@ -283,10 +283,13 @@ const pageSize = ref(200)
 const selectedPlatform = ref(route.query.platform as string || '')
 const showLinkModal = ref(false)
 const selectedResource = ref<any>(null)
-const authInitialized = ref(false)
+const authInitialized = ref(true) // 在app.vue中已经初始化，这里直接设为true
 const isLoadingMore = ref(false)
 const hasMoreData = ref(true)
 const pageLoading = ref(false)
+
+// 用户状态管理
+const userStore = useUserStore()
 
 // 使用 useAsyncData 获取资源数据
 const { data: resourcesData, pending, refresh } = await useAsyncData(
@@ -321,13 +324,8 @@ const totalPages = computed(() => {
   return Math.ceil(total / pageSize.value)
 })
 
-// 用户状态管理
-const userStore = useUserStore()
-
 // 初始化认证状态
 onMounted(() => {
-  userStore.initAuth()
-  authInitialized.value = true
   animateCounters()
 })
 
@@ -395,7 +393,9 @@ const openLink = async (url: string, resourceId: number) => {
   try {
     await fetch(`/api/resources/${resourceId}/view`, { method: 'POST' })
   } catch (e) {}
-  window.open(url, '_blank')
+  if (process.client) {
+    window.open(url, '_blank')
+  }
 }
 
 // 切换链接显示
@@ -411,15 +411,17 @@ const toggleLink = async (resource: any) => {
 const copyToClipboard = async (text: any) => {
   try {
     await navigator.clipboard.writeText(text)
-    const button = document.querySelector('.show-link-btn')
-    if (button) {
-      const originalText = button.innerHTML
-      button.innerHTML = '<i class="fas fa-check"></i> 已复制'
-      button.classList.add('bg-green-600')
-      setTimeout(() => {
-        button.innerHTML = originalText
-        button.classList.remove('bg-green-600')
-      }, 2000)
+    if (process.client) {
+      const button = document.querySelector('.show-link-btn')
+      if (button) {
+        const originalText = button.innerHTML
+        button.innerHTML = '<i class="fas fa-check"></i> 已复制'
+        button.classList.add('bg-green-600')
+        setTimeout(() => {
+          button.innerHTML = originalText
+          button.classList.remove('bg-green-600')
+        }, 2000)
+      }
     }
   } catch (error) {
     console.error('复制失败:', error)
@@ -471,6 +473,8 @@ const isUpdatedToday = (dateString: string) => {
 
 // 数字动画效果
 const animateCounters = () => {
+  if (!process.client) return
+  
   const counters = document.querySelectorAll('.count-up')
   const speed = 200
   
@@ -506,11 +510,13 @@ const goToPage = async (page: number) => {
   // 刷新数据
   await refresh()
   
-  // 滚动到顶部
-  window.scrollTo({
-    top: 0,
-    behavior: 'smooth'
-  })
+  // 滚动到顶部（只在客户端执行）
+  if (process.client) {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
 }
 
 

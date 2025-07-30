@@ -170,7 +170,9 @@ const copyUrl = async () => {
 
 // 跳转到链接
 const openLink = () => {
-  window.open(props.url, '_blank')
+  if (process.client) {
+    window.open(props.url, '_blank')
+  }
 }
 
 // 下载二维码

@@ -46,7 +46,8 @@ export const useUserStore = defineStore('user', {
   actions: {
     // 初始化用户状态（从localStorage恢复）
     initAuth() {
-      if (typeof window !== 'undefined') {
+      // 只在客户端执行
+      if (process.client && typeof window !== 'undefined') {
         const token = localStorage.getItem('token')
         const userStr = localStorage.getItem('user')
         console.log('initAuth - token:', token ? 'exists' : 'not found')

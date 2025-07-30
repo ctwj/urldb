@@ -1,6 +1,12 @@
 export default defineNuxtPlugin(() => {
-  const userStore = useUserStore()
-  
-  // 在客户端初始化时恢复用户状态
-  userStore.initAuth()
+  // 只在客户端执行
+  if (process.client) {
+    const userStore = useUserStore()
+    
+    // 在应用启动时初始化用户认证状态
+    // 使用 nextTick 确保在 DOM 更新后执行
+    nextTick(() => {
+      userStore.initAuth()
+    })
+  }
 }) 
