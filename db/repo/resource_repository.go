@@ -217,36 +217,57 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 	// 处理参数
 	for key, value := range params {
 		switch key {
-		case "query":
+		case "search": // 添加search参数支持
 			if query, ok := value.(string); ok && query != "" {
 				db = db.Where("title ILIKE ? OR description ILIKE ?", "%"+query+"%", "%"+query+"%")
 			}
-		case "category_id":
-			if categoryID, ok := value.(uint); ok {
-				db = db.Where("category_id = ?", categoryID)
+		case "category": // 添加category参数支持（字符串形式）
+			if category, ok := value.(string); ok && category != "" {
+				// 根据分类名称查找分类ID
+				var categoryEntity entity.Category
+				if err := r.db.Where("name ILIKE ?", "%"+category+"%").First(&categoryEntity).Error; err == nil {
+					db = db.Where("category_id = ?", categoryEntity.ID)
+				}
 			}
-		case "is_valid":
-			if isValid, ok := value.(bool); ok {
-				db = db.Where("is_valid = ?", isValid)
-			}
-		case "is_public":
-			if isPublic, ok := value.(bool); ok {
-				db = db.Where("is_public = ?", isPublic)
-			}
-		case "pan_id":
-			if panID, ok := value.(uint); ok {
-				db = db.Where("pan_id = ?", panID)
+		case "tag": // 添加tag参数支持
+			if tag, ok := value.(string); ok && tag != "" {
+				// 根据标签名称查找相关资源
+				var tagEntity entity.Tag
+				if err := r.db.Where("name ILIKE ?", "%"+tag+"%").First(&tagEntity).Error; err == nil {
+					// 通过中间表查找包含该标签的资源
+					db = db.Joins("JOIN resource_tags ON resources.id = resource_tags.resource_id").
+						Where("resource_tags.tag_id = ?", tagEntity.ID)
+				}
 			}
 		}
 	}
+	db = db.Where("is_valid = true and is_public = true")
 
 	// 获取总数
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
+	// 处理分页参数
+	page := 1
+	pageSize := 20
+
+	if pageVal, ok := params["page"].(int); ok && pageVal > 0 {
+		page = pageVal
+	}
+	if pageSizeVal, ok := params["page_size"].(int); ok && pageSizeVal > 0 {
+		pageSize = pageSizeVal
+		// 限制最大page_size为100
+		if pageSize > 100 {
+			pageSize = 100
+		}
+	}
+
+	// 计算偏移量
+	offset := (page - 1) * pageSize
+
 	// 获取分页数据，按更新时间倒序
-	err := db.Order("updated_at DESC").Find(&resources).Error
+	err := db.Order("updated_at DESC").Offset(offset).Limit(pageSize).Find(&resources).Error
 	return resources, total, err
 }
 
