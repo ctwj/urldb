@@ -197,11 +197,18 @@ func insertDefaultDataIfEmpty() error {
 
 	// 插入默认分类（使用FirstOrCreate避免重复）
 	defaultCategories := []entity.Category{
-		{Name: "文档", Description: "各种文档资料"},
-		{Name: "软件", Description: "软件工具"},
-		{Name: "视频", Description: "视频教程"},
-		{Name: "图片", Description: "图片资源"},
-		{Name: "音频", Description: "音频文件"},
+		{Name: "电影", Description: "电影"},
+		{Name: "电视剧", Description: "电视剧"},
+		{Name: "短剧", Description: "短剧"},
+		{Name: "综艺", Description: "综艺"},
+		{Name: "动漫", Description: "动漫"},
+		{Name: "纪录片", Description: "纪录片"},
+		{Name: "视频教程", Description: "视频教程"},
+		{Name: "学习资料", Description: "学习资料"},
+		{Name: "游戏", Description: "其他游戏资源"},
+		{Name: "软件", Description: "软件"},
+		{Name: "APP", Description: "APP"},
+		{Name: "AI", Description: "AI"},
 		{Name: "其他", Description: "其他资源"},
 	}
 
@@ -229,6 +236,31 @@ func insertDefaultDataIfEmpty() error {
 		if err := DB.Where("name = ?", pan.Name).FirstOrCreate(&pan).Error; err != nil {
 			utils.Error("插入平台 %s 失败: %v", pan.Name, err)
 			// 继续执行，不因为单个平台失败而停止
+		}
+	}
+
+	// 插入默认系统配置
+	defaultSystemConfigs := []entity.SystemConfig{
+		{Key: entity.ConfigKeySiteTitle, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeySiteDescription, Value: entity.ConfigDefaultSiteDescription, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyKeywords, Value: entity.ConfigDefaultKeywords, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyAuthor, Value: entity.ConfigDefaultAuthor, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyCopyright, Value: entity.ConfigDefaultCopyright, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyAutoProcessReadyResources, Value: entity.ConfigDefaultAutoProcessReadyResources, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyAutoProcessInterval, Value: entity.ConfigDefaultAutoProcessInterval, Type: entity.ConfigTypeInt},
+		{Key: entity.ConfigKeyAutoTransferEnabled, Value: entity.ConfigDefaultAutoTransferEnabled, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyAutoTransferLimitDays, Value: entity.ConfigDefaultAutoTransferLimitDays, Type: entity.ConfigTypeInt},
+		{Key: entity.ConfigKeyAutoTransferMinSpace, Value: entity.ConfigDefaultAutoTransferMinSpace, Type: entity.ConfigTypeInt},
+		{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: entity.ConfigDefaultAutoFetchHotDramaEnabled, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyApiToken, Value: entity.ConfigDefaultApiToken, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyPageSize, Value: entity.ConfigDefaultPageSize, Type: entity.ConfigTypeInt},
+		{Key: entity.ConfigKeyMaintenanceMode, Value: entity.ConfigDefaultMaintenanceMode, Type: entity.ConfigTypeBool},
+	}
+
+	for _, config := range defaultSystemConfigs {
+		if err := DB.Where("key = ?", config.Key).FirstOrCreate(&config).Error; err != nil {
+			utils.Error("插入系统配置 %s 失败: %v", config.Key, err)
+			// 继续执行，不因为单个配置失败而停止
 		}
 	}
 
