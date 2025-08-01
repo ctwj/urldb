@@ -22,6 +22,7 @@ type ReadyResourceRepository interface {
 	BatchFindByURLs(urls []string) ([]entity.ReadyResource, error)
 	GenerateUniqueKey() (string, error)
 	FindWithErrors() ([]entity.ReadyResource, error)
+	FindWithErrorsPaginated(page, limit int) ([]entity.ReadyResource, int64, error)
 	FindWithoutErrors() ([]entity.ReadyResource, error)
 	ClearErrorMsg(id uint) error
 }
@@ -117,11 +118,29 @@ func (r *ReadyResourceRepositoryImpl) GenerateUniqueKey() (string, error) {
 	return "", gorm.ErrInvalidData
 }
 
-// FindWithErrors 查找有错误信息的资源
+// FindWithErrors 查找有错误信息的资源（deleted_at为空且存在error_msg）
 func (r *ReadyResourceRepositoryImpl) FindWithErrors() ([]entity.ReadyResource, error) {
 	var resources []entity.ReadyResource
-	err := r.db.Where("error_msg != '' AND error_msg IS NOT NULL").Find(&resources).Error
+	err := r.db.Where("deleted_at IS NULL AND error_msg != '' AND error_msg IS NOT NULL").Find(&resources).Error
 	return resources, err
+}
+
+// FindWithErrorsPaginated 分页查找有错误信息的资源（deleted_at为空且存在error_msg）
+func (r *ReadyResourceRepositoryImpl) FindWithErrorsPaginated(page, limit int) ([]entity.ReadyResource, int64, error) {
+	var resources []entity.ReadyResource
+	var total int64
+
+	offset := (page - 1) * limit
+	db := r.db.Model(&entity.ReadyResource{}).Where("deleted_at IS NULL AND error_msg != '' AND error_msg IS NOT NULL")
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据
+	err := db.Offset(offset).Limit(limit).Order("created_at DESC").Find(&resources).Error
+	return resources, total, err
 }
 
 // FindWithoutErrors 查找没有错误信息的资源

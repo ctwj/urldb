@@ -327,8 +327,8 @@ func GetReadyResourcesWithErrors(c *gin.Context) {
 		pageSize = 100
 	}
 
-	// 获取有错误的资源
-	resources, err := repoManager.ReadyResourceRepository.FindWithErrors()
+	// 获取有错误的资源（分页）
+	resources, total, err := repoManager.ReadyResourceRepository.FindWithErrorsPaginated(page, pageSize)
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
@@ -385,7 +385,7 @@ func GetReadyResourcesWithErrors(c *gin.Context) {
 		"data":            responses,
 		"page":            page,
 		"page_size":       pageSize,
-		"total":           len(resources),
+		"total":           total,
 		"count":           len(resources),
 		"error_stats":     errorTypeStats,
 		"retryable_count": getRetryableErrorCount(resources),

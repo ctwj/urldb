@@ -110,6 +110,7 @@ export const useTagApi = () => {
 
 export const useReadyResourceApi = () => {
   const getReadyResources = (params?: any) => useApiFetch('/ready-resources', { params }).then(parseApiResponse)
+  const getFailedResources = (params?: any) => useApiFetch('/ready-resources/errors', { params }).then(parseApiResponse)
   const createReadyResource = (data: any) => useApiFetch('/ready-resources', { method: 'POST', body: data }).then(parseApiResponse)
   const batchCreateReadyResources = (data: any) => useApiFetch('/ready-resources/batch', { method: 'POST', body: data }).then(parseApiResponse)
   const createReadyResourcesFromText = (text: string) => {
@@ -119,7 +120,19 @@ export const useReadyResourceApi = () => {
   }
   const deleteReadyResource = (id: number) => useApiFetch(`/ready-resources/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const clearReadyResources = () => useApiFetch('/ready-resources', { method: 'DELETE' }).then(parseApiResponse)
-  return { getReadyResources, createReadyResource, batchCreateReadyResources, createReadyResourcesFromText, deleteReadyResource, clearReadyResources }
+  const clearErrorMsg = (id: number) => useApiFetch(`/ready-resources/${id}/clear-error`, { method: 'POST' }).then(parseApiResponse)
+  const retryFailedResources = () => useApiFetch('/ready-resources/retry-failed', { method: 'POST' }).then(parseApiResponse)
+  return { 
+    getReadyResources, 
+    getFailedResources, 
+    createReadyResource, 
+    batchCreateReadyResources, 
+    createReadyResourcesFromText, 
+    deleteReadyResource, 
+    clearReadyResources,
+    clearErrorMsg,
+    retryFailedResources
+  }
 }
 
 export const useStatsApi = () => {

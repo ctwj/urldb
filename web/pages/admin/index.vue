@@ -175,10 +175,10 @@
             <i class="fas fa-chevron-right text-gray-400"></i>
           </div>
         </NuxtLink>
-        <NuxtLink to="/admin/ready-resources" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
+        <NuxtLink to="/admin/failed-resources" class="w-full text-left p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors block">
           <div class="flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">批量处理</span>
-            <i class="fas fa-tasks text-gray-400"></i>
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">失败列表</span>
+            <i class="fas fa-exclamation-triangle text-red-400"></i>
           </div>
         </NuxtLink>
       </div>
