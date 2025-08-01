@@ -10,7 +10,7 @@
 
 **一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘 **
 
-🌐 [在线演示](https://pan.l9.lc) | 📖 [文档](http://doc.l9.lc/) | 🐛 [问题反馈](https://github.com/ctwj/urldb/issues) | ⭐ [给个星标](https://github.com/ctwj/urldb)
+🌐 [在线演示](https://pan.l9.lc) | 📖 [文档](https://ecn5khs4t956.feishu.cn/wiki/PsnDwtxghiP0mLkTiruczKtxnwd?from=from_copylink) | 🐛 [问题反馈](https://github.com/ctwj/urldb/issues) | ⭐ [给个星标](https://github.com/ctwj/urldb)
 
 ### 支持的网盘平台
 
@@ -42,6 +42,8 @@
 ---
 
 ## 📸 项目截图
+
+[文档说明](https://ecn5khs4t956.feishu.cn/wiki/PsnDwtxghiP0mLkTiruczKtxnwd?from=from_copylink) [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
 
 ### 🏠 首页
 ![首页](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/index.webp)
