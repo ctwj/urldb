@@ -11,7 +11,7 @@ type SystemConfig struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	// 键值对配置
-	Key   string `json:"key" gorm:"size:100;not null;uniqueIndex"`
+	Key   string `json:"key" gorm:"size:100;not null;unique;comment:配置键"`
 	Value string `json:"value" gorm:"size:1000"`
 	Type  string `json:"type" gorm:"size:20;default:'string'"` // string, int, bool, json
 }

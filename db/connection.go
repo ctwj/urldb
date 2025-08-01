@@ -130,6 +130,7 @@ func shouldRunMigration() bool {
 // autoMigrate 自动迁移表结构
 func autoMigrate() error {
 	return DB.AutoMigrate(
+		&entity.SystemConfig{}, // 系统配置表（独立表，先创建）
 		&entity.Pan{},
 		&entity.Cks{},
 		&entity.Category{},
@@ -139,7 +140,6 @@ func autoMigrate() error {
 		&entity.ReadyResource{},
 		&entity.User{},
 		&entity.SearchStat{},
-		&entity.SystemConfig{},
 		&entity.HotDrama{},
 	)
 }
