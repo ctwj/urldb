@@ -18,12 +18,15 @@
       <AdminHeader :title="pageTitle" />
     </div>
     
-
     <!-- 主要内容区域 -->
     <div class="p-3 sm:p-5">
       <div class="max-w-7xl mx-auto">
-        <!-- 页面内容插槽 -->
-        <slot />
+        <ClientOnly>
+          <n-notification-provider>
+            <!-- 页面内容插槽 -->
+            <slot />
+          </n-notification-provider>
+        </ClientOnly>
       </div>
     </div>
 

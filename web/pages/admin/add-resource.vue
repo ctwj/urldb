@@ -43,10 +43,6 @@
         </div>
       </div>
     </div>
-
-    <!-- 成功/失败提示 -->
-    <SuccessToast v-if="showSuccess" :message="successMsg" @close="showSuccess = false" />
-    <ErrorToast v-if="showError" :message="errorMsg" @close="showError = false" />
   </div>
 </template>
 
@@ -61,21 +57,15 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import BatchAddResource from '~/components/BatchAddResource.vue'
 import SingleAddResource from '~/components/SingleAddResource.vue'
-import ApiDocumentation from '~/components/ApiDocumentation.vue'
-import SuccessToast from '~/components/SuccessToast.vue'
-import ErrorToast from '~/components/ErrorToast.vue'
 
 const router = useRouter()
-const showSuccess = ref(false)
-const successMsg = ref('')
-const showError = ref(false)
-const errorMsg = ref('')
 
 const tabs = [
   { label: '批量添加', value: 'batch' },
   { label: '单个添加', value: 'single' },
 ]
 const mode = ref('batch')
+const notification = useNotification()
 
 // 检查用户权限
 onMounted(() => {
@@ -88,13 +78,15 @@ onMounted(() => {
 
 // 事件处理
 const handleSuccess = (message: string) => {
-  successMsg.value = message
-  showSuccess.value = true
+  notification.success({
+    content: message
+  })
 }
 
 const handleError = (message: string) => {
-  errorMsg.value = message
-  showError.value = true
+  notification.error({
+    content: message
+  })
 }
 
 const handleCancel = () => {

@@ -63,19 +63,6 @@
       </div>
     </div>
     
-    <!-- 错误提示 -->
-    <ErrorToast 
-      v-if="showErrorToast" 
-      :message="errorToastMessage" 
-      @close="showErrorToast = false"
-    />
-    
-    <!-- 成功提示 -->
-    <SuccessToast 
-      v-if="showSuccessToast" 
-      :message="successToastMessage" 
-      @close="showSuccessToast = false"
-    />
   </div>
 </template>
 
@@ -85,6 +72,7 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const userStore = useUserStore()
+const notification = useNotification()
 
 const form = reactive({
   username: '',
@@ -95,12 +83,6 @@ const errors = reactive({
   username: '',
   password: ''
 })
-
-const showErrorToast = ref(false)
-const errorToastMessage = ref('')
-const showSuccessToast = ref(false)
-const successToastMessage = ref('')
-
 
 
 const validateForm = () => {
@@ -129,6 +111,9 @@ const handleLogin = async () => {
   })
   
   if (result.success) {
+    notification.success({
+      content: '登录成功'
+    })
     await router.push('/admin')
   } else {
     // 根据错误类型提供更友好的提示
@@ -144,10 +129,16 @@ const handleLogin = async () => {
         message = result.message
       }
     }
-    errorToastMessage.value = message
-    showErrorToast.value = true
+    notification.error({
+      content: message
+    })
   }
 }
+
+definePageMeta({
+  layout: 'single',
+  ssr: false
+})
 
 // 设置页面标题
 useHead({

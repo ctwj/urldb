@@ -86,20 +86,6 @@
         </div>
       </div>
     </div>
-    
-    <!-- 错误提示 -->
-    <ErrorToast 
-      v-if="showErrorToast" 
-      :message="errorToastMessage" 
-      @close="showErrorToast = false"
-    />
-    
-    <!-- 成功提示 -->
-    <SuccessToast 
-      v-if="showSuccessToast" 
-      :message="successToastMessage" 
-      @close="showSuccessToast = false"
-    />
   </div>
 </template>
 
@@ -109,7 +95,7 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const userStore = useUserStore()
-
+const notification = useNotification()
 const form = reactive({
   username: '',
   email: '',
@@ -123,11 +109,6 @@ const errors = reactive({
   password: '',
   confirmPassword: ''
 })
-
-const showErrorToast = ref(false)
-const errorToastMessage = ref('')
-const showSuccessToast = ref(false)
-const successToastMessage = ref('')
 
 const validateForm = () => {
   errors.username = ''
@@ -184,8 +165,9 @@ const handleRegister = async () => {
   })
   
   if (result.success) {
-    successToastMessage.value = '注册成功！请登录'
-    showSuccessToast.value = true
+    notification.success({
+      content: '注册成功！请登录'
+    })
     setTimeout(() => {
       router.push('/login')
     }, 2000)
@@ -203,10 +185,16 @@ const handleRegister = async () => {
         errorMessage = result.message
       }
     }
-    errorToastMessage.value = errorMessage
-    showErrorToast.value = true
+    notification.error({
+      content: errorMessage
+    })
   }
 }
+
+definePageMeta({
+  layout: 'single',
+  ssr: false
+})
 
 // 设置页面标题
 useHead({

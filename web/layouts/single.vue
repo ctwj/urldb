@@ -1,6 +1,8 @@
 <template>
-  <div class="forbidden-layout">
-    <slot />
+  <div class="single-layout">
+    <n-notification-provider>
+      <slot />
+    </n-notification-provider>
   </div>
 </template>
 
@@ -17,7 +19,7 @@ body, html {
   background-color: #fff;
 }
 
-.forbidden-layout {
+.single-layout {
   width: 100%;
   height: 100vh;
   overflow: hidden;

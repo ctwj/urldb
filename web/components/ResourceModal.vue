@@ -114,10 +114,6 @@ Body:
               </p>
             </div>
           </div>
-
-          <!-- 成功/失败提示 -->
-          <SuccessToast v-if="showSuccess" :message="successMsg" @close="showSuccess = false" />
-          <ErrorToast v-if="showError" :message="errorMsg" @close="showError = false" />
         </div>
 
         <!-- 按钮区域 -->
@@ -147,10 +143,9 @@ Body:
 import { ref, onMounted } from 'vue'
 import { useResourceStore } from '~/stores/resource'
 import { storeToRefs } from 'pinia'
-import SuccessToast from './SuccessToast.vue'
-import ErrorToast from './ErrorToast.vue'
 import { useReadyResourceApi } from '~/composables/useApi'
 
+const notification = useNotification()
 const store = useResourceStore()
 const { categories } = storeToRefs(store)
 
@@ -159,10 +154,6 @@ const emit = defineEmits(['close', 'save'])
 
 const loading = ref(false)
 const newTag = ref('')
-const showSuccess = ref(false)
-const showError = ref(false)
-const successMsg = ref('')
-const errorMsg = ref('')
 
 const tabs = [
   { label: '批量添加', value: 'batch' },
@@ -226,12 +217,14 @@ const handleBatchSubmit = async () => {
   try {
     if (!batchInput.value.trim()) throw new Error('请输入资源内容')
     const res: any = await readyResourceApi.createReadyResourcesFromText(batchInput.value)
-    showSuccess.value = true
-    successMsg.value = `成功添加 ${res.count || 0} 个资源，资源已进入待处理列表，处理完成后会自动入库`
+    notification.success({
+      content: `成功添加 ${res.count || 0} 个资源，资源已进入待处理列表，处理完成后会自动入库`
+    })
     batchInput.value = ''
   } catch (e: any) {
-    showError.value = true
-    errorMsg.value = e.message || '批量添加失败'
+    notification.error({
+      content: e.message || '批量添加失败'
+    })
   } finally {
     loading.value = false
   }
@@ -251,8 +244,9 @@ const handleSingleSubmit = async () => {
         tags: [...form.value.tags],
       })
     }
-    showSuccess.value = true
-    successMsg.value = '资源已进入待处理列表，处理完成后会自动入库'
+    notification.success({
+      content:  '资源已进入待处理列表，处理完成后会自动入库'
+    })
     // 清空表单
     form.value.title = ''
     form.value.description = ''
@@ -260,8 +254,9 @@ const handleSingleSubmit = async () => {
     form.value.tags = []
     form.value.file_type = ''
   } catch (e: any) {
-    showError.value = true
-    errorMsg.value = e.message || '添加失败'
+    notification.error({
+      content:  e.message || '添加失败'
+    })
   } finally {
     loading.value = false
   }

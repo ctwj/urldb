@@ -20,10 +20,10 @@
           <form @submit.prevent="saveConfig" class="space-y-6">
 
             <n-tabs type="line" animated>
-              <n-tab-pane name="SEO 配置" tab="SEO 配置">
+              <n-tab-pane name="站点配置" tab="站点配置">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- 网站标题 -->
-                <div>
+                <div class="md:col-span-2">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     网站标题 *
                   </label>
@@ -37,7 +37,7 @@
                 </div>
 
                 <!-- 网站描述 -->
-                <div>
+                <div class="md:col-span-2">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     网站描述
                   </label>
@@ -62,21 +62,9 @@
                   />
                 </div>
 
-                <!-- 作者 -->
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    作者
-                  </label>
-                  <input 
-                    v-model="config.author" 
-                    type="text" 
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="系统管理员"
-                  />
-                </div>
-
+              
                 <!-- 版权信息 -->
-                <div>
+                <div class="md:col-span-2">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     版权信息
                   </label>
@@ -87,9 +75,46 @@
                     placeholder="© 2024 老九网盘资源数据库"
                   />
                 </div>
+
+                <!-- <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    每页显示数量
+                  </label>
+                  <select 
+                    v-model.number="config.pageSize" 
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="20">20 条</option>
+                    <option value="50">50 条</option>
+                    <option value="100">100 条</option>
+                    <option value="200">200 条</option>
+                  </select>
+                </div> -->
+
+                <!-- 系统维护模式 -->
+                <div class="md:col-span-2 flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div class="flex-1">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                      维护模式
+                    </h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      开启后，普通用户无法访问系统
+                    </p>
+                  </div>
+                  <div class="ml-4">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        v-model="config.maintenanceMode" 
+                        type="checkbox" 
+                        class="sr-only peer"
+                      />
+                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
+                    </label>
+                  </div>
+                </div>
               </div>
               </n-tab-pane>
-              <n-tab-pane name="自动处理配置" tab="自动处理配置">
+              <n-tab-pane name="功能配置" tab="功能配置">
                 <div class="space-y-4">
                   <div class="flex flex-col gap-1">
                     <!-- 待处理资源自动处理 -->
@@ -221,47 +246,6 @@
                 
               </div>
               </n-tab-pane>
-              <n-tab-pane name="其他配置" tab="其他配置">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- 每页显示数量 -->
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    每页显示数量
-                  </label>
-                  <select 
-                    v-model.number="config.pageSize" 
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="20">20 条</option>
-                    <option value="50">50 条</option>
-                    <option value="100">100 条</option>
-                    <option value="200">200 条</option>
-                  </select>
-                </div>
-
-                <!-- 系统维护模式 -->
-                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div class="flex-1">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">
-                      维护模式
-                    </h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      开启后，普通用户无法访问系统
-                    </p>
-                  </div>
-                  <div class="ml-4">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        v-model="config.maintenanceMode" 
-                        type="checkbox" 
-                        class="sr-only peer"
-                      />
-                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              </n-tab-pane>
               <n-tab-pane name="API配置" tab="API配置">
                 <div class="space-y-4">
                 <!-- API Token -->
@@ -300,7 +284,6 @@
                     <p>• 资源搜索: GET /api/public/resources/search</p>
                     <p>• 热门剧: GET /api/public/hot-dramas</p>
                     <p>• 认证方式: 在请求头中添加 X-API-Token 或在查询参数中添加 api_token</p>
-                    <p>• Swagger文档: <a href="/swagger/index.html" target="_blank" class="underline">查看完整API文档</a></p>
                   </div>
                 </div>
               </div>
