@@ -166,7 +166,8 @@ const handleRegister = async () => {
   
   if (result.success) {
     notification.success({
-      content: '注册成功！请登录'
+      content: '注册成功！请登录',
+      duration: 3000
     })
     setTimeout(() => {
       router.push('/login')
@@ -186,7 +187,8 @@ const handleRegister = async () => {
       }
     }
     notification.error({
-      content: errorMessage
+      content: errorMessage,
+      duration: 3000
     })
   }
 }

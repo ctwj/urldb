@@ -27,11 +27,10 @@
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     网站标题 *
                   </label>
-                  <input 
-                    v-model="config.siteTitle" 
+                  <n-input 
+                    v-model:value="config.siteTitle" 
                     type="text" 
                     required
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="老九网盘资源数据库"
                   />
                 </div>
@@ -41,10 +40,9 @@
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     网站描述
                   </label>
-                  <input 
-                    v-model="config.siteDescription" 
+                  <n-input 
+                  v-model:value="config.siteDescription" 
                     type="text" 
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="专业的老九网盘资源数据库"
                   />
                 </div>
@@ -54,10 +52,9 @@
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     关键词 (用逗号分隔)
                   </label>
-                  <input 
-                    v-model="config.keywords" 
+                  <n-input 
+                  v-model:value="config.keywords" 
                     type="text" 
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="网盘,资源管理,文件分享"
                   />
                 </div>
@@ -68,11 +65,23 @@
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     版权信息
                   </label>
-                  <input 
-                    v-model="config.copyright" 
+                  <n-input 
+                  v-model:value="config.copyright" 
                     type="text" 
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                     placeholder="© 2024 老九网盘资源数据库"
+                  />
+                </div>
+
+                <!-- 禁止词 -->
+                <div class="md:col-span-2">
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    违禁词
+                  </label>
+                  <n-input
+                  v-model:value="config.forbiddenWords"
+                    type="textarea"
+                    placeholder=""
+                    :autosize="{ minRows: 4, maxRows: 8 }"
                   />
                 </div>
 
@@ -103,12 +112,7 @@
                   </div>
                   <div class="ml-4">
                     <label class="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        v-model="config.maintenanceMode" 
-                        type="checkbox" 
-                        class="sr-only peer"
-                      />
-                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
+                      <n-switch v-model:value="config.maintenanceMode" />
                     </label>
                   </div>
                 </div>
@@ -329,6 +333,7 @@ const systemConfigStore = useSystemConfigStore()
 
 // API
 const systemConfigApi = useSystemConfigApi()
+const notification = useNotification()
 
 // 响应式数据
 const loading = ref(false)
@@ -356,6 +361,7 @@ const config = ref({
 
 // 系统配置状态（用于SEO）
 const systemConfig = ref(null)
+const originalConfig = ref(null)
 
 // 页面元数据 - 移到变量声明之后
 useHead({
@@ -385,7 +391,7 @@ const loadConfig = async () => {
     
     // 使用新的统一响应格式，直接使用response
     if (response) {
-      config.value = {
+      const newConfig =  {
         siteTitle: response.site_title || '老九网盘资源数据库',
         siteDescription: response.site_description || '专业的老九网盘资源数据库',
         keywords: response.keywords || '网盘,资源管理,文件分享',
@@ -397,10 +403,13 @@ const loadConfig = async () => {
         autoTransferLimitDays: response.auto_transfer_limit_days || 30, // 新增：自动转存限制天数
         autoTransferMinSpace: response.auto_transfer_min_space || 500, // 新增：最小存储空间（GB）
         autoFetchHotDramaEnabled: response.auto_fetch_hot_drama_enabled || false, // 新增
+        forbiddenWords: response.forbidden_words || '',
         pageSize: response.page_size || 100,
         maintenanceMode: response.maintenance_mode || false,
         apiToken: response.api_token || '' // 加载API Token
       }
+      config.value = newConfig
+      originalConfig.value = JSON.parse(JSON.stringify(newConfig)) // 深拷贝保存原始数据
       systemConfig.value = response // 更新系统配置状态
     }
   } catch (error) {
@@ -415,37 +424,87 @@ const loadConfig = async () => {
 const saveConfig = async () => {
   try {
     loading.value = true
+
+    const changes = {}
+    const currentConfig = config.value
+    const original = originalConfig.value
     
-    const requestData = {
-      site_title: config.value.siteTitle,
-      site_description: config.value.siteDescription,
-      keywords: config.value.keywords,
-      author: config.value.author,
-      copyright: config.value.copyright,
-      auto_process_ready_resources: config.value.autoProcessReadyResources,
-      auto_process_interval: config.value.autoProcessInterval,
-      auto_transfer_enabled: config.value.autoTransferEnabled, // 新增
-      auto_transfer_limit_days: config.value.autoTransferLimitDays, // 新增：自动转存限制天数
-      auto_transfer_min_space: config.value.autoTransferMinSpace, // 新增：最小存储空间（GB）
-      auto_fetch_hot_drama_enabled: config.value.autoFetchHotDramaEnabled, // 新增
-      page_size: config.value.pageSize,
-      maintenance_mode: config.value.maintenanceMode,
-      api_token: config.value.apiToken // 保存API Token
+    // 检查每个字段是否有变化
+    if (currentConfig.siteTitle !== original.siteTitle) {
+      changes.site_title = currentConfig.siteTitle
+    }
+    if (currentConfig.siteDescription !== original.siteDescription) {
+      changes.site_description = currentConfig.siteDescription
+    }
+    if (currentConfig.keywords !== original.keywords) {
+      changes.keywords = currentConfig.keywords
+    }
+    if (currentConfig.author !== original.author) {
+      changes.author = currentConfig.author
+    }
+    if (currentConfig.copyright !== original.copyright) {
+      changes.copyright = currentConfig.copyright
+    }
+    if (currentConfig.autoProcessReadyResources !== original.autoProcessReadyResources) {
+      changes.auto_process_ready_resources = currentConfig.autoProcessReadyResources
+    }
+    if (currentConfig.autoProcessInterval !== original.autoProcessInterval) {
+      changes.auto_process_interval = currentConfig.autoProcessInterval
+    }
+    if (currentConfig.autoTransferEnabled !== original.autoTransferEnabled) {
+      changes.auto_transfer_enabled = currentConfig.autoTransferEnabled
+    }
+    if (currentConfig.autoTransferLimitDays !== original.autoTransferLimitDays) {
+      changes.auto_transfer_limit_days = currentConfig.autoTransferLimitDays
+    }
+    if (currentConfig.autoTransferMinSpace !== original.autoTransferMinSpace) {
+      changes.auto_transfer_min_space = currentConfig.autoTransferMinSpace
+    }
+    if (currentConfig.autoFetchHotDramaEnabled !== original.autoFetchHotDramaEnabled) {
+      changes.auto_fetch_hot_drama_enabled = currentConfig.autoFetchHotDramaEnabled
+    }
+    if (currentConfig.forbiddenWords !== original.forbiddenWords) {
+      changes.forbidden_words = currentConfig.forbiddenWords
+    }
+    if (currentConfig.pageSize !== original.pageSize) {
+      changes.page_size = currentConfig.pageSize
+    }
+    if (currentConfig.maintenanceMode !== original.maintenanceMode) {
+      changes.maintenance_mode = currentConfig.maintenanceMode
+    }
+    if (currentConfig.apiToken !== original.apiToken) {
+      changes.api_token = currentConfig.apiToken
     }
     
-    const response = await systemConfigApi.updateSystemConfig(requestData)
+    console.log('检测到的变化:', changes)
+    if (Object.keys(changes).length === 0) {
+      notification.warning({
+        content: '没有需要保存的配置',
+        duration: 3000
+      })
+      return
+    }
+    const response = await systemConfigApi.updateSystemConfig(changes)
     // 使用新的统一响应格式，直接检查response是否存在
     if (response) {
-      alert('配置保存成功！')
+      notification.success({
+        content: '配置保存成功！',
+        duration: 3000
+      })
       await loadConfig()
       // 自动更新 systemConfig store（强制刷新）
       await systemConfigStore.initConfig(true)
     } else {
-      alert('保存配置失败：未知错误')
+      notification.error({
+        content: '保存配置失败：未知错误',
+        duration: 3000
+      })
     }
   } catch (error) {
-    console.error('保存配置失败:', error)
-    alert('保存配置失败：' + (error.message || '未知错误'))
+    notification.error({
+      content: '保存配置失败：' + (error.message || '未知错误'),
+      duration: 3000
+    })
   } finally {
     loading.value = false
   }
@@ -453,16 +512,24 @@ const saveConfig = async () => {
 
 // 重置表单
 const resetForm = () => {
-  if (confirm('确定要重置所有配置吗？')) {
-    loadConfig()
-  }
+  notification.confirm({
+      title: '确定要重置所有配置吗？',
+      content: '重置后，所有配置将恢复为修改前配置',
+      duration: 3000,
+      onOk: () => {
+      loadConfig()
+    }
+  })
 }
 
 // 生成API Token
 const generateApiToken = () => {
   const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   config.value.apiToken = newToken;
-  alert('新API Token已生成: ' + newToken);
+  notification.success({
+    content: '新API Token已生成: ' + newToken,
+    duration: 3000
+  })
 };
 
 // 页面加载时获取配置

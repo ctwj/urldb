@@ -20,6 +20,9 @@ const (
 	// API配置
 	ConfigKeyApiToken = "api_token"
 
+	// 违禁词配置
+	ConfigKeyForbiddenWords = "forbidden_words"
+
 	// 其他配置
 	ConfigKeyPageSize        = "page_size"
 	ConfigKeyMaintenanceMode = "maintenance_mode"
@@ -58,6 +61,9 @@ const (
 	// API配置字段
 	ConfigResponseFieldApiToken = "api_token"
 
+	// 违禁词配置字段
+	ConfigResponseFieldForbiddenWords = "forbidden_words"
+
 	// 其他配置字段
 	ConfigResponseFieldPageSize        = "page_size"
 	ConfigResponseFieldMaintenanceMode = "maintenance_mode"
@@ -82,6 +88,9 @@ const (
 
 	// API配置默认值
 	ConfigDefaultApiToken = ""
+
+	// 违禁词配置默认值
+	ConfigDefaultForbiddenWords = ""
 
 	// 其他配置默认值
 	ConfigDefaultPageSize        = "100"

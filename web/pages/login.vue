@@ -112,7 +112,8 @@ const handleLogin = async () => {
   
   if (result.success) {
     notification.success({
-      content: '登录成功'
+      content: '登录成功',
+      duration: 3000
     })
     await router.push('/admin')
   } else {
@@ -130,7 +131,8 @@ const handleLogin = async () => {
       }
     }
     notification.error({
-      content: message
+      content: message,
+      duration: 3000
     })
   }
 }

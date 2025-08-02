@@ -56,6 +56,8 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			}
 		case entity.ConfigKeyApiToken:
 			response.ApiToken = config.Value
+		case entity.ConfigKeyForbiddenWords:
+			response.ForbiddenWords = config.Value
 		case entity.ConfigKeyPageSize:
 			if val, err := strconv.Atoi(config.Value); err == nil {
 				response.PageSize = val
@@ -82,21 +84,51 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 		return nil
 	}
 
-	configs := []entity.SystemConfig{
-		{Key: entity.ConfigKeySiteTitle, Value: req.SiteTitle, Type: entity.ConfigTypeString},
-		{Key: entity.ConfigKeySiteDescription, Value: req.SiteDescription, Type: entity.ConfigTypeString},
-		{Key: entity.ConfigKeyKeywords, Value: req.Keywords, Type: entity.ConfigTypeString},
-		{Key: entity.ConfigKeyAuthor, Value: req.Author, Type: entity.ConfigTypeString},
-		{Key: entity.ConfigKeyCopyright, Value: req.Copyright, Type: entity.ConfigTypeString},
-		{Key: entity.ConfigKeyAutoProcessReadyResources, Value: strconv.FormatBool(req.AutoProcessReadyResources), Type: entity.ConfigTypeBool},
-		{Key: entity.ConfigKeyAutoProcessInterval, Value: strconv.Itoa(req.AutoProcessInterval), Type: entity.ConfigTypeInt},
-		{Key: entity.ConfigKeyAutoTransferEnabled, Value: strconv.FormatBool(req.AutoTransferEnabled), Type: entity.ConfigTypeBool},
-		{Key: entity.ConfigKeyAutoTransferLimitDays, Value: strconv.Itoa(req.AutoTransferLimitDays), Type: entity.ConfigTypeInt},
-		{Key: entity.ConfigKeyAutoTransferMinSpace, Value: strconv.Itoa(req.AutoTransferMinSpace), Type: entity.ConfigTypeInt},
-		{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: strconv.FormatBool(req.AutoFetchHotDramaEnabled), Type: entity.ConfigTypeBool},
-		{Key: entity.ConfigKeyApiToken, Value: req.ApiToken, Type: entity.ConfigTypeString},
-		{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(req.PageSize), Type: entity.ConfigTypeInt},
-		{Key: entity.ConfigKeyMaintenanceMode, Value: strconv.FormatBool(req.MaintenanceMode), Type: entity.ConfigTypeBool},
+	var configs []entity.SystemConfig
+
+	// 只添加有值的字段
+	if req.SiteTitle != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteTitle, Value: req.SiteTitle, Type: entity.ConfigTypeString})
+	}
+	if req.SiteDescription != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteDescription, Value: req.SiteDescription, Type: entity.ConfigTypeString})
+	}
+	if req.Keywords != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyKeywords, Value: req.Keywords, Type: entity.ConfigTypeString})
+	}
+	if req.Author != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAuthor, Value: req.Author, Type: entity.ConfigTypeString})
+	}
+	if req.Copyright != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyCopyright, Value: req.Copyright, Type: entity.ConfigTypeString})
+	}
+	if req.ApiToken != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiToken, Value: req.ApiToken, Type: entity.ConfigTypeString})
+	}
+	if req.ForbiddenWords != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyForbiddenWords, Value: req.ForbiddenWords, Type: entity.ConfigTypeString})
+	}
+
+	// 布尔值字段 - 只处理实际提交的字段
+	// 注意：由于 Go 的零值机制，我们需要通过其他方式判断字段是否被提交
+	// 这里暂时保持原样，但建议前端只提交有变化的字段
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessReadyResources, Value: strconv.FormatBool(req.AutoProcessReadyResources), Type: entity.ConfigTypeBool})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferEnabled, Value: strconv.FormatBool(req.AutoTransferEnabled), Type: entity.ConfigTypeBool})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: strconv.FormatBool(req.AutoFetchHotDramaEnabled), Type: entity.ConfigTypeBool})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMaintenanceMode, Value: strconv.FormatBool(req.MaintenanceMode), Type: entity.ConfigTypeBool})
+
+	// 整数字段 - 只添加非零值
+	if req.AutoProcessInterval != 0 {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessInterval, Value: strconv.Itoa(req.AutoProcessInterval), Type: entity.ConfigTypeInt})
+	}
+	if req.AutoTransferLimitDays != 0 {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferLimitDays, Value: strconv.Itoa(req.AutoTransferLimitDays), Type: entity.ConfigTypeInt})
+	}
+	if req.AutoTransferMinSpace != 0 {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferMinSpace, Value: strconv.Itoa(req.AutoTransferMinSpace), Type: entity.ConfigTypeInt})
+	}
+	if req.PageSize != 0 {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(req.PageSize), Type: entity.ConfigTypeInt})
 	}
 
 	return configs
@@ -119,6 +151,7 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		entity.ConfigResponseFieldAutoTransferLimitDays:     0,
 		entity.ConfigResponseFieldAutoTransferMinSpace:      100,
 		entity.ConfigResponseFieldAutoFetchHotDramaEnabled:  false,
+		entity.ConfigResponseFieldForbiddenWords:            "",
 		entity.ConfigResponseFieldPageSize:                  100,
 		entity.ConfigResponseFieldMaintenanceMode:           false,
 	}
@@ -160,6 +193,8 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response[entity.ConfigResponseFieldAutoFetchHotDramaEnabled] = val
 			}
+		case entity.ConfigKeyForbiddenWords:
+			response[entity.ConfigResponseFieldForbiddenWords] = config.Value
 		case entity.ConfigKeyPageSize:
 			if val, err := strconv.Atoi(config.Value); err == nil {
 				response[entity.ConfigResponseFieldPageSize] = val
@@ -195,6 +230,7 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		AutoTransferMinSpace:      100,
 		AutoFetchHotDramaEnabled:  false,
 		ApiToken:                  entity.ConfigDefaultApiToken,
+		ForbiddenWords:            entity.ConfigDefaultForbiddenWords,
 		PageSize:                  100,
 		MaintenanceMode:           false,
 	}

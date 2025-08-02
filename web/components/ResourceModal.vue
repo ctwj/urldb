@@ -218,12 +218,14 @@ const handleBatchSubmit = async () => {
     if (!batchInput.value.trim()) throw new Error('请输入资源内容')
     const res: any = await readyResourceApi.createReadyResourcesFromText(batchInput.value)
     notification.success({
-      content: `成功添加 ${res.count || 0} 个资源，资源已进入待处理列表，处理完成后会自动入库`
+      content: `成功添加 ${res.count || 0} 个资源，资源已进入待处理列表，处理完成后会自动入库`,
+      duration: 3000
     })
     batchInput.value = ''
   } catch (e: any) {
     notification.error({
-      content: e.message || '批量添加失败'
+      content: e.message || '批量添加失败',
+      duration: 3000
     })
   } finally {
     loading.value = false
@@ -245,7 +247,8 @@ const handleSingleSubmit = async () => {
       })
     }
     notification.success({
-      content:  '资源已进入待处理列表，处理完成后会自动入库'
+      content:  '资源已进入待处理列表，处理完成后会自动入库',
+      duration: 3000
     })
     // 清空表单
     form.value.title = ''
@@ -255,7 +258,8 @@ const handleSingleSubmit = async () => {
     form.value.file_type = ''
   } catch (e: any) {
     notification.error({
-      content:  e.message || '添加失败'
+      content:  e.message || '添加失败',
+      duration: 3000
     })
   } finally {
     loading.value = false

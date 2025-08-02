@@ -79,13 +79,15 @@ onMounted(() => {
 // 事件处理
 const handleSuccess = (message: string) => {
   notification.success({
-    content: message
+    content: message,
+    duration: 3000
   })
 }
 
 const handleError = (message: string) => {
   notification.error({
-    content: message
+    content: message,
+    duration: 3000
   })
 }
 
