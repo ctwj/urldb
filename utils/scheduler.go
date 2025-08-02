@@ -771,9 +771,43 @@ func (s *Scheduler) processAutoTransfer() {
 
 	Info("找到 %d 个需要转存的资源", len(resources))
 
+	// 获取违禁词配置
+	forbiddenWords, err := s.systemConfigRepo.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	if err != nil {
+		Error("获取违禁词配置失败: %v", err)
+		forbiddenWords = "" // 如果获取失败，使用空字符串
+	}
+
+	// 过滤包含违禁词的资源
+	var filteredResources []*entity.Resource
+	if forbiddenWords != "" {
+		words := strings.Split(forbiddenWords, ",")
+		for _, resource := range resources {
+			shouldSkip := false
+			title := strings.ToLower(resource.Title)
+			description := strings.ToLower(resource.Description)
+
+			for _, word := range words {
+				word = strings.TrimSpace(word)
+				if word != "" && (strings.Contains(title, strings.ToLower(word)) || strings.Contains(description, strings.ToLower(word))) {
+					Info("跳过包含违禁词 '%s' 的资源: %s", word, resource.Title)
+					shouldSkip = true
+					break
+				}
+			}
+
+			if !shouldSkip {
+				filteredResources = append(filteredResources, resource)
+			}
+		}
+		Info("违禁词过滤后，剩余 %d 个资源需要转存", len(filteredResources))
+	} else {
+		filteredResources = resources
+	}
+
 	// 并发自动转存
-	resourceCh := make(chan *entity.Resource, len(resources))
-	for _, res := range resources {
+	resourceCh := make(chan *entity.Resource, len(filteredResources))
+	for _, res := range filteredResources {
 		resourceCh <- res
 	}
 	close(resourceCh)
@@ -797,7 +831,7 @@ func (s *Scheduler) processAutoTransfer() {
 		}(account)
 	}
 	wg.Wait()
-	Info("自动转存处理完成，账号数: %d，资源数: %d", len(validAccounts), len(resources))
+	Info("自动转存处理完成，账号数: %d，资源数: %d", len(validAccounts), len(filteredResources))
 }
 
 // getResourcesForTransfer 获取需要转存的资源
