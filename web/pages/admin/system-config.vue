@@ -133,12 +133,7 @@
                     </div>
                     <div class="ml-4">
                       <label class="relative inline-flex items-center cursor-pointer">
-                        <input 
-                          v-model="config.autoProcessReadyResources" 
-                          type="checkbox" 
-                          class="sr-only peer"
-                        />
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        <n-switch v-model:value="config.autoProcessReadyResources" />
                       </label>
                     </div>
                   </div>
@@ -146,12 +141,9 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       自动处理间隔 (分钟)
                     </label>
-                    <input 
-                      v-model.number="config.autoProcessInterval" 
+                    <n-input 
+                      v-model:value="config.autoProcessInterval" 
                       type="number" 
-                      min="1"
-                      max="1440"
-                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                       placeholder="30"
                     />
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -175,12 +167,7 @@
                   </div>
                   <div class="ml-4">
                     <label class="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        v-model="config.autoTransferEnabled" 
-                        type="checkbox" 
-                        class="sr-only peer"
-                      />
-                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                      <n-switch v-model:value="config.autoTransferEnabled" />
                     </label>
                   </div>
                 </div>
@@ -192,12 +179,9 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       自动转存限制（n天内资源）
                     </label>
-                    <input 
-                      v-model.number="config.autoTransferLimitDays" 
+                    <n-input 
+                      v-model:value="config.autoTransferLimitDays" 
                       type="number" 
-                      min="0"
-                      max="365"
-                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                       placeholder="30"
                     />
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -210,12 +194,9 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       最小存储空间（GB）
                     </label>
-                    <input 
-                      v-model.number="config.autoTransferMinSpace" 
+                    <n-input 
+                      v-model:value="config.autoTransferMinSpace" 
                       type="number" 
-                      min="100"
-                      max="1024"
-                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                       placeholder="500"
                     />
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -236,12 +217,7 @@
                   </div>
                   <div class="ml-4">
                     <label class="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        v-model="config.autoFetchHotDramaEnabled" 
-                        type="checkbox" 
-                        class="sr-only peer"
-                      />
-                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                      <n-switch v-model:value="config.autoFetchHotDramaEnabled" />
                     </label>
                   </div>
                 </div>
@@ -258,19 +234,17 @@
                     公开API访问令牌
                   </label>
                   <div class="flex gap-2">
-                    <input 
-                      v-model="config.apiToken" 
+                    <n-input 
+                      v-model:value="config.apiToken" 
                       type="text" 
-                      class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                       placeholder="输入API Token，用于公开API访问认证"
                     />
-                    <button 
-                      type="button"
+                    <n-button 
+                      type="info"
                       @click="generateApiToken"
-                      class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
                     >
                       生成
-                    </button>
+                    </n-button>
                   </div>
                   <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     用于公开API的访问认证，建议使用随机字符串
@@ -287,7 +261,6 @@
                     <p>• 批量添加资源: POST /api/public/resources/batch-add</p>
                     <p>• 资源搜索: GET /api/public/resources/search</p>
                     <p>• 热门剧: GET /api/public/hot-dramas</p>
-                    <p>• 认证方式: 在请求头中添加 X-API-Token 或在查询参数中添加 api_token</p>
                   </div>
                 </div>
               </div>
@@ -296,21 +269,19 @@
 
             <!-- 保存按钮 -->
             <div class="flex justify-end space-x-4 pt-6">
-              <button 
-                type="button"
+              <n-button 
+                type="tertiary"
                 @click="resetForm"
-                class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 重置
-              </button>
-              <button 
-                type="submit"
+              </n-button>
+              <n-button 
+                type="primary"
                 :disabled="saving"
-                class="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <i v-if="saving" class="fas fa-spinner fa-spin mr-2"></i>
                 {{ saving ? '保存中...' : '保存配置' }}
-              </button>
+              </n-button>
             </div>
           </form>
         </div>
