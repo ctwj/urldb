@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
@@ -15,6 +16,56 @@ type PublicAPIHandler struct{}
 // NewPublicAPIHandler 创建公开API处理器
 func NewPublicAPIHandler() *PublicAPIHandler {
 	return &PublicAPIHandler{}
+}
+
+// filterForbiddenWords 过滤包含违禁词的资源
+func (h *PublicAPIHandler) filterForbiddenWords(resources []entity.Resource) ([]entity.Resource, []string) {
+	// 获取违禁词配置
+	forbiddenWords, err := repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	if err != nil {
+		// 如果获取失败，返回原资源列表
+		return resources, nil
+	}
+
+	if forbiddenWords == "" {
+		return resources, nil
+	}
+
+	// 分割违禁词
+	words := strings.Split(forbiddenWords, ",")
+	var filteredResources []entity.Resource
+	var foundForbiddenWords []string
+
+	for _, resource := range resources {
+		shouldSkip := false
+		title := strings.ToLower(resource.Title)
+		description := strings.ToLower(resource.Description)
+
+		for _, word := range words {
+			word = strings.TrimSpace(word)
+			if word != "" && (strings.Contains(title, strings.ToLower(word)) || strings.Contains(description, strings.ToLower(word))) {
+				foundForbiddenWords = append(foundForbiddenWords, word)
+				shouldSkip = true
+				break
+			}
+		}
+
+		if !shouldSkip {
+			filteredResources = append(filteredResources, resource)
+		}
+	}
+
+	// 去重违禁词
+	uniqueForbiddenWords := make([]string, 0)
+	wordMap := make(map[string]bool)
+	for _, word := range foundForbiddenWords {
+		if !wordMap[word] {
+			wordMap[word] = true
+			uniqueForbiddenWords = append(uniqueForbiddenWords, word)
+		}
+	}
+
+	return filteredResources, uniqueForbiddenWords
 }
 
 // AddBatchResources godoc
@@ -112,7 +163,7 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 
 // SearchResources godoc
 // @Summary 资源搜索
-// @Description 搜索资源，支持关键词、标签、分类过滤
+// @Description 搜索资源，支持关键词、标签、分类过滤，自动过滤包含违禁词的资源
 // @Tags PublicAPI
 // @Accept json
 // @Produce json
@@ -122,7 +173,7 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 // @Param category query string false "分类过滤"
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20) maximum(100)
-// @Success 200 {object} map[string]interface{} "搜索成功"
+// @Success 200 {object} map[string]interface{} "搜索成功，如果存在违禁词过滤会返回forbidden_words_filtered字段"
 // @Failure 401 {object} map[string]interface{} "认证失败"
 // @Failure 500 {object} map[string]interface{} "服务器内部错误"
 // @Router /api/public/resources/search [get]
@@ -169,9 +220,15 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 		return
 	}
 
+	// 过滤违禁词
+	filteredResources, foundForbiddenWords := h.filterForbiddenWords(resources)
+
+	// 计算过滤后的总数
+	filteredTotal := len(filteredResources)
+
 	// 转换为响应格式
 	var resourceResponses []gin.H
-	for _, resource := range resources {
+	for _, resource := range filteredResources {
 		resourceResponses = append(resourceResponses, gin.H{
 			"id":          resource.ID,
 			"title":       resource.Title,
@@ -183,12 +240,23 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 		})
 	}
 
-	SuccessResponse(c, gin.H{
+	// 构建响应数据
+	responseData := gin.H{
 		"list":  resourceResponses,
-		"total": total,
+		"total": filteredTotal,
 		"page":  page,
 		"limit": pageSize,
-	})
+	}
+
+	// 如果存在违禁词过滤，添加提醒字段
+	if len(foundForbiddenWords) > 0 {
+		responseData["forbidden_words_filtered"] = true
+		responseData["filtered_forbidden_words"] = foundForbiddenWords
+		responseData["original_total"] = total
+		responseData["filtered_count"] = total - int64(filteredTotal)
+	}
+
+	SuccessResponse(c, responseData)
 }
 
 // GetHotDramas godoc
