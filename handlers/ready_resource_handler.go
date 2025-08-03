@@ -316,6 +316,7 @@ func GetReadyResourcesWithErrors(c *gin.Context) {
 	// 获取分页参数
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "100")
+	errorFilter := c.Query("error_filter")
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
@@ -327,8 +328,8 @@ func GetReadyResourcesWithErrors(c *gin.Context) {
 		pageSize = 100
 	}
 
-	// 获取有错误的资源（分页）
-	resources, total, err := repoManager.ReadyResourceRepository.FindWithErrorsPaginated(page, pageSize)
+	// 获取有错误的资源（分页，包括软删除的）
+	resources, total, err := repoManager.ReadyResourceRepository.FindWithErrorsPaginatedIncludingDeleted(page, pageSize, errorFilter)
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
@@ -463,5 +464,111 @@ func RetryFailedResources(c *gin.Context) {
 		"cleared_count":   clearedCount,
 		"skipped_count":   skippedCount,
 		"retryable_count": getRetryableErrorCount(resources),
+	})
+}
+
+// BatchRestoreToReadyPool 批量将失败资源重新放入待处理池
+func BatchRestoreToReadyPool(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(req.IDs) == 0 {
+		ErrorResponse(c, "资源ID列表不能为空", http.StatusBadRequest)
+		return
+	}
+
+	successCount := 0
+	failedCount := 0
+
+	for _, id := range req.IDs {
+		// 清除错误信息并恢复软删除的资源
+		err := repoManager.ReadyResourceRepository.ClearErrorMsgAndRestore(id)
+		if err != nil {
+			failedCount++
+			continue
+		}
+		successCount++
+	}
+
+	SuccessResponse(c, gin.H{
+		"message":       "批量重新放入待处理池操作完成",
+		"total_count":   len(req.IDs),
+		"success_count": successCount,
+		"failed_count":  failedCount,
+	})
+}
+
+// BatchRestoreToReadyPoolByQuery 根据查询条件批量将失败资源重新放入待处理池
+func BatchRestoreToReadyPoolByQuery(c *gin.Context) {
+	var req struct {
+		ErrorFilter string `json:"error_filter"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// 根据查询条件获取所有符合条件的资源
+	resources, err := repoManager.ReadyResourceRepository.FindWithErrorsByQuery(req.ErrorFilter)
+	if err != nil {
+		ErrorResponse(c, "查询资源失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(resources) == 0 {
+		SuccessResponse(c, gin.H{
+			"message":       "没有找到符合条件的资源",
+			"total_count":   0,
+			"success_count": 0,
+			"failed_count":  0,
+		})
+		return
+	}
+
+	successCount := 0
+	failedCount := 0
+	for _, resource := range resources {
+		err := repoManager.ReadyResourceRepository.ClearErrorMsgAndRestore(resource.ID)
+		if err != nil {
+			failedCount++
+			continue
+		}
+		successCount++
+	}
+
+	SuccessResponse(c, gin.H{
+		"message":       "批量重新放入待处理池操作完成",
+		"total_count":   len(resources),
+		"success_count": successCount,
+		"failed_count":  failedCount,
+	})
+}
+
+// ClearAllErrorsByQuery 根据查询条件批量清除错误信息并删除资源
+func ClearAllErrorsByQuery(c *gin.Context) {
+	var req struct {
+		ErrorFilter string `json:"error_filter"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// 根据查询条件批量删除失败资源
+	affectedRows, err := repoManager.ReadyResourceRepository.ClearAllErrorsByQuery(req.ErrorFilter)
+	if err != nil {
+		ErrorResponse(c, "批量删除失败资源失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, gin.H{
+		"message":       "批量删除失败资源操作完成",
+		"affected_rows": affectedRows,
 	})
 }

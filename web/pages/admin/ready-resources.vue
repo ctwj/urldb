@@ -84,6 +84,12 @@
       <div class="flex justify-between items-center mb-4">
         <div class="flex gap-2">
           <NuxtLink 
+            to="/admin/failed-resources" 
+            class="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+          >
+            <i class="fas fa-plus"></i> 错误资源
+          </NuxtLink>
+          <NuxtLink 
             to="/admin/add-resource" 
             class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
           >

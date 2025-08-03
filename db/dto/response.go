@@ -79,19 +79,21 @@ type CksResponse struct {
 
 // ReadyResourceResponse 待处理资源响应
 type ReadyResourceResponse struct {
-	ID          uint      `json:"id"`
-	Title       *string   `json:"title"`
-	Description string    `json:"description"`
-	URL         string    `json:"url"`
-	Category    string    `json:"category"`
-	Tags        string    `json:"tags"`
-	Img         string    `json:"img"`
-	Source      string    `json:"source"`
-	Extra       string    `json:"extra"`
-	Key         string    `json:"key"`
-	ErrorMsg    string    `json:"error_msg"`
-	CreateTime  time.Time `json:"create_time"`
-	IP          *string   `json:"ip"`
+	ID          uint       `json:"id"`
+	Title       *string    `json:"title"`
+	Description string     `json:"description"`
+	URL         string     `json:"url"`
+	Category    string     `json:"category"`
+	Tags        string     `json:"tags"`
+	Img         string     `json:"img"`
+	Source      string     `json:"source"`
+	Extra       string     `json:"extra"`
+	Key         string     `json:"key"`
+	ErrorMsg    string     `json:"error_msg"`
+	CreateTime  time.Time  `json:"create_time"`
+	IP          *string    `json:"ip"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	IsDeleted   bool       `json:"is_deleted"`
 }
 
 // Stats 统计信息

@@ -125,7 +125,8 @@ const pageConfig = computed(() => {
     '/monitor': { title: '系统监控', icon: 'fas fa-desktop', description: '系统性能监控' },
     '/admin/add-resource': { title: '添加资源', icon: 'fas fa-plus', description: '添加新资源' },
     '/api-docs': { title: 'API文档', icon: 'fas fa-book', description: '接口文档说明' },
-    '/admin/version': { title: '版本信息', icon: 'fas fa-code-branch', description: '系统版本详情' }
+    '/admin/version': { title: '版本信息', icon: 'fas fa-code-branch', description: '系统版本详情' },
+    '/admin/failed-resources': { title: '错误资源', icon: 'fas fa-code-branch', description: '错误资源' }
   }
   return configs[route.path] || { title: props.title, icon: 'fas fa-cog', description: '管理页面' }
 })

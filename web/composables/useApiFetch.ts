@@ -22,6 +22,12 @@ export function useApiFetch<T = any>(
     ...options,
     headers,
     onResponse({ response }) {
+      console.log('API响应:', {
+        status: response.status,
+        data: response._data,
+        url: url
+      })
+      
       if (response.status === 401 ||
         (response._data && (response._data.code === 401 || response._data.error === '无效的令牌'))
       ) {
@@ -38,6 +44,7 @@ export function useApiFetch<T = any>(
 
       // 统一处理 code/message
       if (response._data && response._data.code && response._data.code !== 200) {
+        console.error('API错误响应:', response._data)
         throw new Error(response._data.message || '请求失败')
       }
     },

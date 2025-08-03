@@ -1,6 +1,8 @@
 package converter
 
 import (
+	"time"
+	
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 )
@@ -169,6 +171,12 @@ func ToCksResponseList(cksList []entity.Cks) []dto.CksResponse {
 
 // ToReadyResourceResponse 将ReadyResource实体转换为ReadyResourceResponse
 func ToReadyResourceResponse(resource *entity.ReadyResource) dto.ReadyResourceResponse {
+	isDeleted := !resource.DeletedAt.Time.IsZero()
+	var deletedAt *time.Time
+	if isDeleted {
+		deletedAt = &resource.DeletedAt.Time
+	}
+	
 	return dto.ReadyResourceResponse{
 		ID:          resource.ID,
 		Title:       resource.Title,
@@ -183,6 +191,8 @@ func ToReadyResourceResponse(resource *entity.ReadyResource) dto.ReadyResourceRe
 		ErrorMsg:    resource.ErrorMsg,
 		CreateTime:  resource.CreateTime,
 		IP:          resource.IP,
+		DeletedAt:   deletedAt,
+		IsDeleted:   isDeleted,
 	}
 }
 

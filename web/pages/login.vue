@@ -15,7 +15,7 @@
             <n-input 
               type="text" 
               id="username" 
-              v-model="form.username"
+              v-model:value="form.username"
               required 
               :class="{ 'border-red-500': errors.username }"
             />
@@ -27,7 +27,7 @@
             <n-input 
               type="password" 
               id="password" 
-              v-model="form.password"
+              v-model:value="form.password"
               required 
               :class="{ 'border-red-500': errors.password }"
             />
@@ -87,12 +87,15 @@ const validateForm = () => {
   errors.username = ''
   errors.password = ''
   
-  if (!form.username.trim()) {
+  console.log('validateForm - username:', form.username)
+  console.log('validateForm - password:', form.password ? '***' : 'empty')
+  
+  if (!form.username || !form.username.trim()) {
     errors.username = '请输入用户名'
     return false
   }
   
-  if (!form.password.trim()) {
+  if (!form.password || !form.password.trim()) {
     errors.password = '请输入密码'
     return false
   }
@@ -101,7 +104,17 @@ const validateForm = () => {
 }
 
 const handleLogin = async () => {
-  if (!validateForm()) return
+  console.log('handleLogin - 开始登录，表单数据:', {
+    username: form.username,
+    password: form.password ? '***' : 'empty'
+  })
+  
+  if (!validateForm()) {
+    console.log('handleLogin - 表单验证失败')
+    return
+  }
+  
+  console.log('handleLogin - 表单验证通过，开始调用登录API')
   
   const result = await userStore.login({
     username: form.username,

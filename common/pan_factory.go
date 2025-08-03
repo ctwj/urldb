@@ -222,22 +222,23 @@ func ExtractShareId(url string) (string, ServiceType) {
 
 	// 提取分享ID
 	shareID := ""
-	substring := strings.Index(url, "/s/")
-	if substring == -1 {
-		substring = strings.Index(url, "/t/") // 天翼云 是 t
-		shareID = url[substring+3:]
+	substring := -1
+
+	if index := strings.Index(url, "/s/"); index != -1 {
+		substring = index + 3
+	} else if index := strings.Index(url, "/t/"); index != -1 {
+		substring = index + 3
+	} else if index := strings.Index(url, "/web/share?code="); index != -1 {
+		substring = index + 16
+	} else if index := strings.Index(url, "/p/"); index != -1 {
+		substring = index + 3
 	}
-	if substring == -1 {
-		substring = strings.Index(url, "/web/share?code=") // 天翼云 带密码
-		shareID = url[substring+11:]
-	}
-	if substring == -1 {
-		substring = strings.Index(url, "/p/") // 天翼云 是 p
-		shareID = url[substring+3:]
-	}
+
 	if substring == -1 {
 		return "", NotFound
 	}
+
+	shareID = url[substring:]
 
 	// 去除可能的锚点
 	if hashIndex := strings.Index(shareID, "#"); hashIndex != -1 {

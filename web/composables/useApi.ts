@@ -35,6 +35,18 @@ export const parseApiResponse = <T>(response: any): T => {
           page_size: response.data.limit
         } as T
       }
+      // 特殊处理失败资源接口，返回完整的data结构
+      if (response.data && response.data.data && Array.isArray(response.data.data) && response.data.total !== undefined) {
+        return response.data
+      }
+      // 特殊处理登录接口，直接返回data部分（包含token和user）
+      if (response.data && response.data.token && response.data.user) {
+        return response.data
+      }
+      // 特殊处理删除操作响应，直接返回data部分
+      if (response.data && response.data.affected_rows !== undefined) {
+        return response.data
+      }
       return response.data
     } else {
       throw new Error(response.message || '请求失败')
@@ -122,6 +134,9 @@ export const useReadyResourceApi = () => {
   const clearReadyResources = () => useApiFetch('/ready-resources', { method: 'DELETE' }).then(parseApiResponse)
   const clearErrorMsg = (id: number) => useApiFetch(`/ready-resources/${id}/clear-error`, { method: 'POST' }).then(parseApiResponse)
   const retryFailedResources = () => useApiFetch('/ready-resources/retry-failed', { method: 'POST' }).then(parseApiResponse)
+  const batchRestoreToReadyPool = (ids: number[]) => useApiFetch('/ready-resources/batch-restore', { method: 'POST', body: { ids } }).then(parseApiResponse)
+  const batchRestoreToReadyPoolByQuery = (queryParams: any) => useApiFetch('/ready-resources/batch-restore-by-query', { method: 'POST', body: queryParams }).then(parseApiResponse)
+  const clearAllErrorsByQuery = (queryParams: any) => useApiFetch('/ready-resources/clear-all-errors-by-query', { method: 'POST', body: queryParams }).then(parseApiResponse)
   return { 
     getReadyResources, 
     getFailedResources, 
@@ -131,7 +146,10 @@ export const useReadyResourceApi = () => {
     deleteReadyResource, 
     clearReadyResources,
     clearErrorMsg,
-    retryFailedResources
+    retryFailedResources,
+    batchRestoreToReadyPool,
+    batchRestoreToReadyPoolByQuery,
+    clearAllErrorsByQuery
   }
 }
 

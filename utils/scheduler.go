@@ -462,7 +462,7 @@ func (s *Scheduler) convertReadyResourceToResource(readyResource entity.ReadyRes
 			return NewNoAccountError(serviceType.String())
 		}
 
-		// 选择第一个有效的账号
+		// 选择第一个有效的账号  TODO 需要优化，随机选择账号
 		var selectedAccount *entity.Cks
 		for _, account := range accounts {
 			if account.IsValid {

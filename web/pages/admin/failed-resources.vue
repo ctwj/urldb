@@ -25,18 +25,53 @@
         <div class="flex gap-2">
           <button 
             @click="retryAllFailed" 
-            class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+            :disabled="!errorFilter.trim() || isProcessing"
+            :class="[
+              'w-full sm:w-auto px-4 py-2 rounded-md transition-colors text-center flex items-center justify-center gap-2',
+              errorFilter.trim() && !isProcessing 
+                ? 'bg-green-600 hover:bg-green-700' 
+                : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+            ]"
           >
-            <i class="fas fa-redo"></i> 重试所有失败
+            <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-redo"></i> 
+            {{ isProcessing ? '处理中...' : '重新放入待处理池' }}
           </button>
           <button 
             @click="clearAllErrors" 
-            class="w-full sm:w-auto px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+            :disabled="!errorFilter.trim() || isProcessing"
+            :class="[
+              'w-full sm:w-auto px-4 py-2 rounded-md transition-colors text-center flex items-center justify-center gap-2',
+              errorFilter.trim() && !isProcessing 
+                ? 'bg-yellow-600 hover:bg-yellow-700' 
+                : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+            ]"
           >
-            <i class="fas fa-broom"></i> 清除所有错误
+            <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-trash"></i> 
+            {{ isProcessing ? '处理中...' : '删除失败资源' }}
           </button>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center">
+          <!-- 错误信息过滤 -->
+          <div class="flex items-center gap-2">
+            <n-input
+              v-model:value="errorFilter"
+              type="text"
+              placeholder="过滤错误信息..."
+              class="w-48"
+              clearable
+              @input="onErrorFilterChange"
+            />
+            <button 
+              v-if="errorFilter"
+              @click="clearErrorFilter"
+              class="px-2 py-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              title="清除过滤条件"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
           <button 
             @click="refreshData" 
             class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
@@ -46,20 +81,7 @@
         </div>
       </div>
 
-      <!-- 错误统计 -->
-      <div v-if="errorStats && Object.keys(errorStats).length > 0" class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-6">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">错误类型统计</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <div 
-            v-for="(count, type) in errorStats" 
-            :key="type"
-            class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center"
-          >
-            <div class="text-2xl font-bold text-red-600 dark:text-red-400">{{ count }}</div>
-            <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ getErrorTypeName(type) }}</div>
-          </div>
-        </div>
-      </div>
+
 
       <!-- 失败资源列表 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -68,6 +90,7 @@
             <thead class="bg-red-800 dark:bg-red-900 text-white dark:text-gray-100 sticky top-0 z-10">
               <tr>
                 <th class="px-4 py-3 text-left text-sm font-medium">ID</th>
+                <th class="px-4 py-3 text-left text-sm font-medium">状态</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">标题</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">URL</th>
                 <th class="px-4 py-3 text-left text-sm font-medium">错误信息</th>
@@ -78,12 +101,12 @@
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
               <tr v-if="loading" class="text-center py-8">
-                <td colspan="7" class="text-gray-500 dark:text-gray-400">
+                <td colspan="8" class="text-gray-500 dark:text-gray-400">
                   <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
                 </td>
               </tr>
               <tr v-else-if="failedResources.length === 0">
-                <td colspan="7">
+                <td colspan="8">
                   <div class="flex flex-col items-center justify-center py-12">
                     <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 48 48">
                       <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
@@ -97,11 +120,30 @@
               <tr 
                 v-for="resource in failedResources" 
                 :key="resource.id"
-                class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                :class="[
+                  'hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
+                  resource.is_deleted ? 'bg-gray-100 dark:bg-gray-700' : ''
+                ]"
               >
                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ resource.id }}</td>
+                <td class="px-4 py-3 text-sm">
+                  <span 
+                    v-if="resource.is_deleted" 
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                    title="已删除"
+                  >
+                    <i class="fas fa-trash mr-1"></i>已删除
+                  </span>
+                  <span 
+                    v-else 
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                    title="正常"
+                  >
+                    <i class="fas fa-check mr-1"></i>正常
+                  </span>
+                </td>
                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                  <span v-if="resource.title" :title="resource.title">{{ escapeHtml(resource.title) }}</span>
+                  <span v-if="resource.title && resource.title !== null" :title="resource.title">{{ escapeHtml(resource.title) }}</span>
                   <span v-else class="text-gray-400 dark:text-gray-500 italic">未设置</span>
                 </td>
                 <td class="px-4 py-3 text-sm">
@@ -168,6 +210,9 @@
           <!-- 总资源数 -->
           <div class="text-sm text-gray-600 dark:text-gray-400">
             共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个失败资源
+            <span v-if="errorFilter" class="ml-2 text-blue-600 dark:text-blue-400">
+              (已过滤)
+            </span>
           </div>
           
           <div class="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
@@ -216,6 +261,9 @@
         <div class="inline-flex items-center bg-white dark:bg-gray-800 rounded-lg shadow px-6 py-3">
           <div class="text-sm text-gray-600 dark:text-gray-400">
             共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个失败资源
+            <span v-if="errorFilter" class="ml-2 text-blue-600 dark:text-blue-400">
+              (已过滤)
+            </span>
           </div>
         </div>
       </div>
@@ -232,11 +280,13 @@ definePageMeta({
 
 interface FailedResource {
   id: number
-  title?: string
+  title?: string | null
   url: string
   error_msg: string
   create_time: string
-  ip?: string
+  ip?: string | null
+  deleted_at?: string | null
+  is_deleted: boolean
 }
 
 const failedResources = ref<FailedResource[]>([])
@@ -249,9 +299,11 @@ const pageSize = ref(100)
 const totalCount = ref(0)
 const totalPages = ref(0)
 
-// 错误统计
-const errorStats = ref<Record<string, number>>({})
+
 const dialog = useDialog()
+
+// 过滤相关状态
+const errorFilter = ref('')
 
 // 获取失败资源API
 import { useReadyResourceApi } from '~/composables/useApi'
@@ -261,28 +313,49 @@ const readyResourceApi = useReadyResourceApi()
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await readyResourceApi.getFailedResources({
+    const params: any = {
       page: currentPage.value,
       page_size: pageSize.value
-    }) as any
+    }
     
-    if (response && response.data) {
+    // 如果有过滤条件，添加到查询参数中
+    if (errorFilter.value.trim()) {
+      params.error_filter = errorFilter.value.trim()
+    }
+    
+    console.log('fetchData - 开始获取失败资源，参数:', params)
+    
+    const response = await readyResourceApi.getFailedResources(params) as any
+    
+    console.log('fetchData - 原始响应:', response)
+    
+    if (response && response.data && Array.isArray(response.data)) {
+      console.log('fetchData - 使用response.data格式（数组）')
       failedResources.value = response.data
       totalCount.value = response.total || 0
       totalPages.value = Math.ceil((response.total || 0) / pageSize.value)
-      errorStats.value = response.error_stats || {}
     } else {
+      console.log('fetchData - 使用空数据格式')
       failedResources.value = []
       totalCount.value = 0
       totalPages.value = 1
-      errorStats.value = {}
+    }
+    
+    console.log('fetchData - 处理后的数据:', {
+      failedResourcesCount: failedResources.value.length,
+      totalCount: totalCount.value,
+      totalPages: totalPages.value
+    })
+    
+    // 打印第一个资源的数据结构（如果存在）
+    if (failedResources.value.length > 0) {
+      console.log('fetchData - 第一个资源的数据结构:', failedResources.value[0])
     }
   } catch (error) {
     console.error('获取失败资源失败:', error)
     failedResources.value = []
     totalCount.value = 0
     totalPages.value = 1
-    errorStats.value = {}
   } finally {
     loading.value = false
   }
@@ -331,6 +404,28 @@ const visiblePages = computed(() => {
   
   return pages
 })
+
+// 防抖函数
+const debounce = (func: Function, delay: number) => {
+  let timeoutId: NodeJS.Timeout
+  return (...args: any[]) => {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => func.apply(null, args), delay)
+  }
+}
+
+// 错误过滤输入变化处理（防抖）
+const onErrorFilterChange = debounce(() => {
+  currentPage.value = 1 // 重置到第一页
+  fetchData()
+}, 300)
+
+// 清除错误过滤
+const clearErrorFilter = () => {
+  errorFilter.value = ''
+  currentPage.value = 1 // 重置到第一页
+  fetchData()
+}
 
 // 刷新数据
 const refreshData = () => {
@@ -402,22 +497,52 @@ const deleteResource = async (id: number) => {
   })
 }
 
-// 重试所有失败资源
+// 处理状态
+const isProcessing = ref(false)
+
+// 重新放入待处理池
 const retryAllFailed = async () => {
+  if (totalCount.value === 0) {
+    alert('没有可处理的资源')
+    return
+  }
+  
+  // 检查是否有过滤条件
+  if (!errorFilter.value.trim()) {
+    alert('请先设置过滤条件，以避免处理所有失败资源')
+    return
+  }
+  
+  // 构建查询条件
+  const queryParams: any = {}
+  
+  // 如果有过滤条件，添加到查询参数中
+  if (errorFilter.value.trim()) {
+    queryParams.error_filter = errorFilter.value.trim()
+  }
+  
+  const count = totalCount.value
+  
   dialog.warning({
-    title: '警告',
-    content: '确定要重试所有可重试的失败资源吗？',
+    title: '确认操作',
+    content: `确定要将 ${count} 个资源重新放入待处理池吗？`,
     positiveText: '确定',
     negativeText: '取消',
     draggable: true,
     onPositiveClick: async () => {
+      if (isProcessing.value) return // 防止重复点击
+      
+      isProcessing.value = true
+      
       try {
-        const response = await readyResourceApi.retryFailedResources() as any
-        alert(`重试操作完成：\n总数量：${response.total_count}\n已清除：${response.cleared_count}\n跳过：${response.skipped_count}`)
+        const response = await readyResourceApi.batchRestoreToReadyPoolByQuery(queryParams) as any
+        alert(`操作完成：\n总数量：${response.total_count}\n成功处理：${response.success_count}\n失败：${response.failed_count}`)
         fetchData()
       } catch (error) {
-        console.error('重试所有失败资源失败:', error)
-        alert('重试失败')
+        console.error('重新放入待处理池失败:', error)
+        alert('操作失败')
+      } finally {
+        isProcessing.value = false
       }
     }
   })
@@ -425,19 +550,49 @@ const retryAllFailed = async () => {
 
 // 清除所有错误
 const clearAllErrors = async () => {
+  // 检查是否有过滤条件
+  if (!errorFilter.value.trim()) {
+    alert('请先设置过滤条件，以避免删除所有失败资源')
+    return
+  }
+  
+  // 构建查询条件
+  const queryParams: any = {}
+  
+  // 如果有过滤条件，添加到查询参数中
+  if (errorFilter.value.trim()) {
+    queryParams.error_filter = errorFilter.value.trim()
+  }
+  
+  const count = totalCount.value
+  
   dialog.warning({
     title: '警告',
-    content: '确定要清除所有失败资源的错误信息吗？此操作不可恢复！',
-    positiveText: '确定',
+    content: `确定要删除 ${count} 个失败资源吗？此操作将永久删除这些资源，不可恢复！`,
+    positiveText: '确定删除',
     negativeText: '取消',
     draggable: true,
     onPositiveClick: async () => {
+      if (isProcessing.value) return // 防止重复点击
+      
+      isProcessing.value = true
+      
       try {
-        // 这里需要实现批量清除错误的API
-        alert('批量清除错误功能待实现')
-      } catch (error) {
-        console.error('清除所有错误失败:', error)
-        alert('清除失败')
+        console.log('开始调用删除API，参数:', queryParams)
+        const response = await readyResourceApi.clearAllErrorsByQuery(queryParams) as any
+        console.log('删除API响应:', response)
+        alert(`操作完成：\n删除失败资源：${response.affected_rows} 个资源`)
+        fetchData()
+      } catch (error: any) {
+        console.error('删除失败资源失败:', error)
+        console.error('错误详情:', {
+          message: error?.message,
+          stack: error?.stack,
+          response: error?.response
+        })
+        alert('删除失败')
+      } finally {
+        isProcessing.value = false
       }
     }
   })
@@ -477,24 +632,7 @@ const truncateError = (errorMsg: string) => {
   return errorMsg.length > 50 ? errorMsg.substring(0, 50) + '...' : errorMsg
 }
 
-// 获取错误类型名称
-const getErrorTypeName = (type: string) => {
-  const typeNames: Record<string, string> = {
-    'NO_ACCOUNT': '无账号',
-    'NO_VALID_ACCOUNT': '无有效账号',
-    'TRANSFER_FAILED': '转存失败',
-    'LINK_CHECK_FAILED': '链接检查失败',
-    'UNSUPPORTED_LINK': '不支持的链接',
-    'INVALID_LINK': '无效链接',
-    'SERVICE_CREATION_FAILED': '服务创建失败',
-    'TAG_PROCESSING_FAILED': '标签处理失败',
-    'CATEGORY_PROCESSING_FAILED': '分类处理失败',
-    'RESOURCE_SAVE_FAILED': '资源保存失败',
-    'PLATFORM_NOT_FOUND': '平台未找到',
-    'UNKNOWN': '未知错误'
-  }
-  return typeNames[type] || type
-}
+
 
 // 页面加载时获取数据
 onMounted(async () => {
