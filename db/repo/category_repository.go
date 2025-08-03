@@ -10,6 +10,7 @@ import (
 type CategoryRepository interface {
 	BaseRepository[entity.Category]
 	FindByName(name string) (*entity.Category, error)
+	FindByNameIncludingDeleted(name string) (*entity.Category, error)
 	FindWithResources() ([]entity.Category, error)
 	FindWithTags() ([]entity.Category, error)
 	GetResourceCount(categoryID uint) (int64, error)
@@ -17,6 +18,7 @@ type CategoryRepository interface {
 	GetTagNames(categoryID uint) ([]string, error)
 	FindWithPagination(page, pageSize int) ([]entity.Category, int64, error)
 	Search(query string, page, pageSize int) ([]entity.Category, int64, error)
+	RestoreDeletedCategory(id uint) error
 }
 
 // CategoryRepositoryImpl Category的Repository实现
@@ -39,6 +41,21 @@ func (r *CategoryRepositoryImpl) FindByName(name string) (*entity.Category, erro
 		return nil, err
 	}
 	return &category, nil
+}
+
+// FindByNameIncludingDeleted 根据名称查找（包括已删除的记录）
+func (r *CategoryRepositoryImpl) FindByNameIncludingDeleted(name string) (*entity.Category, error) {
+	var category entity.Category
+	err := r.db.Unscoped().Where("name = ?", name).First(&category).Error
+	if err != nil {
+		return nil, err
+	}
+	return &category, nil
+}
+
+// RestoreDeletedCategory 恢复已删除的分类
+func (r *CategoryRepositoryImpl) RestoreDeletedCategory(id uint) error {
+	return r.db.Unscoped().Model(&entity.Category{}).Where("id = ?", id).Update("deleted_at", nil).Error
 }
 
 // FindWithResources 查找包含资源的分类

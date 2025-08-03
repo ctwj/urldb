@@ -65,13 +65,47 @@ func CreateTag(c *gin.Context) {
 		return
 	}
 
+	// 首先检查是否存在已删除的同名标签
+	deletedTag, err := repoManager.TagRepository.FindByNameIncludingDeleted(req.Name)
+	if err == nil && deletedTag.DeletedAt.Valid {
+		// 如果存在已删除的同名标签，则恢复它
+		err = repoManager.TagRepository.RestoreDeletedTag(deletedTag.ID)
+		if err != nil {
+			ErrorResponse(c, "恢复已删除标签失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// 重新获取恢复后的标签
+		restoredTag, err := repoManager.TagRepository.FindByID(deletedTag.ID)
+		if err != nil {
+			ErrorResponse(c, "获取恢复的标签失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// 更新标签信息
+		restoredTag.Description = req.Description
+		restoredTag.CategoryID = req.CategoryID
+		err = repoManager.TagRepository.UpdateWithNulls(restoredTag)
+		if err != nil {
+			ErrorResponse(c, "更新恢复的标签失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		SuccessResponse(c, gin.H{
+			"message": "标签恢复成功",
+			"tag":     converter.ToTagResponse(restoredTag, 0),
+		})
+		return
+	}
+
+	// 如果不存在已删除的同名标签，则创建新标签
 	tag := &entity.Tag{
 		Name:        req.Name,
 		Description: req.Description,
 		CategoryID:  req.CategoryID,
 	}
 
-	err := repoManager.TagRepository.Create(tag)
+	err = repoManager.TagRepository.Create(tag)
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return

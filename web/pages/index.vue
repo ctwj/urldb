@@ -57,7 +57,7 @@
       <div class="w-full max-w-3xl mx-auto mb-4 sm:mb-8 px-2 sm:px-0">
         <ClientOnly>
           <div class="relative">
-            <n-input round placeholder="搜索" v-model="searchQuery" @blur="handleSearch" @keyup.enter="handleSearch">
+            <n-input round placeholder="搜索" v-model:value="searchQuery" @blur="handleSearch" @keyup.enter="handleSearch">
               <template #suffix>
                 <i class="fas fa-search text-gray-400"></i>
               </template>

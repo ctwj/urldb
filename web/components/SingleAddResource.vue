@@ -5,9 +5,8 @@
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         标题 <span class="text-red-500">*</span>
       </label>
-      <input 
+      <n-input 
         v-model="form.title" 
-        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
         placeholder="输入资源标题（必填）" 
         required
       />
@@ -18,12 +17,11 @@
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         描述 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
-      <textarea 
+      <n-input 
         v-model="form.description" 
-        rows="3" 
-        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
+        type="textarea"
         placeholder="输入资源描述，如：剧情简介、文件大小、清晰度等"
-      ></textarea>
+      />
     </div>
 
     <!-- URL -->
@@ -31,13 +29,12 @@
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         URL <span class="text-red-500">*</span>
       </label>
-      <textarea 
+      <n-input 
         v-model="form.url" 
-        rows="3" 
-        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
+        type="textarea"
         placeholder="请输入资源链接，支持多行，每行一个链接"
         required
-      ></textarea>
+      />
       <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
         支持百度网盘、阿里云盘、夸克网盘等链接，每行一个链接
       </p>
@@ -48,9 +45,8 @@
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         分类 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
-      <input 
+      <n-input 
         v-model="form.category" 
-        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
         placeholder="如：电影、电视剧、动漫、音乐等" 
       />
     </div>
@@ -76,10 +72,9 @@
           </button>
         </span>
       </div>
-      <input 
+      <n-input 
         v-model="newTag" 
         @keyup.enter.prevent="addTag" 
-        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
         placeholder="输入标签后回车添加，多个标签用逗号分隔" 
       />
     </div>
@@ -89,9 +84,8 @@
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         封面图片 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
-      <input 
+      <n-input 
         v-model="form.img" 
-        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
         placeholder="封面图片链接" 
       />
     </div>
@@ -101,9 +95,8 @@
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         数据来源 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
-      <input 
+      <n-input 
         v-model="form.source" 
-        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
         placeholder="如：手动添加、API导入、爬虫等" 
       />
     </div>
@@ -113,12 +106,11 @@
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         额外数据 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
-      <textarea 
+      <n-input 
         v-model="form.extra" 
-        rows="3" 
-        class="input-field dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700" 
+        type="textarea"
         placeholder="JSON格式的额外数据，如：{'size': '2GB', 'quality': '1080p'}"
-      ></textarea>
+      />
     </div>
     
     <!-- 按钮区域 -->

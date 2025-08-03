@@ -22,11 +22,10 @@
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">搜索资源</label>
             <div class="relative">
-              <input 
-                v-model="searchQuery"
+              <n-input 
+                v-model:value="searchQuery"
                 @keyup.enter="handleSearch"
                 type="text" 
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
                 placeholder="输入文件名或链接进行搜索..."
               />
               <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -69,18 +68,18 @@
         <!-- 搜索按钮 -->
         <div class="mt-4 flex justify-between items-center">
           <div class="flex gap-2">
-            <button 
+            <n-button 
               @click="handleSearch" 
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+              type="primary"
             >
               <i class="fas fa-search"></i> 搜索
-            </button>
-            <button 
+            </n-button>
+            <n-button 
               @click="clearFilters" 
-              class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
+              type="tertiary"
             >
               <i class="fas fa-times"></i> 清除筛选
-            </button>
+            </n-button>
           </div>
           <div class="text-sm text-gray-600 dark:text-gray-400">
             共找到 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个资源
@@ -91,26 +90,26 @@
       <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
         <div class="flex gap-2">
-          <button 
+          <n-button 
             @click="showBatchModal = true" 
-            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+            type="primary"
           >
             <i class="fas fa-list"></i> 批量操作
-          </button>
+          </n-button>
         </div>
         <div class="flex gap-2">
-          <button 
+          <n-button 
             @click="refreshData" 
-            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
+            type="tertiary"
           >
             <i class="fas fa-refresh"></i> 刷新
-          </button>
-          <button 
+          </n-button>
+          <n-button 
             @click="exportData" 
-            class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 flex items-center gap-2"
+            type="info"
           >
             <i class="fas fa-download"></i> 导出
-          </button>
+          </n-button>
         </div>
       </div>
 
@@ -119,9 +118,9 @@
         <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 text-gray-900 dark:text-gray-100">
           <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-bold">批量操作</h3>
-            <button @click="closeBatchModal" class="text-gray-500 hover:text-gray-800">
+            <n-button @click="closeBatchModal" type="tertiary" size="small">
               <i class="fas fa-times"></i>
-            </button>
+            </n-button>
           </div>
           
           <div class="space-y-4">
@@ -155,11 +154,19 @@
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择标签：</label>
               <div class="space-y-2">
                 <div v-for="tag in tags" :key="tag.id" class="flex items-center">
-                  <input 
-                    type="checkbox" 
+                  <n-checkbox 
                     :value="tag.id" 
-                    v-model="batchTags"
-                    class="mr-2"
+                    :checked="batchTags.includes(tag.id)"
+                    @update:checked="(checked) => {
+                      if (checked) {
+                        batchTags.push(tag.id)
+                      } else {
+                        const index = batchTags.indexOf(tag.id)
+                        if (index > -1) {
+                          batchTags.splice(index, 1)
+                        }
+                      }
+                    }"
                   />
                   <span class="text-sm">{{ tag.name }}</span>
                 </div>
@@ -168,12 +175,12 @@
           </div>
           
           <div class="flex justify-end gap-2 mt-6">
-            <button @click="closeBatchModal" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+            <n-button @click="closeBatchModal" type="tertiary">
               取消
-            </button>
-            <button @click="handleBatchAction" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            </n-button>
+            <n-button @click="handleBatchAction" type="primary">
               执行操作
-            </button>
+            </n-button>
           </div>
         </div>
       </div>
@@ -185,11 +192,9 @@
             <thead class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100 sticky top-0 z-10">
               <tr>
                 <th class="px-4 py-3 text-left text-sm font-medium">
-                  <input 
-                    type="checkbox" 
-                    v-model="selectAll"
-                    @change="toggleSelectAll"
-                    class="mr-2"
+                  <n-checkbox 
+                    v-model:checked="selectAll"
+                    @update:checked="toggleSelectAll"
                   />
                   ID
                 </th>
@@ -219,17 +224,11 @@
                     <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加资源"按钮快速导入资源</div>
                     <div class="flex gap-2">
                       <NuxtLink 
-                        to="/add-resource" 
+                        to="/admin/add-resource" 
                         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
                       >
                         <i class="fas fa-plus"></i> 添加资源
                       </NuxtLink>
-                      <button 
-                        @click="showBatchModal = true" 
-                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
-                      >
-                        <i class="fas fa-list"></i> 批量操作
-                      </button>
                     </div>
                   </div>
                 </td>
@@ -240,11 +239,19 @@
                 class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">
-                  <input 
-                    type="checkbox" 
+                  <n-checkbox 
                     :value="resource.id"
-                    v-model="selectedResources"
-                    class="mr-2"
+                    :checked="selectedResources.includes(resource.id)"
+                    @update:checked="(checked) => {
+                      if (checked) {
+                        selectedResources.push(resource.id)
+                      } else {
+                        const index = selectedResources.indexOf(resource.id)
+                        if (index > -1) {
+                          selectedResources.splice(index, 1)
+                        }
+                      }
+                    }"
                   />
                   {{ resource.id }}
                 </td>
@@ -419,6 +426,7 @@ const batchCategory = ref('')
 const batchTags = ref<number[]>([])
 const selectedResources = ref<number[]>([])
 const selectAll = ref(false)
+const dialog = useDialog()
 
 // API
 import { useResourceApi, usePanApi, useCategoryApi, useTagApi } from '~/composables/useApi'
@@ -577,8 +585,8 @@ const visiblePages = computed(() => {
 })
 
 // 全选/取消全选
-const toggleSelectAll = () => {
-  if (selectAll.value) {
+const toggleSelectAll = (checked: boolean) => {
+  if (checked) {
     selectedResources.value = resources.value.map(r => r.id)
   } else {
     selectedResources.value = []
@@ -600,10 +608,18 @@ const handleBatchAction = async () => {
   try {
     switch (batchAction.value) {
       case 'delete':
-        if (confirm(`确定要删除选中的 ${selectedResources.value.length} 个资源吗？`)) {
-          await resourceApi.batchDeleteResources(selectedResources.value)
-          alert('批量删除成功')
-        }
+        dialog.warning({
+          title: '警告',
+          content: `确定要删除选中的 ${selectedResources.value.length} 个资源吗？`,
+          positiveText: '确定',
+          negativeText: '取消',
+          draggable: true,
+          onPositiveClick: async () => {
+            await resourceApi.batchDeleteResources(selectedResources.value)
+            alert('批量删除成功')
+          }
+        })
+        return
         break
       case 'update_category':
         if (!batchCategory.value) {
@@ -649,16 +665,23 @@ const editResource = (resource: Resource) => {
 
 // 删除资源
 const deleteResource = async (id: number) => {
-  if (confirm('确定要删除这个资源吗？')) {
-    try {
-      await resourceApi.deleteResource(id)
-      alert('删除成功')
-      fetchData()
-    } catch (error) {
-      console.error('删除失败:', error)
-      alert('删除失败')
+  dialog.warning({
+    title: '警告',
+    content: '确定要删除这个资源吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await resourceApi.deleteResource(id)
+        alert('删除成功')
+        fetchData()
+      } catch (error) {
+        console.error('删除失败:', error)
+        alert('删除失败')
+      }
     }
-  }
+  })
 }
 
 // 工具函数

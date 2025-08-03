@@ -7,8 +7,8 @@
           <p class="mb-2"><strong>格式要求：</strong>标题和URL为一组，标题必填, 同一标题URL支持多行</p>
           <pre class="bg-white dark:bg-gray-800 p-2 rounded border text-xs">
 电影1
-https://pan.baidu.com/s/123456  # 百度网盘 电影1 
-https://pan.quark.com/s/123456  # 夸克网盘 电影1 
+https://pan.baidu.com/s/123456
+https://pan.quark.com/s/123456
 电影标题2
 https://pan.baidu.com/s/789012
 电视剧标题3
@@ -21,9 +21,9 @@ https://pan.quark.cn/s/345678</pre>
       </div>
       <div class="mb-4 flex-1 w-1">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">资源内容：</label>
-        <textarea v-model="batchInput" rows="15"
-          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-gray-100"
-          placeholder="请输入资源内容，格式：标题和URL两行为一组..."></textarea>
+        <n-input v-model="batchInput" type="textarea"
+          :autosize="{ minRows: 10, maxRows: 15 }"
+          placeholder="请输入资源内容，格式：标题和URL为一组..." />
       </div>
     </div>
 

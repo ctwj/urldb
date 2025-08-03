@@ -11,6 +11,8 @@ declare module 'vue' {
     NA: typeof import('naive-ui')['NA']
     NAlert: typeof import('naive-ui')['NAlert']
     NButton: typeof import('naive-ui')['NButton']
+    NCheckbox: typeof import('naive-ui')['NCheckbox']
+    NDialogProvider: typeof import('naive-ui')['NDialogProvider']
     NInput: typeof import('naive-ui')['NInput']
     NNotificationProvider: typeof import('naive-ui')['NNotificationProvider']
     NSelect: typeof import('naive-ui')['NSelect']

@@ -29,11 +29,10 @@
         </div>
         <div class="flex gap-2">
           <div class="relative">
-                <input 
-                  v-model="searchQuery"
-                  @keyup="debounceSearch"
+                <n-input 
+                  v-model:value="searchQuery"
+                  @input="debounceSearch"
                   type="text" 
-                  class="w-64 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 transition-all text-sm"
                   placeholder="搜索标签名称..."
                 />
                 <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -203,19 +202,18 @@
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {{ editingTag ? '编辑标签' : '添加标签' }}
             </h3>
-            <button @click="closeModal" class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+            <n-button @click="closeModal" type="tertiary" size="small">
               <i class="fas fa-times"></i>
-            </button>
+            </n-button>
           </div>
           
           <form @submit.prevent="handleSubmit">
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">标签名称：</label>
-              <input
-                v-model="formData.name"
+              <n-input
+                v-model:value="formData.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
                 placeholder="请输入标签名称"
               />
             </div>
@@ -235,29 +233,27 @@
             
             <div class="mb-4">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">描述：</label>
-              <textarea
-                v-model="formData.description"
-                rows="3"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+              <n-input
+                v-model:value="formData.description"
+                type="textarea"
                 placeholder="请输入标签描述（可选）"
-              ></textarea>
+              />
             </div>
             
             <div class="flex justify-end gap-3">
-              <button 
-                type="button"
+              <n-button 
+                type="tertiary"
                 @click="closeModal"
-                class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
               >
                 取消
-              </button>
-              <button 
-                type="submit"
+              </n-button>
+              <n-button 
+                type="primary"
                 :disabled="submitting"
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                @click="handleSubmit"
               >
                 {{ submitting ? '提交中...' : (editingTag ? '更新' : '添加') }}
-              </button>
+              </n-button>
             </div>
           </form>
         </div>
@@ -308,6 +304,7 @@ let searchTimeout: NodeJS.Timeout | null = null
 const showAddModal = ref(false)
 const submitting = ref(false)
 const editingTag = ref<any>(null)
+const dialog = useDialog()
 
 // 表单数据
 const formData = ref({
@@ -374,6 +371,8 @@ const fetchTags = async () => {
       search: searchQuery.value
     }
     console.log('获取标签列表参数:', params)
+    console.log('搜索查询值:', searchQuery.value)
+    console.log('搜索查询类型:', typeof searchQuery.value)
     
     let response: any
     if (selectedCategory.value) {
@@ -419,10 +418,12 @@ const onCategoryChange = () => {
 
 // 搜索防抖
 const debounceSearch = () => {
+  console.log('搜索防抖触发，当前搜索值:', searchQuery.value)
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
   searchTimeout = setTimeout(() => {
+    console.log('执行搜索，搜索值:', searchQuery.value)
     currentPage.value = 1
     fetchTags()
   }, 300)
@@ -452,16 +453,21 @@ const editTag = (tag: any) => {
 
 // 删除标签
 const deleteTag = async (tagId: number) => {
-  if (!confirm(`确定要删除标签吗？`)) {
-    return
-  }
-  
-  try {
-    await tagApi.deleteTag(tagId)
-    await fetchTags()
-  } catch (error) {
-    console.error('删除标签失败:', error)
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要删除标签吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await tagApi.deleteTag(tagId)
+        await fetchTags()
+      } catch (error) {
+        console.error('删除标签失败:', error)
+      }
+    }
+  })
 }
 
 // 提交表单
@@ -481,10 +487,24 @@ const handleSubmit = async () => {
       category_id: categoryId
     }
     
+    let response: any
     if (editingTag.value) {
-      await tagApi.updateTag(editingTag.value.id, submitData)
+      response = await tagApi.updateTag(editingTag.value.id, submitData)
     } else {
-      await tagApi.createTag(submitData)
+      response = await tagApi.createTag(submitData)
+    }
+    
+    console.log('标签操作响应:', response)
+    
+    // 检查是否是恢复操作
+    if (response && response.message && response.message.includes('恢复成功')) {
+      console.log('检测到标签恢复操作，延迟刷新数据')
+      closeModal()
+      // 延迟一点时间再刷新，确保数据库状态已更新
+      setTimeout(async () => {
+        await fetchTags()
+      }, 500)
+      return
     }
     
     closeModal()

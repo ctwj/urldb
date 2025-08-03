@@ -4,12 +4,12 @@
     <div class="flex justify-between items-center">
       <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">用户管理</h2>
       <div class="flex gap-2">
-        <button 
+        <n-button 
           @click="showCreateModal = true" 
-          class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          type="primary"
         >
           添加用户
-        </button>
+        </n-button>
       </div>
     </div>
   </div>
@@ -52,9 +52,11 @@
               {{ user.last_login ? formatDate(user.last_login) : '从未登录' }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-              <button @click="editUser(user)" class="text-indigo-600 hover:text-indigo-900 mr-3">编辑</button>
-              <button @click="showChangePasswordModal(user)" class="text-yellow-600 hover:text-yellow-900 mr-3">修改密码</button>
-              <button @click="deleteUser(user.id)" class="text-red-600 hover:text-red-900">删除</button>
+              <n-button @click="editUser(user)" type="info" size="small" class="mr-3" :title="user.username === 'admin' ? '管理员用户信息不可修改' : '编辑用户'">
+                编辑{{ user.username === 'admin' ? ' (只读)' : '' }}
+              </n-button>
+              <n-button @click="showChangePasswordModal(user)" type="warning" size="small" class="mr-3">修改密码</n-button>
+              <n-button @click="deleteUser(user.id)" type="error" size="small">删除</n-button>
             </td>
           </tr>
         </tbody>
@@ -69,33 +71,44 @@
         <h3 class="text-lg font-medium text-gray-900 mb-4">
           {{ showEditModal ? '编辑用户' : '创建用户' }}
         </h3>
+        <div v-if="showEditModal && editingUser?.username === 'admin'" class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p class="text-sm text-yellow-800">
+            <i class="fas fa-exclamation-triangle mr-2"></i>
+            管理员用户信息不可修改，只能通过修改密码功能来更新密码。
+          </p>
+        </div>
+        <div v-if="showEditModal && editingUser?.username !== 'admin'" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p class="text-sm text-blue-800">
+            <i class="fas fa-info-circle mr-2"></i>
+            编辑模式：用户名和邮箱不可修改，只能修改角色和激活状态。
+          </p>
+        </div>
         <form @submit.prevent="handleSubmit">
           <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700">用户名</label>
-              <input 
-                v-model="form.username" 
+              <n-input 
+                v-model:value="form.username" 
                 type="text" 
                 required
-                class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                :disabled="showEditModal"
               />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700">邮箱</label>
-              <input 
-                v-model="form.email" 
+              <n-input 
+                v-model:value="form.email" 
                 type="email" 
                 required
-                class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                :disabled="showEditModal"
               />
             </div>
             <div v-if="showCreateModal">
               <label class="block text-sm font-medium text-gray-700">密码</label>
-              <input 
-                v-model="form.password" 
+              <n-input 
+                v-model:value="form.password" 
                 type="password" 
                 required
-                class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
             <div>
@@ -103,20 +116,19 @@
               <select 
                 v-model="form.role" 
                 class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                :disabled="showEditModal && editingUser?.username === 'admin'"
               >
                 <option value="user">用户</option>
                 <option value="admin">管理员</option>
               </select>
             </div>
             <div>
-              <label class="flex items-center">
-                <input 
-                  v-model="form.is_active" 
-                  type="checkbox" 
-                  class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                />
-                <span class="ml-2 text-sm text-gray-700">激活状态</span>
-              </label>
+              <label class="block text-sm font-medium text-gray-700 mb-2">激活状态</label>
+              <n-switch 
+                v-model:value="form.is_active"
+                size="medium"
+                :disabled="showEditModal && editingUser?.username === 'admin'"
+              />
             </div>
           </div>
           <div class="mt-6 flex justify-end space-x-3">
@@ -129,7 +141,8 @@
             </button>
             <button 
               type="submit" 
-              class="px-4 py-2 bg-indigo-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-indigo-700"
+              class="px-4 py-2 bg-indigo-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="showEditModal && editingUser?.username === 'admin'"
             >
               {{ showEditModal ? '更新' : '创建' }}
             </button>
@@ -153,22 +166,20 @@
           <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-700">新密码</label>
-              <input 
-                v-model="passwordForm.newPassword" 
+              <n-input 
+                v-model:value="passwordForm.newPassword" 
                 type="password" 
                 required
                 minlength="6"
-                class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="请输入新密码（至少6位）"
               />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700">确认新密码</label>
-              <input 
-                v-model="passwordForm.confirmPassword" 
+              <n-input 
+                v-model:value="passwordForm.confirmPassword" 
                 type="password" 
                 required
-                class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="请再次输入新密码"
               />
             </div>
@@ -210,6 +221,7 @@ const showEditModal = ref(false)
 const showPasswordModal = ref(false)
 const editingUser = ref(null)
 const changingPasswordUser = ref(null)
+const dialog = useDialog()
 const form = ref({
   username: '',
   email: '',
@@ -271,16 +283,23 @@ const updateUser = async () => {
 
 // 删除用户
 const deleteUser = async (id) => {
-  if (!confirm('确定要删除这个用户吗？')) return
-  
-  try {
-    const { useUserApi } = await import('~/composables/useApi')
-    const userApi = useUserApi()
-    await userApi.deleteUser(id)
-    await fetchUsers()
-  } catch (error) {
-    console.error('删除用户失败:', error)
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要删除这个用户吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        const { useUserApi } = await import('~/composables/useApi')
+        const userApi = useUserApi()
+        await userApi.deleteUser(id)
+        await fetchUsers()
+      } catch (error) {
+        console.error('删除用户失败:', error)
+      }
+    }
+  })
 }
 
 // 显示修改密码模态框

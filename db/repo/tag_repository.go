@@ -10,6 +10,7 @@ import (
 type TagRepository interface {
 	BaseRepository[entity.Tag]
 	FindByName(name string) (*entity.Tag, error)
+	FindByNameIncludingDeleted(name string) (*entity.Tag, error)
 	FindWithResources() ([]entity.Tag, error)
 	FindByCategoryID(categoryID uint) ([]entity.Tag, error)
 	FindByCategoryIDPaginated(categoryID uint, page, pageSize int) ([]entity.Tag, int64, error)
@@ -19,6 +20,7 @@ type TagRepository interface {
 	Search(query string, page, pageSize int) ([]entity.Tag, int64, error)
 	UpdateWithNulls(tag *entity.Tag) error
 	GetByID(id uint) (*entity.Tag, error)
+	RestoreDeletedTag(id uint) error
 }
 
 // TagRepositoryImpl Tag的Repository实现
@@ -37,6 +39,16 @@ func NewTagRepository(db *gorm.DB) TagRepository {
 func (r *TagRepositoryImpl) FindByName(name string) (*entity.Tag, error) {
 	var tag entity.Tag
 	err := r.db.Where("name = ?", name).First(&tag).Error
+	if err != nil {
+		return nil, err
+	}
+	return &tag, nil
+}
+
+// FindByNameIncludingDeleted 根据名称查找（包括已删除的记录）
+func (r *TagRepositoryImpl) FindByNameIncludingDeleted(name string) (*entity.Tag, error) {
+	var tag entity.Tag
+	err := r.db.Unscoped().Where("name = ?", name).First(&tag).Error
 	if err != nil {
 		return nil, err
 	}
@@ -154,4 +166,9 @@ func (r *TagRepositoryImpl) GetByID(id uint) (*entity.Tag, error) {
 		return nil, err
 	}
 	return &tag, nil
+}
+
+// RestoreDeletedTag 恢复已删除的标签
+func (r *TagRepositoryImpl) RestoreDeletedTag(id uint) error {
+	return r.db.Unscoped().Model(&entity.Tag{}).Where("id = ?", id).Update("deleted_at", nil).Error
 }

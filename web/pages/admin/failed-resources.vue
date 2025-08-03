@@ -251,6 +251,7 @@ const totalPages = ref(0)
 
 // 错误统计
 const errorStats = ref<Record<string, number>>({})
+const dialog = useDialog()
 
 // 获取失败资源API
 import { useReadyResourceApi } from '~/composables/useApi'
@@ -338,83 +339,108 @@ const refreshData = () => {
 
 // 重试单个资源
 const retryResource = async (id: number) => {
-  if (!confirm('确定要重试这个资源吗？')) {
-    return
-  }
-
-  try {
-    await readyResourceApi.clearErrorMsg(id)
-    alert('错误信息已清除，资源将在下次调度时重新处理')
-    fetchData()
-  } catch (error) {
-    console.error('重试失败:', error)
-    alert('重试失败')
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要重试这个资源吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await readyResourceApi.clearErrorMsg(id)
+        alert('错误信息已清除，资源将在下次调度时重新处理')
+        fetchData()
+      } catch (error) {
+        console.error('重试失败:', error)
+        alert('重试失败')
+      }
+    }
+  })
 }
 
 // 清除单个资源错误
 const clearError = async (id: number) => {
-  if (!confirm('确定要清除这个资源的错误信息吗？')) {
-    return
-  }
-
-  try {
-    await readyResourceApi.clearErrorMsg(id)
-    alert('错误信息已清除')
-    fetchData()
-  } catch (error) {
-    console.error('清除错误失败:', error)
-    alert('清除错误失败')
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要清除这个资源的错误信息吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await readyResourceApi.clearErrorMsg(id)
+        alert('错误信息已清除')
+        fetchData()
+      } catch (error) {
+        console.error('清除错误失败:', error)
+        alert('清除错误失败')
+      }
+    }
+  })
 }
 
 // 删除资源
 const deleteResource = async (id: number) => {
-  if (!confirm('确定要删除这个失败资源吗？')) {
-    return
-  }
-
-  try {
-    await readyResourceApi.deleteReadyResource(id)
-    if (failedResources.value.length === 1 && currentPage.value > 1) {
-      currentPage.value--
+  dialog.warning({
+    title: '警告',
+    content: '确定要删除这个失败资源吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await readyResourceApi.deleteReadyResource(id)
+        if (failedResources.value.length === 1 && currentPage.value > 1) {
+          currentPage.value--
+        }
+        fetchData()
+      } catch (error) {
+        console.error('删除失败:', error)
+        alert('删除失败')
+      }
     }
-    fetchData()
-  } catch (error) {
-    console.error('删除失败:', error)
-    alert('删除失败')
-  }
+  })
 }
 
 // 重试所有失败资源
 const retryAllFailed = async () => {
-  if (!confirm('确定要重试所有可重试的失败资源吗？')) {
-    return
-  }
-
-  try {
-    const response = await readyResourceApi.retryFailedResources() as any
-    alert(`重试操作完成：\n总数量：${response.total_count}\n已清除：${response.cleared_count}\n跳过：${response.skipped_count}`)
-    fetchData()
-  } catch (error) {
-    console.error('重试所有失败资源失败:', error)
-    alert('重试失败')
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要重试所有可重试的失败资源吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        const response = await readyResourceApi.retryFailedResources() as any
+        alert(`重试操作完成：\n总数量：${response.total_count}\n已清除：${response.cleared_count}\n跳过：${response.skipped_count}`)
+        fetchData()
+      } catch (error) {
+        console.error('重试所有失败资源失败:', error)
+        alert('重试失败')
+      }
+    }
+  })
 }
 
 // 清除所有错误
 const clearAllErrors = async () => {
-  if (!confirm('确定要清除所有失败资源的错误信息吗？此操作不可恢复！')) {
-    return
-  }
-
-  try {
-    // 这里需要实现批量清除错误的API
-    alert('批量清除错误功能待实现')
-  } catch (error) {
-    console.error('清除所有错误失败:', error)
-    alert('清除失败')
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要清除所有失败资源的错误信息吗？此操作不可恢复！',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        // 这里需要实现批量清除错误的API
+        alert('批量清除错误功能待实现')
+      } catch (error) {
+        console.error('清除所有错误失败:', error)
+        alert('清除失败')
+      }
+    }
+  })
 }
 
 // 格式化时间

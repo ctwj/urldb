@@ -47,10 +47,8 @@
           </div>
           <div class="flex items-center space-x-2">
             <label class="text-sm text-gray-600 dark:text-gray-400">自动刷新:</label>
-            <input
-              v-model="autoRefresh"
-              type="checkbox"
-              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            <n-checkbox
+              v-model:checked="autoRefresh"
             />
             <span class="text-sm text-gray-500 dark:text-gray-400">{{ autoRefreshInterval }}秒</span>
           </div>

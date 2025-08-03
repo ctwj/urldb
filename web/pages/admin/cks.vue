@@ -19,23 +19,23 @@
       <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
         <div class="flex gap-2">
-          <button 
+          <n-button 
             @click="showCreateModal = true"
-            class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
+            type="success"
           >
             <i class="fas fa-plus"></i> 添加账号
-          </button>
+          </n-button>
         </div>
         <div class="flex gap-2">
           <div class="relative w-40">
-            <n-select v-model:value="platform" :options="platformOptions" />
+            <n-select v-model:value="platform" :options="platformOptions" @update:value="onPlatformChange" />
           </div>
-          <button 
+          <n-button 
             @click="refreshData"
-            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
+            type="tertiary"
           >
             <i class="fas fa-refresh"></i> 刷新
-          </button>
+          </n-button>
         </div>
       </div>
 
@@ -71,12 +71,12 @@
                     </svg>
                     <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无账号</div>
                     <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加账号"按钮创建新账号</div>
-                    <button 
+                    <n-button 
                       @click="showCreateModal = true" 
-                      class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
+                      type="primary"
                     >
                       <i class="fas fa-plus"></i> 添加账号
-                    </button>
+                    </n-button>
                   </div>
                 </td>
               </tr>
@@ -228,8 +228,8 @@
                   class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
                 >
                   <option value="">请选择平台</option>
-                  <option v-for="pan in platforms" :key="pan.id" :value="pan.id">
-                    {{ pan.name }}
+                  <option v-for="pan in platforms.filter(pan => pan.name === 'quark')" :key="pan.id" :value="pan.id">
+                    {{ pan.remark }}
                   </option>
                 </select>
                 <p v-if="showEditModal" class="mt-1 text-xs text-gray-500 dark:text-gray-400">编辑时不允许修改平台类型</p>
@@ -242,49 +242,44 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Cookie <span class="text-red-500">*</span></label>
-                <textarea 
-                  v-model="form.ck" 
+                <n-input 
+                  v-model:value="form.ck" 
                   required
-                  rows="4"
-                  class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
+                  type="textarea"
                   placeholder="请输入Cookie内容，系统将自动识别容量"
-                ></textarea>
+                />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">备注</label>
-                <input 
-                  v-model="form.remark" 
+                <n-input 
+                  v-model:value="form.remark" 
                   type="text" 
-                  class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
                   placeholder="可选，备注信息"
                 />
               </div>
               <div v-if="showEditModal">
                 <label class="flex items-center">
-                  <input 
-                    v-model="form.is_valid" 
-                    type="checkbox" 
-                    class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600"
+                  <n-checkbox 
+                    v-model:checked="form.is_valid"
                   />
                   <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">账号有效</span>
                 </label>
               </div>
             </div>
             <div class="mt-6 flex justify-end space-x-3">
-              <button 
-                type="button" 
+              <n-button 
+                type="tertiary" 
                 @click="closeModal"
-                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 取消
-              </button>
-              <button 
-                type="submit" 
+              </n-button>
+              <n-button 
+                type="primary" 
                 :disabled="submitting"
-                class="px-4 py-2 bg-indigo-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="handleSubmit"
               >
                 {{ submitting ? '处理中...' : (showEditModal ? '更新' : '创建') }}
-              </button>
+              </n-button>
             </div>
           </form>
         </div>
@@ -323,6 +318,7 @@ const loading = ref(true)
 const pageLoading = ref(true)
 const submitting = ref(false)
 const platform = ref(null)
+const dialog = useDialog()
 
 import { useCksApi, usePanApi } from '~/composables/useApi'
 const cksApi = useCksApi()
@@ -334,10 +330,18 @@ const pans = computed(() => {
   return Array.isArray(pansData.value) ? pansData.value : (pansData.value?.list || [])
 })
 const platformOptions = computed(() => {
-  return pans.value.map(pan => ({
-    label: pan.remark,
-    value: pan.id
-  }))
+  const options = [
+    { label: '全部平台', value: null }
+  ]
+  
+  pans.value.forEach(pan => {
+    options.push({
+      label: pan.remark || pan.name || `平台${pan.id}`,
+      value: pan.id
+    })
+  })
+  
+  return options
 })
 
 // 检查认证
@@ -383,8 +387,11 @@ const createCks = async () => {
     await fetchCks()
     closeModal()
   } catch (error) {
-    console.error('创建账号失败:', error)
-    alert('创建账号失败: ' + (error.message || '未知错误'))
+    dialog.error({
+      title: '错误',
+      content: '创建账号失败: ' + (error.message || '未知错误'),
+      positiveText: '确定'
+    })
   } finally {
     submitting.value = false
   }
@@ -407,47 +414,68 @@ const updateCks = async () => {
 
 // 删除账号
 const deleteCks = async (id) => {
-  if (!confirm('确定要删除这个账号吗？')) return
-  
-  try {
-    await cksApi.deleteCks(id)
-    await fetchCks()
-  } catch (error) {
-    console.error('删除账号失败:', error)
-    alert('删除账号失败: ' + (error.message || '未知错误'))
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要删除这个账号吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await cksApi.deleteCks(id)
+        await fetchCks()
+      } catch (error) {
+        console.error('删除账号失败:', error)
+        alert('删除账号失败: ' + (error.message || '未知错误'))
+      }
+    }
+  })
 }
 
 // 刷新容量
 const refreshCapacity = async (id) => {
-  if (!confirm('确定要刷新此账号的容量信息吗？')) return
-  
-  try {
-    await cksApi.refreshCapacity(id)
-    await fetchCks()
-    alert('容量信息已刷新！')
-  } catch (error) {
-    console.error('刷新容量失败:', error)
-    alert('刷新容量失败: ' + (error.message || '未知错误'))
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要刷新此账号的容量信息吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await cksApi.refreshCapacity(id)
+        await fetchCks()
+        alert('容量信息已刷新！')
+      } catch (error) {
+        console.error('刷新容量失败:', error)
+        alert('刷新容量失败: ' + (error.message || '未知错误'))
+      }
+    }
+  })
 }
 
 // 切换账号状态
 const toggleStatus = async (cks) => {
   const newStatus = !cks.is_valid
-  if (!confirm(`确定要${cks.is_valid ? '禁用' : '启用'}此账号吗？`)) return
-  
-  try {
-    console.log('切换状态 - 账号ID:', cks.id, '当前状态:', cks.is_valid, '新状态:', newStatus)
-    await cksApi.updateCks(cks.id, { is_valid: newStatus })
-    console.log('状态更新成功，正在刷新数据...')
-    await fetchCks()
-    console.log('数据刷新完成')
-    alert(`账号已${newStatus ? '启用' : '禁用'}！`)
-  } catch (error) {
-    console.error('切换账号状态失败:', error)
-    alert(`切换账号状态失败: ${error.message || '未知错误'}`)
-  }
+  dialog.warning({
+    title: '警告',
+    content: `确定要${cks.is_valid ? '禁用' : '启用'}此账号吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        console.log('切换状态 - 账号ID:', cks.id, '当前状态:', cks.is_valid, '新状态:', newStatus)
+        await cksApi.updateCks(cks.id, { is_valid: newStatus })
+        console.log('状态更新成功，正在刷新数据...')
+        await fetchCks()
+        console.log('数据刷新完成')
+        alert(`账号已${newStatus ? '启用' : '禁用'}！`)
+      } catch (error) {
+        console.error('切换账号状态失败:', error)
+        alert(`切换账号状态失败: ${error.message || '未知错误'}`)
+      }
+    }
+  })
 }
 
 // 编辑账号
@@ -532,13 +560,24 @@ const formatFileSize = (bytes) => {
 // 过滤和分页计算
 const filteredCksList = computed(() => {
   let filtered = cksList.value
+  console.log('原始账号数量:', filtered.length)
+  
+  // 平台过滤
+  if (platform.value !== null && platform.value !== undefined) {
+    filtered = filtered.filter(cks => cks.pan_id === platform.value)
+    console.log('平台过滤后数量:', filtered.length, '平台ID:', platform.value)
+  }
+  
+  // 搜索过滤
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(cks => 
       cks.pan?.name?.toLowerCase().includes(query) ||
       cks.remark?.toLowerCase().includes(query)
     )
+    console.log('搜索过滤后数量:', filtered.length, '搜索词:', searchQuery.value)
   }
+  
   totalPages.value = Math.ceil(filtered.length / itemsPerPage.value)
   const start = (currentPage.value - 1) * itemsPerPage.value
   const end = start + itemsPerPage.value
@@ -556,9 +595,17 @@ const debounceSearch = () => {
   }, 500)
 }
 
+// 平台变化处理
+const onPlatformChange = () => {
+  currentPage.value = 1
+  console.log('平台过滤条件变化:', platform.value)
+  console.log('当前过滤后的账号数量:', filteredCksList.value.length)
+}
+
 // 刷新数据
 const refreshData = () => {
   currentPage.value = 1
+  // 保持当前的过滤条件，只刷新数据
   fetchCks()
   fetchPlatforms()
 }

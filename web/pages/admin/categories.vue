@@ -3,24 +3,21 @@
   <!-- 操作按钮 -->
   <div class="flex justify-between items-center mb-4">
         <div class="flex gap-2">
-          <button @click="showAddModal = true"
-          class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-white text-sm flex items-center gap-2">
-          <i class="fas fa-plus"></i> 添加分类
-        </button>
+          <n-button @click="showAddModal = true" type="success">
+            <i class="fas fa-plus"></i> 添加分类
+          </n-button>
         </div>
         <div class="flex gap-2">
           <div class="relative">
-            <input v-model="searchQuery" @keyup="debounceSearch" type="text"
-              class="w-64 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 transition-all text-sm"
+            <n-input v-model:value="searchQuery" @input="debounceSearch" type="text"
               placeholder="搜索分类名称..." />
             <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
               <i class="fas fa-search text-gray-400 text-sm"></i>
             </div>
           </div>
-          <button @click="refreshData"
-            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2">
+          <n-button @click="refreshData" type="tertiary">
             <i class="fas fa-refresh"></i> 刷新
-          </button>
+          </n-button>
         </div>
       </div>
 
@@ -54,10 +51,9 @@
                 </svg>
                 <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无分类</div>
                 <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加分类"按钮创建新分类</div>
-                <button @click="showAddModal = true"
-                  class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center gap-2">
+                <n-button @click="showAddModal = true" type="primary">
                   <i class="fas fa-plus"></i> 添加分类
-                </button>
+                </n-button>
               </div>
             </td>
           </tr>
@@ -85,16 +81,12 @@
             </td>
             <td class="px-4 py-3 text-sm">
               <div class="flex items-center gap-2">
-                <button @click="editCategory(category)"
-                  class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                  title="编辑分类">
+                <n-button @click="editCategory(category)" type="info" size="small">
                   <i class="fas fa-edit"></i>
-                </button>
-                <button @click="deleteCategory(category.id)"
-                  class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                  title="删除分类">
+                </n-button>
+                <n-button @click="deleteCategory(category.id)" type="error" size="small">
                   <i class="fas fa-trash"></i>
-                </button>
+                </n-button>
               </div>
             </td>
           </tr>
@@ -152,36 +144,31 @@
           <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {{ editingCategory ? '编辑分类' : '添加分类' }}
           </h3>
-          <button @click="closeModal"
-            class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+          <n-button @click="closeModal" type="tertiary" size="small">
             <i class="fas fa-times"></i>
-          </button>
+          </n-button>
         </div>
 
         <form @submit.prevent="handleSubmit">
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">分类名称：</label>
-            <input v-model="formData.name" type="text" required
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+            <n-input v-model:value="formData.name" type="text" required
               placeholder="请输入分类名称" />
           </div>
 
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">描述：</label>
-            <textarea v-model="formData.description" rows="3"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
-              placeholder="请输入分类描述（可选）"></textarea>
+            <n-input v-model:value="formData.description" type="textarea"
+              placeholder="请输入分类描述（可选）" />
           </div>
 
           <div class="flex justify-end gap-3">
-            <button type="button" @click="closeModal"
-              class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+            <n-button type="tertiary" @click="closeModal">
               取消
-            </button>
-            <button type="submit" :disabled="submitting"
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            </n-button>
+            <n-button type="primary" :disabled="submitting" @click="handleSubmit">
               {{ submitting ? '提交中...' : (editingCategory ? '更新' : '添加') }}
-            </button>
+            </n-button>
           </div>
         </form>
       </div>
@@ -221,6 +208,7 @@ let searchTimeout: NodeJS.Timeout | null = null
 const showAddModal = ref(false)
 const submitting = ref(false)
 const editingCategory = ref(null)
+const dialog = useDialog()
 
 // 表单数据
 const formData = ref({
@@ -263,6 +251,8 @@ const fetchCategories = async () => {
     console.log('获取分类列表参数:', params)
     const response = await categoryApi.getCategories(params)
     console.log('分类接口响应:', response)
+    console.log('响应类型:', typeof response)
+    console.log('响应是否为数组:', Array.isArray(response))
     
     // 适配后端API响应格式
     if (response && response.items) {
@@ -283,6 +273,7 @@ const fetchCategories = async () => {
       totalPages.value = 1
     }
     console.log('最终分类数据:', categories.value)
+    console.log('分类数据长度:', categories.value.length)
   } catch (error) {
     console.error('获取分类列表失败:', error)
     categories.value = []
@@ -317,36 +308,61 @@ const goToPage = (page: number) => {
 
 // 编辑分类
 const editCategory = (category: any) => {
+  console.log('编辑分类:', category)
   editingCategory.value = category
   formData.value = {
     name: category.name,
     description: category.description || ''
   }
+  console.log('设置表单数据:', formData.value)
   showAddModal.value = true
 }
 
 // 删除分类
 const deleteCategory = async (categoryId: number) => {
-  if (!confirm(`确定要删除分类吗？`)) {
-    return
-  }
-  try {
-    await categoryApi.deleteCategory(categoryId)
-    await fetchCategories()
-  } catch (error) {
-    console.error('删除分类失败:', error)
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要删除分类吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await categoryApi.deleteCategory(categoryId)
+        await fetchCategories()
+      } catch (error) {
+        console.error('删除分类失败:', error)
+      }
+    }
+  })
 }
 
 // 提交表单
 const handleSubmit = async () => {
   try {
     submitting.value = true
+    let response: any
     if (editingCategory.value) {
-      await categoryApi.updateCategory(editingCategory.value.id, formData.value)
+      response = await categoryApi.updateCategory(editingCategory.value.id, formData.value)
     } else {
-      await categoryApi.createCategory(formData.value)
+      response = await categoryApi.createCategory(formData.value)
     }
+    console.log('分类操作响应:', response)
+    
+    // 检查是否是恢复操作
+    if (response && response.message && response.message.includes('恢复成功')) {
+      console.log('检测到分类恢复操作，延迟刷新数据')
+      console.log('恢复的分类信息:', response.category)
+      closeModal()
+      // 延迟一点时间再刷新，确保数据库状态已更新
+      setTimeout(async () => {
+        console.log('开始刷新分类数据...')
+        await fetchCategories()
+        console.log('分类数据刷新完成')
+      }, 500)
+      return
+    }
+    
     closeModal()
     await fetchCategories()
   } catch (error) {

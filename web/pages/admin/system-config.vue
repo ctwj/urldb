@@ -278,6 +278,7 @@
               <n-button 
                 type="primary"
                 :disabled="saving"
+                @click="saveConfig"
               >
                 <i v-if="saving" class="fas fa-spinner fa-spin mr-2"></i>
                 {{ saving ? '保存中...' : '保存配置' }}

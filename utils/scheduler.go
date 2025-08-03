@@ -1038,15 +1038,30 @@ func (s *Scheduler) handleTags(tagStr string) ([]uint, error) {
 		Debug("查找标签: %s", name)
 		tag, err := s.tagRepo.FindByName(name)
 		if err != nil {
-			Debug("标签 %s 不存在，创建新标签", name)
-			// 不存在则新建
-			tag = &entity.Tag{Name: name}
-			err = s.tagRepo.Create(tag)
-			if err != nil {
-				Error("创建标签 %s 失败: %v", name, err)
-				return nil, fmt.Errorf("创建标签 %s 失败: %v", name, err)
+			// 检查是否存在已删除的同名标签
+			Debug("标签 %s 不存在，检查是否有已删除的同名标签", name)
+			deletedTag, err2 := s.tagRepo.FindByNameIncludingDeleted(name)
+			if err2 == nil && deletedTag.DeletedAt.Valid {
+				// 如果存在已删除的同名标签，则恢复它
+				Debug("找到已删除的同名标签 %s，正在恢复", name)
+				err2 = s.tagRepo.RestoreDeletedTag(deletedTag.ID)
+				if err2 != nil {
+					Error("恢复已删除标签 %s 失败: %v", name, err2)
+					return nil, fmt.Errorf("恢复已删除标签 %s 失败: %v", name, err2)
+				}
+				tag = deletedTag
+				Debug("成功恢复标签: %s (ID: %d)", name, tag.ID)
+			} else {
+				// 如果不存在已删除的同名标签，则创建新标签
+				Debug("标签 %s 不存在，创建新标签", name)
+				tag = &entity.Tag{Name: name}
+				err2 = s.tagRepo.Create(tag)
+				if err2 != nil {
+					Error("创建标签 %s 失败: %v", name, err2)
+					return nil, fmt.Errorf("创建标签 %s 失败: %v", name, err2)
+				}
+				Debug("成功创建标签: %s (ID: %d)", name, tag.ID)
 			}
-			Debug("成功创建标签: %s (ID: %d)", name, tag.ID)
 		} else {
 			Debug("找到已存在的标签: %s (ID: %d)", name, tag.ID)
 		}
@@ -1065,8 +1080,24 @@ func (s *Scheduler) resolveCategory(categoryName string, tagIDs []uint) (*uint, 
 		Debug("查找分类: %s", categoryName)
 		cat, err := s.categoryRepo.FindByName(categoryName)
 		if err != nil {
-			Debug("分类 %s 不存在: %v", categoryName, err)
-		} else if cat != nil {
+			// 检查是否存在已删除的同名分类
+			Debug("分类 %s 不存在，检查是否有已删除的同名分类", categoryName)
+			deletedCat, err2 := s.categoryRepo.FindByNameIncludingDeleted(categoryName)
+			if err2 == nil && deletedCat.DeletedAt.Valid {
+				// 如果存在已删除的同名分类，则恢复它
+				Debug("找到已删除的同名分类 %s，正在恢复", categoryName)
+				err2 = s.categoryRepo.RestoreDeletedCategory(deletedCat.ID)
+				if err2 != nil {
+					Error("恢复已删除分类 %s 失败: %v", categoryName, err2)
+					return nil, fmt.Errorf("恢复已删除分类 %s 失败: %v", categoryName, err2)
+				}
+				cat = deletedCat
+				Debug("成功恢复分类: %s (ID: %d)", categoryName, cat.ID)
+			} else {
+				Debug("分类 %s 不存在: %v", categoryName, err)
+			}
+		}
+		if cat != nil {
 			Debug("找到分类: %s (ID: %d)", categoryName, cat.ID)
 			return &cat.ID, nil
 		}

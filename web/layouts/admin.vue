@@ -23,8 +23,10 @@
       <div class="max-w-7xl mx-auto">
         <ClientOnly>
           <n-notification-provider>
-            <!-- 页面内容插槽 -->
-            <slot />
+            <n-dialog-provider>
+              <!-- 页面内容插槽 -->
+              <slot />
+            </n-dialog-provider>
           </n-notification-provider>
         </ClientOnly>
       </div>

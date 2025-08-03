@@ -78,83 +78,31 @@
         </div>
       </div>
 
-      <!-- 批量添加模态框 -->
-      <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto text-gray-900 dark:text-gray-100">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold">批量添加待处理资源</h3>
-            <button @click="closeModal" class="text-gray-500 hover:text-gray-800">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">输入格式说明：</label>
-            <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded text-sm text-gray-600 dark:text-gray-300 mb-4">
-              <p class="mb-2"><strong>格式1：</strong>标题和URL两行一组</p>
-              <pre class="bg-white dark:bg-gray-800 p-2 rounded border text-xs">
-电影标题1
-https://pan.baidu.com/s/123456
-电影标题2
-https://pan.baidu.com/s/789012</pre>
-              <p class="mt-2 mb-2"><strong>格式2：</strong>只有URL，系统自动判断</p>
-              <pre class="bg-white dark:bg-gray-800 p-2 rounded border text-xs">
-https://pan.baidu.com/s/123456
-https://pan.baidu.com/s/789012
-https://pan.baidu.com/s/345678</pre>
-            </div>
-          </div>
-          
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">资源内容：</label>
-            <textarea
-              v-model="resourceText"
-              rows="15"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-              placeholder="请输入资源内容，支持两种格式..."
-            ></textarea>
-          </div>
-          
-          <div class="flex justify-end gap-2">
-            <button @click="closeModal" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-              取消
-            </button>
-            <button @click="handleBatchAdd" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-              批量添加
-            </button>
-          </div>
-        </div>
-      </div>
+
 
       <!-- 操作按钮 -->
       <div class="flex justify-between items-center mb-4">
         <div class="flex gap-2">
           <NuxtLink 
-            to="/add-resource" 
+            to="/admin/add-resource" 
             class="w-full sm:w-auto px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
           >
             <i class="fas fa-plus"></i> 添加资源
           </NuxtLink>
-          <button 
-            @click="showAddModal = true" 
-            class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-center flex items-center justify-center gap-2"
-          >
-            <i class="fas fa-list"></i> 批量添加
-          </button>
         </div>
         <div class="flex gap-2">
-          <button 
+          <n-button 
             @click="refreshData" 
-            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 flex items-center gap-2"
+            type="tertiary"
           >
             <i class="fas fa-refresh"></i> 刷新
-          </button>
-          <button 
+          </n-button>
+          <n-button 
             @click="clearAll" 
-            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center gap-2"
+            type="error"
           >
             <i class="fas fa-trash"></i> 清空全部
-          </button>
+          </n-button>
         </div>
       </div>
 
@@ -189,17 +137,11 @@ https://pan.baidu.com/s/345678</pre>
                     <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加资源"按钮快速导入资源</div>
                     <div class="flex gap-2">
                       <NuxtLink 
-                        to="/add-resource" 
-                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
+                        to="/admin/add-resource" 
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
                       >
                         <i class="fas fa-plus"></i> 添加资源
                       </NuxtLink>
-                      <button 
-                        @click="showAddModal = true" 
-                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
-                      >
-                        <i class="fas fa-list"></i> 批量添加
-                      </button>
                     </div>
                   </div>
                 </td>
@@ -324,8 +266,6 @@ interface ReadyResource {
 
 const readyResources = ref<ReadyResource[]>([])
 const loading = ref(false)
-const showAddModal = ref(false)
-const resourceText = ref('')
 const pageLoading = ref(true) // 添加页面加载状态
 
 // 分页相关状态
@@ -344,6 +284,7 @@ const systemConfigStore = useSystemConfigStore()
 // 获取系统配置
 const systemConfig = ref<any>(null)
 const updatingConfig = ref(false) // 添加配置更新状态
+const dialog = useDialog()
 const fetchSystemConfig = async () => {
   try {
     const response = await systemConfigApi.getSystemConfig()
@@ -449,66 +390,55 @@ const refreshConfig = () => {
   fetchSystemConfig()
 }
 
-// 关闭模态框
-const closeModal = () => {
-  showAddModal.value = false
-  resourceText.value = ''
-}
 
-// 批量添加
-const handleBatchAdd = async () => {
-  if (!resourceText.value.trim()) {
-    alert('请输入资源内容')
-    return
-  }
 
-  try {
-    const response = await readyResourceApi.createReadyResourcesFromText(resourceText.value) as any
-    console.log('批量添加成功:', response)
-    closeModal()
-    fetchData()
-    alert(`成功添加 ${response.data.count} 个资源`)
-  } catch (error) {
-    console.error('批量添加失败:', error)
-    alert('批量添加失败，请检查输入格式')
-  }
-}
+
 
 // 删除资源
 const deleteResource = async (id: number) => {
-  if (!confirm('确定要删除这个待处理资源吗？')) {
-    return
-  }
-
-  try {
-    await readyResourceApi.deleteReadyResource(id)
-    // 如果当前页没有数据了，回到上一页
-    if (readyResources.value.length === 1 && currentPage.value > 1) {
-      currentPage.value--
+  dialog.warning({
+    title: '警告',
+    content: '确定要删除这个待处理资源吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await readyResourceApi.deleteReadyResource(id)
+        // 如果当前页没有数据了，回到上一页
+        if (readyResources.value.length === 1 && currentPage.value > 1) {
+          currentPage.value--
+        }
+        fetchData()
+      } catch (error) {
+        console.error('删除失败:', error)
+        alert('删除失败')
+      }
     }
-    fetchData()
-  } catch (error) {
-    console.error('删除失败:', error)
-    alert('删除失败')
-  }
+  })
 }
 
 // 清空全部
 const clearAll = async () => {
-  if (!confirm('确定要清空所有待处理资源吗？此操作不可恢复！')) {
-    return
-  }
-
-  try {
-    const response = await readyResourceApi.clearReadyResources() as any
-    console.log('清空成功:', response)
-    currentPage.value = 1 // 清空后回到第一页
-    fetchData()
-    alert(`成功清空 ${response.data.deleted_count} 个资源`)
-  } catch (error) {
-    console.error('清空失败:', error)
-    alert('清空失败')
-  }
+  dialog.warning({
+    title: '警告',
+    content: '确定要清空所有待处理资源吗？此操作不可恢复！',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        const response = await readyResourceApi.clearReadyResources() as any
+        console.log('清空成功:', response)
+        currentPage.value = 1 // 清空后回到第一页
+        fetchData()
+        alert(`成功清空 ${response.data.deleted_count} 个资源`)
+      } catch (error) {
+        console.error('清空失败:', error)
+        alert('清空失败')
+      }
+    }
+  })
 }
 
 // 格式化时间
