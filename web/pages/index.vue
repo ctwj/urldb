@@ -58,29 +58,31 @@
         <ClientOnly>
           <div class="relative">
             <n-input round placeholder="搜索" v-model:value="searchQuery" @blur="handleSearch" @keyup.enter="handleSearch">
-              <template #suffix>
+                <template #suffix>
                 <i class="fas fa-search text-gray-400"></i>
-              </template>
-            </n-input>
+                </template>
+              </n-input>
           </div>
         </ClientOnly>
         
         <!-- 平台类型筛选 -->
         <div class="mt-3 flex flex-wrap gap-2" id="platformFilters">
-          <button 
-            class="px-2 py-1 text-xs rounded-full bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100 active-filter" 
-            @click="filterByPlatform('')"
+          <a 
+            :href="`/?search=${$route.query.search || ''}&platform=`"
+            class="px-2 py-1 text-xs rounded-full bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100 hover:bg-slate-700 dark:hover:bg-gray-600 transition-colors"
+            :class="{ 'active-filter': !selectedPlatform }"
           >
             全部
-          </button>
-          <button 
+          </a>
+          <a 
             v-for="platform in platforms" 
             :key="platform.id"
+            :href="`/?search=${$route.query.search || ''}&platform=${platform.id}`"
             class="px-2 py-1 text-xs rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
-            @click="filterByPlatform(platform.id)"
+            :class="{ 'active-filter': selectedPlatform === platform.id }"
           >
             <span v-html="platform.icon"></span> {{ platform.name }}
-          </button>
+          </a>
         </div>
         
         <!-- 统计信息 -->
@@ -163,61 +165,9 @@
           </tbody>
         </table>
         
-        <!-- 加载更多按钮 -->
-        <div v-if="hasMoreData && !safeLoading" class="text-center py-4">
-          <button 
-            @click="loadMore"
-            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            加载更多
-          </button>
-        </div>
+
       </div>
 
-      <!-- 分页 -->
-      <div v-if="totalPages > 1" class="flex flex-wrap justify-center gap-1 sm:gap-2 my-4 sm:my-8 px-2">
-        <button 
-          v-if="currentPage > 1"
-          @click="goToPage(currentPage - 1)"
-          class="bg-white text-gray-700 hover:bg-gray-50 px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm flex items-center"
-        >
-          <i class="fas fa-chevron-left mr-1"></i> 上一页
-        </button>
-        
-        <button 
-          @click="goToPage(1)"
-          :class="currentPage === 1 ? 'bg-slate-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-          class="px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
-        >
-          1
-        </button>
-        
-        <button 
-          v-if="totalPages > 1"
-          @click="goToPage(2)"
-          :class="currentPage === 2 ? 'bg-slate-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-          class="px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
-        >
-          2
-        </button>
-        
-        <span v-if="currentPage > 2" class="px-2 py-1 sm:px-3 sm:py-2 text-gray-500 text-sm">...</span>
-        
-        <button 
-          v-if="currentPage !== 1 && currentPage !== 2 && currentPage > 2"
-          class="bg-slate-800 text-white px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm"
-        >
-          {{ currentPage }}
-        </button>
-        
-        <button 
-          v-if="currentPage < totalPages"
-          @click="goToPage(currentPage + 1)"
-          class="bg-white text-gray-700 hover:bg-gray-50 px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm flex items-center"
-        >
-          下一页 <i class="fas fa-chevron-right ml-1"></i>
-        </button>
-      </div>
     </div>
 
     </div>
@@ -275,17 +225,9 @@ const route = useRoute()
 const router = useRouter()
 
 // 响应式数据
-const initSerch = route.query.search || ''
-const oldQuery = ref(initSerch)
-const searchQuery = ref(oldQuery)
-const currentPage = ref(parseInt(route.query.page as string) || 1)
-const pageSize = ref(200)
-const selectedPlatform = ref(route.query.platform as string || '')
 const showLinkModal = ref(false)
 const selectedResource = ref<any>(null)
 const authInitialized = ref(true) // 在app.vue中已经初始化，这里直接设为true
-const isLoadingMore = ref(false)
-const hasMoreData = ref(true)
 const pageLoading = ref(false)
 
 // 用户状态管理
@@ -293,12 +235,12 @@ const userStore = useUserStore()
 
 // 使用 useAsyncData 获取资源数据
 const { data: resourcesData, pending, refresh } = await useAsyncData(
-  () => `resources-${currentPage.value}-${searchQuery.value}-${selectedPlatform.value}`,
+  () => `resources-1-${route.query.search || ''}-${route.query.platform || ''}`,
   () => resourceApi.getResources({
-    page: currentPage.value,
-    page_size: pageSize.value,
-    search: searchQuery.value,
-    pan_id: selectedPlatform.value
+    page: 1,
+    page_size: 200,
+    search: route.query.search as string || '',
+    pan_id: route.query.platform as string || ''
   })
 )
 
@@ -318,69 +260,24 @@ const platforms = computed(() => (platformsData.value as any) || [])
 const systemConfig = computed(() => (systemConfigData.value as any).data || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
 
-// 计算属性
-const totalPages = computed(() => {
-  const total = (resourcesData.value as any)?.total || 0
-  return Math.ceil(total / pageSize.value)
-})
+
+// 从路由参数获取当前状态
+const searchQuery = ref(route.query.search as string || '')
+const selectedPlatform = computed(() => route.query.platform as string || '')
+
+const handleSearch = () => {
+  const params = new URLSearchParams()
+  if (searchQuery.value) params.set('search', searchQuery.value)
+  if (selectedPlatform.value) params.set('platform', selectedPlatform.value)
+  window.location.href = `/?${params.toString()}`
+}
 
 // 初始化认证状态
 onMounted(() => {
   animateCounters()
 })
 
-// 搜索处理
-const handleSearch = async (e?: any) => {
-  if (e && e.target && typeof e.target.value === 'string') {
-    searchQuery.value = e.target.value
-  }
-  if (oldQuery.value === searchQuery.value) {
-    return
-  }
-  oldQuery.value = searchQuery.value
-  currentPage.value = 1
-  
-  // 更新URL参数
-  const query = { ...route.query }
-  if ((searchQuery.value as string).trim()) {
-    query.search = (searchQuery.value as string).trim()
-  } else {
-    delete query.search
-  }
-  if (selectedPlatform.value) {
-    query.platform = selectedPlatform.value
-  } else {
-    delete query.platform
-  }
-  delete query.page // 重置页码
-  
-  // 更新URL（不刷新页面）
-  await router.push({ query })
-  
-  // 刷新数据
-  await refresh()
-}
 
-// 平台筛选
-const filterByPlatform = async (platformId: string) => {
-  selectedPlatform.value = platformId
-  currentPage.value = 1
-  
-  // 更新URL参数
-  const query = { ...route.query }
-  if (platformId) {
-    query.platform = platformId
-  } else {
-    delete query.platform
-  }
-  delete query.page // 重置页码
-  
-  // 更新URL（不刷新页面）
-  await router.push({ query })
-  
-  // 刷新数据
-  await refresh()
-}
 
 // 获取平台名称
 const getPlatformIcon = (panId: string) => {
@@ -498,53 +395,11 @@ const animateCounters = () => {
   })
 }
 
-// 页面跳转
-const goToPage = async (page: number) => {
-  currentPage.value = page
-  
-  // 更新URL参数
-  const query = { ...route.query }
-  query.page = page.toString()
-  await router.push({ query })
-  
-  // 刷新数据
-  await refresh()
-  
-  // 滚动到顶部（只在客户端执行）
-  if (process.client) {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
-  }
-}
 
 
 
-const loadMore = async () => {
-  if (isLoadingMore.value || !hasMoreData.value) return
-  
-  isLoadingMore.value = true
-  try {
-    currentPage.value++
-    
-    // 使用 refresh 获取更多数据
-    await refresh()
-    
-    // 检查是否还有更多数据
-    const currentTotal = (resourcesData.value as any)?.data?.total || 0
-    const currentLoaded = safeResources.value.length
-    
-    if (currentLoaded >= currentTotal) {
-      hasMoreData.value = false
-    }
-  } catch (error) {
-    console.error('加载更多失败:', error)
-    currentPage.value-- // 回退页码
-  } finally {
-    isLoadingMore.value = false
-  }
-}
+
+
 </script>
 
 <style scoped>

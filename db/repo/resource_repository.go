@@ -239,9 +239,28 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 						Where("resource_tags.tag_id = ?", tagEntity.ID)
 				}
 			}
+		case "pan_id": // 添加pan_id参数支持
+			if panID, ok := value.(uint); ok {
+				db = db.Where("pan_id = ?", panID)
+			}
+		case "is_valid":
+			if isValid, ok := value.(bool); ok {
+				db = db.Where("is_valid = ?", isValid)
+			}
+		case "is_public":
+			if isPublic, ok := value.(bool); ok {
+				db = db.Where("is_public = ?", isPublic)
+			}
 		}
 	}
-	db = db.Where("is_valid = true and is_public = true")
+
+	// 如果没有明确指定is_valid和is_public，则默认只显示有效的公开资源
+	if _, hasIsValid := params["is_valid"]; !hasIsValid {
+		db = db.Where("is_valid = ?", true)
+	}
+	if _, hasIsPublic := params["is_public"]; !hasIsPublic {
+		db = db.Where("is_public = ?", true)
+	}
 
 	// 获取总数
 	if err := db.Count(&total).Error; err != nil {
