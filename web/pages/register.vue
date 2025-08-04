@@ -13,7 +13,7 @@
             <n-input 
               type="text" 
               id="username" 
-              v-model="form.username"
+              v-model:value="form.username"
               required 
               :class="{ 'border-red-500': errors.username }"
             />
@@ -25,7 +25,7 @@
             <n-input 
               type="email" 
               id="email" 
-              v-model="form.email"
+              v-model:value="form.email"
               required 
               :class="{ 'border-red-500': errors.email }"
             />
@@ -37,7 +37,7 @@
             <n-input 
               type="password" 
               id="password" 
-              v-model="form.password"
+              v-model:value="form.password"
               required 
               :class="{ 'border-red-500': errors.password }"
             />
@@ -49,7 +49,7 @@
             <n-input 
               type="password" 
               id="confirmPassword" 
-              v-model="form.confirmPassword"
+              v-model:value="form.confirmPassword"
               required 
               :class="{ 'border-red-500': errors.confirmPassword }"
             />

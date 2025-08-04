@@ -21,7 +21,7 @@ https://pan.quark.cn/s/345678</pre>
       </div>
       <div class="mb-4 flex-1 w-1">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">资源内容：</label>
-        <n-input v-model="batchInput" type="textarea"
+        <n-input v-model:value="batchInput" type="textarea"
           :autosize="{ minRows: 10, maxRows: 15 }"
           placeholder="请输入资源内容，格式：标题和URL为一组..." />
       </div>

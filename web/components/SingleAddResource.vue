@@ -6,7 +6,7 @@
         标题 <span class="text-red-500">*</span>
       </label>
       <n-input 
-        v-model="form.title" 
+        v-model:value="form.title" 
         placeholder="输入资源标题（必填）" 
         required
       />
@@ -18,7 +18,7 @@
         描述 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
       <n-input 
-        v-model="form.description" 
+        v-model:value="form.description" 
         type="textarea"
         placeholder="输入资源描述，如：剧情简介、文件大小、清晰度等"
       />
@@ -30,7 +30,7 @@
         URL <span class="text-red-500">*</span>
       </label>
       <n-input 
-        v-model="form.url" 
+        v-model:value="form.url" 
         type="textarea"
         placeholder="请输入资源链接，支持多行，每行一个链接"
         required
@@ -46,7 +46,7 @@
         分类 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
       <n-input 
-        v-model="form.category" 
+        v-model:value="form.category" 
         placeholder="如：电影、电视剧、动漫、音乐等" 
       />
     </div>
@@ -73,7 +73,7 @@
         </span>
       </div>
       <n-input 
-        v-model="newTag" 
+        v-model:value="newTag" 
         @keyup.enter.prevent="addTag" 
         placeholder="输入标签后回车添加，多个标签用逗号分隔" 
       />
@@ -85,7 +85,7 @@
         封面图片 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
       <n-input 
-        v-model="form.img" 
+        v-model:value="form.img" 
         placeholder="封面图片链接" 
       />
     </div>
@@ -96,7 +96,7 @@
         数据来源 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
       <n-input 
-        v-model="form.source" 
+        v-model:value="form.source" 
         placeholder="如：手动添加、API导入、爬虫等" 
       />
     </div>
@@ -107,7 +107,7 @@
         额外数据 <span class="text-gray-400 text-xs">(可选)</span>
       </label>
       <n-input 
-        v-model="form.extra" 
+        v-model:value="form.extra" 
         type="textarea"
         placeholder="JSON格式的额外数据，如：{'size': '2GB', 'quality': '1080p'}"
       />
