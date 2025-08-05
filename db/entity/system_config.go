@@ -12,7 +12,7 @@ type SystemConfig struct {
 
 	// 键值对配置
 	Key   string `json:"key" gorm:"size:100;not null;unique;comment:配置键"`
-	Value string `json:"value" gorm:"size:1000"`
+	Value string `json:"value" gorm:"type:text"`
 	Type  string `json:"type" gorm:"size:20;default:'string'"` // string, int, bool, json
 }
 

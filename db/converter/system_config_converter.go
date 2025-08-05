@@ -117,19 +117,11 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: strconv.FormatBool(req.AutoFetchHotDramaEnabled), Type: entity.ConfigTypeBool})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMaintenanceMode, Value: strconv.FormatBool(req.MaintenanceMode), Type: entity.ConfigTypeBool})
 
-	// 整数字段 - 只添加非零值
-	if req.AutoProcessInterval != 0 {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessInterval, Value: strconv.Itoa(req.AutoProcessInterval), Type: entity.ConfigTypeInt})
-	}
-	if req.AutoTransferLimitDays != 0 {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferLimitDays, Value: strconv.Itoa(req.AutoTransferLimitDays), Type: entity.ConfigTypeInt})
-	}
-	if req.AutoTransferMinSpace != 0 {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferMinSpace, Value: strconv.Itoa(req.AutoTransferMinSpace), Type: entity.ConfigTypeInt})
-	}
-	if req.PageSize != 0 {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(req.PageSize), Type: entity.ConfigTypeInt})
-	}
+	// 整数字段 - 添加所有提交的字段，包括0值
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessInterval, Value: strconv.Itoa(req.AutoProcessInterval), Type: entity.ConfigTypeInt})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferLimitDays, Value: strconv.Itoa(req.AutoTransferLimitDays), Type: entity.ConfigTypeInt})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferMinSpace, Value: strconv.Itoa(req.AutoTransferMinSpace), Type: entity.ConfigTypeInt})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(req.PageSize), Type: entity.ConfigTypeInt})
 
 	return configs
 }

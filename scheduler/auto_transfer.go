@@ -146,8 +146,24 @@ func (a *AutoTransferScheduler) processAutoTransfer() {
 
 	utils.Info(fmt.Sprintf("找到 %d 个可用quark网盘账号，开始自动转存处理...", len(validAccounts)))
 
-	// 获取需要转存的资源
-	resources, err := a.getResourcesForTransfer(quarkPanID)
+	// 计算处理数量限制
+	// 假设每5秒转存一个资源，每分钟20个，5分钟100个
+	// 根据时间间隔和账号数量计算大致的处理数量
+	interval := 5 * time.Minute // 默认5分钟
+	if autoProcessInterval, err := a.systemConfigRepo.GetConfigInt(entity.ConfigKeyAutoProcessInterval); err == nil && autoProcessInterval > 0 {
+		interval = time.Duration(autoProcessInterval) * time.Minute
+	}
+
+	// 计算每分钟能处理的资源数量：账号数 * 12（每分钟12个，即每5秒一个）
+	resourcesPerMinute := len(validAccounts) * 12
+	// 根据时间间隔计算总处理数量
+	maxProcessCount := int(float64(resourcesPerMinute) * interval.Minutes())
+
+	utils.Info(fmt.Sprintf("时间间隔: %v, 账号数: %d, 每分钟处理能力: %d, 最大处理数量: %d",
+		interval, len(validAccounts), resourcesPerMinute, maxProcessCount))
+
+	// 获取需要转存的资源（限制数量）
+	resources, err := a.getResourcesForTransfer(quarkPanID, maxProcessCount)
 	if err != nil {
 		utils.Error(fmt.Sprintf("获取需要转存的资源失败: %v", err))
 		return
@@ -167,31 +183,56 @@ func (a *AutoTransferScheduler) processAutoTransfer() {
 		forbiddenWords = "" // 如果获取失败，使用空字符串
 	}
 
-	// 过滤包含违禁词的资源
+	// 过滤包含违禁词的资源，并标记违禁词错误
 	var filteredResources []*entity.Resource
+	var forbiddenResources []*entity.Resource
+
 	if forbiddenWords != "" {
 		words := strings.Split(forbiddenWords, ",")
+		// 清理违禁词数组，去除空格
+		var cleanWords []string
+		for _, word := range words {
+			word = strings.TrimSpace(word)
+			if word != "" {
+				cleanWords = append(cleanWords, word)
+			}
+		}
+
 		for _, resource := range resources {
 			shouldSkip := false
+			var matchedWords []string
 			title := strings.ToLower(resource.Title)
 			description := strings.ToLower(resource.Description)
 
-			for _, word := range words {
-				word = strings.TrimSpace(word)
-				if word != "" && (strings.Contains(title, strings.ToLower(word)) || strings.Contains(description, strings.ToLower(word))) {
-					utils.Info(fmt.Sprintf("跳过包含违禁词 '%s' 的资源: %s", word, resource.Title))
+			for _, word := range cleanWords {
+				wordLower := strings.ToLower(word)
+				if strings.Contains(title, wordLower) || strings.Contains(description, wordLower) {
+					matchedWords = append(matchedWords, word)
 					shouldSkip = true
-					break
 				}
 			}
 
-			if !shouldSkip {
+			if shouldSkip {
+				// 标记为违禁词错误
+				resource.ErrorMsg = fmt.Sprintf("存在违禁词: %s", strings.Join(matchedWords, ", "))
+				forbiddenResources = append(forbiddenResources, resource)
+				utils.Info(fmt.Sprintf("标记违禁词资源: %s, 违禁词: %s", resource.Title, strings.Join(matchedWords, ", ")))
+			} else {
 				filteredResources = append(filteredResources, resource)
 			}
 		}
-		utils.Info(fmt.Sprintf("违禁词过滤后，剩余 %d 个资源需要转存", len(filteredResources)))
+		utils.Info(fmt.Sprintf("违禁词过滤后，剩余 %d 个资源需要转存，违禁词资源 %d 个", len(filteredResources), len(forbiddenResources)))
 	} else {
 		filteredResources = resources
+	}
+
+	// 注意：资源数量已在数据库查询时限制，无需再次限制
+
+	// 保存违禁词资源的错误信息
+	for _, resource := range forbiddenResources {
+		if err := a.resourceRepo.Update(resource); err != nil {
+			utils.Error(fmt.Sprintf("保存违禁词错误信息失败 (ID: %d): %v", resource.ID, err))
+		}
 	}
 
 	// 并发自动转存
@@ -220,7 +261,8 @@ func (a *AutoTransferScheduler) processAutoTransfer() {
 		}(account)
 	}
 	wg.Wait()
-	utils.Info(fmt.Sprintf("自动转存处理完成，账号数: %d，资源数: %d", len(validAccounts), len(filteredResources)))
+	utils.Info(fmt.Sprintf("自动转存处理完成，账号数: %d，处理资源数: %d，违禁词资源数: %d",
+		len(validAccounts), len(filteredResources), len(forbiddenResources)))
 }
 
 // getQuarkPanID 获取夸克网盘ID
@@ -241,7 +283,7 @@ func (a *AutoTransferScheduler) getQuarkPanID() (uint, error) {
 }
 
 // getResourcesForTransfer 获取需要转存的资源
-func (a *AutoTransferScheduler) getResourcesForTransfer(quarkPanID uint) ([]*entity.Resource, error) {
+func (a *AutoTransferScheduler) getResourcesForTransfer(quarkPanID uint, limit int) ([]*entity.Resource, error) {
 	// 获取最近24小时内的资源
 	sinceTime := time.Now().Add(-24 * time.Hour)
 
@@ -251,7 +293,7 @@ func (a *AutoTransferScheduler) getResourcesForTransfer(quarkPanID uint) ([]*ent
 		return nil, fmt.Errorf("资源仓库类型错误")
 	}
 
-	return repoImpl.GetResourcesForTransfer(quarkPanID, sinceTime)
+	return repoImpl.GetResourcesForTransfer(quarkPanID, sinceTime, limit)
 }
 
 // transferResource 转存单个资源

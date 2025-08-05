@@ -74,9 +74,20 @@
 
                 <!-- 禁止词 -->
                 <div class="md:col-span-2">
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    违禁词
-                  </label>
+                  <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      违禁词
+                    </label>
+                    <div class="flex gap-2">
+                      <n-button 
+                        type="default" 
+                        size="small" 
+                        @click="openForbiddenWordsSource"
+                      >
+                        开源违禁词
+                      </n-button>
+                    </div>
+                  </div>
                   <n-input
                   v-model:value="config.forbiddenWords"
                     type="textarea"
@@ -236,15 +247,31 @@
                   <div class="flex gap-2">
                     <n-input 
                       v-model:value="config.apiToken" 
-                      type="text" 
+                      type="password" 
                       placeholder="输入API Token，用于公开API访问认证"
+                      :show-password-on="'click'"
                     />
                     <n-button 
-                      type="info"
+                      v-if="!config.apiToken"
+                      type="primary"
                       @click="generateApiToken"
                     >
                       生成
                     </n-button>
+                    <template v-else>
+                      <n-button 
+                        type="primary"
+                        @click="copyApiToken"
+                      >
+                        复制
+                      </n-button>
+                      <n-button 
+                        type="default"
+                        @click="generateApiToken"
+                      >
+                        重新生成
+                      </n-button>
+                    </template>
                   </div>
                   <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     用于公开API的访问认证，建议使用随机字符串
@@ -309,6 +336,7 @@ const notification = useNotification()
 
 // 响应式数据
 const loading = ref(false)
+const loadingForbiddenWords = ref(false)
 const config = ref({
   // SEO 配置
   siteTitle: '老九网盘资源数据库',
@@ -332,24 +360,29 @@ const config = ref({
 })
 
 // 系统配置状态（用于SEO）
-const systemConfig = ref(null)
+const systemConfig = ref({
+  site_title: '老九网盘资源数据库',
+  site_description: '系统配置管理页面',
+  keywords: '系统配置,管理',
+  author: '系统管理员'
+})
 const originalConfig = ref(null)
 
 // 页面元数据 - 移到变量声明之后
 useHead({
-  title: () => systemConfig.value?.site_title ? `${systemConfig.value.site_title} - 系统配置` : '系统配置 - 老九网盘资源数据库',
+  title: () => `${systemConfig.value.site_title} - 系统配置`,
   meta: [
     { 
       name: 'description', 
-      content: () => systemConfig.value?.site_description || '系统配置管理页面' 
+      content: () => systemConfig.value.site_description
     },
     { 
       name: 'keywords', 
-      content: () => systemConfig.value?.keywords || '系统配置,管理' 
+      content: () => systemConfig.value.keywords
     },
     { 
       name: 'author', 
-      content: () => systemConfig.value?.author || '系统管理员' 
+      content: () => systemConfig.value.author
     }
   ]
 })
@@ -370,13 +403,13 @@ const loadConfig = async () => {
         author: response.author || '系统管理员',
         copyright: response.copyright || '© 2024 老九网盘资源数据库',
         autoProcessReadyResources: response.auto_process_ready_resources || false,
-        autoProcessInterval: response.auto_process_interval || 30,
+        autoProcessInterval: String(response.auto_process_interval || 30),
         autoTransferEnabled: response.auto_transfer_enabled || false, // 新增
-        autoTransferLimitDays: response.auto_transfer_limit_days || 30, // 新增：自动转存限制天数
-        autoTransferMinSpace: response.auto_transfer_min_space || 500, // 新增：最小存储空间（GB）
+        autoTransferLimitDays: String(response.auto_transfer_limit_days || 30), // 新增：自动转存限制天数
+        autoTransferMinSpace: String(response.auto_transfer_min_space || 500), // 新增：最小存储空间（GB）
         autoFetchHotDramaEnabled: response.auto_fetch_hot_drama_enabled || false, // 新增
-        forbiddenWords: response.forbidden_words || '',
-        pageSize: response.page_size || 100,
+        forbiddenWords: formatForbiddenWordsForDisplay(response.forbidden_words || ''),
+        pageSize: String(response.page_size || 100),
         maintenanceMode: response.maintenance_mode || false,
         apiToken: response.api_token || '' // 加载API Token
       }
@@ -421,25 +454,25 @@ const saveConfig = async () => {
       changes.auto_process_ready_resources = currentConfig.autoProcessReadyResources
     }
     if (currentConfig.autoProcessInterval !== original.autoProcessInterval) {
-      changes.auto_process_interval = currentConfig.autoProcessInterval
+      changes.auto_process_interval = parseInt(currentConfig.autoProcessInterval) || 0
     }
     if (currentConfig.autoTransferEnabled !== original.autoTransferEnabled) {
       changes.auto_transfer_enabled = currentConfig.autoTransferEnabled
     }
     if (currentConfig.autoTransferLimitDays !== original.autoTransferLimitDays) {
-      changes.auto_transfer_limit_days = currentConfig.autoTransferLimitDays
+      changes.auto_transfer_limit_days = parseInt(currentConfig.autoTransferLimitDays) || 0
     }
     if (currentConfig.autoTransferMinSpace !== original.autoTransferMinSpace) {
-      changes.auto_transfer_min_space = currentConfig.autoTransferMinSpace
+      changes.auto_transfer_min_space = parseInt(currentConfig.autoTransferMinSpace) || 0
     }
     if (currentConfig.autoFetchHotDramaEnabled !== original.autoFetchHotDramaEnabled) {
       changes.auto_fetch_hot_drama_enabled = currentConfig.autoFetchHotDramaEnabled
     }
     if (currentConfig.forbiddenWords !== original.forbiddenWords) {
-      changes.forbidden_words = currentConfig.forbiddenWords
+      changes.forbidden_words = formatForbiddenWordsForSave(currentConfig.forbiddenWords)
     }
     if (currentConfig.pageSize !== original.pageSize) {
-      changes.page_size = currentConfig.pageSize
+      changes.page_size = parseInt(currentConfig.pageSize) || 0
     }
     if (currentConfig.maintenanceMode !== original.maintenanceMode) {
       changes.maintenance_mode = currentConfig.maintenanceMode
@@ -503,6 +536,65 @@ const generateApiToken = () => {
     duration: 3000
   })
 };
+
+// 复制API Token
+const copyApiToken = async () => {
+  try {
+    await navigator.clipboard.writeText(config.value.apiToken);
+    notification.success({
+      content: 'API Token已复制到剪贴板',
+      duration: 3000
+    });
+  } catch (err) {
+    // 降级方案：使用传统的复制方法
+    const textArea = document.createElement('textarea');
+    textArea.value = config.value.apiToken;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      notification.success({
+        content: 'API Token已复制到剪贴板',
+        duration: 3000
+      });
+    } catch (fallbackErr) {
+      notification.error({
+        content: '复制失败，请手动复制',
+        duration: 3000
+      });
+    }
+    document.body.removeChild(textArea);
+  }
+};
+
+
+// 打开违禁词源文件
+const openForbiddenWordsSource = () => {
+  const url = 'https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/db/forbidden.txt'
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// 格式化违禁词用于显示（逗号分隔转为多行）
+const formatForbiddenWordsForDisplay = (forbiddenWords) => {
+  if (!forbiddenWords) return ''
+  
+  // 按逗号分割，过滤空字符串，然后按行显示
+  return forbiddenWords.split(',')
+    .map(word => word.trim())
+    .filter(word => word.length > 0)
+    .join('\n')
+}
+
+// 格式化违禁词用于保存（多行转为逗号分隔）
+const formatForbiddenWordsForSave = (forbiddenWords) => {
+  if (!forbiddenWords) return ''
+  
+  // 按行分割，过滤空行，然后用逗号连接
+  return forbiddenWords.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join(',')
+}
 
 // 页面加载时获取配置
 onMounted(() => {

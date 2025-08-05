@@ -18,10 +18,6 @@
           {{ currentPageTitle }}
         </span>
       </div>
-      <!-- 页面描述 -->
-      <!-- <div v-if="currentPageDescription && currentPageTitle !== '管理后台'" class="text-xs text-white/60 mt-1">
-        {{ currentPageDescription }}
-      </div> -->
     </div>
 
     <div class="absolute left-4 top-4 flex items-center gap-2">
@@ -37,7 +33,7 @@
       <!-- 用户信息 -->
       <div v-if="userStore.isAuthenticated" class="hidden sm:flex items-center gap-2">
         <span class="text-sm text-white/80">欢迎，{{ userStore.user?.username || '管理员' }}</span>
-        <span class="px-2 py-1 bg-blue-600/80 rounded text-xs text-white">{{ userStore.user?.role || 'admin' }}</span>
+        <n-tag type="success" size="small" round>{{ userStore.user?.role || '-' }}</n-tag>
       </div>
       
       <!-- 操作按钮 -->

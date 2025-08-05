@@ -51,23 +51,23 @@ func (h *SystemConfigHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	if req.AutoProcessInterval != 0 && (req.AutoProcessInterval < 1 || req.AutoProcessInterval > 1440) {
+	if req.AutoProcessInterval > 0 && (req.AutoProcessInterval < 1 || req.AutoProcessInterval > 1440) {
 		ErrorResponse(c, "自动处理间隔必须在1-1440分钟之间", http.StatusBadRequest)
 		return
 	}
 
-	if req.PageSize != 0 && (req.PageSize < 10 || req.PageSize > 500) {
+	if req.PageSize > 0 && (req.PageSize < 10 || req.PageSize > 500) {
 		ErrorResponse(c, "每页显示数量必须在10-500之间", http.StatusBadRequest)
 		return
 	}
 
 	// 验证自动转存配置
-	if req.AutoTransferLimitDays != 0 && (req.AutoTransferLimitDays < 0 || req.AutoTransferLimitDays > 365) {
+	if req.AutoTransferLimitDays > 0 && (req.AutoTransferLimitDays < 0 || req.AutoTransferLimitDays > 365) {
 		ErrorResponse(c, "自动转存限制天数必须在0-365之间", http.StatusBadRequest)
 		return
 	}
 
-	if req.AutoTransferMinSpace != 0 && (req.AutoTransferMinSpace < 100 || req.AutoTransferMinSpace > 1024) {
+	if req.AutoTransferMinSpace > 0 && (req.AutoTransferMinSpace < 100 || req.AutoTransferMinSpace > 1024) {
 		ErrorResponse(c, "最小存储空间必须在100-1024GB之间", http.StatusBadRequest)
 		return
 	}
