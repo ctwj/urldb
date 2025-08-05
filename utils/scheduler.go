@@ -855,7 +855,9 @@ func (s *Scheduler) getResourcesForTransfer(quarkPanID uint) ([]*entity.Resource
 	if !ok {
 		return nil, fmt.Errorf("resourceRepo不是ResourceRepositoryImpl类型")
 	}
-	return repoImpl.GetResourcesForTransfer(quarkPanID, sinceTime)
+	// 获取每次处理的资源数量限制
+	limit := 10 // 默认限制为10个资源
+	return repoImpl.GetResourcesForTransfer(quarkPanID, sinceTime, limit)
 }
 
 var resourceUpdateMutex sync.Mutex // 全局互斥锁，保证多协程安全
