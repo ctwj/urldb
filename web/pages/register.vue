@@ -23,7 +23,6 @@
           <div>
             <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-100">邮箱</label>
             <n-input 
-              type="email" 
               id="email" 
               v-model:value="form.email"
               required 

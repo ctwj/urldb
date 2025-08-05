@@ -45,6 +45,7 @@ const emit = defineEmits(['success', 'error', 'cancel'])
 
 const loading = ref(false)
 const batchInput = ref('')
+const notification = useNotification()
 
 const readyResourceApi = useReadyResourceApi()
 
@@ -63,7 +64,11 @@ const validateInput = () => {
   // 首行必须为标题
   if (/^https?:\/\//i.test(lines[0])) {
     // 你可以用 alert、ElMessage 或其它方式提示
-    alert('首行必须为标题，不能为链接！')
+    notification.error({
+      title: '失败',
+      content: '首行必须为标题，不能为链接！',
+      duration: 3000
+    })
     return
   }
 }

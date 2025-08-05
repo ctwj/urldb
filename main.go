@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/ctwj/urldb/db"
@@ -70,7 +71,7 @@ func main() {
 	repoManager := repo.NewRepositoryManager(db.DB)
 
 	// 创建全局调度器
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,

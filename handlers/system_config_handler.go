@@ -7,6 +7,7 @@ import (
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
+	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
@@ -161,7 +162,7 @@ func UpdateSystemConfig(c *gin.Context) {
 	}
 
 	// 根据配置更新定时任务状态（错误不影响配置保存）
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -233,7 +234,7 @@ func ToggleAutoProcess(c *gin.Context) {
 	}
 
 	// 更新定时任务状态
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,

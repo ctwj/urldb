@@ -401,6 +401,7 @@ interface Tag {
   name: string
 }
 
+const notification = useNotification()
 const resources = ref<Resource[]>([])
 const platforms = ref<Platform[]>([])
 const categories = ref<Category[]>([])
@@ -596,12 +597,20 @@ const toggleSelectAll = (checked: boolean) => {
 // 批量操作
 const handleBatchAction = async () => {
   if (selectedResources.value.length === 0) {
-    alert('请选择要操作的资源')
+    notification.error({
+      title: '失败',
+      content: '请选择要操作的资源',
+      duration: 3000
+    })
     return
   }
   
   if (!batchAction.value) {
-    alert('请选择操作类型')
+    notification.error({
+      title: '失败',
+      content: '请选择操作类型',
+      duration: 3000
+    })
     return
   }
   
@@ -616,26 +625,42 @@ const handleBatchAction = async () => {
           draggable: true,
           onPositiveClick: async () => {
             await resourceApi.batchDeleteResources(selectedResources.value)
-            alert('批量删除成功')
+            notification.success({
+              title: '成功',
+              content: '批量删除成功',
+              duration: 3000
+            })
           }
         })
         return
         break
       case 'update_category':
         if (!batchCategory.value) {
-          alert('请选择分类')
+          notification.error({
+            title: '失败',
+            content: '请选择分类',
+            duration: 3000
+          })
           return
         }
         await Promise.all(selectedResources.value.map(id => 
           resourceApi.updateResource(id, { category_id: batchCategory.value })
         ))
-        alert('批量更新分类成功')
+        notification.success({
+          title: '成功',
+          content: '批量更新分类成功',
+          duration: 3000
+        })
         break
       case 'update_tags':
         await Promise.all(selectedResources.value.map(id => 
           resourceApi.updateResource(id, { tag_ids: batchTags.value })
         ))
-        alert('批量更新标签成功')
+        notification.success({
+          title: '成功',
+          content: '批量更新标签成功',
+          duration: 3000
+        })
         break
     }
     
@@ -643,7 +668,11 @@ const handleBatchAction = async () => {
     fetchData()
   } catch (error) {
     console.error('批量操作失败:', error)
-    alert('批量操作失败')
+    notification.error({
+      title: '失败',
+      content: '批量操作失败',
+      duration: 3000
+    })
   }
 }
 
@@ -674,11 +703,19 @@ const deleteResource = async (id: number) => {
     onPositiveClick: async () => {
       try {
         await resourceApi.deleteResource(id)
-        alert('删除成功')
+        notification.success({
+          title: '成功',
+          content: '删除成功',
+          duration: 3000
+        })
         fetchData()
       } catch (error) {
         console.error('删除失败:', error)
-        alert('删除失败')
+        notification.error({
+          title: '失败',
+          content: '删除失败',
+          duration: 3000
+        })
       }
     }
   })

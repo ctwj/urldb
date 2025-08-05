@@ -294,6 +294,7 @@ definePageMeta({
   ssr: false
 })
 
+const notification = useNotification()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -406,7 +407,11 @@ const updateCks = async () => {
     closeModal()
   } catch (error) {
     console.error('更新账号失败:', error)
-    alert('更新账号失败: ' + (error.message || '未知错误'))
+    notification.error({
+      title: '失败',
+      content: '更新账号失败: ' + (error.message || '未知错误'),
+      duration: 3000
+    })
   } finally {
     submitting.value = false
   }
@@ -426,7 +431,11 @@ const deleteCks = async (id) => {
         await fetchCks()
       } catch (error) {
         console.error('删除账号失败:', error)
-        alert('删除账号失败: ' + (error.message || '未知错误'))
+        notification.error({
+          title: '失败',
+          content: '删除账号失败: ' + (error.message || '未知错误'),
+          duration: 3000
+        })
       }
     }
   })
@@ -444,10 +453,18 @@ const refreshCapacity = async (id) => {
       try {
         await cksApi.refreshCapacity(id)
         await fetchCks()
-        alert('容量信息已刷新！')
+        notification.success({
+          title: '成功',
+          content: '容量信息已刷新！',
+          duration: 3000
+        })
       } catch (error) {
         console.error('刷新容量失败:', error)
-        alert('刷新容量失败: ' + (error.message || '未知错误'))
+        notification.error({
+          title: '失败',
+          content: '刷新容量失败: ' + (error.message || '未知错误'),
+          duration: 3000
+        })
       }
     }
   })
@@ -469,10 +486,18 @@ const toggleStatus = async (cks) => {
         console.log('状态更新成功，正在刷新数据...')
         await fetchCks()
         console.log('数据刷新完成')
-        alert(`账号已${newStatus ? '启用' : '禁用'}！`)
+        notification.success({
+          title: '成功',
+          content: `账号已${newStatus ? '启用' : '禁用'}！`,
+          duration: 3000
+        })
       } catch (error) {
         console.error('切换账号状态失败:', error)
-        alert(`切换账号状态失败: ${error.message || '未知错误'}`)
+        notification.error({
+          title: '失败',
+          content: `切换账号状态失败: ${error.message || '未知错误'}`,
+          duration: 3000
+        })
       }
     }
   })

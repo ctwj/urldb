@@ -289,6 +289,7 @@ interface FailedResource {
   is_deleted: boolean
 }
 
+const notification = useNotification()
 const failedResources = ref<FailedResource[]>([])
 const loading = ref(false)
 const pageLoading = ref(true)
@@ -443,11 +444,19 @@ const retryResource = async (id: number) => {
     onPositiveClick: async () => {
       try {
         await readyResourceApi.clearErrorMsg(id)
-        alert('错误信息已清除，资源将在下次调度时重新处理')
+        notification.success({
+          title: '成功',
+          content: '错误信息已清除，资源将在下次调度时重新处理',
+          duration: 3000
+        })
         fetchData()
       } catch (error) {
         console.error('重试失败:', error)
-        alert('重试失败')
+        notification.error({
+          title: '失败',
+          content: '重试失败',
+          duration: 3000
+        })
       }
     }
   })
@@ -464,11 +473,19 @@ const clearError = async (id: number) => {
     onPositiveClick: async () => {
       try {
         await readyResourceApi.clearErrorMsg(id)
-        alert('错误信息已清除')
+        notification.success({
+          title: '成功',
+          content: '错误信息已清除',
+          duration: 3000
+        })
         fetchData()
       } catch (error) {
         console.error('清除错误失败:', error)
-        alert('清除错误失败')
+        notification.error({
+          title: '失败',
+          content: '清除错误失败',
+          duration: 3000
+        })
       }
     }
   })
@@ -491,7 +508,11 @@ const deleteResource = async (id: number) => {
         fetchData()
       } catch (error) {
         console.error('删除失败:', error)
-        alert('删除失败')
+        notification.error({
+          title: '失败',
+          content: '删除失败',
+          duration: 3000
+        })
       }
     }
   })
@@ -503,13 +524,21 @@ const isProcessing = ref(false)
 // 重新放入待处理池
 const retryAllFailed = async () => {
   if (totalCount.value === 0) {
-    alert('没有可处理的资源')
+    notification.error({
+      title: '失败',
+      content: '没有可处理的资源',
+      duration: 3000
+    })
     return
   }
   
   // 检查是否有过滤条件
   if (!errorFilter.value.trim()) {
-    alert('请先设置过滤条件，以避免处理所有失败资源')
+    notification.error({
+      title: '失败',
+      content: '请先设置过滤条件，以避免处理所有失败资源',
+      duration: 3000
+    })
     return
   }
   
@@ -536,11 +565,19 @@ const retryAllFailed = async () => {
       
       try {
         const response = await readyResourceApi.batchRestoreToReadyPoolByQuery(queryParams) as any
-        alert(`操作完成：\n总数量：${response.total_count}\n成功处理：${response.success_count}\n失败：${response.failed_count}`)
+        notification.success({
+          title: '成功',
+          content: `操作完成：\n总数量：${response.total_count}\n成功处理：${response.success_count}\n失败：${response.failed_count}`,
+          duration: 3000
+        })
         fetchData()
       } catch (error) {
         console.error('重新放入待处理池失败:', error)
-        alert('操作失败')
+        notification.error({
+          title: '失败',
+          content: '操作失败',
+          duration: 3000
+        })
       } finally {
         isProcessing.value = false
       }
@@ -552,7 +589,11 @@ const retryAllFailed = async () => {
 const clearAllErrors = async () => {
   // 检查是否有过滤条件
   if (!errorFilter.value.trim()) {
-    alert('请先设置过滤条件，以避免删除所有失败资源')
+    notification.error({
+      title: '失败',
+      content: '请先设置过滤条件，以避免删除所有失败资源',
+      duration: 3000
+    })
     return
   }
   
@@ -581,7 +622,11 @@ const clearAllErrors = async () => {
         console.log('开始调用删除API，参数:', queryParams)
         const response = await readyResourceApi.clearAllErrorsByQuery(queryParams) as any
         console.log('删除API响应:', response)
-        alert(`操作完成：\n删除失败资源：${response.affected_rows} 个资源`)
+        notification.success({
+          title: '成功',
+          content: `操作完成：\n删除失败资源：${response.affected_rows} 个资源`,
+          duration: 3000
+        })
         fetchData()
       } catch (error: any) {
         console.error('删除失败资源失败:', error)
@@ -590,7 +635,11 @@ const clearAllErrors = async () => {
           stack: error?.stack,
           response: error?.response
         })
-        alert('删除失败')
+        notification.error({
+          title: '失败',
+          content: '删除失败',
+          duration: 3000
+        })
       } finally {
         isProcessing.value = false
       }

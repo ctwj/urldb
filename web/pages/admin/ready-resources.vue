@@ -270,6 +270,7 @@ interface ReadyResource {
   ip?: string
 }
 
+const notification = useNotification()
 const readyResources = ref<ReadyResource[]>([])
 const loading = ref(false)
 const pageLoading = ref(true) // 添加页面加载状态
@@ -418,7 +419,11 @@ const deleteResource = async (id: number) => {
         fetchData()
       } catch (error) {
         console.error('删除失败:', error)
-        alert('删除失败')
+        notification.error({
+          title: '失败',
+          content: '删除失败',
+          duration: 3000
+        })
       }
     }
   })
@@ -438,10 +443,18 @@ const clearAll = async () => {
         console.log('清空成功:', response)
         currentPage.value = 1 // 清空后回到第一页
         fetchData()
-        alert(`成功清空 ${response.data.deleted_count} 个资源`)
+        notification.success({
+          title: '成功',
+          content: `成功清空 ${response.data.deleted_count} 个资源`,
+          duration: 3000
+        })
       } catch (error) {
         console.error('清空失败:', error)
-        alert('清空失败')
+        notification.error({
+          title: '失败',
+          content: '清空失败',
+          duration: 3000
+        })
       }
     }
   })
@@ -496,11 +509,17 @@ const toggleAutoProcess = async () => {
     // 同时更新 Pinia store 中的系统配置
     systemConfigStore.setConfig(response)
     
-    alert(`自动处理配置已${newValue ? '开启' : '关闭'}`)
+    notification.success({
+      title: '成功',
+      content: `自动处理配置已${newValue ? '开启' : '关闭'}`,
+      duration: 3000
+    })
   } catch (error: any) {
-    console.error('切换自动处理配置失败:', error)
-    console.error('错误详情:', error.response || error)
-    alert('切换自动处理配置失败')
+    notification.error({
+      title: '失败',
+      content: `切换自动处理配置失败`,
+      duration: 3000
+    })
   } finally {
     updatingConfig.value = false
   }

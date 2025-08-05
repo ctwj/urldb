@@ -3,13 +3,13 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/ctwj/urldb/utils"
+	"github.com/ctwj/urldb/scheduler"
 	"github.com/gin-gonic/gin"
 )
 
 // GetSchedulerStatus 获取调度器状态
 func GetSchedulerStatus(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -31,7 +31,7 @@ func GetSchedulerStatus(c *gin.Context) {
 
 // 启动热播剧定时任务
 func StartHotDramaScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -51,7 +51,7 @@ func StartHotDramaScheduler(c *gin.Context) {
 
 // 停止热播剧定时任务
 func StopHotDramaScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -71,7 +71,7 @@ func StopHotDramaScheduler(c *gin.Context) {
 
 // 手动触发热播剧定时任务
 func TriggerHotDramaScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -87,7 +87,7 @@ func TriggerHotDramaScheduler(c *gin.Context) {
 
 // 手动获取热播剧名字
 func FetchHotDramaNames(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -107,7 +107,7 @@ func FetchHotDramaNames(c *gin.Context) {
 
 // 启动待处理资源自动处理任务
 func StartReadyResourceScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -127,7 +127,7 @@ func StartReadyResourceScheduler(c *gin.Context) {
 
 // 停止待处理资源自动处理任务
 func StopReadyResourceScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -147,7 +147,7 @@ func StopReadyResourceScheduler(c *gin.Context) {
 
 // 手动触发待处理资源自动处理任务
 func TriggerReadyResourceScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -157,14 +157,13 @@ func TriggerReadyResourceScheduler(c *gin.Context) {
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
 	)
-	// 手动触发一次处理
-	scheduler.ProcessReadyResources()
+	scheduler.StartReadyResourceScheduler() // 直接启动一次
 	SuccessResponse(c, gin.H{"message": "手动触发待处理资源自动处理任务成功"})
 }
 
 // 启动自动转存定时任务
 func StartAutoTransferScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -184,7 +183,7 @@ func StartAutoTransferScheduler(c *gin.Context) {
 
 // 停止自动转存定时任务
 func StopAutoTransferScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -204,7 +203,7 @@ func StopAutoTransferScheduler(c *gin.Context) {
 
 // 手动触发自动转存定时任务
 func TriggerAutoTransferScheduler(c *gin.Context) {
-	scheduler := utils.GetGlobalScheduler(
+	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
 		repoManager.ReadyResourceRepository,
 		repoManager.ResourceRepository,
@@ -214,7 +213,6 @@ func TriggerAutoTransferScheduler(c *gin.Context) {
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
 	)
-	// 手动触发一次处理
-	scheduler.ProcessAutoTransfer()
+	scheduler.StartAutoTransferScheduler() // 直接启动一次
 	SuccessResponse(c, gin.H{"message": "手动触发自动转存定时任务成功"})
 }

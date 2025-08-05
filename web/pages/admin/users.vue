@@ -214,6 +214,7 @@ definePageMeta({
 
 const router = useRouter()
 const userStore = useUserStore()
+const notification = useNotification()
 
 const users = ref<any[]>([])
 const showCreateModal = ref(false)
@@ -325,12 +326,20 @@ const closePasswordModal = () => {
 // 修改密码
 const changePassword = async () => {
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    alert('两次输入的密码不一致')
+    notification.error({
+      title: '失败',
+      content: '两次输入的密码不一致',
+      duration: 3000
+    })
     return
   }
   
   if (passwordForm.value.newPassword.length < 6) {
-    alert('密码长度至少6位')
+    notification.error({
+      title: '失败',
+      content: '密码长度至少6位',
+      duration: 3000
+    })
     return
   }
   
@@ -338,11 +347,19 @@ const changePassword = async () => {
     const { useUserApi } = await import('~/composables/useApi')
     const userApi = useUserApi()
     await userApi.changePassword(changingPasswordUser.value.id, passwordForm.value.newPassword)
-    alert('密码修改成功')
+    notification.success({
+      title: '成功',
+      content: '密码修改成功',
+      duration: 3000
+    })
     closePasswordModal()
   } catch (error) {
     console.error('修改密码失败:', error)
-    alert('修改密码失败: ' + (error.message || '未知错误'))
+    notification.error({
+      title: '失败',
+      content: '修改密码失败: ' + (error.message || '未知错误'),
+      duration: 3000
+    })
   }
 }
 
