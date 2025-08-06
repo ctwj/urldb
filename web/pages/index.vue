@@ -45,9 +45,14 @@
               <i class="fas fa-sign-in-alt text-xs"></i> 登录
             </n-button>
           </NuxtLink>
-          <NuxtLink v-if="authInitialized && userStore.isAuthenticated" to="/admin" class="hidden sm:flex">
+          <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role === 'admin'" to="/admin" class="hidden sm:flex">
             <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
               <i class="fas fa-user-shield text-xs"></i> 管理后台
+            </n-button>
+          </NuxtLink>
+          <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role !== 'admin'" to="/user" class="hidden sm:flex">
+            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+              <i class="fas fa-user text-xs"></i> 用户中心
             </n-button>
           </NuxtLink>
         </nav>
@@ -245,13 +250,50 @@ const { data: resourcesData, pending, refresh } = await useAsyncData(
 )
 
 // 获取统计数据
-const { data: statsData } = await useAsyncData('stats', () => statsApi.getStats())
+const { data: statsData, error: statsError } = await useAsyncData('stats', () => statsApi.getStats())
 
 // 获取平台数据
-const { data: platformsData } = await useAsyncData('platforms', () => panApi.getPans())
+const { data: platformsData, error: platformsError } = await useAsyncData('platforms', () => panApi.getPans())
 
 // 获取系统配置
-const { data: systemConfigData } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
+const { data: systemConfigData, error: systemConfigError } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
+
+// 错误处理
+const notification = ref()
+
+// 监听错误
+watch(statsError, (error) => {
+  if (error && process.client) {
+    console.error('获取统计数据失败:', error)
+    notification.value = useNotification()
+    notification.value.error({
+      content: error.message || '获取统计数据失败',
+      duration: 5000
+    })
+  }
+})
+
+watch(platformsError, (error) => {
+  if (error && process.client) {
+    console.error('获取平台数据失败:', error)
+    notification.value = useNotification()
+    notification.value.error({
+      content: error.message || '获取平台数据失败',
+      duration: 5000
+    })
+  }
+})
+
+watch(systemConfigError, (error) => {
+  if (error && process.client) {
+    console.error('获取系统配置失败:', error)
+    notification.value = useNotification()
+    notification.value.error({
+      content: error.message || '获取系统配置失败',
+      duration: 5000
+    })
+  }
+})
 
 // 从 SSR 数据中获取值
 const safeResources = computed(() => (resourcesData.value as any)?.data || [])

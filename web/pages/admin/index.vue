@@ -250,12 +250,36 @@ import { useStatsApi, usePanApi } from '~/composables/useApi'
 const statsApi = useStatsApi()
 const panApi = usePanApi()
 
-const { data: statsData } = await useAsyncData('stats', () => statsApi.getStats())
+const { data: statsData, error: statsError } = await useAsyncData('stats', () => statsApi.getStats())
 const stats = computed(() => (statsData.value as any) || {})
 
 // 平台数据
-const { data: pansData } = await useAsyncData('pans', () => panApi.getPans())
+const { data: pansData, error: pansError } = await useAsyncData('pans', () => panApi.getPans())
 const pans = computed(() => (pansData.value as any) || [])
+
+// 错误处理
+const notification = useNotification()
+
+// 监听错误
+watch(statsError, (error) => {
+  if (error) {
+    console.error('获取统计数据失败:', error)
+    notification.error({
+      content: error.message || '获取统计数据失败',
+      duration: 5000
+    })
+  }
+})
+
+watch(pansError, (error) => {
+  if (error) {
+    console.error('获取平台数据失败:', error)
+    notification.error({
+      content: error.message || '获取平台数据失败',
+      duration: 5000
+    })
+  }
+})
 
 // 分类管理相关
 const goToCategoryManagement = () => {
@@ -275,12 +299,7 @@ const goToAddTag = () => {
   navigateTo('/admin/tags')
 }
 
-// 页面加载时检查用户权限
-onMounted(() => {
-  if (!userStore.isAuthenticated) {
-    navigateTo('/login')
-  }
-})
+// 权限检查已在 admin 布局中处理
 </script>
 
 <style scoped>

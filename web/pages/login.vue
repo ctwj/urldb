@@ -3,8 +3,8 @@
     <div class="max-w-md w-full">
       <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md text-gray-900 dark:text-gray-100">
         <div class="text-center">
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">管理员登录</h1>
-          <p class="mt-2 text-sm text-gray-600">请输入管理员账号密码</p>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">登 录</h1>
+          <p class="mt-2 text-sm text-gray-600">请输入认证信息</p>
             <!-- <div class="mt-3 p-3 bg-blue-50 rounded-lg">  
             </div> -->
         </div>
@@ -121,12 +121,20 @@ const handleLogin = async () => {
     password: form.password
   })
   
-  if (result.success) {
+  console.log('handleLogin - 登录结果:', result)
+  
+  if (result && result.success) {
     notification.success({
-      content: '登录成功',
-      duration: 3000
-    })
-    await router.push('/admin')
+        content: '登录成功',
+        duration: 3000
+      })
+    
+    // 根据用户角色跳转到不同页面
+    if (userStore.user?.role === 'admin') {
+      await router.push('/admin')
+    } else {
+      await router.push('/user')
+    }
   } else {
     // 根据错误类型提供更友好的提示
     let message = '登录失败'
@@ -142,9 +150,9 @@ const handleLogin = async () => {
       }
     }
     notification.error({
-      content: message,
-      duration: 3000
-    })
+        content: message,
+        duration: 3000
+      })
   }
 }
 

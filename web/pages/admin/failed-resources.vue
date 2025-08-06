@@ -621,7 +621,7 @@ const clearAllErrors = async () => {
       try {
         console.log('开始调用删除API，参数:', queryParams)
         const response = await readyResourceApi.clearAllErrorsByQuery(queryParams) as any
-        console.log('删除API响应:', response)
+        // console.log('删除API响应:', response)
         notification.success({
           title: '成功',
           content: `操作完成：\n删除失败资源：${response.affected_rows} 个资源`,

@@ -96,9 +96,13 @@ export const useUserStore = defineStore('user', {
         return { success: true }
       }
       
+      console.log('login - 响应格式不正确:', response)
+      console.log('login - 返回失败结果')
+      
       return { success: false, message: '登录失败，服务器未返回有效数据' }
     } catch (error: any) {
       console.error('登录错误:', error)
+      console.log('login - catch 块执行，返回错误结果')
       // 处理HTTP错误响应
       if (error.data && error.data.error) {
         return { 

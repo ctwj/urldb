@@ -39,6 +39,10 @@
 
 <script setup lang="ts">
 import { useSystemConfigStore } from '~/stores/systemConfig'
+import { useUserLayout } from '~/composables/useUserLayout'
+
+// 使用用户布局组合式函数
+const { checkAuth, checkPermission } = useUserLayout()
 
 // 页面加载状态
 const pageLoading = ref(false)
@@ -75,6 +79,16 @@ watch(() => route.path, () => {
 
 const systemConfigStore = useSystemConfigStore()
 onMounted(() => {
+  // 检查用户认证和权限
+  if (!checkAuth()) {
+    return
+  }
+  
+  // 检查是否为管理员
+  if (!checkPermission('admin')) {
+    return
+  }
+  
   systemConfigStore.initConfig()
   pageLoading.value = true
   setTimeout(() => {

@@ -41,6 +41,7 @@ export const parseApiResponse = <T>(response: any): T => {
       }
       // 特殊处理登录接口，直接返回data部分（包含token和user）
       if (response.data && response.data.token && response.data.user) {
+        console.log('parseApiResponse - 登录接口处理，返回data:', response.data)
         return response.data
       }
       // 特殊处理删除操作响应，直接返回data部分

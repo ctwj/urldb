@@ -28,6 +28,7 @@ export function useApiFetch<T = any>(
         url: url
       })
       
+      // 处理401认证错误
       if (response.status === 401 ||
         (response._data && (response._data.code === 401 || response._data.error === '无效的令牌'))
       ) {
@@ -42,6 +43,16 @@ export function useApiFetch<T = any>(
         })
       }
 
+      // 处理403权限错误
+      if (response.status === 403 ||
+        (response._data && (response._data.code === 403 || response._data.error === '需要管理员权限'))
+      ) {
+        throw Object.assign(new Error('需要管理员权限，请使用管理员账号登录'), {
+          data: response._data,
+          status: response.status,
+        })
+      }
+
       // 统一处理 code/message
       if (response._data && response._data.code && response._data.code !== 200) {
         console.error('API错误响应:', response._data)
@@ -50,6 +61,7 @@ export function useApiFetch<T = any>(
     },
     onResponseError({ error }: { error: any }) {
       console.log('error', error)
+      
       // 检查是否为"无效的令牌"错误
       if (error?.data?.error === '无效的令牌') {
         // 清除用户状态
@@ -59,6 +71,11 @@ export function useApiFetch<T = any>(
           window.location.href = '/login'
         }
         throw new Error('登录已过期，请重新登录')
+      }
+      
+      // 检查是否为权限错误
+      if (error?.data?.error === '需要管理员权限' || error?.status === 403) {
+        throw new Error('需要管理员权限，请使用管理员账号登录')
       }
       
       // 统一错误提示

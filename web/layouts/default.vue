@@ -16,8 +16,12 @@
         </svg>
       </span>
     </button>
-    
-    <NuxtPage />
+ 
+    <n-notification-provider>
+      <n-dialog-provider>
+        <NuxtPage />
+      </n-dialog-provider>
+    </n-notification-provider>
   </div>
 </template>
 

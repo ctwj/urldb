@@ -328,6 +328,9 @@ definePageMeta({
 import { ref, onMounted } from 'vue'
 import { useSystemConfigApi } from '~/composables/useApi'
 import { useSystemConfigStore } from '~/stores/systemConfig'
+
+// 权限检查已在 admin 布局中处理
+
 const systemConfigStore = useSystemConfigStore()
 
 // API
