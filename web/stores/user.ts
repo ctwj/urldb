@@ -6,6 +6,7 @@ interface User {
   email: string
   role: string
   created_at: string
+  last_login_at?: string
 }
 
 interface LoginForm {
