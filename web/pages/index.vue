@@ -181,6 +181,7 @@
     <QrCodeModal 
       :visible="showLinkModal" 
       :url="selectedResource?.url" 
+      :save_url="selectedResource?.save_url"
       @close="showLinkModal = false" 
     />
 

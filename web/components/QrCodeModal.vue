@@ -96,6 +96,7 @@ import QRCode from 'qrcode'
 
 interface Props {
   visible: boolean
+  save_url?: string
   url?: string
 }
 
@@ -122,7 +123,7 @@ const detectDevice = () => {
 
 // 判断是否为夸克链接
 const isQuarkLink = computed(() => {
-  return props.url.includes('pan.quark.cn') || props.url.includes('quark.cn')
+  return (props.url.includes('pan.quark.cn') || props.url.includes('quark.cn')) && !!props.save_url
 })
 
 // 生成二维码
@@ -130,7 +131,7 @@ const generateQrCode = async () => {
   if (!qrCanvas.value || !props.url) return
   
   try {
-    await QRCode.toCanvas(qrCanvas.value, props.url, {
+    await QRCode.toCanvas(qrCanvas.value, props.save_url || props.url, {
       width: 200,
       margin: 2,
       color: {
