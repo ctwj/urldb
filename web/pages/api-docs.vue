@@ -96,7 +96,7 @@
                 <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
                   <pre class="text-sm overflow-x-auto"><code>{
   "success": true,
-  "message": "批量添加成功",
+  "message": "操作成功",
   "data": {
     "created_count": 2,
     "created_ids": [123, 124]
@@ -115,7 +115,7 @@
                 <i class="fas fa-search mr-2"></i>
                 资源搜索
               </h3>
-              <p class="text-blue-100 mt-1">搜索资源，支持关键词、标签、分类过滤</p>
+              <p class="text-blue-100 mt-1">搜索资源，支持关键词、标签、分类过滤，自动过滤包含违禁词的资源</p>
             </div>
             <div class="p-6">
               <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -143,9 +143,9 @@
                 <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
                   <pre class="text-sm overflow-x-auto"><code>{
   "success": true,
-  "message": "搜索成功",
+  "message": "操作成功",
   "data": {
-    "resources": [
+    "list": [
       {
         "id": 1,
         "title": "资源标题",
@@ -158,7 +158,29 @@
     ],
     "total": 50,
     "page": 1,
-    "page_size": 20
+    "limit": 20
+  },
+  "code": 200
+}</code></pre>
+                </div>
+                <div class="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <h5 class="font-semibold text-yellow-800 dark:text-yellow-200 mb-2 flex items-center">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    违禁词过滤说明
+                  </h5>
+                  <p class="text-sm text-yellow-700 dark:text-yellow-300 mb-2">当搜索结果包含违禁词时，响应会包含额外的过滤信息：</p>
+                  <pre class="text-xs bg-yellow-100 dark:bg-yellow-800 rounded p-2"><code>{
+  "success": true,
+  "message": "操作成功",
+  "data": {
+    "list": [...],
+    "total": 45,
+    "page": 1,
+    "limit": 20,
+    "forbidden_words_filtered": true,
+    "filtered_forbidden_words": ["违禁词1", "违禁词2"],
+    "original_total": 50,
+    "filtered_count": 5
   },
   "code": 200
 }</code></pre>
@@ -199,7 +221,7 @@
                 <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
                   <pre class="text-sm overflow-x-auto"><code>{
   "success": true,
-  "message": "获取热门剧成功",
+  "message": "操作成功",
   "data": {
     "hot_dramas": [
       {
@@ -297,40 +319,129 @@ curl -X GET "http://localhost:8080/api/public/resources/search?keyword=测试" \
 curl -X GET "http://localhost:8080/api/public/hot-dramas?page=1&page_size=5" \
   -H "X-API-Token: $API_TOKEN"</code></pre>
             </div>
-            <h4 class="font-semibold text-gray-900 dark:text-white mb-3">前端 fetch 示例</h4>
+            <h4 class="font-semibold text-gray-900 dark:text-white mb-3">JavaScript fetch 示例</h4>
             <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
-              <pre class="text-sm overflow-x-auto"><code>
-// 资源搜索
-fetch('/api/public/resources/search?q=测试', { headers: { 'X-API-Token': 'your_token' } })
+              <pre class="text-sm overflow-x-auto"><code>// 资源搜索
+fetch('/api/public/resources/search?keyword=测试', { 
+  headers: { 'X-API-Token': 'your_token' } 
+})
   .then(res => res.json())
   .then(res => {
     if (res.success) {
       const list = res.data.list // 资源列表
       const total = res.data.total
+      console.log('搜索结果:', list)
     } else {
-      alert(res.message)
+      console.error('搜索失败:', res.message)
     }
   })
+
 // 批量添加资源
 fetch('/api/public/resources/batch-add', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'X-API-Token': 'your_token' },
+  headers: { 
+    'Content-Type': 'application/json', 
+    'X-API-Token': 'your_token' 
+  },
   body: JSON.stringify({
     resources: [
-      { title: 'xxx', url: ['xxx'], description: 'xxx' },
-      { title: 'yyy', url: ['yyy', 'zzz'], description: 'yyy' }
+      { title: '测试资源1', url: ['https://example.com/resource1'], description: '描述1' },
+      { title: '测试资源2', url: ['https://example.com/resource2'], description: '描述2' }
     ]
   })
 })
   .then(res => res.json())
   .then(res => {
     if (res.success) {
-      alert('添加成功，ID: ' + res.data.created_ids.join(', '))
+      console.log('添加成功，ID:', res.data.created_ids)
     } else {
-      alert(res.message)
+      console.error('添加失败:', res.message)
     }
   })
-              </code></pre>
+
+// 获取热门剧
+fetch('/api/public/hot-dramas?page=1&page_size=10', {
+  headers: { 'X-API-Token': 'your_token' }
+})
+  .then(res => res.json())
+  .then(res => {
+    if (res.success) {
+      const dramas = res.data.hot_dramas
+      console.log('热门剧:', dramas)
+    } else {
+      console.error('获取失败:', res.message)
+    }
+  })</code></pre>
+            </div>
+            <h4 class="font-semibold text-gray-900 dark:text-white mb-3">Python requests 示例</h4>
+            <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
+              <pre class="text-sm overflow-x-auto"><code>import requests
+
+API_TOKEN = 'your_api_token_here'
+BASE_URL = 'http://localhost:8080/api'
+
+headers = {
+    'X-API-Token': API_TOKEN,
+    'Content-Type': 'application/json'
+}
+
+# 搜索资源
+def search_resources(keyword, page=1, page_size=20):
+    params = {
+        'keyword': keyword,
+        'page': page,
+        'page_size': page_size
+    }
+    response = requests.get(
+        f'{BASE_URL}/public/resources/search',
+        headers={'X-API-Token': API_TOKEN},
+        params=params
+    )
+    return response.json()
+
+# 批量添加资源
+def batch_add_resources(resources):
+    data = {'resources': resources}
+    response = requests.post(
+        f'{BASE_URL}/public/resources/batch-add',
+        headers=headers,
+        json=data
+    )
+    return response.json()
+
+# 获取热门剧
+def get_hot_dramas(page=1, page_size=20):
+    params = {
+        'page': page,
+        'page_size': page_size
+    }
+    response = requests.get(
+        f'{BASE_URL}/public/hot-dramas',
+        headers={'X-API-Token': API_TOKEN},
+        params=params
+    )
+    return response.json()
+
+# 使用示例
+if __name__ == '__main__':
+    # 搜索资源
+    result = search_resources('测试')
+    if result['success']:
+        print('搜索结果:', result['data']['list'])
+    
+    # 批量添加资源
+    resources = [
+        {'title': '测试资源1', 'url': ['https://example.com/resource1']},
+        {'title': '测试资源2', 'url': ['https://example.com/resource2']}
+    ]
+    result = batch_add_resources(resources)
+    if result['success']:
+        print('添加成功，ID:', result['data']['created_ids'])
+    
+    # 获取热门剧
+    result = get_hot_dramas()
+    if result['success']:
+        print('热门剧:', result['data']['hot_dramas'])</code></pre>
             </div>
           </div>
         </div>
