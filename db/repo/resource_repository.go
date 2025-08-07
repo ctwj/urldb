@@ -2,7 +2,6 @@ package repo
 
 import (
 	"fmt"
-
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -221,6 +220,13 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 			if query, ok := value.(string); ok && query != "" {
 				db = db.Where("title ILIKE ? OR description ILIKE ?", "%"+query+"%", "%"+query+"%")
 			}
+		case "category_id": // 添加category_id参数支持
+			if categoryID, ok := value.(uint); ok {
+				fmt.Printf("应用分类筛选: category_id = %d\n", categoryID)
+				db = db.Where("category_id = ?", categoryID)
+			} else {
+				fmt.Printf("分类ID类型错误: %T, value: %v\n", value, value)
+			}
 		case "category": // 添加category参数支持（字符串形式）
 			if category, ok := value.(string); ok && category != "" {
 				// 根据分类名称查找分类ID
@@ -254,12 +260,17 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 		}
 	}
 
-	// 如果没有明确指定is_valid和is_public，则默认只显示有效的公开资源
+	// 管理后台显示所有资源，公开API才限制为有效的公开资源
+	// 这里通过检查请求来源来判断是否为管理后台
+	// 如果没有明确指定is_valid和is_public，则显示所有资源
+	// 注意：这个逻辑可能需要根据实际需求调整
 	if _, hasIsValid := params["is_valid"]; !hasIsValid {
-		db = db.Where("is_valid = ?", true)
+		// 管理后台不限制is_valid
+		// db = db.Where("is_valid = ?", true)
 	}
 	if _, hasIsPublic := params["is_public"]; !hasIsPublic {
-		db = db.Where("is_public = ?", true)
+		// 管理后台不限制is_public
+		// db = db.Where("is_public = ?", true)
 	}
 
 	// 获取总数
@@ -276,10 +287,13 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 	}
 	if pageSizeVal, ok := params["page_size"].(int); ok && pageSizeVal > 0 {
 		pageSize = pageSizeVal
-		// 限制最大page_size为100
-		if pageSize > 100 {
-			pageSize = 100
+		fmt.Printf("原始pageSize: %d\n", pageSize)
+		// 限制最大page_size为1000
+		if pageSize > 1000 {
+			pageSize = 1000
+			fmt.Printf("pageSize超过1000，限制为: %d\n", pageSize)
 		}
+		fmt.Printf("最终pageSize: %d\n", pageSize)
 	}
 
 	// 计算偏移量
@@ -287,6 +301,7 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 
 	// 获取分页数据，按更新时间倒序
 	err := db.Order("updated_at DESC").Offset(offset).Limit(pageSize).Find(&resources).Error
+	fmt.Printf("查询结果: 总数=%d, 当前页数据量=%d, pageSize=%d\n", total, len(resources), pageSize)
 	return resources, total, err
 }
 

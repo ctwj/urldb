@@ -22,17 +22,39 @@ func GetStats(c *gin.Context) {
 	db.DB.Model(&entity.Tag{}).Count(&totalTags)
 	db.DB.Model(&entity.Resource{}).Select("COALESCE(SUM(view_count), 0)").Scan(&totalViews)
 
-	// 获取今日更新数量
-	var todayUpdates int64
+	// 获取今日数据
 	today := utils.GetCurrentTime().Format("2006-01-02")
-	db.DB.Model(&entity.Resource{}).Where("DATE(updated_at) = ?", today).Count(&todayUpdates)
+
+	// 今日新增资源数量
+	var todayResources int64
+	db.DB.Model(&entity.Resource{}).Where("DATE(created_at) = ?", today).Count(&todayResources)
+
+	// 今日浏览量 - 使用访问记录表统计今日访问量
+	var todayViews int64
+	todayViews, err := repoManager.ResourceViewRepository.GetTodayViews()
+	if err != nil {
+		utils.Error("获取今日访问量失败: %v", err)
+		todayViews = 0
+	}
+
+	// 今日搜索量
+	var todaySearches int64
+	db.DB.Model(&entity.SearchStat{}).Where("DATE(date) = ?", today).Count(&todaySearches)
+
+	// 添加调试日志
+	utils.Info("统计数据 - 总资源: %d, 总分类: %d, 总标签: %d, 总浏览量: %d",
+		totalResources, totalCategories, totalTags, totalViews)
+	utils.Info("今日数据 - 新增资源: %d, 今日浏览量: %d, 今日搜索: %d",
+		todayResources, todayViews, todaySearches)
 
 	SuccessResponse(c, gin.H{
 		"total_resources":  totalResources,
 		"total_categories": totalCategories,
 		"total_tags":       totalTags,
 		"total_views":      totalViews,
-		"today_updates":    todayUpdates,
+		"today_resources":  todayResources,
+		"today_views":      todayViews,
+		"today_searches":   todaySearches,
 	})
 }
 
@@ -99,36 +121,12 @@ func GetSystemInfo(c *gin.Context) {
 
 // GetViewsTrend 获取访问量趋势数据
 func GetViewsTrend(c *gin.Context) {
-	// 获取最近7天的访问量数据
-	var results []gin.H
-
-	// 获取总访问量作为基础数据
-	var totalViews int64
-	db.DB.Model(&entity.Resource{}).
-		Select("COALESCE(SUM(view_count), 0)").
-		Scan(&totalViews)
-
-	// 生成最近7天的日期
-	for i := 6; i >= 0; i-- {
-		date := utils.GetCurrentTime().AddDate(0, 0, -i)
-		dateStr := date.Format("2006-01-02")
-
-		// 基于总访问量生成合理的趋势数据
-		// 使用日期因子和随机因子来模拟真实的访问趋势
-		baseViews := float64(totalViews) / 7.0 // 平均分配到7天
-		dayFactor := 1.0 + float64(i-3)*0.2    // 中间日期访问量较高
-		randomFactor := float64(80+utils.GetCurrentTime().Hour()*i) / 100.0
-		views := int64(baseViews * dayFactor * randomFactor)
-
-		// 确保访问量不为负数
-		if views < 0 {
-			views = 0
-		}
-
-		results = append(results, gin.H{
-			"date":  dateStr,
-			"views": views,
-		})
+	// 使用访问记录表获取最近7天的访问量数据
+	results, err := repoManager.ResourceViewRepository.GetViewsTrend(7)
+	if err != nil {
+		utils.Error("获取访问量趋势数据失败: %v", err)
+		// 如果获取失败，返回空数据
+		results = []map[string]interface{}{}
 	}
 
 	// 添加调试日志

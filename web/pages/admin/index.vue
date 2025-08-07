@@ -18,27 +18,7 @@
         </div>
       </div>
       
-      <!-- 自动处理状态显示 -->
-      <div class="absolute bottom-4 right-4 flex items-center gap-4">
-        <div class="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2">
-          <div class="w-2 h-2 rounded-full animate-pulse" :class="{ 
-            'bg-red-400': !systemConfig?.auto_process_ready_resources,
-            'bg-green-400': systemConfig?.auto_process_ready_resources
-          }"></div>
-          <span class="text-xs text-white font-medium">
-            自动处理已<span>{{ systemConfig?.auto_process_ready_resources ? '开启' : '关闭' }}</span>
-          </span>
-        </div>
-        <div class="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2">
-          <div class="w-2 h-2 rounded-full animate-pulse" :class="{ 
-            'bg-red-400': !systemConfig?.auto_transfer_enabled,
-            'bg-green-400': systemConfig?.auto_transfer_enabled
-          }"></div>
-          <span class="text-xs text-white font-medium">
-            自动转存已<span>{{ systemConfig?.auto_transfer_enabled ? '开启' : '关闭' }}</span>
-          </span>
-        </div>
-      </div>
+
     </n-card>
 
     <!-- 统计卡片 -->
@@ -114,7 +94,7 @@
           <i class="fas fa-server text-green-600 text-xl"></i>
         </div>
         <div class="ml-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">平台管理</h3>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">平台列表</h3>
           <p class="text-sm text-gray-600 dark:text-gray-400">系统支持的网盘平台</p>
         </div>
       </div>
@@ -164,7 +144,7 @@ definePageMeta({
   layout: 'admin'
 })
 
-import { useStatsApi, usePanApi, useSystemConfigApi } from '~/composables/useApi'
+import { useStatsApi, usePanApi } from '~/composables/useApi'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { parseApiResponse } from '~/composables/useApi'
 import Chart from 'chart.js/auto'
@@ -172,13 +152,6 @@ import Chart from 'chart.js/auto'
 // API
 const statsApi = useStatsApi()
 const panApi = usePanApi()
-const systemConfigApi = useSystemConfigApi()
-
-// 获取系统配置
-const { data: systemConfigData } = await useAsyncData('systemConfig', () => systemConfigApi.getSystemConfig())
-
-// 系统配置
-const systemConfig = computed(() => (systemConfigData.value as any) || {})
 
 // 获取统计数据
 const { data: statsData } = await useAsyncData('adminStats', () => statsApi.getStats())
@@ -187,11 +160,16 @@ const { data: statsData } = await useAsyncData('adminStats', () => statsApi.getS
 const { data: pansData } = await useAsyncData('adminPans', () => panApi.getPans())
 
 // 统计数据
-const stats = computed(() => (statsData.value as any) || { 
-  total_resources: 0, 
-  today_resources: 0,
-  today_views: 0,
-  today_searches: 0
+const stats = computed(() => {
+  console.log('原始统计数据:', statsData.value)
+  const result = (statsData.value as any) || { 
+    total_resources: 0, 
+    today_resources: 0,
+    today_views: 0,
+    today_searches: 0
+  }
+  console.log('处理后的统计数据:', result)
+  return result
 })
 
 // 平台数据

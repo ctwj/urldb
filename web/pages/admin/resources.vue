@@ -13,7 +13,7 @@
           </template>
           添加资源
         </n-button>
-        <n-button @click="showBatchModal = true" type="info">
+        <n-button @click="openBatchModal" type="info">
           <template #icon>
             <i class="fas fa-list"></i>
           </template>
@@ -68,8 +68,18 @@
     <n-card>
       <template #header>
         <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">资源列表</span>
-          <span class="text-sm text-gray-500">共 {{ total }} 个资源</span>
+          <div class="flex items-center space-x-4">
+            <span class="text-lg font-semibold">资源列表</span>
+            <div class="flex items-center space-x-2">
+              <n-checkbox 
+                :checked="isAllSelected"
+                @update:checked="toggleSelectAll"
+                :indeterminate="isIndeterminate"
+              />
+              <span class="text-sm text-gray-500">全选</span>
+            </div>
+          </div>
+          <span class="text-sm text-gray-500">共 {{ total }} 个资源，已选择 {{ selectedResources.length }} 个</span>
         </div>
       </template>
 
@@ -86,7 +96,8 @@
         <!-- 虚拟列表 -->
         <n-virtual-list
           :items="resources"
-          :item-size="120"
+          :item-size="100"
+          style="max-height: 400px"
           container-style="height: 600px;"
         >
           <template #default="{ item: resource }">
@@ -100,19 +111,20 @@
                       @update:checked="(checked) => toggleResourceSelection(resource.id, checked)"
                     />
                     <span class="text-sm text-gray-500">{{ resource.id }}</span>
-                    <span v-if="resource.pan_id" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
+                    
+                    <span v-if="resource.pan_id" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded flex-shrink-0">
                       {{ getPlatformName(resource.pan_id) }}
                     </span>
-                    <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white flex-1 line-clamp-1">
+                      {{ resource.title }}
+                    </h3>
+                    <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded flex-shrink-0">
                       {{ getCategoryName(resource.category_id) }}
                     </span>
+                    
                   </div>
                   
-                  <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    {{ resource.title }}
-                  </h3>
-                  
-                  <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2">
+                  <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
                     {{ resource.description }}
                   </p>
                   
@@ -149,12 +161,12 @@
                 </div>
                 
                 <div class="flex items-center space-x-2 ml-4">
-                  <n-button size="small" type="primary" @click="editResource(resource)">
+                  <!-- <n-button size="small" type="primary" @click="editResource(resource)">
                     <template #icon>
                       <i class="fas fa-edit"></i>
                     </template>
                     编辑
-                  </n-button>
+                  </n-button> -->
                   <n-button size="small" type="error" @click="deleteResource(resource)">
                     <template #icon>
                       <i class="fas fa-trash"></i>
@@ -173,7 +185,7 @@
             v-model:page="currentPage"
             v-model:page-size="pageSize"
             :item-count="total"
-            :page-sizes="[10, 20, 50, 100]"
+            :page-sizes="[100, 200, 500, 1000]"
             show-size-picker
             @update:page="handlePageChange"
             @update:page-size="handlePageSizeChange"
@@ -186,7 +198,12 @@
     <n-modal v-model:show="showBatchModal" preset="card" title="批量操作" style="width: 600px">
       <div class="space-y-4">
         <div class="flex items-center justify-between">
-          <span>已选择 {{ selectedResources.length }} 个资源</span>
+          <div>
+            <span class="font-medium">已选择 {{ selectedResources.length }} 个资源</span>
+            <p class="text-sm text-gray-500 mt-1">
+              {{ isAllSelected ? '已全选当前页面' : isIndeterminate ? '部分选中' : '未选择' }}
+            </p>
+          </div>
           <n-button size="small" @click="clearSelection">清空选择</n-button>
         </div>
         
@@ -305,7 +322,7 @@ const resources = ref<Resource[]>([])
 const loading = ref(false)
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(200)
 const searchQuery = ref('')
 const selectedCategory = ref(null)
 const selectedPlatform = ref(null)
@@ -359,11 +376,15 @@ const { data: platformsData } = await useAsyncData('resourcePlatforms', () => pa
 // 分类选项
 const categoryOptions = computed(() => {
   const data = categoriesData.value as any
-  const categories = data?.data || data || []
-  return categories.map((cat: any) => ({
+  console.log('分类数据:', data)
+  const categories = data?.items || data || []
+  console.log('处理后的分类:', categories)
+  const options = categories.map((cat: any) => ({
     label: cat.name,
     value: cat.id
   }))
+  console.log('分类选项:', options)
+  return options
 })
 
 // 标签选项
@@ -381,7 +402,7 @@ const platformOptions = computed(() => {
   const data = platformsData.value as any
   const platforms = data?.data || data || []
   return platforms.map((platform: any) => ({
-    label: platform.name,
+    label: platform.remark || platform.name,
     value: platform.id
   }))
 })
@@ -394,28 +415,50 @@ const getCategoryName = (categoryId: number) => {
 
 // 获取平台名称
 const getPlatformName = (platformId: number) => {
-  const platform = (platformsData.value as any)?.data?.find((plat: any) => plat.id === platformId)
-  return platform?.name || '未知平台'
+  console.log('platformId', platformId, platformsData.value)
+  const platform = (platformsData.value as any)?.find((plat: any) => plat.id === platformId)
+  return platform?.remark || platform?.name || '未知平台'
 }
 
 // 获取数据
 const fetchData = async () => {
   loading.value = true
   try {
-    const response = await resourceApi.getResources({
+    const params: any = {
       page: currentPage.value,
       page_size: pageSize.value,
-      search: searchQuery.value,
-      category_id: selectedCategory.value,
-      pan_id: selectedPlatform.value
-    }) as any
+      search: searchQuery.value
+    }
+    
+    // 添加分类筛选
+    if (selectedCategory.value) {
+      params.category_id = selectedCategory.value
+      console.log('添加分类筛选:', selectedCategory.value)
+    }
+    
+    // 添加平台筛选
+    if (selectedPlatform.value) {
+      params.pan_id = selectedPlatform.value
+      console.log('添加平台筛选:', selectedPlatform.value)
+    }
+    
+    console.log('请求参数:', params)
+    console.log('pageSize:', pageSize.value)
+    console.log('selectedCategory:', selectedCategory.value)
+    console.log('selectedPlatform:', selectedPlatform.value)
+    const response = await resourceApi.getResources(params) as any
+    console.log('API响应:', response)
+    console.log('返回的资源数量:', response?.data?.length || 0)
     
     if (response && response.data) {
       resources.value = response.data
       total.value = response.total || 0
+      // 清空选择（因为数据已更新）
+      selectedResources.value = []
     } else {
       resources.value = []
       total.value = 0
+      selectedResources.value = []
     }
   } catch (error) {
     console.error('获取资源失败:', error)
@@ -461,9 +504,43 @@ const toggleResourceSelection = (resourceId: number, checked: boolean) => {
   }
 }
 
+// 全选状态计算
+const isAllSelected = computed(() => {
+  return resources.value.length > 0 && selectedResources.value.length === resources.value.length
+})
+
+// 部分选中状态计算
+const isIndeterminate = computed(() => {
+  return selectedResources.value.length > 0 && selectedResources.value.length < resources.value.length
+})
+
+// 切换全选
+const toggleSelectAll = (checked: boolean) => {
+  if (checked) {
+    // 全选：添加所有当前页面的资源ID
+    selectedResources.value = resources.value.map(resource => resource.id)
+  } else {
+    // 取消全选：清空选择
+    selectedResources.value = []
+  }
+}
+
 // 清空选择
 const clearSelection = () => {
   selectedResources.value = []
+}
+
+// 打开批量操作模态框
+const openBatchModal = () => {
+  // 如果没有选择任何资源，自动全选当前页面
+  if (selectedResources.value.length === 0 && resources.value.length > 0) {
+    selectedResources.value = resources.value.map(resource => resource.id)
+    notification.info({
+      content: '已自动全选当前页面资源',
+      duration: 2000
+    })
+  }
+  showBatchModal.value = true
 }
 
 // 编辑资源
@@ -623,4 +700,17 @@ useHead({
 
 <style scoped>
 /* 自定义样式 */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
 </style> 

@@ -205,7 +205,7 @@ const { data: tagsData } = await useAsyncData('categoryTags', () => tagApi.getTa
 // 标签选项
 const tagOptions = computed(() => {
   const data = tagsData.value as any
-  const tags = data?.data || data || []
+  const tags = data?.items || data || []
   return tags.map((tag: any) => ({
     label: tag.name,
     value: tag.id
@@ -314,8 +314,8 @@ const fetchData = async () => {
       search: searchQuery.value
     }) as any
     
-    if (response && response.data) {
-      categories.value = response.data
+    if (response && response.items) {
+      categories.value = response.items
       total.value = response.total || 0
     } else if (Array.isArray(response)) {
       categories.value = response

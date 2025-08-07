@@ -10,7 +10,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
     async initConfig(force = false) {
       if (this.initialized && !force) return
       try {
-        const data = await useApiFetch('/public/system-config').then((res: any) => res.data || res)
+        const data = await useApiFetch('/system/config').then((res: any) => res.data || res)
         this.config = data
         this.initialized = true
       } catch (e) {

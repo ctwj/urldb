@@ -7,6 +7,7 @@ import (
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,6 +16,8 @@ import (
 func GetResources(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	
+	utils.Info("资源列表请求 - page: %d, pageSize: %d", page, pageSize)
 
 	params := map[string]interface{}{
 		"page":      page,
@@ -30,8 +33,12 @@ func GetResources(c *gin.Context) {
 		}
 	}
 	if categoryID := c.Query("category_id"); categoryID != "" {
+		utils.Info("收到分类ID参数: %s", categoryID)
 		if id, err := strconv.ParseUint(categoryID, 10, 32); err == nil {
 			params["category_id"] = uint(id)
+			utils.Info("解析分类ID成功: %d", uint(id))
+		} else {
+			utils.Error("解析分类ID失败: %v", err)
 		}
 	}
 
@@ -285,11 +292,23 @@ func IncrementResourceViewCount(c *gin.Context) {
 		ErrorResponse(c, "无效的资源ID", http.StatusBadRequest)
 		return
 	}
+	
+	// 增加资源访问量
 	err = repoManager.ResourceRepository.IncrementViewCount(uint(id))
 	if err != nil {
 		ErrorResponse(c, "增加浏览次数失败", http.StatusInternalServerError)
 		return
 	}
+	
+	// 记录访问记录
+	ipAddress := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	err = repoManager.ResourceViewRepository.RecordView(uint(id), ipAddress, userAgent)
+	if err != nil {
+		// 记录访问失败不影响主要功能，只记录日志
+		utils.Error("记录资源访问失败: %v", err)
+	}
+	
 	SuccessResponse(c, gin.H{"message": "浏览次数+1"})
 }
 

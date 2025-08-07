@@ -7,12 +7,6 @@
         <p class="text-gray-600 dark:text-gray-400">管理待处理的资源</p>
       </div>
       <div class="flex space-x-3">
-        <n-button type="primary" @click="navigateTo('/admin/add-resource')">
-          <template #icon>
-            <i class="fas fa-plus"></i>
-          </template>
-          添加资源
-        </n-button>
         <n-button @click="navigateTo('/admin/failed-resources')" type="error">
           <template #icon>
             <i class="fas fa-exclamation-triangle"></i>
@@ -274,6 +268,7 @@ const fetchSystemConfig = async () => {
     const response = await systemConfigApi.getSystemConfig()
     systemConfig.value = response
     systemConfigStore.setConfig(response)
+    console.log('ready-resources页面系统配置:', response)
   } catch (error) {
     console.error('获取系统配置失败:', error)
   }

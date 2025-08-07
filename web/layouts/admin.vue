@@ -18,8 +18,30 @@
 
 
 
-        <!-- 右侧：用户菜单 -->
+        <!-- 右侧：状态信息和用户菜单 -->
         <div class="flex items-center space-x-4">
+          <!-- 自动处理状态 -->
+          <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2">
+            <div class="w-2 h-2 rounded-full animate-pulse" :class="{ 
+              'bg-red-400': !systemConfig?.auto_process_ready_resources,
+              'bg-green-400': systemConfig?.auto_process_ready_resources
+            }"></div>
+            <span class="text-xs text-gray-700 dark:text-gray-300 font-medium">
+              自动处理已<span>{{ systemConfig?.auto_process_ready_resources ? '开启' : '关闭' }}</span>
+            </span>
+          </div>
+          
+          <!-- 自动转存状态 -->
+          <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2">
+            <div class="w-2 h-2 rounded-full animate-pulse" :class="{ 
+              'bg-red-400': !systemConfig?.auto_transfer_enabled,
+              'bg-green-400': systemConfig?.auto_transfer_enabled
+            }"></div>
+            <span class="text-xs text-gray-700 dark:text-gray-300 font-medium">
+              自动转存已<span>{{ systemConfig?.auto_transfer_enabled ? '开启' : '关闭' }}</span>
+            </span>
+          </div>
+          
           <NuxtLink to="/" class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
             <i class="fas fa-home text-lg"></i>
           </NuxtLink>
@@ -240,10 +262,24 @@
 
 <script setup lang="ts">
 import { useUserStore } from '~/stores/user'
+import { useSystemConfigStore } from '~/stores/systemConfig'
 
 // 用户状态管理
 const userStore = useUserStore()
 const router = useRouter()
+
+// 系统配置store
+const systemConfigStore = useSystemConfigStore()
+
+// 初始化系统配置
+await systemConfigStore.initConfig()
+
+// 系统配置
+const systemConfig = computed(() => {
+  const config = systemConfigStore.config || {}
+  console.log('顶部导航系统配置:', config)
+  return config
+})
 
 // 用户菜单状态
 const showUserMenu = ref(false)
@@ -331,7 +367,7 @@ const dataManagementItems = ref([
   },
   {
     to: '/admin/accounts',
-    label: '账号管理',
+    label: '平台账号',
     icon: 'fas fa-user-shield',
     active: (route: any) => route.path.startsWith('/admin/accounts')
   }
@@ -340,16 +376,16 @@ const dataManagementItems = ref([
 // 系统配置菜单项
 const systemConfigItems = ref([
   {
-    to: '/admin/platforms',
-    label: '平台管理',
-    icon: 'fas fa-cloud',
-    active: (route: any) => route.path.startsWith('/admin/platforms')
-  },
-  {
     to: '/admin/system-config',
     label: '系统配置',
     icon: 'fas fa-cog',
     active: (route: any) => route.path.startsWith('/admin/system-config')
+  },
+  {
+    to: '/admin/users',
+    label: '用户管理',
+    icon: 'fas fa-users',
+    active: (route: any) => route.path.startsWith('/admin/users')
   }
 ])
 
@@ -360,12 +396,6 @@ const operationItems = ref([
     label: '热播剧管理',
     icon: 'fas fa-film',
     active: (route: any) => route.path.startsWith('/admin/hot-dramas')
-  },
-  {
-    to: '/admin/users',
-    label: '用户管理',
-    icon: 'fas fa-users',
-    active: (route: any) => route.path.startsWith('/admin/users')
   }
 ])
 
@@ -386,9 +416,9 @@ const autoExpandCurrentGroup = () => {
   // 检查当前页面属于哪个分组并展开
   if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts')) {
     expandedGroups.value.dataManagement = true
-  } else if (currentPath.startsWith('/admin/platforms') || currentPath.startsWith('/admin/system-config')) {
+  } else if (currentPath.startsWith('/admin/system-config') || currentPath.startsWith('/admin/users')) {
     expandedGroups.value.systemConfig = true
-  } else if (currentPath.startsWith('/admin/hot-dramas') || currentPath.startsWith('/admin/users')) {
+  } else if (currentPath.startsWith('/admin/hot-dramas')) {
     expandedGroups.value.operation = true
   } else if (currentPath.startsWith('/admin/search-stats')) {
     expandedGroups.value.statistics = true
@@ -408,9 +438,9 @@ watch(() => useRoute().path, (newPath) => {
   // 根据新路径展开对应分组
   if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts')) {
     expandedGroups.value.dataManagement = true
-  } else if (newPath.startsWith('/admin/platforms') || newPath.startsWith('/admin/system-config')) {
+  } else if (newPath.startsWith('/admin/system-config') || newPath.startsWith('/admin/users')) {
     expandedGroups.value.systemConfig = true
-  } else if (newPath.startsWith('/admin/hot-dramas') || newPath.startsWith('/admin/users')) {
+  } else if (newPath.startsWith('/admin/hot-dramas')) {
     expandedGroups.value.operation = true
   } else if (newPath.startsWith('/admin/search-stats')) {
     expandedGroups.value.statistics = true

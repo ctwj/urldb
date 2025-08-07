@@ -78,6 +78,7 @@ func InitDB() error {
 			&entity.SearchStat{},
 			&entity.SystemConfig{},
 			&entity.HotDrama{},
+			&entity.ResourceView{},
 		)
 		if err != nil {
 			utils.Fatal("数据库迁移失败: %v", err)

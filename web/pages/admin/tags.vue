@@ -206,7 +206,7 @@ const { data: categoriesData } = await useAsyncData('tagCategories', () => categ
 const categoryOptions = computed(() => {
   const data = categoriesData.value as any
   const categories = data?.data || data || []
-  return categories.map((cat: any) => ({
+  return categories.items.map((cat: any) => ({
     label: cat.name,
     value: cat.id
   }))
@@ -325,8 +325,8 @@ const fetchData = async () => {
       search: searchQuery.value
     }) as any
     
-    if (response && response.data) {
-      tags.value = response.data
+    if (response && response.items) {
+      tags.value = response.items
       total.value = response.total || 0
     } else if (Array.isArray(response)) {
       tags.value = response
