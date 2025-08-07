@@ -376,10 +376,22 @@ const dataManagementItems = ref([
 // 系统配置菜单项
 const systemConfigItems = ref([
   {
-    to: '/admin/system-config',
-    label: '系统配置',
-    icon: 'fas fa-cog',
-    active: (route: any) => route.path.startsWith('/admin/system-config')
+    to: '/admin/site-config',
+    label: '站点配置',
+    icon: 'fas fa-globe',
+    active: (route: any) => route.path.startsWith('/admin/site-config')
+  },
+  {
+    to: '/admin/feature-config',
+    label: '功能配置',
+    icon: 'fas fa-sliders-h',
+    active: (route: any) => route.path.startsWith('/admin/feature-config')
+  },
+  {
+    to: '/admin/dev-config',
+    label: '开发配置',
+    icon: 'fas fa-code',
+    active: (route: any) => route.path.startsWith('/admin/dev-config')
   },
   {
     to: '/admin/users',
@@ -416,7 +428,7 @@ const autoExpandCurrentGroup = () => {
   // 检查当前页面属于哪个分组并展开
   if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts')) {
     expandedGroups.value.dataManagement = true
-  } else if (currentPath.startsWith('/admin/system-config') || currentPath.startsWith('/admin/users')) {
+  } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users')) {
     expandedGroups.value.systemConfig = true
   } else if (currentPath.startsWith('/admin/hot-dramas')) {
     expandedGroups.value.operation = true
@@ -438,7 +450,7 @@ watch(() => useRoute().path, (newPath) => {
   // 根据新路径展开对应分组
   if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts')) {
     expandedGroups.value.dataManagement = true
-  } else if (newPath.startsWith('/admin/system-config') || newPath.startsWith('/admin/users')) {
+  } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users')) {
     expandedGroups.value.systemConfig = true
   } else if (newPath.startsWith('/admin/hot-dramas')) {
     expandedGroups.value.operation = true
