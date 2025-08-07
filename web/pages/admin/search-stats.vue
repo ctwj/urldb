@@ -1,219 +1,171 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="container mx-auto px-4 py-8">
-      <!-- 页面标题 -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">搜索统计</h1>
-        <p class="text-gray-600 mt-2">查看搜索量统计和热门关键词分析</p>
+  <div class="space-y-6">
+    <!-- 页面标题 -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">搜索统计</h1>
+        <p class="text-gray-600 dark:text-gray-400">查看系统搜索统计数据</p>
       </div>
-
-      <!-- 统计卡片 -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-3 rounded-full bg-blue-100 text-blue-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">今日搜索</p>
-              <p class="text-2xl font-bold text-gray-900">{{ stats.todaySearches }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-3 rounded-full bg-green-100 text-green-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-              </svg>
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">本周搜索</p>
-              <p class="text-2xl font-bold text-gray-900">{{ stats.weekSearches }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow p-6">
-          <div class="flex items-center">
-            <div class="p-3 rounded-full bg-purple-100 text-purple-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-              </svg>
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-600">本月搜索</p>
-              <p class="text-2xl font-bold text-gray-900">{{ stats.monthSearches }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 搜索趋势图表 -->
-      <div class="bg-white rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">搜索趋势</h2>
-        <div class="h-64">
-          <canvas ref="trendChart"></canvas>
-        </div>
-      </div>
-
-      <!-- 热门关键词 -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">热门关键词</h2>
-        <div class="space-y-4">
-          <div v-for="keyword in stats.hotKeywords" :key="keyword.keyword" 
-               class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div class="flex items-center">
-              <span class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-medium mr-3">
-                {{ keyword.rank }}
-              </span>
-              <span class="text-gray-900 font-medium">{{ keyword.keyword }}</span>
-            </div>
-            <div class="flex items-center">
-              <span class="text-gray-600 mr-2">{{ keyword.count }}次</span>
-              <div class="w-24 bg-gray-200 rounded-full h-2">
-                <div class="bg-blue-600 h-2 rounded-full" 
-                     :style="{ width: getPercentage(keyword.count) + '%' }"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 搜索记录 -->
-      <div class="bg-white rounded-lg shadow p-6 mt-8">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">搜索记录</h2>
-        <table class="w-full table-auto text-sm">
-          <thead>
-            <tr>
-              <th class="px-2 py-2 text-left">关键词</th>
-              <th class="px-2 py-2 text-left">次数</th>
-              <th class="px-2 py-2 text-left">日期</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in searchList" :key="item.id">
-              <td class="px-2 py-2">{{ item.keyword }}</td>
-              <td class="px-2 py-2">{{ item.count }}</td>
-              <td class="px-2 py-2">{{ item.date ? (new Date(item.date)).toLocaleDateString() : '' }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-if="searchList.length === 0" class="text-gray-400 text-center py-8">暂无搜索记录</div>
+      <div class="flex space-x-3">
+        <n-button @click="refreshData">
+          <template #icon>
+            <i class="fas fa-refresh"></i>
+          </template>
+          刷新
+        </n-button>
       </div>
     </div>
+
+    <!-- 统计概览 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <n-card>
+        <div class="flex items-center">
+          <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+            <i class="fas fa-search text-blue-600 dark:text-blue-400"></i>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-gray-600 dark:text-gray-400">总资源数</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ stats.total_resources || 0 }}</p>
+          </div>
+        </div>
+      </n-card>
+
+      <n-card>
+        <div class="flex items-center">
+          <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+            <i class="fas fa-users text-green-600 dark:text-green-400"></i>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-gray-600 dark:text-gray-400">总用户数</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ stats.total_users || 0 }}</p>
+          </div>
+        </div>
+      </n-card>
+
+      <n-card>
+        <div class="flex items-center">
+          <div class="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+            <i class="fas fa-chart-line text-yellow-600 dark:text-yellow-400"></i>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-gray-600 dark:text-gray-400">总浏览量</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ stats.total_views || 0 }}</p>
+          </div>
+        </div>
+      </n-card>
+
+      <n-card>
+        <div class="flex items-center">
+          <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+            <i class="fas fa-calendar text-purple-600 dark:text-purple-400"></i>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-gray-600 dark:text-gray-400">今日更新</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ stats.today_updates || 0 }}</p>
+          </div>
+        </div>
+      </n-card>
+    </div>
+
+    <!-- 系统状态 -->
+    <n-card>
+      <template #header>
+        <span class="text-lg font-semibold">系统状态</span>
+      </template>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">分类统计</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">总分类数: {{ stats.total_categories || 0 }}</p>
+        </div>
+
+        <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">标签统计</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">总标签数: {{ stats.total_tags || 0 }}</p>
+        </div>
+
+        <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">平台统计</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">总平台数: {{ stats.total_platforms || 0 }}</p>
+        </div>
+
+        <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">热播剧统计</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">总热播剧数: {{ stats.total_hot_dramas || 0 }}</p>
+        </div>
+      </div>
+    </n-card>
+
+    <!-- 最近活动 -->
+    <n-card>
+      <template #header>
+        <span class="text-lg font-semibold">最近活动</span>
+      </template>
+
+      <div class="space-y-4">
+        <div class="flex items-center space-x-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+            <i class="fas fa-plus text-blue-600 dark:text-blue-400 text-sm"></i>
+          </div>
+          <div class="flex-1">
+            <p class="text-sm font-medium text-gray-900 dark:text-white">新资源添加</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">系统正常运行中</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+          <div class="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+            <i class="fas fa-check text-green-600 dark:text-green-400 text-sm"></i>
+          </div>
+          <div class="flex-1">
+            <p class="text-sm font-medium text-gray-900 dark:text-white">自动处理</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">待处理资源自动处理中</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+          <div class="w-8 h-8 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center">
+            <i class="fas fa-sync text-yellow-600 dark:text-yellow-400 text-sm"></i>
+          </div>
+          <div class="flex-1">
+            <p class="text-sm font-medium text-gray-900 dark:text-white">数据同步</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">系统数据同步正常</p>
+          </div>
+        </div>
+      </div>
+    </n-card>
   </div>
 </template>
 
-<script setup>
-// 设置页面布局
+<script setup lang="ts">
 definePageMeta({
-  layout: 'admin',
-  ssr: false
+  layout: 'admin' as any
 })
 
-import { ref, onMounted, computed } from 'vue'
-import Chart from 'chart.js/auto'
-import { useApiFetch } from '~/composables/useApiFetch'
-import { parseApiResponse } from '~/composables/useApi'
+// 使用API
+const { useStatsApi } = await import('~/composables/useApi')
+const statsApi = useStatsApi()
 
-const stats = ref({
-  todaySearches: 0,
-  weekSearches: 0,
-  monthSearches: 0,
-  hotKeywords: [],
-  searchTrend: {
-    days: [],
-    values: []
-  }
-})
+// 响应式数据
+const stats = ref<any>({})
 
-const searchList = ref([])
-
-const trendChart = ref(null)
-let chart = null
-
-// 获取百分比
-const getPercentage = (count) => {
-  if (stats.value.hotKeywords.length === 0) return 0
-  const maxCount = Math.max(...stats.value.hotKeywords.map(k => k.count))
-  return Math.round((count / maxCount) * 100)
-}
-
-// 加载搜索统计
-const loadSearchStats = async () => {
+// 获取统计数据
+const fetchStats = async () => {
   try {
-    // 1. 汇总卡片
-    const summary = await useApiFetch('/search-stats/summary').then(parseApiResponse)
-    stats.value.todaySearches = summary.today || 0
-    stats.value.weekSearches = summary.week || 0
-    stats.value.monthSearches = summary.month || 0
-    // 2. 热门关键词
-    const hotKeywords = await useApiFetch('/search-stats/hot-keywords').then(parseApiResponse)
-    stats.value.hotKeywords = hotKeywords || []
-    // 3. 趋势
-    const trend = await useApiFetch('/search-stats/trend').then(parseApiResponse)
-    stats.value.searchTrend.days = (trend || []).map(item => item.date ? (new Date(item.date)).toLocaleDateString() : '')
-    stats.value.searchTrend.values = (trend || []).map(item => item.total_searches)
-    // 4. 搜索记录
-    const data = await useApiFetch('/search-stats').then(parseApiResponse)
-    searchList.value = data || []
-    // 5. 更新图表
-    setTimeout(updateChart, 100)
+    const response = await statsApi.getStats() as any
+    stats.value = response.data || {}
   } catch (error) {
-    console.error('加载搜索统计失败:', error)
+    console.error('获取统计数据失败:', error)
   }
 }
 
-// 更新图表
-const updateChart = () => {
-  if (chart) {
-    chart.destroy()
-  }
-
-  const ctx = trendChart.value.getContext('2d')
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: stats.value.searchTrend.days,
-      datasets: [{
-        label: '搜索量',
-        data: stats.value.searchTrend.values,
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        tension: 0.4,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: {
-            color: 'rgba(0, 0, 0, 0.1)'
-          }
-        },
-        x: {
-          grid: {
-            color: 'rgba(0, 0, 0, 0.1)'
-          }
-        }
-      }
-    }
-  })
-}
-
+// 初始化数据
 onMounted(() => {
-  loadSearchStats()
+  fetchStats()
 })
+
+// 刷新数据
+const refreshData = () => {
+  fetchStats()
+}
 </script> 

@@ -1,26 +1,230 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
-    <!-- 全局加载状态 -->
-    <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
-        <div class="flex flex-col items-center space-y-4">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <div class="text-center">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">正在加载...</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">请稍候，正在初始化管理后台</p>
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-6 py-4">
+        <!-- 左侧：Logo和标题 -->
+        <div class="flex items-center">
+          <NuxtLink to="/admin" class="flex items-center space-x-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <i class="fas fa-shield-alt text-white text-sm"></i>
+            </div>
+            <div>
+              <h1 class="text-xl font-bold text-gray-900 dark:text-white">管理后台</h1>
+              <p class="text-xs text-gray-500 dark:text-gray-400">老九网盘资源数据库</p>
+            </div>
+          </NuxtLink>
+        </div>
+
+
+
+        <!-- 右侧：用户菜单 -->
+        <div class="flex items-center space-x-4">
+          <NuxtLink to="/" class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            <i class="fas fa-home text-lg"></i>
+          </NuxtLink>
+          
+          <!-- 用户信息和下拉菜单 -->
+          <div class="relative">
+            <button
+              @click="showUserMenu = !showUserMenu"
+              class="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <i class="fas fa-user text-white text-sm"></i>
+              </div>
+              <div class="hidden md:block text-left">
+                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ userStore.user?.username || '管理员' }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">管理员</p>
+              </div>
+              <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+            </button>
+
+            <!-- 下拉菜单内容 -->
+            <div
+              v-if="showUserMenu"
+              class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700"
+            >
+              <template v-for="item in userMenuItems" :key="item.label || item.type">
+                <!-- 链接菜单项 -->
+                <NuxtLink
+                  v-if="item.type === 'link' && item.to"
+                  :to="item.to"
+                  class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <i :class="item.icon + ' mr-2'"></i>
+                  {{ item.label }}
+                </NuxtLink>
+                
+                <!-- 按钮菜单项 -->
+                <button
+                  v-else-if="item.type === 'button'"
+                  @click="item.action"
+                  class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                  :class="item.className || 'text-gray-700 dark:text-gray-300'"
+                >
+                  <i :class="item.icon + ' mr-2'"></i>
+                  {{ item.label }}
+                </button>
+                
+                <!-- 分割线 -->
+                <div
+                  v-else-if="item.type === 'divider'"
+                  class="border-t border-gray-200 dark:border-gray-700 my-1"
+                ></div>
+              </template>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- 管理页面头部 -->
-    <div class="p-3 sm:p-5">
-      <AdminHeader :title="pageTitle" />
-    </div>
+    </header>
     
-    <!-- 主要内容区域 -->
-    <div class="p-3 sm:p-5">
-      <div class="max-w-7xl mx-auto">
+    <!-- 侧边栏和主内容区域 -->
+    <div class="flex">
+      <!-- 侧边栏 -->
+      <aside class="w-64 bg-white dark:bg-gray-800 shadow-sm border-r border-gray-200 dark:border-gray-700 min-h-screen">
+        <nav class="mt-8">
+          <div class="px-4 space-y-6">
+            <!-- 仪表盘 -->
+            <div>
+              <h3 class="px-4 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                仪表盘
+              </h3>
+              <div class="space-y-1">
+                <NuxtLink
+                  v-for="item in dashboardItems"
+                  :key="item.to"
+                  :to="item.to"
+                  class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+                  :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active(useRoute()) }"
+                >
+                  <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+                  <span>{{ item.label }}</span>
+                </NuxtLink>
+              </div>
+            </div>
+
+            <!-- 数据管理 -->
+            <div>
+              <button
+                @click="toggleGroup('dataManagement')"
+                class="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              >
+                <span>数据管理</span>
+                <i 
+                  class="fas fa-chevron-down text-xs transition-transform duration-200"
+                  :class="{ 'rotate-180': expandedGroups.dataManagement }"
+                ></i>
+              </button>
+              <div 
+                v-show="expandedGroups.dataManagement"
+                class="space-y-1 mt-2"
+              >
+                <NuxtLink
+                  v-for="item in dataManagementItems"
+                  :key="item.to"
+                  :to="item.to"
+                  class="flex items-center px-8 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+                  :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active(useRoute()) }"
+                >
+                  <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+                  <span>{{ item.label }}</span>
+                </NuxtLink>
+              </div>
+            </div>
+
+            <!-- 系统配置 -->
+            <div>
+              <button
+                @click="toggleGroup('systemConfig')"
+                class="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              >
+                <span>系统配置</span>
+                <i 
+                  class="fas fa-chevron-down text-xs transition-transform duration-200"
+                  :class="{ 'rotate-180': expandedGroups.systemConfig }"
+                ></i>
+              </button>
+              <div 
+                v-show="expandedGroups.systemConfig"
+                class="space-y-1 mt-2"
+              >
+                <NuxtLink
+                  v-for="item in systemConfigItems"
+                  :key="item.to"
+                  :to="item.to"
+                  class="flex items-center px-8 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+                  :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active(useRoute()) }"
+                >
+                  <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+                  <span>{{ item.label }}</span>
+                </NuxtLink>
+              </div>
+            </div>
+
+            <!-- 运营管理 -->
+            <div>
+              <button
+                @click="toggleGroup('operation')"
+                class="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              >
+                <span>运营管理</span>
+                <i 
+                  class="fas fa-chevron-down text-xs transition-transform duration-200"
+                  :class="{ 'rotate-180': expandedGroups.operation }"
+                ></i>
+              </button>
+              <div 
+                v-show="expandedGroups.operation"
+                class="space-y-1 mt-2"
+              >
+                <NuxtLink
+                  v-for="item in operationItems"
+                  :key="item.to"
+                  :to="item.to"
+                  class="flex items-center px-8 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+                  :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active(useRoute()) }"
+                >
+                  <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+                  <span>{{ item.label }}</span>
+                </NuxtLink>
+              </div>
+            </div>
+
+            <!-- 统计分析 -->
+            <div>
+              <button
+                @click="toggleGroup('statistics')"
+                class="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              >
+                <span>统计分析</span>
+                <i 
+                  class="fas fa-chevron-down text-xs transition-transform duration-200"
+                  :class="{ 'rotate-180': expandedGroups.statistics }"
+                ></i>
+              </button>
+              <div 
+                v-show="expandedGroups.statistics"
+                class="space-y-1 mt-2"
+              >
+                <NuxtLink
+                  v-for="item in statisticsItems"
+                  :key="item.to"
+                  :to="item.to"
+                  class="flex items-center px-8 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+                  :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active(useRoute()) }"
+                >
+                  <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+                  <span>{{ item.label }}</span>
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </aside>
+      
+      <!-- 主内容区域 -->
+      <main class="flex-1 p-8">
         <ClientOnly>
           <n-notification-provider>
             <n-dialog-provider>
@@ -29,74 +233,205 @@
             </n-dialog-provider>
           </n-notification-provider>
         </ClientOnly>
-      </div>
+      </main>
     </div>
-
-    <!-- 页脚 -->
-    <AppFooter />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useSystemConfigStore } from '~/stores/systemConfig'
-import { useUserLayout } from '~/composables/useUserLayout'
+import { useUserStore } from '~/stores/user'
 
-// 使用用户布局组合式函数
-const { checkAuth, checkPermission } = useUserLayout()
+// 用户状态管理
+const userStore = useUserStore()
+const router = useRouter()
 
-// 页面加载状态
-const pageLoading = ref(false)
+// 用户菜单状态
+const showUserMenu = ref(false)
 
-// 页面标题
-const route = useRoute()
-const pageTitle = computed(() => {
-  const titles: Record<string, string> = {
-    '/admin': '管理后台',
-    '/users': '用户管理',
-    '/categories': '分类管理',
-    '/tags': '标签管理',
-    '/system-config': '系统配置',
-    '/resources': '资源管理',
-    '/cks': '平台账号管理',
-    '/ready-resources': '待处理资源',
-    '/search-stats': '搜索统计',
-    '/hot-dramas': '热播剧管理',
-    '/monitor': '系统监控',
-    '/add-resource': '添加资源',
-    '/api-docs': 'API文档',
-    '/version': '版本信息'
+// 展开/折叠状态管理
+const expandedGroups = ref({
+  dataManagement: false,
+  systemConfig: false,
+  operation: false,
+  statistics: false
+})
+
+// 切换分组展开/折叠状态
+const toggleGroup = (groupName: string) => {
+  expandedGroups.value[groupName as keyof typeof expandedGroups.value] = !expandedGroups.value[groupName as keyof typeof expandedGroups.value]
+}
+
+// 处理退出登录
+const handleLogout = () => {
+  userStore.logout()
+  router.push('/login')
+}
+
+// 管理员菜单项
+const userMenuItems = computed(() => [
+  {
+    to: '/admin/accounts',
+    icon: 'fas fa-user-shield',
+    label: '账号管理',
+    type: 'link'
+  },
+  {
+    to: '/admin/system-config',
+    icon: 'fas fa-cog',
+    label: '系统配置',
+    type: 'link'
+  },
+  {
+    type: 'divider'
+  },
+  {
+    type: 'button',
+    icon: 'fas fa-sign-out-alt',
+    label: '退出登录',
+    action: handleLogout,
+    className: 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300'
   }
-  return titles[route.path] || '管理后台'
-})
+])
 
-// 监听路由变化，显示加载状态
-watch(() => route.path, () => {
-  pageLoading.value = true
-  setTimeout(() => {
-    pageLoading.value = false
-  }, 300)
-})
+// 仪表盘菜单项
+const dashboardItems = ref([
+  {
+    to: '/admin',
+    label: '仪表盘',
+    icon: 'fas fa-tachometer-alt',
+    active: (route: any) => route.path === '/admin'
+  }
+])
 
-const systemConfigStore = useSystemConfigStore()
+// 数据管理菜单项
+const dataManagementItems = ref([
+  {
+    to: '/admin/resources',
+    label: '资源管理',
+    icon: 'fas fa-database',
+    active: (route: any) => route.path.startsWith('/admin/resources')
+  },
+  {
+    to: '/admin/ready-resources',
+    label: '待处理资源',
+    icon: 'fas fa-clock',
+    active: (route: any) => route.path.startsWith('/admin/ready-resources')
+  },
+  {
+    to: '/admin/tags',
+    label: '标签管理',
+    icon: 'fas fa-tags',
+    active: (route: any) => route.path.startsWith('/admin/tags')
+  },
+  {
+    to: '/admin/categories',
+    label: '分类管理',
+    icon: 'fas fa-folder',
+    active: (route: any) => route.path.startsWith('/admin/categories')
+  },
+  {
+    to: '/admin/accounts',
+    label: '账号管理',
+    icon: 'fas fa-user-shield',
+    active: (route: any) => route.path.startsWith('/admin/accounts')
+  }
+])
+
+// 系统配置菜单项
+const systemConfigItems = ref([
+  {
+    to: '/admin/platforms',
+    label: '平台管理',
+    icon: 'fas fa-cloud',
+    active: (route: any) => route.path.startsWith('/admin/platforms')
+  },
+  {
+    to: '/admin/system-config',
+    label: '系统配置',
+    icon: 'fas fa-cog',
+    active: (route: any) => route.path.startsWith('/admin/system-config')
+  }
+])
+
+// 运营管理菜单项
+const operationItems = ref([
+  {
+    to: '/admin/hot-dramas',
+    label: '热播剧管理',
+    icon: 'fas fa-film',
+    active: (route: any) => route.path.startsWith('/admin/hot-dramas')
+  },
+  {
+    to: '/admin/users',
+    label: '用户管理',
+    icon: 'fas fa-users',
+    active: (route: any) => route.path.startsWith('/admin/users')
+  }
+])
+
+// 统计分析菜单项
+const statisticsItems = ref([
+  {
+    to: '/admin/search-stats',
+    label: '搜索统计',
+    icon: 'fas fa-chart-line',
+    active: (route: any) => route.path.startsWith('/admin/search-stats')
+  }
+])
+
+// 自动展开当前页面所在的分组
+const autoExpandCurrentGroup = () => {
+  const currentPath = useRoute().path
+  
+  // 检查当前页面属于哪个分组并展开
+  if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts')) {
+    expandedGroups.value.dataManagement = true
+  } else if (currentPath.startsWith('/admin/platforms') || currentPath.startsWith('/admin/system-config')) {
+    expandedGroups.value.systemConfig = true
+  } else if (currentPath.startsWith('/admin/hot-dramas') || currentPath.startsWith('/admin/users')) {
+    expandedGroups.value.operation = true
+  } else if (currentPath.startsWith('/admin/search-stats')) {
+    expandedGroups.value.statistics = true
+  }
+}
+
+// 监听路由变化，自动展开对应分组
+watch(() => useRoute().path, (newPath) => {
+  // 重置所有分组状态
+  expandedGroups.value = {
+    dataManagement: false,
+    systemConfig: false,
+    operation: false,
+    statistics: false
+  }
+  
+  // 根据新路径展开对应分组
+  if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts')) {
+    expandedGroups.value.dataManagement = true
+  } else if (newPath.startsWith('/admin/platforms') || newPath.startsWith('/admin/system-config')) {
+    expandedGroups.value.systemConfig = true
+  } else if (newPath.startsWith('/admin/hot-dramas') || newPath.startsWith('/admin/users')) {
+    expandedGroups.value.operation = true
+  } else if (newPath.startsWith('/admin/search-stats')) {
+    expandedGroups.value.statistics = true
+  }
+}, { immediate: true })
+
+// 点击外部关闭菜单
 onMounted(() => {
-  // 检查用户认证和权限
-  if (!checkAuth()) {
-    return
-  }
-  
-  // 检查是否为管理员
-  if (!checkPermission('admin')) {
-    return
-  }
-  
-  systemConfigStore.initConfig()
-  pageLoading.value = true
-  setTimeout(() => {
-    pageLoading.value = false
-  }, 300)
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    if (!target.closest('.relative')) {
+      showUserMenu.value = false
+    }
+  })
 })
 </script>
 
 <style scoped>
-/* 管理后台专用样式 */
+/* 确保Font Awesome图标正确显示 */
+.fas {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+}
 </style> 

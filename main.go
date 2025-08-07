@@ -182,6 +182,8 @@ func main() {
 		// 统计
 		api.GET("/stats", handlers.GetStats)
 		api.GET("/performance", handlers.GetPerformanceStats)
+		api.GET("/stats/views-trend", handlers.GetViewsTrend)
+		api.GET("/stats/searches-trend", handlers.GetSearchesTrend)
 		api.GET("/system/info", handlers.GetSystemInfo)
 
 		// 平台管理

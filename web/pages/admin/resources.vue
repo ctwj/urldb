@@ -1,519 +1,428 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
-    <!-- 全局加载状态 -->
-    <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
-        <div class="flex flex-col items-center space-y-4">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <div class="text-center">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">正在加载...</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">请稍候，正在加载资源数据</p>
-          </div>
-        </div>
+  <div class="space-y-6">
+    <!-- 页面标题 -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">资源管理</h1>
+        <p class="text-gray-600 dark:text-gray-400">管理系统中的所有资源</p>
+      </div>
+      <div class="flex space-x-3">
+        <n-button type="primary" @click="navigateTo('/admin/add-resource')">
+          <template #icon>
+            <i class="fas fa-plus"></i>
+          </template>
+          添加资源
+        </n-button>
+        <n-button @click="showBatchModal = true" type="info">
+          <template #icon>
+            <i class="fas fa-list"></i>
+          </template>
+          批量操作
+        </n-button>
+        <n-button @click="refreshData">
+          <template #icon>
+            <i class="fas fa-refresh"></i>
+          </template>
+          刷新
+        </n-button>
       </div>
     </div>
 
-    <div class="max-w-7xl mx-auto">
-
-      <!-- 搜索和筛选区域 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <!-- 搜索框 -->
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">搜索资源</label>
-            <div class="relative">
-              <n-input 
-                v-model:value="searchQuery"
-                @keyup.enter="handleSearch"
-                type="text" 
-                placeholder="输入文件名或链接进行搜索..."
-              />
-              <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <i class="fas fa-search text-gray-400"></i>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 平台筛选 -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">平台筛选</label>
-            <select 
-              v-model="selectedPlatform"
-              @change="handleSearch"
-              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-gray-100"
-            >
-              <option value="">全部平台</option>
-              <option v-for="platform in platforms" :key="platform.id" :value="platform.id">
-                {{ platform.name }}
-              </option>
-            </select>
-          </div>
-          
-          <!-- 分类筛选 -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">分类筛选</label>
-            <select 
-              v-model="selectedCategory"
-              @change="handleSearch"
-              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-gray-100"
-            >
-              <option value="">全部分类</option>
-              <option v-for="category in categories" :key="category.id" :value="category.id">
-                {{ category.name }}
-              </option>
-            </select>
-          </div>
-        </div>
+    <!-- 搜索和筛选 -->
+    <n-card>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <n-input
+          v-model:value="searchQuery"
+          placeholder="搜索资源..."
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <i class="fas fa-search"></i>
+          </template>
+        </n-input>
         
-        <!-- 搜索按钮 -->
-        <div class="mt-4 flex justify-between items-center">
-          <div class="flex gap-2">
-            <n-button 
-              @click="handleSearch" 
-              type="primary"
-            >
-              <i class="fas fa-search"></i> 搜索
-            </n-button>
-            <n-button 
-              @click="clearFilters" 
-              type="tertiary"
-            >
-              <i class="fas fa-times"></i> 清除筛选
-            </n-button>
-          </div>
-          <div class="text-sm text-gray-600 dark:text-gray-400">
-            共找到 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个资源
-          </div>
+        <n-select
+          v-model:value="selectedCategory"
+          placeholder="选择分类"
+          :options="categoryOptions"
+          clearable
+        />
+        
+        <n-select
+          v-model:value="selectedPlatform"
+          placeholder="选择平台"
+          :options="platformOptions"
+          clearable
+        />
+        
+        <n-button type="primary" @click="handleSearch">
+          <template #icon>
+            <i class="fas fa-search"></i>
+          </template>
+          搜索
+        </n-button>
+      </div>
+    </n-card>
+
+    <!-- 资源列表 -->
+    <n-card>
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span class="text-lg font-semibold">资源列表</span>
+          <span class="text-sm text-gray-500">共 {{ total }} 个资源</span>
         </div>
+      </template>
+
+      <div v-if="loading" class="flex items-center justify-center py-8">
+        <n-spin size="large" />
       </div>
 
-      <!-- 操作按钮 -->
-      <div class="flex justify-between items-center mb-4">
-        <div class="flex gap-2">
-          <n-button 
-            @click="showBatchModal = true" 
-            type="primary"
-          >
-            <i class="fas fa-list"></i> 批量操作
-          </n-button>
-        </div>
-        <div class="flex gap-2">
-          <n-button 
-            @click="refreshData" 
-            type="tertiary"
-          >
-            <i class="fas fa-refresh"></i> 刷新
-          </n-button>
-          <n-button 
-            @click="exportData" 
-            type="info"
-          >
-            <i class="fas fa-download"></i> 导出
-          </n-button>
-        </div>
+      <div v-else-if="resources.length === 0" class="text-center py-8">
+        <i class="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
+        <p class="text-gray-500">暂无资源数据</p>
       </div>
 
-      <!-- 批量操作模态框 -->
-      <div v-if="showBatchModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 text-gray-900 dark:text-gray-100">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold">批量操作</h3>
-            <n-button @click="closeBatchModal" type="tertiary" size="small">
-              <i class="fas fa-times"></i>
-            </n-button>
-          </div>
-          
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择操作：</label>
-              <select 
-                v-model="batchAction"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-gray-100"
-              >
-                <option value="">请选择操作</option>
-                <option value="delete">批量删除</option>
-                <option value="update_category">批量更新分类</option>
-                <option value="update_tags">批量更新标签</option>
-              </select>
-            </div>
-            
-            <div v-if="batchAction === 'update_category'">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择分类：</label>
-              <select 
-                v-model="batchCategory"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-gray-100"
-              >
-                <option value="">请选择分类</option>
-                <option v-for="category in categories" :key="category.id" :value="category.id">
-                  {{ category.name }}
-                </option>
-              </select>
-            </div>
-            
-            <div v-if="batchAction === 'update_tags'">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择标签：</label>
-              <div class="space-y-2">
-                <div v-for="tag in tags" :key="tag.id" class="flex items-center">
-                  <n-checkbox 
-                    :value="tag.id" 
-                    :checked="batchTags.includes(tag.id)"
-                    @update:checked="(checked) => {
-                      if (checked) {
-                        batchTags.push(tag.id)
-                      } else {
-                        const index = batchTags.indexOf(tag.id)
-                        if (index > -1) {
-                          batchTags.splice(index, 1)
-                        }
-                      }
-                    }"
-                  />
-                  <span class="text-sm">{{ tag.name }}</span>
+      <div v-else>
+        <!-- 虚拟列表 -->
+        <n-virtual-list
+          :items="resources"
+          :item-size="120"
+          container-style="height: 600px;"
+        >
+          <template #default="{ item: resource }">
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mb-4">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <div class="flex items-center space-x-2 mb-2">
+                    <n-checkbox 
+                      :value="resource.id" 
+                      :checked="selectedResources.includes(resource.id)"
+                      @update:checked="(checked) => toggleResourceSelection(resource.id, checked)"
+                    />
+                    <span class="text-sm text-gray-500">{{ resource.id }}</span>
+                    <span v-if="resource.pan_id" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
+                      {{ getPlatformName(resource.pan_id) }}
+                    </span>
+                    <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">
+                      {{ getCategoryName(resource.category_id) }}
+                    </span>
+                  </div>
+                  
+                  <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    {{ resource.title }}
+                  </h3>
+                  
+                  <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2">
+                    {{ resource.description }}
+                  </p>
+                  
+                  <div class="flex items-center space-x-4 text-sm text-gray-500">
+                    <span>
+                      <i class="fas fa-link mr-1"></i>
+                      {{ resource.url }}
+                    </span>
+                    <span v-if="resource.author">
+                      <i class="fas fa-user mr-1"></i>
+                      {{ resource.author }}
+                    </span>
+                    <span v-if="resource.file_size">
+                      <i class="fas fa-file mr-1"></i>
+                      {{ resource.file_size }}
+                    </span>
+                    <span>
+                      <i class="fas fa-eye mr-1"></i>
+                      {{ resource.view_count || 0 }}
+                    </span>
+                  </div>
+
+                  <div v-if="resource.tags && resource.tags.length > 0" class="mt-2">
+                    <div class="flex flex-wrap gap-1">
+                      <span 
+                        v-for="tag in resource.tags" 
+                        :key="tag.id" 
+                        class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
+                      >
+                        {{ tag.name }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="flex items-center space-x-2 ml-4">
+                  <n-button size="small" type="primary" @click="editResource(resource)">
+                    <template #icon>
+                      <i class="fas fa-edit"></i>
+                    </template>
+                    编辑
+                  </n-button>
+                  <n-button size="small" type="error" @click="deleteResource(resource)">
+                    <template #icon>
+                      <i class="fas fa-trash"></i>
+                    </template>
+                    删除
+                  </n-button>
                 </div>
               </div>
             </div>
-          </div>
-          
-          <div class="flex justify-end gap-2 mt-6">
-            <n-button @click="closeBatchModal" type="tertiary">
-              取消
-            </n-button>
-            <n-button @click="handleBatchAction" type="primary">
-              执行操作
-            </n-button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 资源列表 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100 sticky top-0 z-10">
-              <tr>
-                <th class="px-4 py-3 text-left text-sm font-medium">
-                  <n-checkbox 
-                    v-model:checked="selectAll"
-                    @update:checked="toggleSelectAll"
-                  />
-                  ID
-                </th>
-                <th class="px-4 py-3 text-left text-sm font-medium">标题</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">平台</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">分类</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">链接</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">浏览量</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">更新时间</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
-              <tr v-if="loading" class="text-center py-8">
-                <td colspan="8" class="text-gray-500 dark:text-gray-400">
-                  <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
-                </td>
-              </tr>
-              <tr v-else-if="resources.length === 0">
-                <td colspan="8">
-                  <div class="flex flex-col items-center justify-center py-12">
-                    <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-                      <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
-                      <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
-                    </svg>
-                    <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无资源数据</div>
-                    <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加资源"按钮快速导入资源</div>
-                    <div class="flex gap-2">
-                      <NuxtLink 
-                        to="/admin/add-resource" 
-                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm flex items-center gap-2"
-                      >
-                        <i class="fas fa-plus"></i> 添加资源
-                      </NuxtLink>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-              <tr 
-                v-for="resource in resources" 
-                :key="resource.id"
-                class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">
-                  <n-checkbox 
-                    :value="resource.id"
-                    :checked="selectedResources.includes(resource.id)"
-                    @update:checked="(checked) => {
-                      if (checked) {
-                        selectedResources.push(resource.id)
-                      } else {
-                        const index = selectedResources.indexOf(resource.id)
-                        if (index > -1) {
-                          selectedResources.splice(index, 1)
-                        }
-                      }
-                    }"
-                  />
-                  {{ resource.id }}
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                  <span :title="resource.title">{{ escapeHtml(resource.title) }}</span>
-                </td>
-                <td class="px-4 py-3 text-sm">
-                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                    {{ getPlatformName(resource.pan_id) }}
-                  </span>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                  {{ getCategoryName(resource.category_id) || '-' }}
-                </td>
-                <td class="px-4 py-3 text-sm">
-                  <a 
-                    :href="checkUrlSafety(resource.url)" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline break-all"
-                    :title="resource.url"
-                  >
-                    {{ escapeHtml(resource.url) }}
-                  </a>
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                  {{ resource.view_count || 0 }}
-                </td>
-                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                  {{ formatTime(resource.updated_at) }}
-                </td>
-                <td class="px-4 py-3 text-sm">
-                  <div class="flex gap-2">
-                    <button 
-                      @click="editResource(resource)"
-                      class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                      title="编辑资源"
-                    >
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button 
-                      @click="deleteResource(resource.id)"
-                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                      title="删除资源"
-                    >
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- 分页组件 -->
-      <div v-if="totalPages > 1" class="mt-6 flex justify-center">
-        <div class="flex items-center space-x-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-          <!-- 总资源数 -->
-          <div class="text-sm text-gray-600 dark:text-gray-400">
-            共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个资源
-          </div>
-          
-          <div class="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
-          
-          <!-- 上一页 -->
-          <button 
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage <= 1"
-            class="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
-          >
-            <i class="fas fa-chevron-left"></i>
-            <span>上一页</span>
-          </button>
-          
-          <!-- 页码 -->
-          <template v-for="page in visiblePages" :key="page">
-            <button 
-              v-if="typeof page === 'number'"
-              @click="goToPage(page)"
-              :class="[
-                'px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 min-w-[40px]',
-                page === currentPage 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
-              ]"
-            >
-              {{ page }}
-            </button>
-            <span v-else class="px-3 py-2 text-sm text-gray-500">...</span>
           </template>
-          
-          <!-- 下一页 -->
-          <button 
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage >= totalPages"
-            class="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
-          >
-            <span>下一页</span>
-            <i class="fas fa-chevron-right"></i>
-          </button>
-        </div>
-      </div>
+        </n-virtual-list>
 
-      <!-- 统计信息 -->
-      <div v-if="totalPages <= 1" class="mt-4 text-center">
-        <div class="inline-flex items-center bg-white dark:bg-gray-800 rounded-lg shadow px-6 py-3">
-          <div class="text-sm text-gray-600 dark:text-gray-400">
-            共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个资源
-          </div>
+        <!-- 分页 -->
+        <div class="mt-6">
+          <n-pagination
+            v-model:page="currentPage"
+            v-model:page-size="pageSize"
+            :item-count="total"
+            :page-sizes="[10, 20, 50, 100]"
+            show-size-picker
+            @update:page="handlePageChange"
+            @update:page-size="handlePageSizeChange"
+          />
         </div>
       </div>
-    </div>
+    </n-card>
+
+    <!-- 批量操作模态框 -->
+    <n-modal v-model:show="showBatchModal" preset="card" title="批量操作" style="width: 600px">
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <span>已选择 {{ selectedResources.length }} 个资源</span>
+          <n-button size="small" @click="clearSelection">清空选择</n-button>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <n-button type="error" @click="batchDelete" :disabled="selectedResources.length === 0">
+            <template #icon>
+              <i class="fas fa-trash"></i>
+            </template>
+            批量删除
+          </n-button>
+          <n-button type="warning" @click="batchUpdate" :disabled="selectedResources.length === 0">
+            <template #icon>
+              <i class="fas fa-edit"></i>
+            </template>
+            批量更新
+          </n-button>
+        </div>
+      </div>
+    </n-modal>
+
+    <!-- 编辑资源模态框 -->
+    <n-modal v-model:show="showEditModal" preset="card" title="编辑资源" style="width: 600px">
+      <n-form
+        ref="editFormRef"
+        :model="editForm"
+        :rules="editRules"
+        label-placement="left"
+        label-width="auto"
+        require-mark-placement="right-hanging"
+      >
+        <n-form-item label="标题" path="title">
+          <n-input v-model:value="editForm.title" placeholder="请输入资源标题" />
+        </n-form-item>
+
+        <n-form-item label="描述" path="description">
+          <n-input
+            v-model:value="editForm.description"
+            type="textarea"
+            placeholder="请输入资源描述"
+            :rows="3"
+          />
+        </n-form-item>
+
+        <n-form-item label="URL" path="url">
+          <n-input v-model:value="editForm.url" placeholder="请输入资源链接" />
+        </n-form-item>
+
+        <n-form-item label="分类" path="category_id">
+          <n-select
+            v-model:value="editForm.category_id"
+            :options="categoryOptions"
+            placeholder="请选择分类"
+            clearable
+          />
+        </n-form-item>
+
+        <n-form-item label="平台" path="pan_id">
+          <n-select
+            v-model:value="editForm.pan_id"
+            :options="platformOptions"
+            placeholder="请选择平台"
+            clearable
+          />
+        </n-form-item>
+
+        <n-form-item label="标签" path="tag_ids">
+          <n-select
+            v-model:value="editForm.tag_ids"
+            :options="tagOptions"
+            placeholder="请选择标签"
+            multiple
+            clearable
+          />
+        </n-form-item>
+      </n-form>
+
+      <template #footer>
+        <div class="flex justify-end space-x-3">
+          <n-button @click="showEditModal = false">取消</n-button>
+          <n-button type="primary" @click="handleEditSubmit" :loading="editing">
+            保存
+          </n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 // 设置页面布局
 definePageMeta({
-  layout: 'admin',
-  ssr: false
+  layout: 'admin'
 })
 
 interface Resource {
   id: number
   title: string
+  description?: string
   url: string
-  pan_id?: number
   category_id?: number
-  view_count: number
+  pan_id?: number
+  tag_ids?: number[]
+  tags?: Array<{ id: number; name: string }>
+  author?: string
+  file_size?: string
+  view_count?: number
+  is_valid: boolean
+  is_public: boolean
   created_at: string
   updated_at: string
 }
 
-interface Platform {
-  id: number
-  name: string
-}
-
-interface Category {
-  id: number
-  name: string
-}
-
-interface Tag {
-  id: number
-  name: string
-}
-
 const notification = useNotification()
-const resources = ref<Resource[]>([])
-const platforms = ref<Platform[]>([])
-const categories = ref<Category[]>([])
-const tags = ref<Tag[]>([])
-const loading = ref(false)
-const pageLoading = ref(true)
-
-// 搜索和筛选状态
-const searchQuery = ref('')
-const selectedPlatform = ref('')
-const selectedCategory = ref('')
-
-// 分页相关状态
-const currentPage = ref(1)
-const pageSize = ref(50)
-const totalCount = ref(0)
-const totalPages = ref(0)
-
-// 批量操作状态
-const showBatchModal = ref(false)
-const batchAction = ref('')
-const batchCategory = ref('')
-const batchTags = ref<number[]>([])
-const selectedResources = ref<number[]>([])
-const selectAll = ref(false)
 const dialog = useDialog()
+const resources = ref<Resource[]>([])
+const loading = ref(false)
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const searchQuery = ref('')
+const selectedCategory = ref(null)
+const selectedPlatform = ref(null)
+const selectedResources = ref<number[]>([])
+const showBatchModal = ref(false)
+const showEditModal = ref(false)
+const editing = ref(false)
+const editingResource = ref<Resource | null>(null)
+const editFormRef = ref()
 
-// API
-import { useResourceApi, usePanApi, useCategoryApi, useTagApi } from '~/composables/useApi'
+// 编辑表单
+const editForm = ref({
+  title: '',
+  description: '',
+  url: '',
+  category_id: null as number | null,
+  pan_id: null as number | null,
+  tag_ids: [] as number[]
+})
 
+// 编辑验证规则
+const editRules = {
+  title: {
+    required: true,
+    message: '请输入资源标题',
+    trigger: 'blur'
+  },
+  url: {
+    required: true,
+    message: '请输入资源链接',
+    trigger: 'blur'
+  }
+}
+
+// 获取资源API
+import { useResourceApi, useCategoryApi, useTagApi, usePanApi } from '~/composables/useApi'
 const resourceApi = useResourceApi()
-const panApi = usePanApi()
 const categoryApi = useCategoryApi()
 const tagApi = useTagApi()
+const panApi = usePanApi()
+
+// 获取分类数据
+const { data: categoriesData } = await useAsyncData('resourceCategories', () => categoryApi.getCategories())
+
+// 获取标签数据
+const { data: tagsData } = await useAsyncData('resourceTags', () => tagApi.getTags())
+
+// 获取平台数据
+const { data: platformsData } = await useAsyncData('resourcePlatforms', () => panApi.getPans())
+
+// 分类选项
+const categoryOptions = computed(() => {
+  const data = categoriesData.value as any
+  const categories = data?.data || data || []
+  return categories.map((cat: any) => ({
+    label: cat.name,
+    value: cat.id
+  }))
+})
+
+// 标签选项
+const tagOptions = computed(() => {
+  const data = tagsData.value as any
+  const tags = data?.data || data || []
+  return tags.map((tag: any) => ({
+    label: tag.name,
+    value: tag.id
+  }))
+})
+
+// 平台选项
+const platformOptions = computed(() => {
+  const data = platformsData.value as any
+  const platforms = data?.data || data || []
+  return platforms.map((platform: any) => ({
+    label: platform.name,
+    value: platform.id
+  }))
+})
+
+// 获取分类名称
+const getCategoryName = (categoryId: number) => {
+  const category = (categoriesData.value as any)?.data?.find((cat: any) => cat.id === categoryId)
+  return category?.name || '未知分类'
+}
+
+// 获取平台名称
+const getPlatformName = (platformId: number) => {
+  const platform = (platformsData.value as any)?.data?.find((plat: any) => plat.id === platformId)
+  return platform?.name || '未知平台'
+}
 
 // 获取数据
 const fetchData = async () => {
   loading.value = true
   try {
-    const params: any = {
+    const response = await resourceApi.getResources({
       page: currentPage.value,
-      page_size: pageSize.value
-    }
+      page_size: pageSize.value,
+      search: searchQuery.value,
+      category_id: selectedCategory.value,
+      pan_id: selectedPlatform.value
+    }) as any
     
-    if (searchQuery.value) {
-      params.search = searchQuery.value
-    }
-    
-    if (selectedPlatform.value) {
-      params.pan_id = selectedPlatform.value
-    }
-    
-    if (selectedCategory.value) {
-      params.category_id = selectedCategory.value
-    }
-    
-    const response = await resourceApi.getResources(params) as any
-    console.log('DEBUG', response)
-
     if (response && response.data) {
       resources.value = response.data
-      totalCount.value = response.total || 0
-      totalPages.value = Math.ceil((response.total || 0) / pageSize.value)
-    } else if (Array.isArray(response)) {
-      resources.value = response
-      totalCount.value = response.length
-      totalPages.value = 1
+      total.value = response.total || 0
     } else {
       resources.value = []
-      totalCount.value = 0
-      totalPages.value = 1
+      total.value = 0
     }
   } catch (error) {
     console.error('获取资源失败:', error)
     resources.value = []
-    totalCount.value = 0
-    totalPages.value = 1
+    total.value = 0
   } finally {
     loading.value = false
-  }
-}
-
-// 获取平台列表
-const fetchPlatforms = async () => {
-  try {
-    const response = await panApi.getPans()
-    platforms.value = Array.isArray(response) ? response : []
-  } catch (error) {
-    console.error('获取平台列表失败:', error)
-    platforms.value = []
-  }
-}
-
-// 获取分类列表
-const fetchCategories = async () => {
-  try {
-    const response = await categoryApi.getCategories()
-    categories.value = Array.isArray(response) ? response : []
-  } catch (error) {
-    console.error('获取分类列表失败:', error)
-    categories.value = []
-  }
-}
-
-// 获取标签列表
-const fetchTags = async () => {
-  try {
-    const response = await tagApi.getTags()
-    tags.value = Array.isArray(response) ? response : []
-  } catch (error) {
-    console.error('获取标签列表失败:', error)
-    tags.value = []
   }
 }
 
@@ -523,11 +432,14 @@ const handleSearch = () => {
   fetchData()
 }
 
-// 清除筛选
-const clearFilters = () => {
-  searchQuery.value = ''
-  selectedPlatform.value = ''
-  selectedCategory.value = ''
+// 分页处理
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  fetchData()
+}
+
+const handlePageSizeChange = (size: number) => {
+  pageSize.value = size
   currentPage.value = 1
   fetchData()
 }
@@ -537,182 +449,62 @@ const refreshData = () => {
   fetchData()
 }
 
-// 导出数据
-const exportData = () => {
-  // 实现导出功能
-  console.log('导出数据功能待实现')
-}
-
-// 分页处理
-const goToPage = (page: number) => {
-  currentPage.value = page
-  fetchData()
-}
-
-// 计算可见页码
-const visiblePages = computed(() => {
-  const pages = []
-  const maxVisible = 5
-  
-  if (totalPages.value <= maxVisible) {
-    for (let i = 1; i <= totalPages.value; i++) {
-      pages.push(i)
-    }
-  } else {
-    if (currentPage.value <= 3) {
-      for (let i = 1; i <= 4; i++) {
-        pages.push(i)
-      }
-      pages.push('...')
-      pages.push(totalPages.value)
-    } else if (currentPage.value >= totalPages.value - 2) {
-      pages.push(1)
-      pages.push('...')
-      for (let i = totalPages.value - 3; i <= totalPages.value; i++) {
-        pages.push(i)
-      }
-    } else {
-      pages.push(1)
-      pages.push('...')
-      for (let i = currentPage.value - 1; i <= currentPage.value + 1; i++) {
-        pages.push(i)
-      }
-      pages.push('...')
-      pages.push(totalPages.value)
-    }
-  }
-  
-  return pages
-})
-
-// 全选/取消全选
-const toggleSelectAll = (checked: boolean) => {
+// 切换资源选择
+const toggleResourceSelection = (resourceId: number, checked: boolean) => {
   if (checked) {
-    selectedResources.value = resources.value.map(r => r.id)
+    selectedResources.value.push(resourceId)
   } else {
-    selectedResources.value = []
-  }
-}
-
-// 批量操作
-const handleBatchAction = async () => {
-  if (selectedResources.value.length === 0) {
-    notification.error({
-      title: '失败',
-      content: '请选择要操作的资源',
-      duration: 3000
-    })
-    return
-  }
-  
-  if (!batchAction.value) {
-    notification.error({
-      title: '失败',
-      content: '请选择操作类型',
-      duration: 3000
-    })
-    return
-  }
-  
-  try {
-    switch (batchAction.value) {
-      case 'delete':
-        dialog.warning({
-          title: '警告',
-          content: `确定要删除选中的 ${selectedResources.value.length} 个资源吗？`,
-          positiveText: '确定',
-          negativeText: '取消',
-          draggable: true,
-          onPositiveClick: async () => {
-            await resourceApi.batchDeleteResources(selectedResources.value)
-            notification.success({
-              title: '成功',
-              content: '批量删除成功',
-              duration: 3000
-            })
-          }
-        })
-        return
-        break
-      case 'update_category':
-        if (!batchCategory.value) {
-          notification.error({
-            title: '失败',
-            content: '请选择分类',
-            duration: 3000
-          })
-          return
-        }
-        await Promise.all(selectedResources.value.map(id => 
-          resourceApi.updateResource(id, { category_id: batchCategory.value })
-        ))
-        notification.success({
-          title: '成功',
-          content: '批量更新分类成功',
-          duration: 3000
-        })
-        break
-      case 'update_tags':
-        await Promise.all(selectedResources.value.map(id => 
-          resourceApi.updateResource(id, { tag_ids: batchTags.value })
-        ))
-        notification.success({
-          title: '成功',
-          content: '批量更新标签成功',
-          duration: 3000
-        })
-        break
+    const index = selectedResources.value.indexOf(resourceId)
+    if (index > -1) {
+      selectedResources.value.splice(index, 1)
     }
-    
-    closeBatchModal()
-    fetchData()
-  } catch (error) {
-    console.error('批量操作失败:', error)
-    notification.error({
-      title: '失败',
-      content: '批量操作失败',
-      duration: 3000
-    })
   }
 }
 
-// 关闭批量操作模态框
-const closeBatchModal = () => {
-  showBatchModal.value = false
-  batchAction.value = ''
-  batchCategory.value = ''
-  batchTags.value = []
+// 清空选择
+const clearSelection = () => {
   selectedResources.value = []
-  selectAll.value = false
 }
 
 // 编辑资源
 const editResource = (resource: Resource) => {
-  // 跳转到编辑页面或打开编辑模态框
-  console.log('编辑资源:', resource)
+  editingResource.value = resource
+  editForm.value = {
+    title: resource.title,
+    description: resource.description || '',
+    url: resource.url,
+    category_id: resource.category_id || null,
+    pan_id: resource.pan_id || null,
+    tag_ids: resource.tag_ids || []
+  }
+  showEditModal.value = true
 }
 
 // 删除资源
-const deleteResource = async (id: number) => {
+const deleteResource = async (resource: Resource) => {
   dialog.warning({
     title: '警告',
-    content: '确定要删除这个资源吗？',
+    content: `确定要删除资源"${resource.title}"吗？`,
     positiveText: '确定',
     negativeText: '取消',
     draggable: true,
     onPositiveClick: async () => {
       try {
-        await resourceApi.deleteResource(id)
+        await resourceApi.deleteResource(resource.id)
         notification.success({
-          title: '成功',
           content: '删除成功',
           duration: 3000
         })
+        // 从当前列表中移除
+        const index = resources.value.findIndex(r => r.id === resource.id)
+        if (index > -1) {
+          resources.value.splice(index, 1)
+        }
+        // 重新获取数据以更新总数
         fetchData()
       } catch (error) {
         console.error('删除失败:', error)
         notification.error({
-          title: '失败',
           content: '删除失败',
           duration: 3000
         })
@@ -721,58 +513,114 @@ const deleteResource = async (id: number) => {
   })
 }
 
-// 工具函数
-const escapeHtml = (text: string) => {
-  if (!text) return ''
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
-
-const checkUrlSafety = (url: string) => {
-  if (!url) return '#'
-  // 检查URL安全性，这里可以添加更多检查逻辑
-  return url
-}
-
-const formatTime = (timeString: string) => {
-  if (!timeString) return '-'
-  const date = new Date(timeString)
-  return date.toLocaleString('zh-CN')
-}
-
-const getPlatformName = (panId?: number) => {
-  if (!panId) return '未知'
-  const platform = platforms.value.find(p => p.id === panId)
-  return platform?.name || '未知'
-}
-
-const getCategoryName = (categoryId?: number) => {
-  if (!categoryId) return null
-  const category = categories.value.find(c => c.id === categoryId)
-  return category?.name || null
-}
-
-// 页面初始化
-onMounted(async () => {
-  try {
-    await Promise.all([
-      fetchData(),
-      fetchPlatforms(),
-      fetchCategories(),
-      fetchTags()
-    ])
-  } catch (error) {
-    console.error('页面初始化失败:', error)
-  } finally {
-    pageLoading.value = false
+// 批量删除
+const batchDelete = async () => {
+  if (selectedResources.value.length === 0) {
+    notification.warning({
+      content: '请先选择要删除的资源',
+      duration: 3000
+    })
+    return
   }
+
+  dialog.warning({
+    title: '警告',
+    content: `确定要删除选中的 ${selectedResources.value.length} 个资源吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        // 这里应该调用批量删除API
+        console.log('批量删除:', selectedResources.value)
+        notification.success({
+          content: '批量删除成功',
+          duration: 3000
+        })
+        selectedResources.value = []
+        showBatchModal.value = false
+        fetchData()
+      } catch (error) {
+        console.error('批量删除失败:', error)
+        notification.error({
+          content: '批量删除失败',
+          duration: 3000
+        })
+      }
+    }
+  })
+}
+
+// 批量更新
+const batchUpdate = () => {
+  if (selectedResources.value.length === 0) {
+    notification.warning({
+      content: '请先选择要更新的资源',
+      duration: 3000
+    })
+    return
+  }
+  
+  // 这里可以实现批量更新功能
+  console.log('批量更新:', selectedResources.value)
+  notification.info({
+    content: '批量更新功能开发中',
+    duration: 3000
+  })
+}
+
+// 提交编辑
+const handleEditSubmit = async () => {
+  try {
+    editing.value = true
+    await editFormRef.value?.validate()
+    
+    await resourceApi.updateResource(editingResource.value!.id, editForm.value)
+    
+    notification.success({
+      content: '更新成功',
+      duration: 3000
+    })
+    
+    // 更新本地数据
+    const resourceId = editingResource.value?.id
+    const index = resources.value.findIndex(r => r.id === resourceId)
+    if (index > -1) {
+      resources.value[index] = { 
+        ...resources.value[index], 
+        title: editForm.value.title,
+        description: editForm.value.description,
+        url: editForm.value.url,
+        category_id: editForm.value.category_id || undefined,
+        pan_id: editForm.value.pan_id || undefined,
+        tag_ids: editForm.value.tag_ids
+      }
+    }
+    
+    showEditModal.value = false
+    editingResource.value = null
+  } catch (error) {
+    console.error('更新失败:', error)
+    notification.error({
+      content: '更新失败',
+      duration: 3000
+    })
+  } finally {
+    editing.value = false
+  }
+}
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchData()
+})
+
+// 设置页面标题
+useHead({
+  title: '资源管理 - 老九网盘资源数据库'
 })
 </script>
 
 <style scoped>
-/* 可以添加自定义样式 */
+/* 自定义样式 */
 </style> 

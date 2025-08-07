@@ -1,337 +1,394 @@
 <template>
+  <div class="space-y-6">
+    <!-- 页面标题 -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">分类管理</h1>
+        <p class="text-gray-600 dark:text-gray-400">管理系统中的资源分类</p>
+      </div>
+      <div class="flex space-x-3">
+        <n-button type="primary" @click="showAddModal = true">
+          <template #icon>
+            <i class="fas fa-plus"></i>
+          </template>
+          添加分类
+        </n-button>
+        <n-button @click="refreshData">
+          <template #icon>
+            <i class="fas fa-refresh"></i>
+          </template>
+          刷新
+        </n-button>
+      </div>
+    </div>
 
-  <!-- 操作按钮 -->
-  <div class="flex justify-between items-center mb-4">
+    <!-- 提示信息 -->
+    <n-alert title="分类用于对资源进行分类管理，可以关联多个标签" type="info" />
+
+    <!-- 搜索和操作 -->
+    <n-card>
+      <div class="flex justify-between items-center">
         <div class="flex gap-2">
           <n-button @click="showAddModal = true" type="success">
-            <i class="fas fa-plus"></i> 添加分类
+            <template #icon>
+              <i class="fas fa-plus"></i>
+            </template>
+            添加分类
           </n-button>
         </div>
         <div class="flex gap-2">
           <div class="relative">
-            <n-input v-model:value="searchQuery" @input="debounceSearch" type="text"
-              placeholder="搜索分类名称..." />
+            <n-input 
+              v-model:value="searchQuery" 
+              @input="debounceSearch" 
+              type="text"
+              placeholder="搜索分类名称..." 
+            />
             <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
               <i class="fas fa-search text-gray-400 text-sm"></i>
             </div>
           </div>
           <n-button @click="refreshData" type="tertiary">
-            <i class="fas fa-refresh"></i> 刷新
+            <template #icon>
+              <i class="fas fa-refresh"></i>
+            </template>
+            刷新
           </n-button>
         </div>
       </div>
+    </n-card>
 
-  <!-- 分类列表 -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full min-w-full">
-        <thead>
-          <tr class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100">
-            <th class="px-4 py-3 text-left text-sm font-medium">ID</th>
-            <th class="px-4 py-3 text-left text-sm font-medium">分类名称</th>
-            <th class="px-4 py-3 text-left text-sm font-medium">描述</th>
-            <th class="px-4 py-3 text-left text-sm font-medium">资源数量</th>
-            <th class="px-4 py-3 text-left text-sm font-medium">关联标签</th>
-            <th class="px-4 py-3 text-left text-sm font-medium">操作</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-          <tr v-if="loading" class="text-center py-8">
-            <td colspan="6" class="text-gray-500 dark:text-gray-400">
-              <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
-            </td>
-          </tr>
-          <tr v-else-if="categories.length === 0" class="text-center py-8">
-            <td colspan="6" class="text-gray-500 dark:text-gray-400">
-              <div class="flex flex-col items-center justify-center py-12">
-                <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor"
-                  viewBox="0 0 48 48">
-                  <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
-                  <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
-                </svg>
-                <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无分类</div>
-                <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加分类"按钮创建新分类</div>
-                <n-button @click="showAddModal = true" type="primary">
-                  <i class="fas fa-plus"></i> 添加分类
-                </n-button>
-              </div>
-            </td>
-          </tr>
-          <tr v-for="category in categories" :key="category.id"
-            class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{{ category.id }}</td>
-            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-              <span :title="category.name">{{ category.name }}</span>
-            </td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-              <span v-if="category.description" :title="category.description">{{ category.description }}</span>
-              <span v-else class="text-gray-400 dark:text-gray-500 italic">无描述</span>
-            </td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-              <span
-                class="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-full text-xs">
-                {{ category.resource_count || 0 }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-              <span v-if="category.tag_names && category.tag_names.length > 0" class="text-gray-800 dark:text-gray-200">
-                {{ category.tag_names.join(', ') }}
-              </span>
-              <span v-else class="text-gray-400 dark:text-gray-500 italic text-xs">无标签</span>
-            </td>
-            <td class="px-4 py-3 text-sm">
-              <div class="flex items-center gap-2">
-                <n-button @click="editCategory(category)" type="info" size="small">
-                  <i class="fas fa-edit"></i>
-                </n-button>
-                <n-button @click="deleteCategory(category.id)" type="error" size="small">
-                  <i class="fas fa-trash"></i>
-                </n-button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+    <!-- 分类列表 -->
+    <n-card>
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span class="text-lg font-semibold">分类列表</span>
+          <span class="text-sm text-gray-500">共 {{ total }} 个分类</span>
+        </div>
+      </template>
 
-  <!-- 分页 -->
-  <div v-if="totalPages > 1" class="flex flex-wrap justify-center gap-1 sm:gap-2 mt-6">
-    <button v-if="currentPage > 1" @click="goToPage(currentPage - 1)"
-      class="bg-white text-gray-700 hover:bg-gray-50 px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm flex items-center">
-      <i class="fas fa-chevron-left mr-1"></i> 上一页
-    </button>
-
-    <button @click="goToPage(1)"
-      :class="currentPage === 1 ? 'bg-slate-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-      class="px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm">
-      1
-    </button>
-
-    <button v-if="totalPages > 1" @click="goToPage(2)"
-      :class="currentPage === 2 ? 'bg-slate-800 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-      class="px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm">
-      2
-    </button>
-
-    <span v-if="currentPage > 2" class="px-2 py-1 sm:px-3 sm:py-2 text-gray-500 text-sm">...</span>
-
-    <button v-if="currentPage !== 1 && currentPage !== 2 && currentPage > 2"
-      class="bg-slate-800 text-white px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm">
-      {{ currentPage }}
-    </button>
-
-    <button v-if="currentPage < totalPages" @click="goToPage(currentPage + 1)"
-      class="bg-white text-gray-700 hover:bg-gray-50 px-2 py-1 sm:px-4 sm:py-2 rounded border transition-colors text-sm flex items-center">
-      下一页 <i class="fas fa-chevron-right ml-1"></i>
-    </button>
-  </div>
-
-  <!-- 统计信息 -->
-  <div v-if="totalPages <= 1" class="mt-4 text-center">
-    <div class="inline-flex items-center bg-white dark:bg-gray-800 rounded-lg shadow px-6 py-3">
-      <div class="text-sm text-gray-600 dark:text-gray-400">
-        共 <span class="font-semibold text-gray-900 dark:text-gray-100">{{ totalCount }}</span> 个分类
+      <div v-if="loading" class="flex items-center justify-center py-8">
+        <n-spin size="large" />
       </div>
-    </div>
-  </div>
 
-  <!-- 添加/编辑分类模态框 -->
-  <div v-if="showAddModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
-      <div class="p-6">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {{ editingCategory ? '编辑分类' : '添加分类' }}
-          </h3>
-          <n-button @click="closeModal" type="tertiary" size="small">
-            <i class="fas fa-times"></i>
+      <div v-else-if="categories.length === 0" class="text-center py-8">
+        <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+          <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
+          <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
+        </svg>
+        <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无分类</div>
+        <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加分类"按钮创建新分类</div>
+        <n-button @click="showAddModal = true" type="primary">
+          <template #icon>
+            <i class="fas fa-plus"></i>
+          </template>
+          添加分类
+        </n-button>
+      </div>
+
+      <div v-else>
+        <n-data-table
+          :columns="columns"
+          :data="categories"
+          :pagination="pagination"
+          :bordered="false"
+          :single-line="false"
+          :loading="loading"
+          @update:page="handlePageChange"
+        />
+      </div>
+    </n-card>
+
+    <!-- 添加/编辑分类模态框 -->
+    <n-modal v-model:show="showAddModal" preset="card" :title="editingCategory ? '编辑分类' : '添加分类'" style="width: 500px">
+      <n-form
+        ref="formRef"
+        :model="categoryForm"
+        :rules="rules"
+        label-placement="left"
+        label-width="auto"
+        require-mark-placement="right-hanging"
+      >
+        <n-form-item label="分类名称" path="name">
+          <n-input
+            v-model:value="categoryForm.name"
+            placeholder="请输入分类名称"
+          />
+        </n-form-item>
+
+        <n-form-item label="描述" path="description">
+          <n-input
+            v-model:value="categoryForm.description"
+            type="textarea"
+            placeholder="请输入分类描述（可选）"
+            :rows="3"
+          />
+        </n-form-item>
+
+        <n-form-item label="关联标签" path="tag_ids">
+          <n-select
+            v-model:value="categoryForm.tag_ids"
+            :options="tagOptions"
+            placeholder="请选择关联标签"
+            multiple
+            clearable
+          />
+        </n-form-item>
+      </n-form>
+
+      <template #footer>
+        <div class="flex justify-end space-x-3">
+          <n-button @click="showAddModal = false">取消</n-button>
+          <n-button type="primary" @click="handleSubmit" :loading="submitting">
+            {{ editingCategory ? '更新' : '添加' }}
           </n-button>
         </div>
-
-        <form @submit.prevent="handleSubmit">
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">分类名称：</label>
-            <n-input v-model:value="formData.name" type="text" required
-              placeholder="请输入分类名称" />
-          </div>
-
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">描述：</label>
-            <n-input v-model:value="formData.description" type="textarea"
-              placeholder="请输入分类描述（可选）" />
-          </div>
-
-          <div class="flex justify-end gap-3">
-            <n-button type="tertiary" @click="closeModal">
-              取消
-            </n-button>
-            <n-button type="primary" :disabled="submitting" @click="handleSubmit">
-              {{ submitting ? '提交中...' : (editingCategory ? '更新' : '添加') }}
-            </n-button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 // 设置页面布局
 definePageMeta({
-  layout: 'admin',
-  ssr: false
+  layout: 'admin'
 })
 
-const router = useRouter()
-const userStore = useUserStore()
-const config = useRuntimeConfig()
-import { useCategoryApi } from '~/composables/useApi'
-const categoryApi = useCategoryApi()
-
-// 页面状态
-const pageLoading = ref(true)
-const loading = ref(false)
-const categories = ref([])
-
-// 分页状态
-const currentPage = ref(1)
-const pageSize = ref(20)
-const totalCount = ref(0)
-const totalPages = ref(0)
-
-// 搜索状态
-const searchQuery = ref('')
-let searchTimeout: NodeJS.Timeout | null = null
-
-// 模态框状态
-const showAddModal = ref(false)
-const submitting = ref(false)
-const editingCategory = ref(null)
-const dialog = useDialog()
-
-// 表单数据
-const formData = ref({
-  name: '',
-  description: ''
-})
-
-// 获取认证头
-const getAuthHeaders = () => {
-  return userStore.authHeaders
+interface Category {
+  id: number
+  name: string
+  description?: string
+  resource_count?: number
+  tag_names?: string[]
+  created_at: string
+  updated_at: string
 }
 
-// 页面元数据
-useHead({
-  title: '分类管理 - 老九网盘资源数据库',
-  meta: [
-    { name: 'description', content: '管理网盘资源分类' },
-    { name: 'keywords', content: '分类管理,资源管理' }
-  ]
+const notification = useNotification()
+const dialog = useDialog()
+const categories = ref<Category[]>([])
+const loading = ref(false)
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const searchQuery = ref('')
+const showAddModal = ref(false)
+const editingCategory = ref<Category | null>(null)
+const submitting = ref(false)
+const formRef = ref()
+
+// 分类表单
+const categoryForm = ref({
+  name: '',
+  description: '',
+  tag_ids: []
 })
 
-// 检查认证状态
-const checkAuth = () => {
-  userStore.initAuth()
-  if (!userStore.isAuthenticated) {
-    router.push('/')
-    return
+// 表单验证规则
+const rules = {
+  name: {
+    required: true,
+    message: '请输入分类名称',
+    trigger: 'blur'
   }
 }
 
-// 获取分类列表
-const fetchCategories = async () => {
+// 获取分类API
+import { useCategoryApi, useTagApi } from '~/composables/useApi'
+import { h } from 'vue'
+const categoryApi = useCategoryApi()
+const tagApi = useTagApi()
+
+// 获取标签数据
+const { data: tagsData } = await useAsyncData('categoryTags', () => tagApi.getTags())
+
+// 标签选项
+const tagOptions = computed(() => {
+  const data = tagsData.value as any
+  const tags = data?.data || data || []
+  return tags.map((tag: any) => ({
+    label: tag.name,
+    value: tag.id
+  }))
+})
+
+// 表格列定义
+const columns = [
+  {
+    title: 'ID',
+    key: 'id',
+    width: 80,
+    render: (row: Category) => {
+      return h('span', { class: 'font-medium' }, row.id)
+    }
+  },
+  {
+    title: '分类名称',
+    key: 'name',
+    render: (row: Category) => {
+      return h('span', { title: row.name }, row.name)
+    }
+  },
+  {
+    title: '描述',
+    key: 'description',
+    render: (row: Category) => {
+      if (row.description) {
+        return h('span', { title: row.description }, row.description)
+      } else {
+        return h('span', { class: 'text-gray-400 italic' }, '无描述')
+      }
+    }
+  },
+  {
+    title: '资源数量',
+    key: 'resource_count',
+    width: 120,
+    render: (row: Category) => {
+      return h('span', {
+        class: 'px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-full text-xs'
+      }, row.resource_count || 0)
+    }
+  },
+  {
+    title: '关联标签',
+    key: 'tag_names',
+    render: (row: Category) => {
+      if (row.tag_names && row.tag_names.length > 0) {
+        return h('span', { class: 'text-gray-800 dark:text-gray-200' }, row.tag_names.join(', '))
+      } else {
+        return h('span', { class: 'text-gray-400 dark:text-gray-500 italic text-xs' }, '无标签')
+      }
+    }
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 150,
+    render: (row: Category) => {
+      return h('div', { class: 'flex items-center gap-2' }, [
+        h('button', {
+          class: 'px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded transition-colors',
+          onClick: () => editCategory(row)
+        }, [
+          h('i', { class: 'fas fa-edit mr-1' }),
+          '编辑'
+        ]),
+        h('button', {
+          class: 'px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:text-red-400 rounded transition-colors',
+          onClick: () => deleteCategory(row)
+        }, [
+          h('i', { class: 'fas fa-trash mr-1' }),
+          '删除'
+        ])
+      ])
+    }
+  }
+]
+
+// 分页配置
+const pagination = computed(() => ({
+  page: currentPage.value,
+  pageSize: pageSize.value,
+  itemCount: total.value,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50, 100],
+  onChange: (page: number) => {
+    currentPage.value = page
+    fetchData()
+  },
+  onUpdatePageSize: (size: number) => {
+    pageSize.value = size
+    currentPage.value = 1
+    fetchData()
+  }
+}))
+
+// 获取数据
+const fetchData = async () => {
+  loading.value = true
   try {
-    loading.value = true
-    const params = {
+    const response = await categoryApi.getCategories({
       page: currentPage.value,
       page_size: pageSize.value,
       search: searchQuery.value
-    }
-    console.log('获取分类列表参数:', params)
-    const response = await categoryApi.getCategories(params)
-    console.log('分类接口响应:', response)
-    console.log('响应类型:', typeof response)
-    console.log('响应是否为数组:', Array.isArray(response))
+    }) as any
     
-    // 适配后端API响应格式
-    if (response && response.items) {
-      console.log('使用 items 格式:', response.items)
-      categories.value = response.items
-      totalCount.value = response.total || 0
-      totalPages.value = Math.ceil(totalCount.value / pageSize.value)
+    if (response && response.data) {
+      categories.value = response.data
+      total.value = response.total || 0
     } else if (Array.isArray(response)) {
-      console.log('使用数组格式:', response)
-      // 兼容旧格式
       categories.value = response
-      totalCount.value = response.length
-      totalPages.value = 1
+      total.value = response.length
     } else {
-      console.log('使用默认格式:', response)
       categories.value = []
-      totalCount.value = 0
-      totalPages.value = 1
+      total.value = 0
     }
-    console.log('最终分类数据:', categories.value)
-    console.log('分类数据长度:', categories.value.length)
   } catch (error) {
-    console.error('获取分类列表失败:', error)
+    console.error('获取分类失败:', error)
     categories.value = []
-    totalCount.value = 0
-    totalPages.value = 1
+    total.value = 0
   } finally {
     loading.value = false
   }
 }
 
+// 处理分页变化
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  fetchData()
+}
+
 // 搜索防抖
+let searchTimeout: NodeJS.Timeout | null = null
 const debounceSearch = () => {
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
   searchTimeout = setTimeout(() => {
     currentPage.value = 1
-    fetchCategories()
+    fetchData()
   }, 300)
 }
 
 // 刷新数据
 const refreshData = () => {
-  fetchCategories()
-}
-
-// 分页跳转
-const goToPage = (page: number) => {
-  currentPage.value = page
-  fetchCategories()
+  fetchData()
 }
 
 // 编辑分类
-const editCategory = (category: any) => {
-  console.log('编辑分类:', category)
+const editCategory = (category: Category) => {
   editingCategory.value = category
-  formData.value = {
+  categoryForm.value = {
     name: category.name,
-    description: category.description || ''
+    description: category.description || '',
+    tag_ids: []
   }
-  console.log('设置表单数据:', formData.value)
   showAddModal.value = true
 }
 
 // 删除分类
-const deleteCategory = async (categoryId: number) => {
+const deleteCategory = async (category: Category) => {
   dialog.warning({
     title: '警告',
-    content: '确定要删除分类吗？',
+    content: `确定要删除分类"${category.name}"吗？`,
     positiveText: '确定',
     negativeText: '取消',
     draggable: true,
     onPositiveClick: async () => {
       try {
-        await categoryApi.deleteCategory(categoryId)
-        await fetchCategories()
+        await categoryApi.deleteCategory(category.id)
+        notification.success({
+          content: '删除成功',
+          duration: 3000
+        })
+        fetchData()
       } catch (error) {
-        console.error('删除分类失败:', error)
+        console.error('删除失败:', error)
+        notification.error({
+          content: '删除失败',
+          duration: 3000
+        })
       }
     }
   })
@@ -341,84 +398,54 @@ const deleteCategory = async (categoryId: number) => {
 const handleSubmit = async () => {
   try {
     submitting.value = true
-    let response: any
+    await formRef.value?.validate()
+    
     if (editingCategory.value) {
-      response = await categoryApi.updateCategory(editingCategory.value.id, formData.value)
+      await categoryApi.updateCategory(editingCategory.value.id, categoryForm.value)
+      notification.success({
+        content: '更新成功',
+        duration: 3000
+      })
     } else {
-      response = await categoryApi.createCategory(formData.value)
-    }
-    console.log('分类操作响应:', response)
-    
-    // 检查是否是恢复操作
-    if (response && response.message && response.message.includes('恢复成功')) {
-      console.log('检测到分类恢复操作，延迟刷新数据')
-      console.log('恢复的分类信息:', response.category)
-      closeModal()
-      // 延迟一点时间再刷新，确保数据库状态已更新
-      setTimeout(async () => {
-        console.log('开始刷新分类数据...')
-        await fetchCategories()
-        console.log('分类数据刷新完成')
-      }, 500)
-      return
+      await categoryApi.createCategory(categoryForm.value)
+      notification.success({
+        content: '添加成功',
+        duration: 3000
+      })
     }
     
-    closeModal()
-    await fetchCategories()
+    showAddModal.value = false
+    editingCategory.value = null
+    categoryForm.value = { name: '', description: '', tag_ids: [] }
+    fetchData()
   } catch (error) {
-    console.error('提交分类失败:', error)
+    console.error('提交失败:', error)
+    notification.error({
+      content: '操作失败',
+      duration: 3000
+    })
   } finally {
     submitting.value = false
   }
 }
 
-// 关闭模态框
-const closeModal = () => {
-  showAddModal.value = false
-  editingCategory.value = null
-  formData.value = {
-    name: '',
-    description: ''
-  }
+// 格式化日期
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  return date.toLocaleString('zh-CN')
 }
 
-// 格式化时间
-const formatTime = (timestamp: string) => {
-  if (!timestamp) return '-'
-  const date = new Date(timestamp)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
-}
+// 页面加载时获取数据
+onMounted(() => {
+  fetchData()
+})
 
-// 退出登录
-const handleLogout = () => {
-  userStore.logout()
-  navigateTo('/login')
-}
-
-// 页面加载
-onMounted(async () => {
-  try {
-    checkAuth()
-    await fetchCategories()
-
-    // 检查URL参数，如果action=add则自动打开新增弹窗
-    const route = useRoute()
-    if (route.query.action === 'add') {
-      showAddModal.value = true
-    }
-  } catch (error) {
-    console.error('分类管理页面初始化失败:', error)
-  } finally {
-    pageLoading.value = false
-  }
+// 设置页面标题
+useHead({
+  title: '分类管理 - 老九网盘资源数据库'
 })
 </script>
 
 <style scoped>
 /* 自定义样式 */
-</style>
+</style> 

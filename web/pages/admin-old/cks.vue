@@ -290,7 +290,7 @@
 
 <script setup>
 definePageMeta({
-  layout: 'admin',
+  layout: 'admin-old',
   ssr: false
 })
 

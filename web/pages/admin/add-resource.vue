@@ -1,64 +1,71 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+  <div class="space-y-6">
+    <!-- 页面标题 -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">添加资源</h1>
+        <p class="text-gray-600 dark:text-gray-400">添加新的资源到系统</p>
+      </div>
+      <n-button @click="navigateTo('/admin/resources')">
+        <template #icon>
+          <i class="fas fa-arrow-left"></i>
+        </template>
+        返回资源管理
+      </n-button>
+    </div>
 
     <!-- 主要内容 -->
-    <div class="max-w-4xl mx-auto px-4 py-8">
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-        <!-- Tab 切换 -->
-        <div class="border-b border-gray-200 dark:border-gray-700">
-          <div class="flex">
-            <button
-              v-for="tab in tabs"
-              :key="tab.value"
-              :class="[
-                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                mode === tab.value 
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              ]"
-              @click="mode = tab.value"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
-        </div>
-
-        <!-- 内容区域 -->
-        <div class="p-6">
-          <!-- 批量添加 -->
-          <BatchAddResource 
-            v-if="mode === 'batch'"
-            @success="handleSuccess"
-            @error="handleError"
-            @cancel="handleCancel"
-          />
-
-          <!-- 单个添加 -->
-          <SingleAddResource 
-            v-else-if="mode === 'single'"
-            @success="handleSuccess"
-            @error="handleError"
-            @cancel="handleCancel"
-          />
+    <n-card>
+      <!-- Tab 切换 -->
+      <div class="border-b border-gray-200 dark:border-gray-700">
+        <div class="flex">
+          <button
+            v-for="tab in tabs"
+            :key="tab.value"
+            :class="[
+              'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+              mode === tab.value 
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            ]"
+            @click="mode = tab.value"
+          >
+            {{ tab.label }}
+          </button>
         </div>
       </div>
-    </div>
+
+      <!-- 内容区域 -->
+      <div class="p-6">
+        <!-- 批量添加 -->
+        <BatchAddResource 
+          v-if="mode === 'batch'"
+          @success="handleSuccess"
+          @error="handleError"
+          @cancel="handleCancel"
+        />
+
+        <!-- 单个添加 -->
+        <SingleAddResource 
+          v-else-if="mode === 'single'"
+          @success="handleSuccess"
+          @error="handleError"
+          @cancel="handleCancel"
+        />
+      </div>
+    </n-card>
   </div>
 </template>
 
 <script setup lang="ts">
 // 设置页面布局
 definePageMeta({
-  layout: 'admin',
-  ssr: false
+  layout: 'admin'
 })
 
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref } from 'vue'
 import BatchAddResource from '~/components/BatchAddResource.vue'
 import SingleAddResource from '~/components/SingleAddResource.vue'
-
-const router = useRouter()
 
 const tabs = [
   { label: '批量添加', value: 'batch' },
@@ -66,15 +73,6 @@ const tabs = [
 ]
 const mode = ref('batch')
 const notification = useNotification()
-
-// 检查用户权限
-onMounted(() => {
-  const userStore = useUserStore()
-  if (!userStore.isAuthenticated) {
-    router.push('/login')
-    return
-  }
-})
 
 // 事件处理
 const handleSuccess = (message: string) => {
@@ -92,7 +90,7 @@ const handleError = (message: string) => {
 }
 
 const handleCancel = () => {
-  router.back()
+  navigateTo('/admin/resources')
 }
 
 // 设置页面标题
