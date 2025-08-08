@@ -2,33 +2,88 @@
   <aside class="w-64 bg-white dark:bg-gray-800 shadow-sm border-r border-gray-200 dark:border-gray-700 min-h-screen">
     <nav class="mt-8">
       <div class="px-4 space-y-2">
-        <!-- 导航菜单 -->
+        <!-- 仪表盘 -->
         <NuxtLink
-          v-for="item in navigationItems"
-          :key="item.to"
-          :to="item.to"
+          :to="dashboardItem.to"
           class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
-          :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active($route) }"
+          :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': dashboardItem.active($route) }"
         >
-          <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
-          <span>{{ item.label }}</span>
+          <i :class="dashboardItem.icon + ' w-5 h-5 mr-3'"></i>
+          <span>{{ dashboardItem.label }}</span>
         </NuxtLink>
 
+        <!-- 运营管理分组 -->
+        <div class="mt-6">
+          <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            运营管理
+          </div>
+          <div class="space-y-1">
+            <NuxtLink
+              v-for="item in operationItems"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+              :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active($route) }"
+            >
+              <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+              <span>{{ item.label }}</span>
+            </NuxtLink>
+          </div>
+        </div>
 
+        <!-- 统计分析分组 -->
+        <div class="mt-6">
+          <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            统计分析
+          </div>
+          <div class="space-y-1">
+            <NuxtLink
+              v-for="item in statisticsItems"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+              :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active($route) }"
+            >
+              <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+              <span>{{ item.label }}</span>
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- 系统管理分组 -->
+        <div class="mt-6">
+          <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            系统管理
+          </div>
+          <div class="space-y-1">
+            <NuxtLink
+              v-for="item in systemItems"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+              :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active($route) }"
+            >
+              <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+              <span>{{ item.label }}</span>
+            </NuxtLink>
+          </div>
+        </div>
       </div>
     </nav>
   </aside>
 </template>
 
 <script setup lang="ts">
-// 简化的侧边栏组件
-const navigationItems = ref([
-  {
-    to: '/admin',
-    label: '仪表盘',
-    icon: 'fas fa-tachometer-alt',
-    active: (route: any) => route.path === '/admin'
-  },
+// 仪表盘
+const dashboardItem = ref({
+  to: '/admin',
+  label: '仪表盘',
+  icon: 'fas fa-tachometer-alt',
+  active: (route: any) => route.path === '/admin'
+})
+
+// 运营管理分组
+const operationItems = ref([
   {
     to: '/admin/resources',
     label: '资源管理',
@@ -72,16 +127,48 @@ const navigationItems = ref([
     active: (route: any) => route.path.startsWith('/admin/hot-dramas')
   },
   {
-    to: '/admin/users',
-    label: '用户管理',
-    icon: 'fas fa-users',
-    active: (route: any) => route.path.startsWith('/admin/users')
+    to: '/admin/seo',
+    label: 'SEO',
+    icon: 'fas fa-search',
+    active: (route: any) => route.path.startsWith('/admin/seo')
   },
+  {
+    to: '/admin/data-push',
+    label: '数据推送',
+    icon: 'fas fa-upload',
+    active: (route: any) => route.path.startsWith('/admin/data-push')
+  },
+  {
+    to: '/admin/bot',
+    label: '机器人',
+    icon: 'fas fa-robot',
+    active: (route: any) => route.path.startsWith('/admin/bot')
+  }
+])
+
+// 统计分析分组
+const statisticsItems = ref([
   {
     to: '/admin/search-stats',
     label: '搜索统计',
     icon: 'fas fa-chart-line',
     active: (route: any) => route.path.startsWith('/admin/search-stats')
+  },
+  {
+    to: '/admin/third-party-stats',
+    label: '三方统计',
+    icon: 'fas fa-chart-bar',
+    active: (route: any) => route.path.startsWith('/admin/third-party-stats')
+  }
+])
+
+// 系统管理分组
+const systemItems = ref([
+  {
+    to: '/admin/users',
+    label: '用户管理',
+    icon: 'fas fa-users',
+    active: (route: any) => route.path.startsWith('/admin/users')
   },
   {
     to: '/admin/system-config',

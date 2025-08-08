@@ -9,9 +9,15 @@
             <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <i class="fas fa-shield-alt text-white text-sm"></i>
             </div>
-            <div>
+            <div class="flex items-center space-x-2">
               <h1 class="text-xl font-bold text-gray-900 dark:text-white">管理后台</h1>
-              <p class="text-xs text-gray-500 dark:text-gray-400">老九网盘资源数据库</p>
+              <!-- 版本信息 -->
+              <NuxtLink 
+                to="/admin/version" 
+                class="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                v{{ versionInfo.version }}
+              </NuxtLink>
             </div>
           </NuxtLink>
         </div>
@@ -248,12 +254,14 @@
       <!-- 主内容区域 -->
       <main class="flex-1 p-8">
         <ClientOnly>
-          <n-notification-provider>
-            <n-dialog-provider>
-              <!-- 页面内容插槽 -->
-              <slot />
-            </n-dialog-provider>
-          </n-notification-provider>
+          <n-message-provider>
+            <n-notification-provider>
+              <n-dialog-provider>
+                <!-- 页面内容插槽 -->
+                <slot />
+              </n-dialog-provider>
+            </n-notification-provider>
+          </n-message-provider>
         </ClientOnly>
       </main>
     </div>
@@ -273,6 +281,28 @@ const systemConfigStore = useSystemConfigStore()
 
 // 初始化系统配置
 await systemConfigStore.initConfig()
+
+// 版本信息
+const versionInfo = ref({
+  version: '1.1.0'
+})
+
+// 获取版本信息
+const fetchVersionInfo = async () => {
+  try {
+    const response = await $fetch('/api/version') as any
+    if (response.success) {
+      versionInfo.value = response.data
+    }
+  } catch (error) {
+    console.error('获取版本信息失败:', error)
+  }
+}
+
+// 初始化版本信息
+onMounted(() => {
+  fetchVersionInfo()
+})
 
 // 系统配置
 const systemConfig = computed(() => {
@@ -398,16 +428,40 @@ const systemConfigItems = ref([
     label: '用户管理',
     icon: 'fas fa-users',
     active: (route: any) => route.path.startsWith('/admin/users')
+  },
+  {
+    to: '/admin/version',
+    label: '版本信息',
+    icon: 'fas fa-code-branch',
+    active: (route: any) => route.path.startsWith('/admin/version')
   }
 ])
 
 // 运营管理菜单项
 const operationItems = ref([
   {
-    to: '/admin/hot-dramas',
-    label: '热播剧管理',
-    icon: 'fas fa-film',
-    active: (route: any) => route.path.startsWith('/admin/hot-dramas')
+    to: '/admin/data-transfer',
+    label: '数据转存管理',
+    icon: 'fas fa-exchange-alt',
+    active: (route: any) => route.path.startsWith('/admin/data-transfer')
+  },
+  {
+    to: '/admin/data-push',
+    label: '数据推送',
+    icon: 'fas fa-upload',
+    active: (route: any) => route.path.startsWith('/admin/data-push')
+  },
+  {
+    to: '/admin/bot',
+    label: '机器人',
+    icon: 'fas fa-robot',
+    active: (route: any) => route.path.startsWith('/admin/bot')
+  },
+  {
+    to: '/admin/seo',
+    label: 'SEO',
+    icon: 'fas fa-search',
+    active: (route: any) => route.path.startsWith('/admin/seo')
   }
 ])
 
@@ -418,6 +472,12 @@ const statisticsItems = ref([
     label: '搜索统计',
     icon: 'fas fa-chart-line',
     active: (route: any) => route.path.startsWith('/admin/search-stats')
+  },
+  {
+    to: '/admin/third-party-stats',
+    label: '三方统计',
+    icon: 'fas fa-chart-bar',
+    active: (route: any) => route.path.startsWith('/admin/third-party-stats')
   }
 ])
 
@@ -428,11 +488,11 @@ const autoExpandCurrentGroup = () => {
   // 检查当前页面属于哪个分组并展开
   if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts')) {
     expandedGroups.value.dataManagement = true
-  } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users')) {
+  } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users') || currentPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
-  } else if (currentPath.startsWith('/admin/hot-dramas')) {
+  } else if (currentPath.startsWith('/admin/data-transfer') || currentPath.startsWith('/admin/seo') || currentPath.startsWith('/admin/data-push') || currentPath.startsWith('/admin/bot')) {
     expandedGroups.value.operation = true
-  } else if (currentPath.startsWith('/admin/search-stats')) {
+  } else if (currentPath.startsWith('/admin/search-stats') || currentPath.startsWith('/admin/third-party-stats')) {
     expandedGroups.value.statistics = true
   }
 }
@@ -450,11 +510,11 @@ watch(() => useRoute().path, (newPath) => {
   // 根据新路径展开对应分组
   if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts')) {
     expandedGroups.value.dataManagement = true
-  } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users')) {
+  } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users') || newPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
-  } else if (newPath.startsWith('/admin/hot-dramas')) {
+  } else if (newPath.startsWith('/admin/data-transfer') || newPath.startsWith('/admin/seo') || newPath.startsWith('/admin/data-push') || newPath.startsWith('/admin/bot')) {
     expandedGroups.value.operation = true
-  } else if (newPath.startsWith('/admin/search-stats')) {
+  } else if (newPath.startsWith('/admin/search-stats') || newPath.startsWith('/admin/third-party-stats')) {
     expandedGroups.value.statistics = true
   }
 }, { immediate: true })

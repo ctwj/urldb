@@ -6,6 +6,7 @@ export interface AdminNavigationItem {
   active: (route: any) => boolean
   permission?: string // 权限要求
   description?: string // 页面描述
+  group?: string // 分组
 }
 
 // 管理后台导航菜单配置
@@ -15,77 +16,131 @@ export const adminNewNavigationItems = [
     label: '仪表盘',
     icon: 'fas fa-tachometer-alt',
     to: '/admin',
-    active: (route: any) => route.path === '/admin'
+    active: (route: any) => route.path === '/admin',
+    group: 'dashboard'
   },
+  // 运营管理分组
   {
     key: 'resources',
     label: '资源管理',
     icon: 'fas fa-database',
     to: '/admin/resources',
-    active: (route: any) => route.path.startsWith('/admin/resources')
+    active: (route: any) => route.path.startsWith('/admin/resources'),
+    group: 'operation'
   },
   {
     key: 'ready-resources',
     label: '待处理资源',
     icon: 'fas fa-clock',
     to: '/admin/ready-resources',
-    active: (route: any) => route.path.startsWith('/admin/ready-resources')
+    active: (route: any) => route.path.startsWith('/admin/ready-resources'),
+    group: 'operation'
   },
   {
     key: 'categories',
     label: '分类管理',
     icon: 'fas fa-folder',
     to: '/admin/categories',
-    active: (route: any) => route.path.startsWith('/admin/categories')
+    active: (route: any) => route.path.startsWith('/admin/categories'),
+    group: 'operation'
   },
   {
     key: 'tags',
     label: '标签管理',
     icon: 'fas fa-tags',
     to: '/admin/tags',
-    active: (route: any) => route.path.startsWith('/admin/tags')
+    active: (route: any) => route.path.startsWith('/admin/tags'),
+    group: 'operation'
   },
   {
     key: 'platforms',
     label: '平台管理',
     icon: 'fas fa-cloud',
     to: '/admin/platforms',
-    active: (route: any) => route.path.startsWith('/admin/platforms')
+    active: (route: any) => route.path.startsWith('/admin/platforms'),
+    group: 'operation'
   },
   {
     key: 'accounts',
     label: '账号管理',
     icon: 'fas fa-user-shield',
     to: '/admin/accounts',
-    active: (route: any) => route.path.startsWith('/admin/accounts')
+    active: (route: any) => route.path.startsWith('/admin/accounts'),
+    group: 'operation'
   },
   {
-    key: 'hot-dramas',
-    label: '热播剧管理',
-    icon: 'fas fa-film',
-    to: '/admin/hot-dramas',
-    active: (route: any) => route.path.startsWith('/admin/hot-dramas')
+    key: 'data-transfer',
+    label: '数据转存管理',
+    icon: 'fas fa-exchange-alt',
+    to: '/admin/data-transfer',
+    active: (route: any) => route.path.startsWith('/admin/data-transfer'),
+    group: 'operation'
   },
   {
-    key: 'users',
-    label: '用户管理',
-    icon: 'fas fa-users',
-    to: '/admin/users',
-    active: (route: any) => route.path.startsWith('/admin/users')
+    key: 'seo',
+    label: 'SEO',
+    icon: 'fas fa-search',
+    to: '/admin/seo',
+    active: (route: any) => route.path.startsWith('/admin/seo'),
+    group: 'operation'
   },
+  {
+    key: 'data-push',
+    label: '数据推送',
+    icon: 'fas fa-upload',
+    to: '/admin/data-push',
+    active: (route: any) => route.path.startsWith('/admin/data-push'),
+    group: 'operation'
+  },
+  {
+    key: 'bot',
+    label: '机器人',
+    icon: 'fas fa-robot',
+    to: '/admin/bot',
+    active: (route: any) => route.path.startsWith('/admin/bot'),
+    group: 'operation'
+  },
+  // 统计分析分组
   {
     key: 'search-stats',
     label: '搜索统计',
     icon: 'fas fa-chart-line',
     to: '/admin/search-stats',
-    active: (route: any) => route.path.startsWith('/admin/search-stats')
+    active: (route: any) => route.path.startsWith('/admin/search-stats'),
+    group: 'statistics'
+  },
+  {
+    key: 'third-party-stats',
+    label: '三方统计',
+    icon: 'fas fa-chart-bar',
+    to: '/admin/third-party-stats',
+    active: (route: any) => route.path.startsWith('/admin/third-party-stats'),
+    group: 'statistics'
+  },
+  // 系统管理分组
+  {
+    key: 'users',
+    label: '用户管理',
+    icon: 'fas fa-users',
+    to: '/admin/users',
+    active: (route: any) => route.path.startsWith('/admin/users'),
+    group: 'system'
   },
   {
     key: 'system-config',
     label: '系统配置',
     icon: 'fas fa-cog',
     to: '/admin/system-config',
-    active: (route: any) => route.path.startsWith('/admin/system-config')
+    active: (route: any) => route.path.startsWith('/admin/system-config'),
+    group: 'system'
+  },
+  {
+    key: 'version',
+    label: '版本信息',
+    icon: 'fas fa-code-branch',
+    to: '/admin/version',
+    active: (route: any) => route.path.startsWith('/admin/version'),
+    group: 'system'
   }
 ]
 
