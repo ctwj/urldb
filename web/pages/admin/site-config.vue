@@ -65,6 +65,14 @@
             </template>
           </n-form-item>
 
+          <!-- 开启注册 -->
+          <n-form-item label="开启注册" path="enable_register">
+            <n-switch v-model:value="configForm.enable_register" />
+            <template #help>
+              开启后用户才能注册新账号，关闭后注册页面将显示"当前系统已关闭注册功能"
+            </template>
+          </n-form-item>
+
           <!-- 违禁词 -->
           <n-form-item label="违禁词" path="forbidden_words" class="md:col-span-2">
             <n-input
@@ -95,12 +103,21 @@ const formRef = ref()
 const saving = ref(false)
 
 // 配置表单数据
-const configForm = ref({
+const configForm = ref<{
+  site_title: string
+  site_description: string
+  keywords: string
+  copyright: string
+  maintenance_mode: boolean
+  enable_register: boolean
+  forbidden_words: string
+}>({
   site_title: '',
   site_description: '',
   keywords: '',
   copyright: '',
   maintenance_mode: false,
+  enable_register: false, // 新增：开启注册开关
   forbidden_words: ''
 })
 
@@ -123,7 +140,7 @@ const fetchConfig = async () => {
   try {
     const { useSystemConfigApi } = await import('~/composables/useApi')
     const systemConfigApi = useSystemConfigApi()
-    const response = await systemConfigApi.getSystemConfig()
+    const response = await systemConfigApi.getSystemConfig() as any
     
     if (response) {
       configForm.value = {
@@ -132,6 +149,7 @@ const fetchConfig = async () => {
         keywords: response.keywords || '',
         copyright: response.copyright || '',
         maintenance_mode: response.maintenance_mode || false,
+        enable_register: response.enable_register || false, // 新增：获取开启注册开关
         forbidden_words: response.forbidden_words || ''
       }
     }
@@ -159,6 +177,7 @@ const saveConfig = async () => {
       keywords: configForm.value.keywords,
       copyright: configForm.value.copyright,
       maintenance_mode: configForm.value.maintenance_mode,
+      enable_register: configForm.value.enable_register, // 新增：保存开启注册开关
       forbidden_words: configForm.value.forbidden_words
     })
     

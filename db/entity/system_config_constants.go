@@ -26,6 +26,7 @@ const (
 	// 其他配置
 	ConfigKeyPageSize        = "page_size"
 	ConfigKeyMaintenanceMode = "maintenance_mode"
+	ConfigKeyEnableRegister  = "enable_register"
 )
 
 // ConfigType 配置类型常量
@@ -67,6 +68,7 @@ const (
 	// 其他配置字段
 	ConfigResponseFieldPageSize        = "page_size"
 	ConfigResponseFieldMaintenanceMode = "maintenance_mode"
+	ConfigResponseFieldEnableRegister  = "enable_register"
 )
 
 // ConfigDefaultValue 配置默认值常量
@@ -95,4 +97,5 @@ const (
 	// 其他配置默认值
 	ConfigDefaultPageSize        = "100"
 	ConfigDefaultMaintenanceMode = "false"
+	ConfigDefaultEnableRegister  = "true"
 )

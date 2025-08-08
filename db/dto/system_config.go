@@ -26,6 +26,7 @@ type SystemConfigRequest struct {
 	// 其他配置
 	PageSize        int  `json:"page_size"`
 	MaintenanceMode bool `json:"maintenance_mode"`
+	EnableRegister  bool `json:"enable_register"` // 开启注册功能
 }
 
 // SystemConfigResponse 系统配置响应
@@ -58,6 +59,7 @@ type SystemConfigResponse struct {
 	// 其他配置
 	PageSize        int  `json:"page_size"`
 	MaintenanceMode bool `json:"maintenance_mode"`
+	EnableRegister  bool `json:"enable_register"` // 开启注册功能
 }
 
 // SystemConfigItem 单个配置项

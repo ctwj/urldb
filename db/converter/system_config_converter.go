@@ -66,6 +66,10 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response.MaintenanceMode = val
 			}
+		case entity.ConfigKeyEnableRegister:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response.EnableRegister = val
+			}
 		}
 	}
 
@@ -116,6 +120,7 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferEnabled, Value: strconv.FormatBool(req.AutoTransferEnabled), Type: entity.ConfigTypeBool})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: strconv.FormatBool(req.AutoFetchHotDramaEnabled), Type: entity.ConfigTypeBool})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMaintenanceMode, Value: strconv.FormatBool(req.MaintenanceMode), Type: entity.ConfigTypeBool})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyEnableRegister, Value: strconv.FormatBool(req.EnableRegister), Type: entity.ConfigTypeBool})
 
 	// 整数字段 - 添加所有提交的字段，包括0值
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessInterval, Value: strconv.Itoa(req.AutoProcessInterval), Type: entity.ConfigTypeInt})
@@ -146,6 +151,7 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		entity.ConfigResponseFieldForbiddenWords:            "",
 		entity.ConfigResponseFieldPageSize:                  100,
 		entity.ConfigResponseFieldMaintenanceMode:           false,
+		entity.ConfigResponseFieldEnableRegister:            true, // 默认开启注册功能
 	}
 
 	// 将键值对转换为map
@@ -195,6 +201,10 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response[entity.ConfigResponseFieldMaintenanceMode] = val
 			}
+		case entity.ConfigKeyEnableRegister:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response[entity.ConfigResponseFieldEnableRegister] = val
+			}
 		}
 	}
 
@@ -225,5 +235,6 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		ForbiddenWords:            entity.ConfigDefaultForbiddenWords,
 		PageSize:                  100,
 		MaintenanceMode:           false,
+		EnableRegister:            true, // 默认开启注册功能
 	}
 }

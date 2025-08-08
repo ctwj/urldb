@@ -107,6 +107,7 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyApiToken, Value: entity.ConfigDefaultApiToken, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyPageSize, Value: entity.ConfigDefaultPageSize, Type: entity.ConfigTypeInt},
 			{Key: entity.ConfigKeyMaintenanceMode, Value: entity.ConfigDefaultMaintenanceMode, Type: entity.ConfigTypeBool},
+			{Key: entity.ConfigKeyEnableRegister, Value: entity.ConfigDefaultEnableRegister, Type: entity.ConfigTypeBool},
 		}
 
 		err = r.UpsertConfigs(defaultConfigs)
@@ -115,6 +116,52 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		}
 
 		return defaultConfigs, nil
+	}
+
+	// 检查是否有缺失的配置项，如果有则添加
+	requiredConfigs := map[string]entity.SystemConfig{
+		entity.ConfigKeySiteTitle:                 {Key: entity.ConfigKeySiteTitle, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},
+		entity.ConfigKeySiteDescription:           {Key: entity.ConfigKeySiteDescription, Value: entity.ConfigDefaultSiteDescription, Type: entity.ConfigTypeString},
+		entity.ConfigKeyKeywords:                  {Key: entity.ConfigKeyKeywords, Value: entity.ConfigDefaultKeywords, Type: entity.ConfigTypeString},
+		entity.ConfigKeyAuthor:                    {Key: entity.ConfigKeyAuthor, Value: entity.ConfigDefaultAuthor, Type: entity.ConfigTypeString},
+		entity.ConfigKeyCopyright:                 {Key: entity.ConfigKeyCopyright, Value: entity.ConfigDefaultCopyright, Type: entity.ConfigTypeString},
+		entity.ConfigKeyAutoProcessReadyResources: {Key: entity.ConfigKeyAutoProcessReadyResources, Value: entity.ConfigDefaultAutoProcessReadyResources, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyAutoProcessInterval:       {Key: entity.ConfigKeyAutoProcessInterval, Value: entity.ConfigDefaultAutoProcessInterval, Type: entity.ConfigTypeInt},
+		entity.ConfigKeyAutoTransferEnabled:       {Key: entity.ConfigKeyAutoTransferEnabled, Value: entity.ConfigDefaultAutoTransferEnabled, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyAutoTransferLimitDays:     {Key: entity.ConfigKeyAutoTransferLimitDays, Value: entity.ConfigDefaultAutoTransferLimitDays, Type: entity.ConfigTypeInt},
+		entity.ConfigKeyAutoTransferMinSpace:      {Key: entity.ConfigKeyAutoTransferMinSpace, Value: entity.ConfigDefaultAutoTransferMinSpace, Type: entity.ConfigTypeInt},
+		entity.ConfigKeyAutoFetchHotDramaEnabled:  {Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: entity.ConfigDefaultAutoFetchHotDramaEnabled, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyApiToken:                  {Key: entity.ConfigKeyApiToken, Value: entity.ConfigDefaultApiToken, Type: entity.ConfigTypeString},
+		entity.ConfigKeyPageSize:                  {Key: entity.ConfigKeyPageSize, Value: entity.ConfigDefaultPageSize, Type: entity.ConfigTypeInt},
+		entity.ConfigKeyMaintenanceMode:           {Key: entity.ConfigKeyMaintenanceMode, Value: entity.ConfigDefaultMaintenanceMode, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyEnableRegister:            {Key: entity.ConfigKeyEnableRegister, Value: entity.ConfigDefaultEnableRegister, Type: entity.ConfigTypeBool},
+	}
+
+	// 检查现有配置中是否有缺失的配置项
+	existingKeys := make(map[string]bool)
+	for _, config := range configs {
+		existingKeys[config.Key] = true
+	}
+
+	// 找出缺失的配置项
+	var missingConfigs []entity.SystemConfig
+	for key, requiredConfig := range requiredConfigs {
+		if !existingKeys[key] {
+			missingConfigs = append(missingConfigs, requiredConfig)
+		}
+	}
+
+	// 如果有缺失的配置项，则添加它们
+	if len(missingConfigs) > 0 {
+		err = r.UpsertConfigs(missingConfigs)
+		if err != nil {
+			return nil, err
+		}
+		// 重新获取所有配置
+		configs, err = r.FindAll()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return configs, nil

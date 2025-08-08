@@ -1,43 +1,48 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-    <div class="max-w-md w-full">
-      <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md text-gray-900 dark:text-gray-100">
-        <div class="text-center">
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">登 录</h1>
-          <p class="mt-2 text-sm text-gray-600">请输入认证信息</p>
-            <!-- <div class="mt-3 p-3 bg-blue-50 rounded-lg">  
-            </div> -->
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4 py-8 sm:px-6 sm:py-12">
+    <div class="w-full max-w-sm sm:max-w-md">
+      <div class="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl w-full text-gray-900 dark:text-gray-100 border border-gray-100 dark:border-gray-700">
+        <!-- Logo/标题区域 -->
+        <div class="text-center mb-6 sm:mb-6">
+          <div class="mb-4 sm:mb-4">
+            <i class="fas fa-user-circle text-4xl sm:text-5xl text-blue-500 dark:text-blue-400"></i>
+          </div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">欢迎回来</h1>
+          <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">请输入您的登录信息</p>
         </div>
 
-        <form @submit.prevent="handleLogin" class="space-y-4">
-          <div>
-            <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-100">用户名</label>
+        <!-- 登录表单 -->
+        <form @submit.prevent="handleLogin" class="space-y-4 sm:space-y-5">
+          <div class="space-y-2">
+            <label for="username" class="block text-sm font-semibold text-gray-700 dark:text-gray-300">用户名</label>
             <n-input 
               type="text" 
               id="username" 
               v-model:value="form.username"
               required 
+              placeholder="请输入用户名"
               :class="{ 'border-red-500': errors.username }"
             />
-            <p v-if="errors.username" class="mt-1 text-sm text-red-600">{{ errors.username }}</p>
+            <p v-if="errors.username" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ errors.username }}</p>
           </div>
 
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-100">密码</label>
+          <div class="space-y-2">
+            <label for="password" class="block text-sm font-semibold text-gray-700 dark:text-gray-300">密码</label>
             <n-input 
               type="password" 
               id="password" 
               v-model:value="form.password"
               required 
+              placeholder="请输入密码"
               :class="{ 'border-red-500': errors.password }"
             />
-            <p v-if="errors.password" class="mt-1 text-sm text-red-600">{{ errors.password }}</p>
+            <p v-if="errors.password" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ errors.password }}</p>
           </div>
 
           <button 
             type="submit" 
             :disabled="userStore.loading"
-            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            class="w-full flex justify-center py-3 px-6 border border-transparent rounded-xl shadow-lg text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
           >
             <span v-if="userStore.loading" class="inline-flex items-center">
               <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -46,21 +51,27 @@
               </svg>
               登录中...
             </span>
-            <span v-else>登录</span>
+            <span v-else class="inline-flex items-center">
+              <i class="fas fa-sign-in-alt mr-2"></i>
+              登录
+            </span>
           </button>
         </form>
         
-        <div class="pt-2 text-center">
-          <NuxtLink to="/register" class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors mr-4">
-            <i class="fas fa-user-plus mr-1"></i> 注册账号
-          </NuxtLink>
-          <NuxtLink to="/" class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors">
-            <i class="fas fa-home mr-1"></i> 返回首页
-          </NuxtLink>
+        <!-- 底部链接 -->
+        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm">
+            <NuxtLink to="/register" class="inline-flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors font-medium">
+              <i class="fas fa-user-plus mr-2"></i> 注册新账号
+            </NuxtLink>
+            <span class="text-gray-400 dark:text-gray-500 hidden sm:inline">|</span>
+            <NuxtLink to="/" class="inline-flex items-center text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 transition-colors font-medium">
+              <i class="fas fa-home mr-2"></i> 返回首页
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </div>
-    
   </div>
 </template>
 
@@ -172,5 +183,73 @@ useHead({
 .fas {
   font-family: 'Font Awesome 6 Free';
   font-weight: 900;
+}
+
+/* 添加卡片悬停效果 */
+.bg-white {
+  transition: all 0.3s ease;
+}
+
+.bg-white:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 输入框焦点效果 */
+.n-input {
+  transition: all 0.2s ease;
+}
+
+.n-input:focus-within {
+  transform: scale(1.02);
+}
+
+/* 按钮悬停效果 */
+button[type="submit"]:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* 链接悬停效果 */
+a {
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  transform: translateY(-1px);
+}
+
+/* 手机端优化 */
+@media (max-width: 640px) {
+  .bg-white {
+    margin: 0.5rem;
+    padding: 1.5rem;
+  }
+  
+  /* 手机端按钮优化 */
+  button[type="submit"] {
+    min-height: 44px; /* 确保触摸目标足够大 */
+  }
+  
+  /* 手机端输入框优化 */
+  .n-input {
+    min-height: 44px; /* 确保触摸目标足够大 */
+  }
+  
+  /* 手机端链接优化 */
+  a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* 平板端优化 */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .bg-white {
+    margin: 1rem;
+    padding: 2rem;
+  }
 }
 </style> 
