@@ -452,10 +452,10 @@ const operationItems = ref([
     active: (route: any) => route.path.startsWith('/admin/data-push')
   },
   {
-    to: '/admin/bot',
-    label: '机器人',
-    icon: 'fas fa-robot',
-    active: (route: any) => route.path.startsWith('/admin/bot')
+    to: '/admin/auto-reply',
+    label: '自动回复',
+    icon: 'fas fa-comments',
+    active: (route: any) => route.path.startsWith('/admin/auto-reply')
   },
   {
     to: '/admin/seo',
@@ -490,7 +490,7 @@ const autoExpandCurrentGroup = () => {
     expandedGroups.value.dataManagement = true
   } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users') || currentPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
-  } else if (currentPath.startsWith('/admin/data-transfer') || currentPath.startsWith('/admin/seo') || currentPath.startsWith('/admin/data-push') || currentPath.startsWith('/admin/bot')) {
+  } else if (currentPath.startsWith('/admin/data-transfer') || currentPath.startsWith('/admin/seo') || currentPath.startsWith('/admin/data-push') || currentPath.startsWith('/admin/auto-reply')) {
     expandedGroups.value.operation = true
   } else if (currentPath.startsWith('/admin/search-stats') || currentPath.startsWith('/admin/third-party-stats')) {
     expandedGroups.value.statistics = true
@@ -512,7 +512,7 @@ watch(() => useRoute().path, (newPath) => {
     expandedGroups.value.dataManagement = true
   } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users') || newPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
-  } else if (newPath.startsWith('/admin/data-transfer') || newPath.startsWith('/admin/seo') || newPath.startsWith('/admin/data-push') || newPath.startsWith('/admin/bot')) {
+  } else if (newPath.startsWith('/admin/data-transfer') || newPath.startsWith('/admin/seo') || newPath.startsWith('/admin/data-push') || newPath.startsWith('/admin/auto-reply')) {
     expandedGroups.value.operation = true
   } else if (newPath.startsWith('/admin/search-stats') || newPath.startsWith('/admin/third-party-stats')) {
     expandedGroups.value.statistics = true

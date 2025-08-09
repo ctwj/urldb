@@ -111,15 +111,15 @@ func main() {
 		utils.Info("系统配置中自动拉取热播剧功能已禁用，跳过启动定时任务")
 	}
 
-	autoTransferEnabled, err := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
-	if err != nil {
-		utils.Error("获取自动转存配置失败: %v", err)
-	} else if autoTransferEnabled {
-		scheduler.StartAutoTransferScheduler()
-		utils.Info("已启动自动转存任务")
-	} else {
-		utils.Info("系统配置中自动转存功能已禁用，跳过启动定时任务")
-	}
+	// autoTransferEnabled, err := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
+	// if err != nil {
+	// 	utils.Error("获取自动转存配置失败: %v", err)
+	// } else if autoTransferEnabled {
+	// 	scheduler.StartAutoTransferScheduler()
+	// 	utils.Info("已启动自动转存任务")
+	// } else {
+	// 	utils.Info("系统配置中自动转存功能已禁用，跳过启动定时任务")
+	// }
 
 	// 创建Gin实例
 	r := gin.Default()

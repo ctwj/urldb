@@ -33,6 +33,10 @@ func NewAutoTransferScheduler(base *BaseScheduler) *AutoTransferScheduler {
 
 // Start 启动自动转存定时任务
 func (a *AutoTransferScheduler) Start() {
+
+	// 自动转存已经放弃，不再自动缓存
+	return
+
 	if a.autoTransferRunning {
 		utils.Info("自动转存定时任务已在运行中")
 		return

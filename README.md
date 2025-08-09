@@ -31,19 +31,15 @@
 
 ## 🔔 温馨提示
 
-📌 **本项目仅供技术交流与学习使用**，自身不存储或提供任何资源文件及下载链接。
-
-📌 **请勿将本项目用于任何违法用途**，否则后果自负。
-
-📌 如有任何问题或建议，欢迎交流探讨！ 😊
-
-> **免责声明**：本项目由 Trae AI 辅助编写。由于时间有限，仅在空闲时维护。如遇使用问题，请优先自行排查，感谢理解！
+- [文档说明](https://ecn5khs4t956.feishu.cn/wiki/PsnDwtxghiP0mLkTiruczKtxnwd?from=from_copylink)
+- [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
+- [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
 
 ---
 
 ## 📸 项目截图
 
-[文档说明](https://ecn5khs4t956.feishu.cn/wiki/PsnDwtxghiP0mLkTiruczKtxnwd?from=from_copylink) [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
+
 
 ### 🏠 首页
 ![首页](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/index.webp)
