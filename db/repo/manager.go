@@ -17,6 +17,8 @@ type RepositoryManager struct {
 	SystemConfigRepository  SystemConfigRepository
 	HotDramaRepository      HotDramaRepository
 	ResourceViewRepository  ResourceViewRepository
+	TaskRepository          TaskRepository
+	TaskItemRepository      TaskItemRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -33,5 +35,7 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		SystemConfigRepository:  NewSystemConfigRepository(db),
 		HotDramaRepository:      NewHotDramaRepository(db),
 		ResourceViewRepository:  NewResourceViewRepository(db),
+		TaskRepository:          NewTaskRepository(db),
+		TaskItemRepository:      NewTaskItemRepository(db),
 	}
 }

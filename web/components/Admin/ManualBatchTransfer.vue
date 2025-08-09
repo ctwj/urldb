@@ -11,39 +11,23 @@
     <!-- 输入区域 -->
     <n-card title="批量转存配置">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- 左侧：URL输入 -->
+        <!-- 左侧：资源输入 -->
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              资源链接 <span class="text-red-500">*</span>
+              资源信息 <span class="text-red-500">*</span>
             </label>
             <n-input
               v-model:value="resourceText"
               type="textarea"
-              placeholder="请输入资源链接，每行一个..."
+              placeholder="请输入资源信息，每行格式：标题|链接地址&#10;例如：&#10;电影名称1|https://pan.quark.cn/s/xxx&#10;电影名称2|https://pan.baidu.com/s/xxx"
               :rows="12"
               show-count
               :maxlength="10000"
             />
             <p class="text-xs text-gray-500 mt-1">
-              支持的格式：夸克网盘、百度网盘等分享链接
+              每行一个资源，格式：标题|链接地址（用竖线分隔）
             </p>
-          </div>
-
-          <!-- 统计信息 -->
-          <div class="grid grid-cols-3 gap-4">
-            <div class="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div class="text-2xl font-bold text-blue-600">{{ totalLines }}</div>
-              <div class="text-sm text-gray-600 dark:text-gray-400">总行数</div>
-            </div>
-            <div class="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <div class="text-2xl font-bold text-green-600">{{ validUrls }}</div>
-              <div class="text-sm text-gray-600 dark:text-gray-400">有效链接</div>
-            </div>
-            <div class="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <div class="text-2xl font-bold text-red-600">{{ invalidUrls }}</div>
-              <div class="text-sm text-gray-600 dark:text-gray-400">无效链接</div>
-            </div>
           </div>
         </div>
 
@@ -74,34 +58,6 @@
             />
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              转存平台
-            </label>
-            <n-select
-              v-model:value="selectedPlatform"
-              placeholder="选择转存平台"
-              :options="platformOptions"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              处理选项
-            </label>
-            <div class="space-y-2">
-              <n-checkbox v-model:checked="autoValidate">
-                自动验证链接有效性
-              </n-checkbox>
-              <n-checkbox v-model:checked="skipExisting">
-                跳过已存在的资源
-              </n-checkbox>
-              <n-checkbox v-model:checked="autoTransfer">
-                添加后立即开始转存
-              </n-checkbox>
-            </div>
-          </div>
-
           <!-- 操作按钮 -->
           <div class="space-y-3 pt-4">
             <n-button 
@@ -115,7 +71,7 @@
               <template #icon>
                 <i class="fas fa-upload"></i>
               </template>
-              开始批量转存 ({{ validUrls }} 个)
+              开始批量转存
             </n-button>
             
             <n-button 
