@@ -24,11 +24,11 @@ func GetTags(c *gin.Context) {
 	var err error
 
 	if search != "" {
-		// 搜索标签
-		tags, total, err = repoManager.TagRepository.Search(search, page, pageSize)
+		// 搜索标签（按资源数量排序）
+		tags, total, err = repoManager.TagRepository.SearchOrderByResourceCount(search, page, pageSize)
 	} else {
-		// 分页查询
-		tags, total, err = repoManager.TagRepository.FindWithPagination(page, pageSize)
+		// 分页查询（按资源数量排序）
+		tags, total, err = repoManager.TagRepository.FindWithPaginationOrderByResourceCount(page, pageSize)
 	}
 
 	if err != nil {

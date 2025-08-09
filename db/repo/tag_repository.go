@@ -17,7 +17,9 @@ type TagRepository interface {
 	GetResourceCount(tagID uint) (int64, error)
 	FindByResourceID(resourceID uint) ([]entity.Tag, error)
 	FindWithPagination(page, pageSize int) ([]entity.Tag, int64, error)
+	FindWithPaginationOrderByResourceCount(page, pageSize int) ([]entity.Tag, int64, error)
 	Search(query string, page, pageSize int) ([]entity.Tag, int64, error)
+	SearchOrderByResourceCount(query string, page, pageSize int) ([]entity.Tag, int64, error)
 	UpdateWithNulls(tag *entity.Tag) error
 	GetByID(id uint) (*entity.Tag, error)
 	RestoreDeletedTag(id uint) error
@@ -171,4 +173,72 @@ func (r *TagRepositoryImpl) GetByID(id uint) (*entity.Tag, error) {
 // RestoreDeletedTag 恢复已删除的标签
 func (r *TagRepositoryImpl) RestoreDeletedTag(id uint) error {
 	return r.db.Unscoped().Model(&entity.Tag{}).Where("id = ?", id).Update("deleted_at", nil).Error
+}
+
+// FindWithPaginationOrderByResourceCount 按资源数量排序的分页查询
+func (r *TagRepositoryImpl) FindWithPaginationOrderByResourceCount(page, pageSize int) ([]entity.Tag, int64, error) {
+	var tags []entity.Tag
+	var total int64
+
+	// 获取总数
+	err := r.db.Model(&entity.Tag{}).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 使用子查询统计每个标签的资源数量并排序
+	offset := (page - 1) * pageSize
+	err = r.db.Preload("Category").
+		Select("tags.*, COALESCE(resource_counts.count, 0) as resource_count").
+		Joins(`LEFT JOIN (
+			SELECT rt.tag_id, COUNT(rt.resource_id) as count 
+			FROM resource_tags rt 
+			INNER JOIN resources r ON rt.resource_id = r.id AND r.deleted_at IS NULL
+			GROUP BY rt.tag_id
+		) as resource_counts ON tags.id = resource_counts.tag_id`).
+		Order("COALESCE(resource_counts.count, 0) DESC, tags.created_at DESC").
+		Offset(offset).Limit(pageSize).
+		Find(&tags).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return tags, total, nil
+}
+
+// SearchOrderByResourceCount 按资源数量排序的搜索
+func (r *TagRepositoryImpl) SearchOrderByResourceCount(query string, page, pageSize int) ([]entity.Tag, int64, error) {
+	var tags []entity.Tag
+	var total int64
+
+	// 构建搜索条件
+	searchQuery := "%" + query + "%"
+
+	// 获取总数
+	err := r.db.Model(&entity.Tag{}).Where("name ILIKE ? OR description ILIKE ?", searchQuery, searchQuery).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 使用子查询统计每个标签的资源数量并排序
+	offset := (page - 1) * pageSize
+	err = r.db.Preload("Category").
+		Select("tags.*, COALESCE(resource_counts.count, 0) as resource_count").
+		Joins(`LEFT JOIN (
+			SELECT rt.tag_id, COUNT(rt.resource_id) as count 
+			FROM resource_tags rt 
+			INNER JOIN resources r ON rt.resource_id = r.id AND r.deleted_at IS NULL
+			GROUP BY rt.tag_id
+		) as resource_counts ON tags.id = resource_counts.tag_id`).
+		Where("tags.name ILIKE ? OR tags.description ILIKE ?", searchQuery, searchQuery).
+		Order("COALESCE(resource_counts.count, 0) DESC, tags.created_at DESC").
+		Offset(offset).Limit(pageSize).
+		Find(&tags).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return tags, total, nil
 }

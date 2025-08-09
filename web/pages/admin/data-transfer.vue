@@ -1,26 +1,46 @@
 <template>
-  <div class="p-6">
-    <div class="mb-6">
+  <div class="max-w-7xl mx-auto space-y-6">
+    <!-- 页面标题 -->
+    <div>
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">数据转存管理</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-2">管理数据转存任务和配置</p>
+      <p class="text-gray-600 dark:text-gray-400">管理资源转存任务和状态</p>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <div class="text-center py-12">
-        <div class="text-gray-400 dark:text-gray-500 mb-4">
-          <i class="fas fa-exchange-alt text-4xl"></i>
-        </div>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">功能开发中</h3>
-        <p class="text-gray-500 dark:text-gray-400">数据转存管理功能正在开发中，敬请期待...</p>
-      </div>
-    </div>
+    <!-- 主要内容 -->
+    <n-card>
+      <n-tabs v-model:value="activeTab" type="line" animated>
+        <!-- 手动批量转存 -->
+        <n-tab-pane name="manual" tab="手动批量转存">
+          <AdminManualBatchTransfer />
+        </n-tab-pane>
+
+        <!-- 已转存列表 -->
+        <n-tab-pane name="transferred" tab="已转存列表">
+          <AdminTransferredList ref="transferredListRef" />
+        </n-tab-pane>
+
+        <!-- 未转存列表 -->
+        <n-tab-pane name="untransferred" tab="未转存列表">
+          <AdminUntransferredList ref="untransferredListRef" />
+        </n-tab-pane>
+      </n-tabs>
+    </n-card>
   </div>
 </template>
 
 <script setup lang="ts">
-// 数据转存管理页面
+import { ref } from 'vue'
+
+// 页面配置
 definePageMeta({
   layout: 'admin',
   middleware: ['auth']
 })
+
+// 活动标签
+const activeTab = ref('manual')
+
+// 组件引用
+const transferredListRef = ref(null)
+const untransferredListRef = ref(null)
 </script> 
