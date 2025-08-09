@@ -14,8 +14,22 @@
       </div>
       
       <div class="text-center">
-        <!-- 移动端：所有链接都显示链接文本和操作按钮 -->
-        <div v-if="isMobile" class="space-y-4">
+        <!-- 加载状态 -->
+        <div v-if="loading" class="space-y-4">
+          <div class="flex flex-col items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">正在获取链接...</p>
+          </div>
+        </div>
+        
+        <!-- 错误状态 -->
+        <div v-else-if="error" class="space-y-4">
+          <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+            <div class="flex items-center">
+              <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
+              <p class="text-sm text-red-700 dark:text-red-300">{{ error }}</p>
+            </div>
+          </div>
           <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
             <p class="text-sm text-gray-700 dark:text-gray-300 break-all">{{ url }}</p>
           </div>
@@ -35,8 +49,47 @@
           </div>
         </div>
         
+        <!-- 正常显示 -->
+        <div v-else>
+          <!-- 移动端：所有链接都显示链接文本和操作按钮 -->
+          <div v-if="isMobile" class="space-y-4">
+            <!-- 显示链接状态信息 -->
+            <div v-if="message" class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+              <div class="flex items-center">
+                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                <p class="text-sm text-blue-700 dark:text-blue-300">{{ message }}</p>
+              </div>
+            </div>
+            
+            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+              <p class="text-sm text-gray-700 dark:text-gray-300 break-all">{{ url }}</p>
+            </div>
+            <div class="flex gap-2">
+              <button 
+                @click="openLink"
+                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                <i class="fas fa-external-link-alt"></i> 跳转
+              </button>
+              <button 
+                @click="copyUrl"
+                class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                <i class="fas fa-copy"></i> 复制
+              </button>
+            </div>
+          </div>
+        
         <!-- PC端：根据链接类型显示不同内容 -->
         <div v-else class="space-y-4">
+          <!-- 显示链接状态信息 -->
+          <div v-if="message" class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+            <div class="flex items-center">
+              <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+              <p class="text-sm text-blue-700 dark:text-blue-300">{{ message }}</p>
+            </div>
+          </div>
+          
           <!-- 夸克链接：只显示二维码 -->
           <div v-if="isQuarkLink" class="space-y-4">
             <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
@@ -86,6 +139,7 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
   </div>
@@ -98,6 +152,11 @@ interface Props {
   visible: boolean
   save_url?: string
   url?: string
+  loading?: boolean
+  linkType?: string
+  platform?: string
+  message?: string
+  error?: string
 }
 
 interface Emits {

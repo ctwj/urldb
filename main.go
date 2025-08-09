@@ -168,6 +168,7 @@ func main() {
 		api.GET("/resources/:id", handlers.GetResourceByID)
 		api.GET("/resources/check-exists", handlers.CheckResourceExists)
 		api.POST("/resources/:id/view", handlers.IncrementResourceViewCount)
+		api.GET("/resources/:id/link", handlers.GetResourceLink)
 		api.DELETE("/resources/batch", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.BatchDeleteResources)
 
 		// 分类管理

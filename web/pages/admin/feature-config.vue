@@ -169,27 +169,30 @@ const activeTab = ref('resource')
 // 配置表单数据
 const configForm = ref({
   auto_process_enabled: false,
-  auto_process_interval: 30,
+  auto_process_interval: '30',
   auto_transfer_enabled: false,
-  auto_transfer_min_space: 500,
+  auto_transfer_min_space: '500',
   ad_keywords: '',
   auto_insert_ad: '',
   hot_drama_auto_fetch: false
 })
+
+// 表单验证规则
+const rules = {} as any
 
 // 获取系统配置
 const fetchConfig = async () => {
   try {
     const { useSystemConfigApi } = await import('~/composables/useApi')
     const systemConfigApi = useSystemConfigApi()
-    const response = await systemConfigApi.getSystemConfig()
+    const response = await systemConfigApi.getSystemConfig() as any
     
     if (response) {
       configForm.value = {
         auto_process_enabled: response.auto_process_ready_resources || false,
-        auto_process_interval: response.auto_process_interval || 30,
+        auto_process_interval: String(response.auto_process_interval || 30),
         auto_transfer_enabled: response.auto_transfer_enabled || false,
-        auto_transfer_min_space: response.auto_transfer_min_space || 500,
+        auto_transfer_min_space: String(response.auto_transfer_min_space || 500),
         ad_keywords: response.ad_keywords || '',
         auto_insert_ad: response.auto_insert_ad || '',
         hot_drama_auto_fetch: response.auto_fetch_hot_drama_enabled || false
@@ -214,9 +217,9 @@ const saveConfig = async () => {
     
     await systemConfigApi.updateSystemConfig({
       auto_process_ready_resources: configForm.value.auto_process_enabled,
-      auto_process_interval: configForm.value.auto_process_interval,
+      auto_process_interval: parseInt(configForm.value.auto_process_interval) || 30,
       auto_transfer_enabled: configForm.value.auto_transfer_enabled,
-      auto_transfer_min_space: configForm.value.auto_transfer_min_space,
+      auto_transfer_min_space: parseInt(configForm.value.auto_transfer_min_space) || 500,
       ad_keywords: configForm.value.ad_keywords,
       auto_insert_ad: configForm.value.auto_insert_ad,
       auto_fetch_hot_drama_enabled: configForm.value.hot_drama_auto_fetch

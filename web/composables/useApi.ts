@@ -66,11 +66,13 @@ export const useResourceApi = () => {
   const deleteResource = (id: number) => useApiFetch(`/resources/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const searchResources = (params: any) => useApiFetch('/search', { params }).then(parseApiResponse)
   const getResourcesByPan = (panId: number, params?: any) => useApiFetch('/resources', { params: { ...params, pan_id: panId } }).then(parseApiResponse)
-  // 新增：统一的资源访问次数上报
+  // 新增：统一的资源访问次数上报（注意：getResourceLink 已包含访问统计，通常不需要单独调用此方法）
   const incrementViewCount = (id: number) => useApiFetch(`/resources/${id}/view`, { method: 'POST' })
   // 新增：批量删除资源
   const batchDeleteResources = (ids: number[]) => useApiFetch('/resources/batch', { method: 'DELETE', body: { ids } }).then(parseApiResponse)
-  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources }
+  // 新增：获取资源链接（智能转存）
+  const getResourceLink = (id: number) => useApiFetch(`/resources/${id}/link`).then(parseApiResponse)
+  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink }
 }
 
 export const useAuthApi = () => {

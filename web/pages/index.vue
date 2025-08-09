@@ -182,6 +182,11 @@
       :visible="showLinkModal" 
       :url="selectedResource?.url" 
       :save_url="selectedResource?.save_url"
+      :loading="selectedResource?.loading"
+      :linkType="selectedResource?.linkType"
+      :platform="selectedResource?.platform"
+      :message="selectedResource?.message"
+      :error="selectedResource?.error"
       @close="showLinkModal = false" 
     />
 
@@ -328,23 +333,38 @@ const getPlatformIcon = (panId: string) => {
   return platform?.icon || '未知平台'
 }
 
-// 跳转到链接
-const openLink = async (url: string, resourceId: number) => {
-  try {
-    await fetch(`/api/resources/${resourceId}/view`, { method: 'POST' })
-  } catch (e) {}
-  if (process.client) {
-    window.open(url, '_blank')
-  }
-}
+// 注意：链接访问统计已整合到 getResourceLink API 中
 
 // 切换链接显示
 const toggleLink = async (resource: any) => {
-  try {
-    await resourceApi.incrementViewCount(resource.id)
-  } catch (e) {}
-  selectedResource.value = resource
+  // 显示加载状态
+  selectedResource.value = { ...resource, loading: true }
   showLinkModal.value = true
+  
+  try {
+    // 调用新的获取链接API（同时统计访问次数）
+    const linkData = await resourceApi.getResourceLink(resource.id) as any
+    console.log('获取到的链接数据:', linkData)
+    
+    // 更新资源信息，包含新的链接信息
+    selectedResource.value = {
+      ...resource,
+      url: linkData.url,
+      save_url: linkData.type === 'transferred' ? linkData.url : resource.save_url,
+      loading: false,
+      linkType: linkData.type,
+      platform: linkData.platform,
+      message: linkData.message
+    }
+  } catch (error) {
+    console.error('获取资源链接失败:', error)
+    // 出错时使用原始资源信息
+    selectedResource.value = {
+      ...resource,
+      loading: false,
+      error: '获取链接失败，显示原始链接'
+    }
+  }
 }
 
 // 复制到剪贴板
