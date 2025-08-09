@@ -38,7 +38,7 @@
       <!-- 内容区域 -->
       <div class="p-6">
         <!-- 批量添加 -->
-        <BatchAddResource 
+        <AdminBatchAddResource 
           v-if="mode === 'batch'"
           @success="handleSuccess"
           @error="handleError"
@@ -46,7 +46,7 @@
         />
 
         <!-- 单个添加 -->
-        <SingleAddResource 
+        <AdminSingleAddResource 
           v-else-if="mode === 'single'"
           @success="handleSuccess"
           @error="handleError"
@@ -64,8 +64,7 @@ definePageMeta({
 })
 
 import { ref } from 'vue'
-import BatchAddResource from '~/components/BatchAddResource.vue'
-import SingleAddResource from '~/components/SingleAddResource.vue'
+// 根据 Nuxt 3 组件规则，位于 components/Admin/ 的组件会自动以 Admin 前缀导入
 
 const tabs = [
   { label: '批量添加', value: 'batch' },
