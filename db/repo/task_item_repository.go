@@ -82,7 +82,7 @@ func (r *TaskItemRepositoryImpl) GetListByTaskID(taskID uint, page, pageSize int
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	err = query.Offset(offset).Limit(pageSize).Order("item_index ASC").Find(&items).Error
+	err = query.Offset(offset).Limit(pageSize).Order("id ASC").Find(&items).Error
 	if err != nil {
 		return nil, 0, err
 	}

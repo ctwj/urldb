@@ -8,85 +8,50 @@
       </div>
     </div>
 
-    <!-- 任务统计卡片 -->
-    <div class="grid grid-cols-6 gap-4">
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600 dark:text-gray-400">总任务数</p>
-            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ taskStore.taskStats.total }}</p>
-          </div>
-          <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-            <i class="fas fa-tasks text-blue-600 dark:text-blue-400"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600 dark:text-gray-400">运行中</p>
-            <p class="text-2xl font-bold text-orange-600">{{ taskStore.taskStats.running }}</p>
-          </div>
-          <div class="w-8 h-8 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-            <i class="fas fa-play text-orange-600 dark:text-orange-400"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600 dark:text-gray-400">待处理</p>
-            <p class="text-2xl font-bold text-yellow-600">{{ taskStore.taskStats.pending }}</p>
-          </div>
-          <div class="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg flex items-center justify-center">
-            <i class="fas fa-clock text-yellow-600 dark:text-yellow-400"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600 dark:text-gray-400">已完成</p>
-            <p class="text-2xl font-bold text-green-600">{{ taskStore.taskStats.completed }}</p>
-          </div>
-          <div class="w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-            <i class="fas fa-check text-green-600 dark:text-green-400"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600 dark:text-gray-400">失败</p>
-            <p class="text-2xl font-bold text-red-600">{{ taskStore.taskStats.failed }}</p>
-          </div>
-          <div class="w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
-            <i class="fas fa-times text-red-600 dark:text-red-400"></i>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600 dark:text-gray-400">暂停</p>
-            <p class="text-2xl font-bold text-gray-600">{{ taskStore.taskStats.paused }}</p>
-          </div>
-          <div class="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-            <i class="fas fa-pause text-gray-600 dark:text-gray-400"></i>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 任务列表 -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-      <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+      <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">任务列表</h2>
+        
+        <!-- 筛选条件 -->
+        <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-2">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">任务状态：</label>
+            <n-select
+              v-model:value="statusFilter"
+              :options="statusOptions"
+              placeholder="全部状态"
+              style="width: 120px"
+              size="small"
+              clearable
+              @update:value="onStatusFilterChange"
+            />
+          </div>
+          
+          <div class="flex items-center space-x-2">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">任务类型：</label>
+            <n-select
+              v-model:value="typeFilter"
+              :options="typeOptions"
+              placeholder="全部类型"
+              style="width: 100px"
+              size="small"
+              clearable
+              @update:value="onTypeFilterChange"
+            />
+          </div>
+          
+          <n-button
+            type="primary"
+            size="small"
+            @click="refreshTasks"
+          >
+            <template #icon>
+              <i class="fas fa-refresh"></i>
+            </template>
+            刷新
+          </n-button>
+        </div>
       </div>
       
       <div class="p-6">
@@ -105,6 +70,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, h } from 'vue'
+import { NButton } from 'naive-ui'
 import { useTaskStore } from '~/stores/task'
 import { useMessage, useDialog } from 'naive-ui'
 
@@ -119,6 +85,24 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+
+// 筛选条件
+const statusFilter = ref(null)
+const typeFilter = ref(null)
+
+// 状态选项
+const statusOptions = [
+  { label: '待处理', value: 'pending' },
+  { label: '运行中', value: 'running' },
+  { label: '已完成', value: 'completed' },
+  { label: '失败', value: 'failed' },
+  { label: '暂停', value: 'paused' }
+]
+
+// 类型选项
+const typeOptions = [
+  { label: '转存任务', value: 'transfer' }
+]
 
 // 分页配置
 const paginationConfig = computed(() => ({
@@ -221,44 +205,107 @@ const taskColumns = [
   {
     title: '操作',
     key: 'actions',
-    width: 160,
+    width: 180,
     render: (row: any) => {
-      const buttons = []
-      
-      if (row.status === 'pending' || (row.status !== 'running' && !row.is_running)) {
-        buttons.push(
-          h('n-button', {
-            size: 'small',
-            type: 'primary',
-            onClick: () => startTask(row.id)
-          }, { default: () => '启动' })
-        )
-      }
-      
-      if (row.is_running) {
-        buttons.push(
-          h('n-button', {
-            size: 'small',
-            type: 'warning',
-            onClick: () => stopTask(row.id)
-          }, { default: () => '停止' })
-        )
-      }
-      
-      if (row.status === 'completed' || row.status === 'failed') {
-        buttons.push(
-          h('n-button', {
-            size: 'small',
-            type: 'error',
-            onClick: () => deleteTask(row.id)
-          }, { default: () => '删除' })
-        )
-      }
-      
-      return h('div', { class: 'flex space-x-2' }, buttons)
+      return renderActions(row)
     }
   }
 ]
+
+// 获取任务状态
+const getTaskStatus = (row: any) => {
+  // 优先使用数据库中的状态，因为它是最权威的
+  // 只有当数据库状态是running且TaskManager也确认在运行时，才显示为running
+  if (row.status === 'running' && row.is_running) {
+    return 'running'
+  }
+  // 其他所有情况都返回数据库状态
+  return row.status
+}
+
+// 渲染操作按钮
+const renderActions = (row: any) => {
+  const currentStatus = getTaskStatus(row)
+  const buttons = []
+  
+  // 待处理状态：启动按钮
+  if (currentStatus === 'pending') {
+    buttons.push(
+      h('n-button', {
+        size: 'small',
+        type: 'primary',
+        quaternary: true,
+        onClick: () => startTask(row.id)
+      }, { default: () => '启动' })
+    )
+  }
+  
+  // 运行中状态：暂停和停止按钮
+  if (currentStatus === 'running') {
+    buttons.push(
+      h('n-button', {
+        size: 'small',
+        type: 'warning',
+        quaternary: true,
+        onClick: () => pauseTask(row.id)
+      }, { default: () => '暂停' })
+    )
+    buttons.push(
+      h('n-button', {
+        size: 'small',
+        type: 'error',
+        quaternary: true,
+        onClick: () => stopTask(row.id)
+      }, { default: () => '停止' })
+    )
+  }
+  
+  // 暂停状态：继续和停止按钮
+  if (currentStatus === 'paused') {
+    buttons.push(
+      h('n-button', {
+        size: 'small',
+        type: 'primary',
+        quaternary: true,
+        onClick: () => resumeTask(row.id)
+      }, { default: () => '继续' })
+    )
+    buttons.push(
+      h('n-button', {
+        size: 'small',
+        type: 'error',
+        quaternary: true,
+        onClick: () => stopTask(row.id)
+      }, { default: () => '停止' })
+    )
+  }
+  
+  // 失败状态：重试按钮
+  if (currentStatus === 'failed') {
+    buttons.push(
+      h('n-button', {
+        size: 'small',
+        type: 'info',
+        quaternary: true,
+        onClick: () => retryTask(row.id)
+      }, { default: () => '重试' })
+    )
+  }
+  
+  // 已完成或失败状态：删除按钮
+  if (currentStatus === 'completed' || currentStatus === 'failed') {
+    buttons.push(
+      h('n-button', {
+        size: 'small',
+        type: 'error',
+        quaternary: true,
+        onClick: () => deleteTask(row.id)
+      }, { default: () => '删除' })
+    )
+  }
+  
+  return h('div', { class: 'task-actions flex space-x-1 flex-wrap' }, buttons)
+}
 
 // 行样式
 const getRowClassName = (row: any) => {
@@ -275,10 +322,20 @@ const fetchTasks = async () => {
     const { useTaskApi } = await import('~/composables/useApi')
     const taskApi = useTaskApi()
     
-    const response = await taskApi.getTasks({
+    const params: any = {
       page: currentPage.value,
       page_size: pageSize.value
-    }) as any
+    }
+    
+    // 添加筛选条件
+    if (statusFilter.value) {
+      params.status = statusFilter.value
+    }
+    if (typeFilter.value) {
+      params.task_type = typeFilter.value
+    }
+    
+    const response = await taskApi.getTasks(params) as any
     
     if (response && response.items) {
       tasks.value = response.items
@@ -290,6 +347,24 @@ const fetchTasks = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 筛选条件变化处理
+const onStatusFilterChange = () => {
+  currentPage.value = 1
+  fetchTasks()
+}
+
+const onTypeFilterChange = () => {
+  currentPage.value = 1
+  fetchTasks()
+}
+
+// 刷新任务列表
+const refreshTasks = async () => {
+  // 强制刷新任务状态和列表
+  await taskStore.fetchTaskStats()
+  await fetchTasks()
 }
 
 // 启动任务
@@ -321,6 +396,54 @@ const stopTask = async (taskId: number) => {
   } catch (error) {
     console.error('停止任务失败:', error)
     message.error('停止任务失败')
+  }
+}
+
+// 暂停任务
+const pauseTask = async (taskId: number) => {
+  try {
+    const success = await taskStore.pauseTask(taskId)
+    if (success) {
+      message.success('任务暂停成功')
+      await fetchTasks()
+    } else {
+      message.error('任务暂停失败')
+    }
+  } catch (error) {
+    console.error('暂停任务失败:', error)
+    message.error('暂停任务失败')
+  }
+}
+
+// 继续任务（恢复暂停的任务）
+const resumeTask = async (taskId: number) => {
+  try {
+    const success = await taskStore.startTask(taskId)
+    if (success) {
+      message.success('任务继续成功')
+      await fetchTasks()
+    } else {
+      message.error('任务继续失败')
+    }
+  } catch (error) {
+    console.error('继续任务失败:', error)
+    message.error('继续任务失败')
+  }
+}
+
+// 重试失败的任务
+const retryTask = async (taskId: number) => {
+  try {
+    const success = await taskStore.startTask(taskId)
+    if (success) {
+      message.success('任务重试成功')
+      await fetchTasks()
+    } else {
+      message.error('任务重试失败')
+    }
+  } catch (error) {
+    console.error('重试任务失败:', error)
+    message.error('重试任务失败')
   }
 }
 
@@ -372,5 +495,36 @@ definePageMeta({
 
 :deep(.dark .bg-blue-50) {
   background-color: rgb(30 58 138 / 0.1);
+}
+
+/* 任务操作按钮 hover 效果 */
+:deep(.task-actions .n-button) {
+  transition: all 0.2s ease;
+}
+
+:deep(.task-actions .n-button:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 不同类型按钮的 hover 阴影颜色 */
+:deep(.task-actions .n-button--primary-type:hover) {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+:deep(.task-actions .n-button--warning-type:hover) {
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+:deep(.task-actions .n-button--error-type:hover) {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+:deep(.task-actions .n-button--info-type:hover) {
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+:deep(.task-actions .n-button:active) {
+  transform: translateY(0);
 }
 </style>

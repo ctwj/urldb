@@ -95,6 +95,35 @@ func (tm *TaskManager) StartTask(taskID uint) error {
 	return nil
 }
 
+// PauseTask 暂停任务
+func (tm *TaskManager) PauseTask(taskID uint) error {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	utils.Info("PauseTask: 尝试暂停任务 %d", taskID)
+
+	// 检查任务是否在运行
+	cancel, exists := tm.running[taskID]
+	if !exists {
+		utils.Info("任务 %d 未在运行，无法暂停", taskID)
+		return fmt.Errorf("任务 %d 未在运行", taskID)
+	}
+
+	// 停止任务（类似stop，但状态标记为paused）
+	cancel()
+	delete(tm.running, taskID)
+
+	// 更新任务状态为暂停
+	err := tm.repoMgr.TaskRepository.UpdateStatus(taskID, "paused")
+	if err != nil {
+		utils.Error("更新任务状态为暂停失败: %v", err)
+		return fmt.Errorf("更新任务状态失败: %v", err)
+	}
+
+	utils.Info("任务 %d 暂停成功", taskID)
+	return nil
+}
+
 // StopTask 停止任务
 func (tm *TaskManager) StopTask(taskID uint) error {
 	tm.mu.Lock()

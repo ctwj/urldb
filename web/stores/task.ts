@@ -202,6 +202,20 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
   
+  // 暂停任务
+  const pauseTask = async (taskId: number) => {
+    try {
+      await taskApi.pauseTask(taskId)
+      // 立即更新状态
+      await fetchTaskStats()
+      return true
+    } catch (error: any) {
+      console.error('暂停任务失败:', error)
+      // 抛出错误以便前端可以获取具体的错误信息
+      throw new Error(error.message || '暂停任务失败')
+    }
+  }
+  
   // 删除任务
   const deleteTask = async (taskId: number) => {
     try {
@@ -233,6 +247,7 @@ export const useTaskStore = defineStore('task', () => {
     getTaskStatus,
     startTask,
     stopTask,
+    pauseTask,
     deleteTask
   }
 })

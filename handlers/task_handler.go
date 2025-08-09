@@ -151,6 +151,29 @@ func (h *TaskHandler) StopTask(c *gin.Context) {
 	})
 }
 
+// PauseTask 暂停任务
+func (h *TaskHandler) PauseTask(c *gin.Context) {
+	taskIDStr := c.Param("id")
+	taskID, err := strconv.ParseUint(taskIDStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的任务ID: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	utils.Info("暂停任务: %d", taskID)
+
+	err = h.taskManager.PauseTask(uint(taskID))
+	if err != nil {
+		utils.Error("暂停任务失败: %v", err)
+		ErrorResponse(c, "暂停任务失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, gin.H{
+		"message": "任务暂停成功",
+	})
+}
+
 // GetTaskStatus 获取任务状态
 func (h *TaskHandler) GetTaskStatus(c *gin.Context) {
 	taskIDStr := c.Param("id")
