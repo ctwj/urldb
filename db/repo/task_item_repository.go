@@ -7,52 +7,82 @@ import (
 
 // TaskItemRepository 任务项仓库接口
 type TaskItemRepository interface {
-	BaseRepository[entity.TaskItem]
-	FindByTaskID(taskID uint) ([]entity.TaskItem, error)
-	FindByTaskIDWithPagination(taskID uint, page, pageSize int) ([]entity.TaskItem, int64, error)
-	UpdateStatus(id uint, status entity.TaskItemStatus, errorMsg string) error
-	UpdateSuccess(id uint, outputData string) error
-	GetPendingItemsByTaskID(taskID uint) ([]entity.TaskItem, error)
-	BatchCreate(items []entity.TaskItem) error
+	GetByID(id uint) (*entity.TaskItem, error)
+	Create(item *entity.TaskItem) error
+	Delete(id uint) error
+	DeleteByTaskID(taskID uint) error
+	GetByTaskIDAndStatus(taskID uint, status string) ([]*entity.TaskItem, error)
+	GetListByTaskID(taskID uint, page, pageSize int, status string) ([]*entity.TaskItem, int64, error)
+	UpdateStatus(id uint, status string) error
+	UpdateStatusAndOutput(id uint, status, outputData string) error
+	GetStatsByTaskID(taskID uint) (map[string]int, error)
 }
 
 // TaskItemRepositoryImpl 任务项仓库实现
 type TaskItemRepositoryImpl struct {
-	BaseRepositoryImpl[entity.TaskItem]
+	db *gorm.DB
 }
 
 // NewTaskItemRepository 创建任务项仓库
 func NewTaskItemRepository(db *gorm.DB) TaskItemRepository {
 	return &TaskItemRepositoryImpl{
-		BaseRepositoryImpl: BaseRepositoryImpl[entity.TaskItem]{db: db},
+		db: db,
 	}
 }
 
-// FindByTaskID 根据任务ID查找所有任务项
-func (r *TaskItemRepositoryImpl) FindByTaskID(taskID uint) ([]entity.TaskItem, error) {
-	var items []entity.TaskItem
-	err := r.db.Where("task_id = ?", taskID).Order("created_at ASC").Find(&items).Error
+// GetByID 根据ID获取任务项
+func (r *TaskItemRepositoryImpl) GetByID(id uint) (*entity.TaskItem, error) {
+	var item entity.TaskItem
+	err := r.db.First(&item, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
+// Create 创建任务项
+func (r *TaskItemRepositoryImpl) Create(item *entity.TaskItem) error {
+	return r.db.Create(item).Error
+}
+
+// Delete 删除任务项
+func (r *TaskItemRepositoryImpl) Delete(id uint) error {
+	return r.db.Delete(&entity.TaskItem{}, id).Error
+}
+
+// DeleteByTaskID 根据任务ID删除所有任务项
+func (r *TaskItemRepositoryImpl) DeleteByTaskID(taskID uint) error {
+	return r.db.Where("task_id = ?", taskID).Delete(&entity.TaskItem{}).Error
+}
+
+// GetByTaskIDAndStatus 根据任务ID和状态获取任务项
+func (r *TaskItemRepositoryImpl) GetByTaskIDAndStatus(taskID uint, status string) ([]*entity.TaskItem, error) {
+	var items []*entity.TaskItem
+	err := r.db.Where("task_id = ? AND status = ?", taskID, status).Order("id ASC").Find(&items).Error
 	return items, err
 }
 
-// FindByTaskIDWithPagination 根据任务ID分页查找任务项
-func (r *TaskItemRepositoryImpl) FindByTaskIDWithPagination(taskID uint, page, pageSize int) ([]entity.TaskItem, int64, error) {
-	var items []entity.TaskItem
+// GetListByTaskID 根据任务ID分页获取任务项
+func (r *TaskItemRepositoryImpl) GetListByTaskID(taskID uint, page, pageSize int, status string) ([]*entity.TaskItem, int64, error) {
+	var items []*entity.TaskItem
 	var total int64
 
+	query := r.db.Model(&entity.TaskItem{}).Where("task_id = ?", taskID)
+
+	// 添加状态过滤
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
 	// 获取总数
-	err := r.db.Model(&entity.TaskItem{}).Where("task_id = ?", taskID).Count(&total).Error
+	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	err = r.db.Where("task_id = ?", taskID).
-		Order("created_at ASC").
-		Offset(offset).
-		Limit(pageSize).
-		Find(&items).Error
+	err = query.Offset(offset).Limit(pageSize).Order("item_index ASC").Find(&items).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -61,43 +91,47 @@ func (r *TaskItemRepositoryImpl) FindByTaskIDWithPagination(taskID uint, page, p
 }
 
 // UpdateStatus 更新任务项状态
-func (r *TaskItemRepositoryImpl) UpdateStatus(id uint, status entity.TaskItemStatus, errorMsg string) error {
-	updates := map[string]interface{}{
-		"status": status,
-	}
-
-	if errorMsg != "" {
-		updates["error_message"] = errorMsg
-	}
-
-	if status != entity.TaskItemStatusPending {
-		updates["processed_at"] = gorm.Expr("CURRENT_TIMESTAMP")
-	}
-
-	return r.db.Model(&entity.TaskItem{}).Where("id = ?", id).Updates(updates).Error
+func (r *TaskItemRepositoryImpl) UpdateStatus(id uint, status string) error {
+	return r.db.Model(&entity.TaskItem{}).Where("id = ?", id).Update("status", status).Error
 }
 
-// UpdateSuccess 更新任务项为成功状态
-func (r *TaskItemRepositoryImpl) UpdateSuccess(id uint, outputData string) error {
-	updates := map[string]interface{}{
-		"status":       entity.TaskItemStatusSuccess,
-		"output_data":  outputData,
-		"processed_at": gorm.Expr("CURRENT_TIMESTAMP"),
+// UpdateStatusAndOutput 更新任务项状态和输出数据
+func (r *TaskItemRepositoryImpl) UpdateStatusAndOutput(id uint, status, outputData string) error {
+	return r.db.Model(&entity.TaskItem{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"status":      status,
+		"output_data": outputData,
+	}).Error
+}
+
+// GetStatsByTaskID 获取任务项统计信息
+func (r *TaskItemRepositoryImpl) GetStatsByTaskID(taskID uint) (map[string]int, error) {
+	var results []struct {
+		Status string
+		Count  int
 	}
 
-	return r.db.Model(&entity.TaskItem{}).Where("id = ?", id).Updates(updates).Error
-}
+	err := r.db.Model(&entity.TaskItem{}).
+		Select("status, count(*) as count").
+		Where("task_id = ?", taskID).
+		Group("status").
+		Find(&results).Error
 
-// GetPendingItemsByTaskID 获取任务的待处理项目
-func (r *TaskItemRepositoryImpl) GetPendingItemsByTaskID(taskID uint) ([]entity.TaskItem, error) {
-	var items []entity.TaskItem
-	err := r.db.Where("task_id = ? AND status = ?", taskID, entity.TaskItemStatusPending).
-		Order("created_at ASC").
-		Find(&items).Error
-	return items, err
-}
+	if err != nil {
+		return nil, err
+	}
 
-// BatchCreate 批量创建任务项
-func (r *TaskItemRepositoryImpl) BatchCreate(items []entity.TaskItem) error {
-	return r.db.CreateInBatches(items, 100).Error
+	stats := map[string]int{
+		"total":      0,
+		"pending":    0,
+		"processing": 0,
+		"completed":  0,
+		"failed":     0,
+	}
+
+	for _, result := range results {
+		stats[result.Status] = result.Count
+		stats["total"] += result.Count
+	}
+
+	return stats, nil
 }

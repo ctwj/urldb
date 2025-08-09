@@ -324,7 +324,11 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 
 			// 创建资源标签关联
 			for _, tagID := range tagIDs {
-				err = r.resourceRepo.CreateResourceTag(resource.ID, tagID)
+				resourceTag := &entity.ResourceTag{
+					ResourceID: resource.ID,
+					TagID:      tagID,
+				}
+				err = r.resourceRepo.CreateResourceTag(resourceTag)
 				if err != nil {
 					utils.Error(fmt.Sprintf("创建资源标签关联失败: %v", err))
 				}

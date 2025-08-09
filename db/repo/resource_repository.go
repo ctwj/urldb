@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
-
 	"gorm.io/gorm"
 )
 
@@ -32,7 +31,9 @@ type ResourceRepository interface {
 	FindExists(url string, excludeID ...uint) (bool, error)
 	BatchFindByURLs(urls []string) ([]entity.Resource, error)
 	GetResourcesForTransfer(panID uint, sinceTime time.Time, limit int) ([]*entity.Resource, error)
-	CreateResourceTag(resourceID, tagID uint) error
+	GetByURL(url string) (*entity.Resource, error)
+	UpdateSaveURL(id uint, saveURL string) error
+	CreateResourceTag(resourceTag *entity.ResourceTag) error
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -432,11 +433,22 @@ func (r *ResourceRepositoryImpl) GetResourcesForTransfer(panID uint, sinceTime t
 	return resources, nil
 }
 
-// CreateResourceTag 创建资源与标签的关联
-func (r *ResourceRepositoryImpl) CreateResourceTag(resourceID, tagID uint) error {
-	resourceTag := &entity.ResourceTag{
-		ResourceID: resourceID,
-		TagID:      tagID,
+// GetByURL 根据URL获取资源
+func (r *ResourceRepositoryImpl) GetByURL(url string) (*entity.Resource, error) {
+	var resource entity.Resource
+	err := r.GetDB().Where("url = ?", url).First(&resource).Error
+	if err != nil {
+		return nil, err
 	}
+	return &resource, nil
+}
+
+// UpdateSaveURL 更新资源的转存链接
+func (r *ResourceRepositoryImpl) UpdateSaveURL(id uint, saveURL string) error {
+	return r.GetDB().Model(&entity.Resource{}).Where("id = ?", id).Update("save_url", saveURL).Error
+}
+
+// CreateResourceTag 创建资源与标签的关联
+func (r *ResourceRepositoryImpl) CreateResourceTag(resourceTag *entity.ResourceTag) error {
 	return r.GetDB().Create(resourceTag).Error
 }

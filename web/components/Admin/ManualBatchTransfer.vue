@@ -1,15 +1,8 @@
 <template>
   <div class="space-y-6">
-    <!-- 说明信息 -->
-    <n-alert type="info" show-icon>
-      <template #icon>
-        <i class="fas fa-info-circle"></i>
-      </template>
-      批量转存功能：支持批量输入资源URL进行转存操作。每行一个链接，系统将自动处理转存任务。
-    </n-alert>
 
     <!-- 输入区域 -->
-    <n-card title="批量转存配置">
+    <n-card title="批量转存资源列表">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- 左侧：资源输入 -->
         <div class="space-y-4">
@@ -37,10 +30,9 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               默认分类
             </label>
-            <n-select
-              v-model:value="selectedCategory"
+            <CategorySelector
+              v-model="selectedCategory"
               placeholder="选择分类"
-              :options="categoryOptions"
               clearable
             />
           </div>
@@ -49,10 +41,9 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               标签
             </label>
-            <n-select
-              v-model:value="selectedTags"
+            <TagSelector
+              v-model="selectedTags"
               placeholder="选择标签"
-              :options="tagOptions"
               multiple
               clearable
             />
@@ -126,13 +117,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
-import { useCategoryApi, useTagApi, usePanApi } from '~/composables/useApi'
+import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
+import { usePanApi, useTaskApi } from '~/composables/useApi'
+import { useMessage } from 'naive-ui'
 
 // 数据状态
 const resourceText = ref('')
 const processing = ref(false)
-const results = ref([])
+const results = ref<any[]>([])
+
+// 任务状态
+const currentTaskId = ref<number | null>(null)
+const taskStatus = ref<any>(null)
+const taskStats = ref({
+  total: 0,
+  pending: 0,
+  processing: 0,
+  completed: 0,
+  failed: 0
+})
+const statusCheckInterval = ref<NodeJS.Timeout | null>(null)
 
 // 配置选项
 const selectedCategory = ref(null)
@@ -143,14 +147,12 @@ const skipExisting = ref(true)
 const autoTransfer = ref(false)
 
 // 选项数据
-const categoryOptions = ref([])
-const tagOptions = ref([])
-const platformOptions = ref([])
+const platformOptions = ref<any[]>([])
 
 // API实例
-const categoryApi = useCategoryApi()
-const tagApi = useTagApi()
 const panApi = usePanApi()
+const taskApi = useTaskApi()
+const message = useMessage()
 
 // 计算属性
 const totalLines = computed(() => {
@@ -182,9 +184,17 @@ const processingCount = computed(() => {
 // 结果表格列
 const resultColumns = [
   {
+    title: '标题',
+    key: 'title',
+    width: 200,
+    ellipsis: {
+      tooltip: true
+    }
+  },
+  {
     title: '链接',
     key: 'url',
-    width: 300,
+    width: 250,
     ellipsis: {
       tooltip: true
     }
@@ -197,9 +207,10 @@ const resultColumns = [
       const statusMap = {
         success: { color: 'success', text: '成功', icon: 'fas fa-check' },
         failed: { color: 'error', text: '失败', icon: 'fas fa-times' },
-        processing: { color: 'info', text: '处理中', icon: 'fas fa-spinner fa-spin' }
+        processing: { color: 'info', text: '处理中', icon: 'fas fa-spinner fa-spin' },
+        pending: { color: 'warning', text: '等待中', icon: 'fas fa-clock' }
       }
-      const status = statusMap[row.status] || statusMap.failed
+      const status = statusMap[row.status as keyof typeof statusMap] || statusMap.failed
       return h('n-tag', { type: status.color }, {
         icon: () => h('i', { class: status.icon }),
         default: () => status.text
@@ -245,36 +256,6 @@ const isValidUrl = (url: string) => {
   }
 }
 
-// 获取分类选项
-const fetchCategories = async () => {
-  try {
-    const result = await categoryApi.getCategories() as any
-    if (result && result.items) {
-      categoryOptions.value = result.items.map((item: any) => ({
-        label: item.name,
-        value: item.id
-      }))
-    }
-  } catch (error) {
-    console.error('获取分类失败:', error)
-  }
-}
-
-// 获取标签选项
-const fetchTags = async () => {
-  try {
-    const result = await tagApi.getTags() as any
-    if (result && result.items) {
-      tagOptions.value = result.items.map((item: any) => ({
-        label: item.name,
-        value: item.id
-      }))
-    }
-  } catch (error) {
-    console.error('获取标签失败:', error)
-  }
-}
-
 // 获取平台选项
 const fetchPlatforms = async () => {
   try {
@@ -293,7 +274,7 @@ const fetchPlatforms = async () => {
 // 处理批量转存
 const handleBatchTransfer = async () => {
   if (!resourceText.value.trim()) {
-    $message.warning('请输入资源链接')
+    message.warning('请输入资源内容')
     return
   }
 
@@ -301,53 +282,169 @@ const handleBatchTransfer = async () => {
   results.value = []
 
   try {
-    const lines = resourceText.value.split('\n').filter(line => line.trim())
-    const validLines = lines.filter(line => isValidUrl(line.trim()))
-
-    if (validLines.length === 0) {
-      $message.warning('没有找到有效的资源链接')
+    // 第一步：拆解资源信息，按照一行标题，一行链接的形式
+    const resourceList = parseResourceText(resourceText.value)
+    
+    if (resourceList.length === 0) {
+      message.warning('没有找到有效的资源信息，请按照"标题"和"链接"分行输入')
       return
     }
 
-    // 初始化结果
-    results.value = validLines.map(url => ({
-      url: url.trim(),
-      status: 'processing',
-      message: '准备处理...',
-      saveUrl: null
-    }))
-
-    // 这里应该调用实际的批量转存API
-    // 由于只是UI展示，这里模拟处理过程
-    for (let i = 0; i < results.value.length; i++) {
-      const result = results.value[i]
-      
-      // 模拟处理延迟
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // 模拟随机成功/失败
-      const isSuccess = Math.random() > 0.3
-      
-      if (isSuccess) {
-        result.status = 'success'
-        result.message = '转存成功'
-        result.saveUrl = `https://pan.quark.cn/s/mock${Date.now()}`
-      } else {
-        result.status = 'failed'
-        result.message = '转存失败：网络错误'
-      }
-
-      // 触发响应式更新
-      results.value = [...results.value]
+    // 第二步：生成任务标题和数据
+    const taskTitle = `批量转存任务_${new Date().toLocaleString('zh-CN')}`
+    const taskData = {
+      title: taskTitle,
+      description: `批量转存 ${resourceList.length} 个资源`,
+      resources: resourceList.map(item => {
+        const resource: any = {
+          title: item.title,
+          url: item.url
+        }
+        if (selectedCategory.value) {
+          resource.category_id = selectedCategory.value
+        }
+        if (selectedTags.value && selectedTags.value.length > 0) {
+          resource.tags = selectedTags.value
+        }
+        return resource
+      })
     }
 
-    $message.success(`批量转存完成，成功 ${successCount.value} 个，失败 ${failedCount.value} 个`)
+    console.log('创建任务数据:', taskData)
 
-  } catch (error) {
-    console.error('批量转存失败:', error)
-    $message.error('批量转存失败')
-  } finally {
+    // 第三步：创建任务
+    const taskResponse = await taskApi.createBatchTransferTask(taskData) as any
+    console.log('任务创建响应:', taskResponse)
+    
+    currentTaskId.value = taskResponse.task_id
+    
+    // 第四步：启动任务
+    await taskApi.startTask(currentTaskId.value!)
+    
+    // 第五步：开始实时监控任务状态
+    startTaskMonitoring()
+    
+    message.success('任务已创建并启动，开始处理...')
+
+  } catch (error: any) {
+    console.error('创建任务失败:', error)
+    message.error('创建任务失败: ' + (error.message || '未知错误'))
     processing.value = false
+  }
+}
+
+// 解析资源文本，按照 标题\n链接 的格式
+const parseResourceText = (text: string) => {
+  const lines = text.split('\n').filter((line: string) => line.trim())
+  const resourceList = []
+  
+  for (let i = 0; i < lines.length; i += 2) {
+    const title = lines[i]?.trim()
+    const url = lines[i + 1]?.trim()
+    
+    if (title && url && isValidUrl(url)) {
+      resourceList.push({
+        title,
+        url,
+        category_id: selectedCategory.value || 0,
+        tags: selectedTags.value || []
+      })
+    }
+  }
+  
+  return resourceList
+}
+
+// 开始任务监控
+const startTaskMonitoring = () => {
+  if (statusCheckInterval.value) {
+    clearInterval(statusCheckInterval.value)
+  }
+  
+  statusCheckInterval.value = setInterval(async () => {
+    try {
+      const status = await taskApi.getTaskStatus(currentTaskId.value!) as any
+      console.log('任务状态更新:', status)
+      
+      taskStatus.value = status
+      taskStats.value = status.stats || {
+        total: 0,
+        pending: 0,
+        processing: 0,
+        completed: 0,
+        failed: 0
+      }
+      
+      // 更新结果显示
+      updateResultsDisplay()
+      
+      // 如果任务完成，停止监控
+      if (status.status === 'completed' || status.status === 'failed' || status.status === 'partial_success') {
+        stopTaskMonitoring()
+        processing.value = false
+        
+        const { completed, failed } = taskStats.value
+        message.success(`批量转存完成！成功: ${completed}, 失败: ${failed}`)
+      }
+      
+    } catch (error) {
+      console.error('获取任务状态失败:', error)
+      // 如果连续失败，停止监控
+      stopTaskMonitoring()
+      processing.value = false
+    }
+  }, 2000) // 每2秒检查一次
+}
+
+// 停止任务监控
+const stopTaskMonitoring = () => {
+  if (statusCheckInterval.value) {
+    clearInterval(statusCheckInterval.value)
+    statusCheckInterval.value = null
+  }
+}
+
+// 更新结果显示
+const updateResultsDisplay = () => {
+  if (!taskStatus.value) return
+  
+  // 如果还没有结果，初始化
+  if (results.value.length === 0) {
+    const resourceList = parseResourceText(resourceText.value)
+    results.value = resourceList.map(item => ({
+      title: item.title,
+      url: item.url,
+      status: 'pending',
+      message: '等待处理...',
+      saveUrl: null
+    }))
+  }
+  
+  // 更新整体进度显示
+  const { pending, processing, completed, failed } = taskStats.value
+  const processed = completed + failed
+  
+  // 简单的状态更新逻辑 - 这里可以根据需要获取详细的任务项状态
+  for (let i = 0; i < results.value.length; i++) {
+    const result = results.value[i]
+    
+    if (i < completed) {
+      // 已完成的项目
+      result.status = 'success'
+      result.message = '转存成功'
+    } else if (i < completed + failed) {
+      // 失败的项目
+      result.status = 'failed'
+      result.message = '转存失败'
+    } else if (i < processed + processing) {
+      // 正在处理的项目
+      result.status = 'processing'
+      result.message = '正在处理...'
+    } else {
+      // 等待处理的项目
+      result.status = 'pending'
+      result.message = '等待处理...'
+    }
   }
 }
 
@@ -359,8 +456,11 @@ const clearInput = () => {
 
 // 初始化
 onMounted(() => {
-  fetchCategories()
-  fetchTags()
   fetchPlatforms()
+})
+
+// 组件销毁时清理定时器
+onBeforeUnmount(() => {
+  stopTaskMonitoring()
 })
 </script>

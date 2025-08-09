@@ -48,6 +48,23 @@
             </span>
           </div>
           
+          <!-- 任务状态 -->
+          <div 
+            v-if="taskStore.hasActiveTasks" 
+            @click="navigateToTasks"
+            class="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+          >
+            <div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+            <span class="text-xs text-orange-700 dark:text-orange-300 font-medium">
+              <template v-if="taskStore.runningTaskCount > 0">
+                {{ taskStore.runningTaskCount }}个任务运行中
+              </template>
+              <template v-else>
+                {{ taskStore.activeTaskCount }}个任务待处理
+              </template>
+            </span>
+          </div>
+          
           <NuxtLink to="/" class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
             <i class="fas fa-home text-lg"></i>
           </NuxtLink>
@@ -271,6 +288,7 @@
 <script setup lang="ts">
 import { useUserStore } from '~/stores/user'
 import { useSystemConfigStore } from '~/stores/systemConfig'
+import { useTaskStore } from '~/stores/task'
 
 // 用户状态管理
 const userStore = useUserStore()
@@ -278,6 +296,9 @@ const router = useRouter()
 
 // 系统配置store
 const systemConfigStore = useSystemConfigStore()
+
+// 任务状态管理
+const taskStore = useTaskStore()
 
 // 初始化系统配置
 await systemConfigStore.initConfig()
@@ -299,9 +320,20 @@ const fetchVersionInfo = async () => {
   }
 }
 
-// 初始化版本信息
+// 初始化版本信息和任务状态管理
 onMounted(() => {
   fetchVersionInfo()
+  
+  // 启动任务状态自动更新
+  taskStore.startAutoUpdate()
+  console.log('Admin layout: 任务状态自动更新已启动')
+})
+
+// 组件销毁时清理任务状态管理
+onBeforeUnmount(() => {
+  // 停止任务状态自动更新
+  taskStore.stopAutoUpdate()
+  console.log('Admin layout: 任务状态自动更新已停止')
 })
 
 // 系统配置
@@ -528,6 +560,11 @@ onMounted(() => {
     }
   })
 })
+
+// 导航到任务列表页面
+const navigateToTasks = () => {
+  router.push('/admin/tasks')
+}
 </script>
 
 <style scoped>

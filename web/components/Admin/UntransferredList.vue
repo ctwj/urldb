@@ -13,17 +13,15 @@
         </template>
       </n-input>
       
-      <n-select
-        v-model:value="selectedCategory"
+      <CategorySelector
+        v-model="selectedCategory"
         placeholder="选择分类"
-        :options="categoryOptions"
         clearable
       />
       
-      <n-select
-        v-model:value="selectedTag"
+      <TagSelector
+        v-model="selectedTag"
         placeholder="选择标签"
-        :options="tagOptions"
         clearable
       />
 

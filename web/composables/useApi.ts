@@ -200,6 +200,18 @@ export const usePublicSystemConfigApi = () => {
   return { getPublicSystemConfig }
 } 
 
+// 任务管理API
+export const useTaskApi = () => {
+  const createBatchTransferTask = (data: any) => useApiFetch('/tasks/transfer', { method: 'POST', body: data }).then(parseApiResponse)
+  const getTasks = (params?: any) => useApiFetch('/tasks', { params }).then(parseApiResponse)
+  const getTaskStatus = (id: number) => useApiFetch(`/tasks/${id}`).then(parseApiResponse)
+  const startTask = (id: number) => useApiFetch(`/tasks/${id}/start`, { method: 'POST' }).then(parseApiResponse)
+  const stopTask = (id: number) => useApiFetch(`/tasks/${id}/stop`, { method: 'POST' }).then(parseApiResponse)
+  const deleteTask = (id: number) => useApiFetch(`/tasks/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const getTaskItems = (id: number, params?: any) => useApiFetch(`/tasks/${id}/items`, { params }).then(parseApiResponse)
+  return { createBatchTransferTask, getTasks, getTaskStatus, startTask, stopTask, deleteTask, getTaskItems }
+}
+
 // 日志函数：只在开发环境打印
 function log(...args: any[]) {
   if (process.env.NODE_ENV !== 'production') {

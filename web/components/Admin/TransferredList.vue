@@ -13,17 +13,15 @@
         </template>
       </n-input>
       
-      <n-select
-        v-model:value="selectedCategory"
+      <CategorySelector
+        v-model="selectedCategory"
         placeholder="选择分类"
-        :options="categoryOptions"
         clearable
       />
       
-      <n-select
-        v-model:value="selectedTag"
+      <TagSelector
+        v-model="selectedTag"
         placeholder="选择标签"
-        :options="tagOptions"
         clearable
       />
       
@@ -52,7 +50,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { useResourceApi, useCategoryApi, useTagApi } from '~/composables/useApi'
+import { useResourceApi } from '~/composables/useApi'
 
 // 数据状态
 const loading = ref(false)
@@ -66,14 +64,8 @@ const searchQuery = ref('')
 const selectedCategory = ref(null)
 const selectedTag = ref(null)
 
-// 选项数据
-const categoryOptions = ref([])
-const tagOptions = ref([])
-
 // API实例
 const resourceApi = useResourceApi()
-const categoryApi = useCategoryApi()
-const tagApi = useTagApi()
 
 // 分页配置
 const pagination = reactive({
@@ -203,40 +195,6 @@ const fetchTransferredResources = async () => {
   }
 }
 
-// 获取分类选项
-const fetchCategories = async () => {
-  try {
-    const result = await categoryApi.getCategories() as any
-    console.log('分类结果:', result)
-    
-    if (result && result.items) {
-      categoryOptions.value = result.items.map((item: any) => ({
-        label: item.name,
-        value: item.id
-      }))
-    }
-  } catch (error) {
-    console.error('获取分类失败:', error)
-  }
-}
-
-// 获取标签选项
-const fetchTags = async () => {
-  try {
-    const result = await tagApi.getTags() as any
-    console.log('标签结果:', result)
-    
-    if (result && result.items) {
-      tagOptions.value = result.items.map((item: any) => ({
-        label: item.name,
-        value: item.id
-      }))
-    }
-  } catch (error) {
-    console.error('获取标签失败:', error)
-  }
-}
-
 // 搜索处理
 const handleSearch = () => {
   currentPage.value = 1
@@ -278,8 +236,6 @@ const copyLink = async (url: string) => {
 
 // 初始化
 onMounted(() => {
-  fetchCategories()
-  fetchTags()
   fetchTransferredResources()
 })
 </script>
