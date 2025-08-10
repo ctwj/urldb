@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ctwj/urldb/utils"
 )
 
 // QuarkPanService 夸克网盘服务
@@ -406,7 +408,7 @@ func (q *QuarkPanService) getShareSave(shareID, stoken string, fidList, fidToken
 
 // 生成指定长度的时间戳
 func (q *QuarkPanService) generateTimestamp(length int) int64 {
-	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+	timestamp := utils.GetCurrentTime().UnixNano() / int64(time.Millisecond)
 	timestampStr := strconv.FormatInt(timestamp, 10)
 	if len(timestampStr) > length {
 		timestampStr = timestampStr[:length]

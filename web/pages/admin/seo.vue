@@ -414,54 +414,54 @@ const linkColumns = [
 // 提交到百度
 const submitToBaidu = () => {
   // 模拟提交
-  lastSubmitTime.value.baidu = new Date().toLocaleString()
+  lastSubmitTime.value.baidu = new Date().toLocaleString('zh-CN')
   message.success('已提交到百度')
 }
 
 // 提交到谷歌
 const submitToGoogle = () => {
   // 模拟提交
-  lastSubmitTime.value.google = new Date().toLocaleString()
+  lastSubmitTime.value.google = new Date().toLocaleString('zh-CN')
   message.success('已提交到谷歌')
 }
 
 // 提交到必应
 const submitToBing = () => {
   // 模拟提交
-  lastSubmitTime.value.bing = new Date().toLocaleString()
+  lastSubmitTime.value.bing = new Date().toLocaleString('zh-CN')
   message.success('已提交到必应')
 }
 
 // 提交到搜狗
 const submitToSogou = () => {
   // 模拟提交
-  lastSubmitTime.value.sogou = new Date().toLocaleString()
+  lastSubmitTime.value.sogou = new Date().toLocaleString('zh-CN')
   message.success('已提交到搜狗')
 }
 
 // 提交到神马搜索
 const submitToShenma = () => {
   // 模拟提交
-  lastSubmitTime.value.shenma = new Date().toLocaleString()
+  lastSubmitTime.value.shenma = new Date().toLocaleString('zh-CN')
   message.success('已提交到神马搜索')
 }
 
 // 提交到360搜索
 const submitTo360 = () => {
   // 模拟提交
-  lastSubmitTime.value.so360 = new Date().toLocaleString()
+  lastSubmitTime.value.so360 = new Date().toLocaleString('zh-CN')
   message.success('已提交到360搜索')
 }
 
 // 批量提交
 const submitToAll = () => {
   // 模拟批量提交
-  lastSubmitTime.value.baidu = new Date().toLocaleString()
-  lastSubmitTime.value.google = new Date().toLocaleString()
-  lastSubmitTime.value.bing = new Date().toLocaleString()
-  lastSubmitTime.value.sogou = new Date().toLocaleString()
-  lastSubmitTime.value.shenma = new Date().toLocaleString()
-  lastSubmitTime.value.so360 = new Date().toLocaleString()
+  lastSubmitTime.value.baidu = new Date().toLocaleString('zh-CN')
+  lastSubmitTime.value.google = new Date().toLocaleString('zh-CN')
+  lastSubmitTime.value.bing = new Date().toLocaleString('zh-CN')
+  lastSubmitTime.value.sogou = new Date().toLocaleString('zh-CN')
+  lastSubmitTime.value.shenma = new Date().toLocaleString('zh-CN')
+  lastSubmitTime.value.so360 = new Date().toLocaleString('zh-CN')
   message.success('已批量提交到所有搜索引擎')
 }
 

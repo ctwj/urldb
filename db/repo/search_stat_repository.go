@@ -2,9 +2,9 @@ package repo
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 
 	"gorm.io/gorm"
 )
@@ -37,7 +37,7 @@ func (r *SearchStatRepositoryImpl) RecordSearch(keyword, ip, userAgent string) e
 	stat := entity.SearchStat{
 		Keyword:   keyword,
 		Count:     1,
-		Date:      time.Now(), // 可保留 date 字段，实际用 created_at 统计
+		Date:      utils.GetCurrentTime(), // 可保留 date 字段，实际用 created_at 统计
 		IP:        ip,
 		UserAgent: userAgent,
 	}
@@ -124,9 +124,9 @@ func (r *SearchStatRepositoryImpl) GetKeywordTrend(keyword string, days int) ([]
 // GetSummary 获取搜索统计汇总
 func (r *SearchStatRepositoryImpl) GetSummary() (map[string]int64, error) {
 	var total, today, week, month, keywords int64
-	now := time.Now()
-	todayStr := now.Format("2006-01-02")
-	weekStart := now.AddDate(0, 0, -int(now.Weekday())+1).Format("2006-01-02") // 周一
+	now := utils.GetCurrentTime()
+	todayStr := now.Format(utils.TimeFormatDate)
+	weekStart := now.AddDate(0, 0, -int(now.Weekday())+1).Format(utils.TimeFormatDate) // 周一
 	monthStart := now.Format("2006-01") + "-01"
 
 	// 总搜索次数

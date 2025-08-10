@@ -304,8 +304,8 @@ const systemConfigStore = useSystemConfigStore()
 // 任务状态管理
 const taskStore = useTaskStore()
 
-// 初始化系统配置
-await systemConfigStore.initConfig()
+// 初始化系统配置（管理员页面使用管理员API）
+await systemConfigStore.initConfig(false, true)
 
 // 版本信息
 const versionInfo = ref({
@@ -495,10 +495,10 @@ const operationItems = ref([
     active: (route: any) => route.path.startsWith('/admin/data-push')
   },
   {
-    to: '/admin/auto-reply',
-    label: '自动回复',
-    icon: 'fas fa-comments',
-    active: (route: any) => route.path.startsWith('/admin/auto-reply')
+    to: '/admin/bot',
+    label: '机器人',
+    icon: 'fas fa-robot',
+    active: (route: any) => route.path.startsWith('/admin/bot')
   },
   {
     to: '/admin/seo',
@@ -533,7 +533,7 @@ const autoExpandCurrentGroup = () => {
     expandedGroups.value.dataManagement = true
   } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users') || currentPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
-  } else if (currentPath.startsWith('/admin/data-transfer') || currentPath.startsWith('/admin/seo') || currentPath.startsWith('/admin/data-push') || currentPath.startsWith('/admin/auto-reply')) {
+  } else if (currentPath.startsWith('/admin/data-transfer') || currentPath.startsWith('/admin/seo') || currentPath.startsWith('/admin/data-push') || currentPath.startsWith('/admin/bot')) {
     expandedGroups.value.operation = true
   } else if (currentPath.startsWith('/admin/search-stats') || currentPath.startsWith('/admin/third-party-stats')) {
     expandedGroups.value.statistics = true
@@ -555,7 +555,7 @@ watch(() => useRoute().path, (newPath) => {
     expandedGroups.value.dataManagement = true
   } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users') || newPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
-  } else if (newPath.startsWith('/admin/data-transfer') || newPath.startsWith('/admin/seo') || newPath.startsWith('/admin/data-push') || newPath.startsWith('/admin/auto-reply')) {
+  } else if (newPath.startsWith('/admin/data-transfer') || newPath.startsWith('/admin/seo') || newPath.startsWith('/admin/data-push') || newPath.startsWith('/admin/bot')) {
     expandedGroups.value.operation = true
   } else if (newPath.startsWith('/admin/search-stats') || newPath.startsWith('/admin/third-party-stats')) {
     expandedGroups.value.statistics = true

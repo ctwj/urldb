@@ -8,19 +8,16 @@
         <div class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              资源信息 <span class="text-red-500">*</span>
+              资源内容 <span class="text-red-500">*</span>
             </label>
             <n-input
               v-model:value="resourceText"
               type="textarea"
-              placeholder="请输入资源信息，每行格式：标题|链接地址&#10;例如：&#10;电影名称1|https://pan.quark.cn/s/xxx&#10;电影名称2|https://pan.baidu.com/s/xxx"
-              :rows="12"
+              placeholder="请输入资源内容，格式：标题和URL为一组..."
+              :autosize="{ minRows: 10, maxRows: 15 }"
               show-count
               :maxlength="10000"
             />
-            <p class="text-xs text-gray-500 mt-1">
-              每行一个资源，格式：标题|链接地址（用竖线分隔）
-            </p>
           </div>
         </div>
 
@@ -73,7 +70,7 @@
               <template #icon>
                 <i class="fas fa-trash"></i>
               </template>
-              清空输入
+              清空内容
             </n-button>
           </div>
         </div>
@@ -286,7 +283,7 @@ const handleBatchTransfer = async () => {
     const resourceList = parseResourceText(resourceText.value)
     
     if (resourceList.length === 0) {
-      message.warning('没有找到有效的资源信息，请按照"标题"和"链接"分行输入')
+      message.warning('没有找到有效的资源信息，请按照格式要求输入：标题和URL为一组，标题必填')
       return
     }
 
@@ -333,22 +330,49 @@ const handleBatchTransfer = async () => {
   }
 }
 
-// 解析资源文本，按照 标题\n链接 的格式
+// 解析资源文本，按照 标题\n链接 的格式（支持同一标题多个URL）
 const parseResourceText = (text: string) => {
   const lines = text.split('\n').filter((line: string) => line.trim())
   const resourceList = []
   
-  for (let i = 0; i < lines.length; i += 2) {
-    const title = lines[i]?.trim()
-    const url = lines[i + 1]?.trim()
-    
-    if (title && url && isValidUrl(url)) {
-      resourceList.push({
-        title,
-        url,
-        category_id: selectedCategory.value || 0,
-        tags: selectedTags.value || []
-      })
+  let currentTitle = ''
+  let currentUrls = []
+  
+  for (const line of lines) {
+    // 判断是否为 url（以 http/https 开头）
+    if (/^https?:\/\//i.test(line)) {
+      currentUrls.push(line.trim())
+    } else {
+      // 新标题，先保存上一个
+      if (currentTitle && currentUrls.length > 0) {
+        // 为每个URL创建一个资源项
+        for (const url of currentUrls) {
+          if (isValidUrl(url)) {
+            resourceList.push({
+              title: currentTitle,
+              url: url,
+              category_id: selectedCategory.value || 0,
+              tags: selectedTags.value || []
+            })
+          }
+        }
+      }
+      currentTitle = line.trim()
+      currentUrls = []
+    }
+  }
+  
+  // 处理最后一组
+  if (currentTitle && currentUrls.length > 0) {
+    for (const url of currentUrls) {
+      if (isValidUrl(url)) {
+        resourceList.push({
+          title: currentTitle,
+          url: url,
+          category_id: selectedCategory.value || 0,
+          tags: selectedTags.value || []
+        })
+      }
     }
   }
   

@@ -80,7 +80,7 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 				ResourceID: existingResource.ID,
 				SaveURL:    existingResource.SaveURL,
 				Success:    true,
-				Time:       time.Now().Format("2006-01-02 15:04:05"),
+				Time:       utils.GetCurrentTimeString(),
 			}
 
 			outputJSON, _ := json.Marshal(output)
@@ -98,7 +98,7 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 		output := TransferOutput{
 			Error:   err.Error(),
 			Success: false,
-			Time:    time.Now().Format("2006-01-02 15:04:05"),
+			Time:    utils.GetCurrentTimeString(),
 		}
 
 		outputJSON, _ := json.Marshal(output)
@@ -113,7 +113,7 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 		output := TransferOutput{
 			Error:   "转存成功但未获取到分享链接",
 			Success: false,
-			Time:    time.Now().Format("2006-01-02 15:04:05"),
+			Time:    utils.GetCurrentTimeString(),
 		}
 
 		outputJSON, _ := json.Marshal(output)
@@ -128,7 +128,7 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 		ResourceID: resourceID,
 		SaveURL:    saveURL,
 		Success:    true,
-		Time:       time.Now().Format("2006-01-02 15:04:05"),
+		Time:       utils.GetCurrentTimeString(),
 	}
 
 	outputJSON, _ := json.Marshal(output)

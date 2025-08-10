@@ -257,7 +257,7 @@ func (a *AutoTransferScheduler) processAutoTransfer() {
 					utils.Error(fmt.Sprintf("转存资源失败 (ID: %d): %v", res.ID, err))
 				} else {
 					utils.Info(fmt.Sprintf("成功转存资源: %s", res.Title))
-					rand.Seed(time.Now().UnixNano())
+					rand.Seed(utils.GetCurrentTime().UnixNano())
 					sleepSec := rand.Intn(3) + 1 // 1,2,3
 					time.Sleep(time.Duration(sleepSec) * time.Second)
 				}
@@ -289,7 +289,7 @@ func (a *AutoTransferScheduler) getQuarkPanID() (uint, error) {
 // getResourcesForTransfer 获取需要转存的资源
 func (a *AutoTransferScheduler) getResourcesForTransfer(quarkPanID uint, limit int) ([]*entity.Resource, error) {
 	// 获取最近24小时内的资源
-	sinceTime := time.Now().Add(-24 * time.Hour)
+	sinceTime := utils.GetCurrentTime().Add(-24 * time.Hour)
 
 	// 使用资源仓库的方法获取需要转存的资源
 	repoImpl, ok := a.resourceRepo.(*repo.ResourceRepositoryImpl)

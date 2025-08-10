@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/ctwj/urldb/utils"
 )
 
 // AlipanService 阿里云盘服务
@@ -428,7 +430,7 @@ func (a *AlipanService) manageAccessToken() (string, error) {
 	}
 
 	// 检查token是否过期
-	if time.Now().After(tokenInfo.ExpiresAt) {
+	if utils.GetCurrentTime().After(tokenInfo.ExpiresAt) {
 		return a.getNewAccessToken()
 	}
 

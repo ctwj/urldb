@@ -33,6 +33,11 @@
       </n-button>
     </div>
 
+    <!-- 调试信息 -->
+    <div class="text-sm text-gray-500 mb-2">
+      数据数量: {{ resources.length }}, 总数: {{ total }}, 加载状态: {{ loading }}
+    </div>
+
     <!-- 数据表格 -->
     <n-data-table
       :columns="columns"
@@ -51,10 +56,14 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useResourceApi } from '~/composables/useApi'
+import { useMessage } from 'naive-ui'
+
+// 消息提示
+const $message = useMessage()
 
 // 数据状态
 const loading = ref(false)
-const resources = ref([])
+const resources = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
@@ -79,12 +88,12 @@ const pagination = reactive({
 })
 
 // 表格列配置
-const columns = [
+const columns: any[] = [
   {
     title: 'ID',
     key: 'id',
     width: 60,
-    fixed: 'left'
+    fixed: 'left' as const
   },
   {
     title: '标题',
@@ -101,11 +110,14 @@ const columns = [
   },
   {
     title: '平台',
-    key: 'platform_name',
+    key: 'pan_name',
     width: 80,
     render: (row: any) => {
-      const platform = platformOptions.value.find((p: any) => p.value === row.pan_id)
-      return platform?.label || '未知'
+      if (row.pan_id) {
+        const platform = platformOptions.value.find((p: any) => p.value === row.pan_id)
+        return platform?.label || '未知'
+      }
+      return '未知'
     }
   },
   {
@@ -137,31 +149,39 @@ const columns = [
     width: 120,
     fixed: 'right',
     render: (row: any) => {
-      return [
+      return h('div', { class: 'flex space-x-2' }, [
         h('n-button', {
           size: 'small',
           type: 'primary',
           onClick: () => viewResource(row)
-        }, '查看'),
+        }, { default: () => '查看' }),
         h('n-button', {
           size: 'small',
           type: 'info',
-          style: { marginLeft: '8px' },
           onClick: () => copyLink(row.save_url)
-        }, '复制')
-      ]
+        }, { default: () => '复制' })
+      ])
     }
   }
 ]
 
 // 平台选项
-const platformOptions = ref([])
+const platformOptions = ref([
+  { label: '夸克网盘', value: 1 },
+  { label: '百度网盘', value: 2 },
+  { label: '阿里云盘', value: 3 },
+  { label: '天翼云盘', value: 4 },
+  { label: '迅雷云盘', value: 5 },
+  { label: '123云盘', value: 6 },
+  { label: '115网盘', value: 7 },
+  { label: 'UC网盘', value: 8 }
+])
 
 // 获取已转存资源
 const fetchTransferredResources = async () => {
   loading.value = true
   try {
-    const params = {
+    const params: any = {
       page: currentPage.value,
       page_size: pageSize.value,
       has_save_url: true // 筛选有转存链接的资源
@@ -174,17 +194,36 @@ const fetchTransferredResources = async () => {
       params.category_id = selectedCategory.value
     }
 
+    console.log('请求参数:', params)
     const result = await resourceApi.getResources(params) as any
     console.log('已转存资源结果:', result)
+    console.log('结果类型:', typeof result)
+    console.log('结果结构:', Object.keys(result || {}))
 
-    if (result && result.resources) {
-      resources.value = result.resources
+    if (result && result.data) {
+      console.log('使用 resources 格式，数量:', result.data.length)
+      resources.value = result.data
       total.value = result.total || 0
       pagination.itemCount = result.total || 0
     } else if (Array.isArray(result)) {
+      console.log('使用数组格式，数量:', result.length)
       resources.value = result
       total.value = result.length
       pagination.itemCount = result.length
+    } else {
+      console.log('未知格式，设置空数组')
+      resources.value = []
+      total.value = 0
+      pagination.itemCount = 0
+    }
+    
+    console.log('最终 resources.value:', resources.value)
+    console.log('最终 total.value:', total.value)
+    
+    // 检查是否有资源没有 save_url
+    const resourcesWithoutSaveUrl = resources.value.filter((r: any) => !r.save_url || r.save_url.trim() === '')
+    if (resourcesWithoutSaveUrl.length > 0) {
+      console.warn('发现没有 save_url 的资源:', resourcesWithoutSaveUrl.map((r: any) => ({ id: r.id, title: r.title, save_url: r.save_url })))
     }
   } catch (error) {
     console.error('获取已转存资源失败:', error)

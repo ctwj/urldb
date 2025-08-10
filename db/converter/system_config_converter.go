@@ -219,8 +219,8 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 
 	// 设置时间戳（使用第一个配置的时间）
 	if len(configs) > 0 {
-		response[entity.ConfigResponseFieldCreatedAt] = configs[0].CreatedAt.Format("2006-01-02 15:04:05")
-		response[entity.ConfigResponseFieldUpdatedAt] = configs[0].UpdatedAt.Format("2006-01-02 15:04:05")
+		response[entity.ConfigResponseFieldCreatedAt] = configs[0].CreatedAt.Format(utils.TimeFormatDateTime)
+		response[entity.ConfigResponseFieldUpdatedAt] = configs[0].UpdatedAt.Format(utils.TimeFormatDateTime)
 	}
 
 	return response

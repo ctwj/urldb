@@ -242,6 +242,11 @@ const saveConfig = async () => {
       content: '站点配置保存成功',
       duration: 3000
     })
+    
+    // 刷新系统配置状态，确保顶部导航同步更新
+    const { useSystemConfigStore } = await import('~/stores/systemConfig')
+    const systemConfigStore = useSystemConfigStore()
+    await systemConfigStore.initConfig(true, true) // 强制刷新，使用管理员API
   } catch (error) {
     console.error('保存站点配置失败:', error)
     notification.error({

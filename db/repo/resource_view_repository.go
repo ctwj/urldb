@@ -1,8 +1,8 @@
 package repo
 
 import (
-	"time"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 	"gorm.io/gorm"
 )
 
@@ -40,7 +40,7 @@ func (r *ResourceViewRepositoryImpl) RecordView(resourceID uint, ipAddress, user
 
 // GetTodayViews 获取今日访问量
 func (r *ResourceViewRepositoryImpl) GetTodayViews() (int64, error) {
-	today := time.Now().Format("2006-01-02")
+	today := utils.GetTodayString()
 	var count int64
 	err := r.db.Model(&entity.ResourceView{}).
 		Where("DATE(created_at) = ?", today).
@@ -60,22 +60,22 @@ func (r *ResourceViewRepositoryImpl) GetViewsByDate(date string) (int64, error) 
 // GetViewsTrend 获取访问量趋势数据
 func (r *ResourceViewRepositoryImpl) GetViewsTrend(days int) ([]map[string]interface{}, error) {
 	var results []map[string]interface{}
-	
+
 	for i := days - 1; i >= 0; i-- {
-		date := time.Now().AddDate(0, 0, -i)
-		dateStr := date.Format("2006-01-02")
-		
+		date := utils.GetCurrentTime().AddDate(0, 0, -i)
+		dateStr := date.Format(utils.TimeFormatDate)
+
 		count, err := r.GetViewsByDate(dateStr)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		results = append(results, map[string]interface{}{
 			"date":  dateStr,
 			"views": count,
 		})
 	}
-	
+
 	return results, nil
 }
 
@@ -87,4 +87,4 @@ func (r *ResourceViewRepositoryImpl) GetResourceViews(resourceID uint, limit int
 		Limit(limit).
 		Find(&views).Error
 	return views, err
-} 
+}

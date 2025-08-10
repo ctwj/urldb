@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
@@ -58,8 +57,8 @@ func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 		Type:        "transfer",
 		Status:      "pending",
 		TotalItems:  len(req.Resources),
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		CreatedAt:   utils.GetCurrentTime(),
+		UpdatedAt:   utils.GetCurrentTime(),
 	}
 
 	err := h.repoMgr.TaskRepository.Create(newTask)
@@ -85,8 +84,8 @@ func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 			TaskID:    newTask.ID,
 			Status:    "pending",
 			InputData: string(inputJSON),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			CreatedAt: utils.GetCurrentTime(),
+			UpdatedAt: utils.GetCurrentTime(),
 		}
 
 		err = h.repoMgr.TaskItemRepository.Create(taskItem)

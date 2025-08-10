@@ -327,8 +327,8 @@ const fetchUntransferredResources = async () => {
     const result = await resourceApi.getResources(params) as any
     console.log('未转存资源结果:', result)
 
-    if (result && result.resources) {
-      resources.value = result.resources
+    if (result && result.data) {
+      resources.value = result.data
       total.value = result.total || 0
     } else if (Array.isArray(result)) {
       resources.value = result

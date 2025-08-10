@@ -92,14 +92,14 @@ const autoTransferEnabled = ref(false)
 // 获取系统配置状态
 const fetchSystemStatus = async () => {
   try {
-    await systemConfigStore.initConfig()
+    await systemConfigStore.initConfig(false, true)
     
     // 从系统配置中获取自动处理和自动转存状态
     const config = systemConfigStore.config
     
     if (config) {
       // 检查自动处理状态
-      autoProcessEnabled.value = config.auto_process_enabled === '1' || config.auto_process_enabled === true
+      autoProcessEnabled.value = config.auto_process_ready_resources === '1' || config.auto_process_ready_resources === true
       
       // 检查自动转存状态
       autoTransferEnabled.value = config.auto_transfer_enabled === '1' || config.auto_transfer_enabled === true

@@ -94,7 +94,7 @@
         <div class="flex justify-between mt-3 text-sm text-gray-600 dark:text-gray-300 px-2">
           <div class="flex items-center">
             <i class="fas fa-calendar-day text-pink-600 mr-1"></i>
-            今日更新: <span class="font-medium text-pink-600 ml-1 count-up" :data-target="safeStats?.today_updates || 0">0</span>
+            今日资源: <span class="font-medium text-pink-600 ml-1 count-up" :data-target="safeStats?.today_resources || 0">0</span>
           </div>
           <div class="flex items-center">
             <i class="fas fa-database text-blue-600 mr-1"></i>
@@ -303,7 +303,7 @@ watch(systemConfigError, (error) => {
 
 // 从 SSR 数据中获取值
 const safeResources = computed(() => (resourcesData.value as any)?.data || [])
-const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_updates: 0 })
+const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_resources: 0 })
 const platforms = computed(() => (platformsData.value as any) || [])
 const systemConfig = computed(() => (systemConfigData.value as any).data || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)

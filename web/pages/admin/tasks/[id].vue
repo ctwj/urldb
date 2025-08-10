@@ -1,8 +1,8 @@
 <template>
-  <div class="p-6 space-y-6">
+  <div class="p-4 space-y-4">
     <!-- 页面标题和返回按钮 -->
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-      <div class="flex items-center space-x-4">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
+      <div class="flex items-center space-x-3">
         <n-button
           quaternary
           size="small"
@@ -11,12 +11,11 @@
           <template #icon>
             <i class="fas fa-arrow-left"></i>
           </template>
-          <span class="hidden sm:inline">返回任务列表</span>
-          <span class="sm:hidden">返回</span>
+          <span class="hidden sm:inline">返回</span>
         </n-button>
         <div>
-          <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">任务详情</h1>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">查看任务的详细信息和执行状态</p>
+          <h1 class="text-lg md:text-xl font-bold text-gray-900 dark:text-white">任务详情</h1>
+          <p class="text-xs text-gray-600 dark:text-gray-400">查看任务的详细信息和执行状态</p>
         </div>
       </div>
       
@@ -75,102 +74,96 @@
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="flex justify-center py-8">
-      <n-spin size="large" />
+    <div v-if="loading" class="flex justify-center py-4">
+      <n-spin size="medium" />
     </div>
 
     <!-- 任务详情 -->
-    <div v-else-if="task" class="space-y-6">
-      <!-- 基本信息卡片 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:p-6">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">基本信息</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">任务ID</label>
-            <p class="text-sm text-gray-900 dark:text-white mt-1">{{ task.id }}</p>
-          </div>
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">任务标题</label>
-            <p class="text-sm text-gray-900 dark:text-white mt-1 break-words">{{ task.title }}</p>
-          </div>
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">任务类型</label>
-            <div class="mt-1">
+    <div v-else-if="task" class="space-y-4">
+      <!-- 整合的任务信息卡片 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <!-- 左侧：基本信息 -->
+          <div class="flex-1">
+            <div class="flex items-center space-x-4 mb-3">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ task.title }}</h2>
+              <n-tag :type="getTaskStatusColor(task.status)" size="small">
+                {{ getTaskStatusText(task.status) }}
+              </n-tag>
               <n-tag :type="getTaskTypeColor(task.task_type)" size="small">
                 {{ getTaskTypeText(task.task_type) }}
               </n-tag>
             </div>
-          </div>
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">任务状态</label>
-            <div class="mt-1">
-              <n-tag :type="getTaskStatusColor(task.status)" size="small">
-                {{ getTaskStatusText(task.status) }}
-              </n-tag>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span class="text-gray-500 dark:text-gray-400">ID:</span>
+                <span class="ml-1 text-gray-900 dark:text-white">{{ task.id }}</span>
+              </div>
+              <div>
+                <span class="text-gray-500 dark:text-gray-400">总项目:</span>
+                <span class="ml-1 text-gray-900 dark:text-white">{{ task.total_items || 0 }}</span>
+              </div>
+              <div>
+                <span class="text-gray-500 dark:text-gray-400">已处理:</span>
+                <span class="ml-1 text-blue-600 dark:text-blue-400 font-medium">{{ task.processed_items || 0 }}</span>
+              </div>
+              <div>
+                <span class="text-gray-500 dark:text-gray-400">成功率:</span>
+                <span class="ml-1 text-green-600 dark:text-green-400 font-medium">
+                  {{ task.total_items > 0 ? Math.round((task.success_items / task.total_items) * 100) : 0 }}%
+                </span>
+              </div>
+            </div>
+            
+            <!-- 进度条 -->
+            <div class="mt-3" v-if="task.total_items > 0">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs text-gray-500 dark:text-gray-400">进度</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                  {{ Math.round((task.processed_items / task.total_items) * 100) }}%
+                </span>
+              </div>
+              <n-progress
+                type="line"
+                :percentage="Math.round((task.processed_items / task.total_items) * 100)"
+                :height="6"
+                :show-indicator="false"
+              />
             </div>
           </div>
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">创建时间</label>
-            <p class="text-sm text-gray-900 dark:text-white mt-1">{{ formatDate(task.created_at) }}</p>
-          </div>
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">更新时间</label>
-            <p class="text-sm text-gray-900 dark:text-white mt-1">{{ formatDate(task.updated_at) }}</p>
-          </div>
-        </div>
-        
-        <div v-if="task.description" class="mt-4">
-          <label class="text-sm font-medium text-gray-500 dark:text-gray-400">任务描述</label>
-          <p class="text-sm text-gray-900 dark:text-white mt-1 break-words">{{ task.description }}</p>
-        </div>
-      </div>
-
-      <!-- 进度信息卡片 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:p-6">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">进度信息</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">总项目数</label>
-            <p class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ task.total_items || 0 }}</p>
-          </div>
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">已处理</label>
-            <p class="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{{ task.processed_items || 0 }}</p>
-          </div>
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">成功</label>
-            <p class="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{{ task.success_items || 0 }}</p>
-          </div>
-          <div>
-            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">失败</label>
-            <p class="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{{ task.failed_items || 0 }}</p>
+          
+          <!-- 右侧：统计信息 -->
+          <div class="flex items-center space-x-6">
+            <div class="text-center">
+              <div class="text-lg font-bold text-green-600 dark:text-green-400">{{ task.success_items || 0 }}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">成功</div>
+            </div>
+            <div class="text-center">
+              <div class="text-lg font-bold text-red-600 dark:text-red-400">{{ task.failed_items || 0 }}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">失败</div>
+            </div>
+            <div class="text-center">
+              <div class="text-lg font-bold text-gray-600 dark:text-gray-400">{{ task.total_items - task.processed_items || 0 }}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400">待处理</div>
+            </div>
           </div>
         </div>
         
-        <!-- 进度条 -->
-        <div class="mt-4" v-if="task.total_items > 0">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">总体进度</span>
-            <span class="text-sm text-gray-500 dark:text-gray-400">
-              {{ Math.round((task.processed_items / task.total_items) * 100) }}%
-            </span>
-          </div>
-          <n-progress
-            type="line"
-            :percentage="Math.round((task.processed_items / task.total_items) * 100)"
-            :height="8"
-            :show-indicator="false"
-          />
+        <!-- 任务描述（如果有） -->
+        <div v-if="task.description" class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <p class="text-sm text-gray-600 dark:text-gray-400">{{ task.description }}</p>
         </div>
       </div>
 
       <!-- 任务项列表 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-        <div class="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">任务项列表</h2>
+        <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h2 class="text-base font-semibold text-gray-900 dark:text-white">任务项列表</h2>
+          <span class="text-sm text-gray-500 dark:text-gray-400">共 {{ total }} 项</span>
         </div>
         
-        <div class="p-4 md:p-6 overflow-x-auto">
+        <div class="overflow-x-auto">
           <n-data-table
             :columns="taskItemColumns"
             :data="taskItems"
@@ -178,13 +171,14 @@
             :pagination="itemsPaginationConfig"
             size="small"
             :scroll-x="600"
+            :bordered="false"
           />
         </div>
       </div>
     </div>
 
     <!-- 错误状态 -->
-    <div v-else class="text-center py-8">
+    <div v-else class="text-center py-4">
       <n-empty description="任务不存在或已被删除" />
     </div>
   </div>
@@ -237,26 +231,30 @@ const taskItemColumns = [
   {
     title: 'ID',
     key: 'id',
-    width: 80,
-    minWidth: 80
+    width: 60,
+    minWidth: 60
   },
   {
     title: '输入数据',
     key: 'input',
-    minWidth: 200,
+    minWidth: 250,
     ellipsis: {
       tooltip: true
     },
     render: (row: any) => {
       if (!row.input) return h('span', { class: 'text-sm text-gray-500' }, '无输入数据')
-      return h('span', { class: 'text-sm' }, row.input.title || row.input.url || '无标题')
+      const title = row.input.title || row.input.url || '无标题'
+      return h('div', { class: 'text-sm' }, [
+        h('div', { class: 'font-medium' }, title),
+        h('div', { class: 'text-xs text-gray-500 mt-1' }, row.input.url || '')
+      ])
     }
   },
   {
     title: '状态',
     key: 'status',
-    width: 100,
-    minWidth: 100,
+    width: 80,
+    minWidth: 80,
     render: (row: any) => {
       const statusMap: Record<string, { text: string; color: string }> = {
         pending: { text: '待处理', color: 'warning' },
@@ -269,7 +267,7 @@ const taskItemColumns = [
     }
   },
   {
-    title: '输出数据',
+    title: '结果',
     key: 'output',
     minWidth: 200,
     ellipsis: {
@@ -277,16 +275,28 @@ const taskItemColumns = [
     },
     render: (row: any) => {
       if (!row.output) return h('span', { class: 'text-sm text-gray-500' }, '无输出')
-      return h('span', { class: 'text-sm' }, row.output.error || row.output.save_url || '处理完成')
+      if (row.output.error) {
+        return h('div', { class: 'text-sm' }, [
+          h('div', { class: 'text-red-600 font-medium' }, '失败'),
+          h('div', { class: 'text-xs text-gray-500 mt-1' }, row.output.error)
+        ])
+      }
+      return h('div', { class: 'text-sm' }, [
+        h('div', { class: 'text-green-600 font-medium' }, '成功'),
+        h('div', { class: 'text-xs text-gray-500 mt-1' }, row.output.save_url || '处理完成')
+      ])
     }
   },
   {
-    title: '创建时间',
+    title: '时间',
     key: 'created_at',
-    width: 160,
-    minWidth: 160,
+    width: 120,
+    minWidth: 120,
     render: (row: any) => {
-      return new Date(row.created_at).toLocaleString('zh-CN')
+      return h('div', { class: 'text-sm' }, [
+        h('div', new Date(row.created_at).toLocaleDateString('zh-CN')),
+        h('div', { class: 'text-xs text-gray-500' }, new Date(row.created_at).toLocaleTimeString('zh-CN'))
+      ])
     }
   }
 ]

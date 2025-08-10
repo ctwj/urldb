@@ -44,6 +44,21 @@ func GetResources(c *gin.Context) {
 			utils.Error("解析分类ID失败: %v", err)
 		}
 	}
+	if hasSaveURL := c.Query("has_save_url"); hasSaveURL != "" {
+		if hasSaveURL == "true" {
+			params["has_save_url"] = true
+		} else if hasSaveURL == "false" {
+			params["has_save_url"] = false
+		}
+	}
+	if noSaveURL := c.Query("no_save_url"); noSaveURL != "" {
+		if noSaveURL == "true" {
+			params["no_save_url"] = true
+		}
+	}
+	if panName := c.Query("pan_name"); panName != "" {
+		params["pan_name"] = panName
+	}
 
 	resources, total, err := repoManager.ResourceRepository.SearchWithFilters(params)
 

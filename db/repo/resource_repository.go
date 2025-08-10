@@ -212,7 +212,7 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 	var resources []entity.Resource
 	var total int64
 
-	db := r.db.Model(&entity.Resource{})
+	db := r.db.Model(&entity.Resource{}).Preload("Category").Preload("Pan").Preload("Tags")
 
 	// 处理参数
 	for key, value := range params {
@@ -257,6 +257,31 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 		case "is_public":
 			if isPublic, ok := value.(bool); ok {
 				db = db.Where("is_public = ?", isPublic)
+			}
+		case "has_save_url": // 添加has_save_url参数支持
+			if hasSaveURL, ok := value.(bool); ok {
+				fmt.Printf("处理 has_save_url 参数: %v\n", hasSaveURL)
+				if hasSaveURL {
+					// 有转存链接：save_url不为空且不为空格
+					db = db.Where("save_url IS NOT NULL AND save_url != '' AND TRIM(save_url) != ''")
+					fmt.Printf("应用 has_save_url=true 条件: save_url IS NOT NULL AND save_url != '' AND TRIM(save_url) != ''\n")
+				} else {
+					// 没有转存链接：save_url为空、NULL或只有空格
+					db = db.Where("(save_url IS NULL OR save_url = '' OR TRIM(save_url) = '')")
+					fmt.Printf("应用 has_save_url=false 条件: (save_url IS NULL OR save_url = '' OR TRIM(save_url) = '')\n")
+				}
+			}
+		case "no_save_url": // 添加no_save_url参数支持（与has_save_url=false相同）
+			if noSaveURL, ok := value.(bool); ok && noSaveURL {
+				db = db.Where("(save_url IS NULL OR save_url = '' OR TRIM(save_url) = '')")
+			}
+		case "pan_name": // 添加pan_name参数支持
+			if panName, ok := value.(string); ok && panName != "" {
+				// 根据平台名称查找平台ID
+				var panEntity entity.Pan
+				if err := r.db.Where("name ILIKE ?", "%"+panName+"%").First(&panEntity).Error; err == nil {
+					db = db.Where("pan_id = ?", panEntity.ID)
+				}
 			}
 		}
 	}

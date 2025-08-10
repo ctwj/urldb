@@ -136,7 +136,7 @@ const systemConfigStore = useSystemConfigStore()
 const systemConfig = computed(() => systemConfigStore.config)
 
 onMounted(() => {
-  systemConfigStore.initConfig()
+  systemConfigStore.initConfig(false, true)
 })
 
 // 退出登录

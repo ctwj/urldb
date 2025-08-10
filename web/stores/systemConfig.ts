@@ -7,11 +7,12 @@ export const useSystemConfigStore = defineStore('systemConfig', {
     initialized: false
   }),
   actions: {
-    async initConfig(force = false) {
+    async initConfig(force = false, useAdminApi = false) {
       if (this.initialized && !force) return
       try {
-        // 使用公开的系统配置API，不需要管理员权限
-        const response = await useApiFetch('/public/system-config')
+        // 根据上下文选择API：管理员页面使用管理员API，其他页面使用公开API
+        const apiUrl = useAdminApi ? '/system/config' : '/public/system-config'
+        const response = await useApiFetch(apiUrl)
         console.log('Store API响应:', response) // 调试信息
         
         // 正确处理API响应结构

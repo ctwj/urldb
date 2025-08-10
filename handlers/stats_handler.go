@@ -23,11 +23,15 @@ func GetStats(c *gin.Context) {
 	db.DB.Model(&entity.Resource{}).Select("COALESCE(SUM(view_count), 0)").Scan(&totalViews)
 
 	// 获取今日数据
-	today := utils.GetCurrentTime().Format("2006-01-02")
+	today := utils.GetTodayString()
 
 	// 今日新增资源数量
 	var todayResources int64
 	db.DB.Model(&entity.Resource{}).Where("DATE(created_at) = ?", today).Count(&todayResources)
+
+	// 今日更新资源数量（包括新增和修改）
+	var todayUpdates int64
+	db.DB.Model(&entity.Resource{}).Where("DATE(updated_at) = ?", today).Count(&todayUpdates)
 
 	// 今日浏览量 - 使用访问记录表统计今日访问量
 	var todayViews int64
@@ -44,8 +48,8 @@ func GetStats(c *gin.Context) {
 	// 添加调试日志
 	utils.Info("统计数据 - 总资源: %d, 总分类: %d, 总标签: %d, 总浏览量: %d",
 		totalResources, totalCategories, totalTags, totalViews)
-	utils.Info("今日数据 - 新增资源: %d, 今日浏览量: %d, 今日搜索: %d",
-		todayResources, todayViews, todaySearches)
+	utils.Info("今日数据 - 新增资源: %d, 今日更新: %d, 今日浏览量: %d, 今日搜索: %d",
+		todayResources, todayUpdates, todayViews, todaySearches)
 
 	SuccessResponse(c, gin.H{
 		"total_resources":  totalResources,
@@ -53,6 +57,7 @@ func GetStats(c *gin.Context) {
 		"total_tags":       totalTags,
 		"total_views":      totalViews,
 		"today_resources":  todayResources,
+		"today_updates":    todayUpdates,
 		"today_views":      todayViews,
 		"today_searches":   todaySearches,
 	})
@@ -111,7 +116,7 @@ func GetPerformanceStats(c *gin.Context) {
 func GetSystemInfo(c *gin.Context) {
 	SuccessResponse(c, gin.H{
 		"uptime":     time.Since(startTime).String(),
-		"start_time": utils.FormatTime(startTime, "2006-01-02 15:04:05"),
+		"start_time": utils.FormatTime(startTime, utils.TimeFormatDateTime),
 		"version":    utils.Version,
 		"environment": gin.H{
 			"gin_mode": gin.Mode(),
@@ -146,7 +151,7 @@ func GetSearchesTrend(c *gin.Context) {
 	// 生成最近7天的日期
 	for i := 6; i >= 0; i-- {
 		date := utils.GetCurrentTime().AddDate(0, 0, -i)
-		dateStr := date.Format("2006-01-02")
+		dateStr := date.Format(utils.TimeFormatDate)
 
 		// 查询该日期的搜索量（从搜索统计表）
 		var searches int64

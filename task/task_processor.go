@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
@@ -275,7 +274,7 @@ func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *e
 		// 处理失败
 		outputData := map[string]interface{}{
 			"error": err.Error(),
-			"time":  time.Now(),
+			"time":  utils.GetCurrentTime(),
 		}
 		outputJSON, _ := json.Marshal(outputData)
 
@@ -289,7 +288,7 @@ func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *e
 	// 处理成功
 	outputData := map[string]interface{}{
 		"success": true,
-		"time":    time.Now(),
+		"time":    utils.GetCurrentTime(),
 	}
 	outputJSON, _ := json.Marshal(outputData)
 
@@ -315,7 +314,7 @@ func (tm *TaskManager) updateTaskProgress(taskID uint, progress float64, process
 		"processed": processed,
 		"success":   success,
 		"failed":    failed,
-		"time":      time.Now(),
+		"time":      utils.GetCurrentTime(),
 	}
 
 	progressJSON, _ := json.Marshal(progressData)

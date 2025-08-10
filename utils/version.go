@@ -72,7 +72,7 @@ func GetFullVersionInfo() string {
   Node版本: %s
   平台: %s/%s`,
 		info.Version,
-		FormatTime(info.BuildTime, "2006-01-02 15:04:05"),
+		FormatTime(info.BuildTime, TimeFormatDateTime),
 		info.GitCommit,
 		info.GitBranch,
 		info.GoVersion,

@@ -26,6 +26,15 @@ export const parseApiResponse = <T>(response: any): T => {
   // 检查是否是包含success字段的响应格式（如登录接口）
   if (response && typeof response === 'object' && 'success' in response && 'data' in response) {
     if (response.success) {
+      // 特殊处理资源接口返回的data格式，转换为resources格式
+      if (response.data && Array.isArray(response.data) && response.total !== undefined) {
+        return {
+          resources: response.data,
+          total: response.total,
+          page: response.page,
+          page_size: response.page_size
+        } as T
+      }
       // 特殊处理资源接口返回的data.list格式，转换为resources格式
       if (response.data && response.data.list && Array.isArray(response.data.list)) {
         return {
