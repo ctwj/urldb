@@ -239,15 +239,6 @@ const getAuthHeaders = () => {
   return userStore.authHeaders
 }
 
-// 页面元数据
-useHead({
-  title: '分类管理 - 老九网盘资源数据库',
-  meta: [
-    { name: 'description', content: '管理网盘资源分类' },
-    { name: 'keywords', content: '分类管理,资源管理' }
-  ]
-})
-
 // 检查认证状态
 const checkAuth = () => {
   userStore.initAuth()

@@ -207,16 +207,19 @@ func (h *TaskHandler) GetTaskStatus(c *gin.Context) {
 	isRunning := h.taskManager.IsTaskRunning(uint(taskID))
 
 	SuccessResponse(c, gin.H{
-		"id":          task.ID,
-		"title":       task.Title,
-		"description": task.Description,
-		"task_type":   task.Type,
-		"status":      task.Status,
-		"total_items": task.TotalItems,
-		"is_running":  isRunning,
-		"stats":       stats,
-		"created_at":  task.CreatedAt,
-		"updated_at":  task.UpdatedAt,
+		"id":              task.ID,
+		"title":           task.Title,
+		"description":     task.Description,
+		"task_type":       task.Type,
+		"status":          task.Status,
+		"total_items":     task.TotalItems,
+		"processed_items": task.ProcessedItems,
+		"success_items":   task.SuccessItems,
+		"failed_items":    task.FailedItems,
+		"is_running":      isRunning,
+		"stats":           stats,
+		"created_at":      task.CreatedAt,
+		"updated_at":      task.UpdatedAt,
 	})
 }
 

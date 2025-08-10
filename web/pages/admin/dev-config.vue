@@ -275,10 +275,7 @@ onMounted(() => {
   fetchConfig()
 })
 
-// 设置页面标题
-useHead({
-  title: '开发配置 - 老九网盘资源数据库'
-})
+
 </script>
 
 <style scoped>

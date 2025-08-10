@@ -22,6 +22,7 @@
         <NuxtPage />
       </n-dialog-provider>
     </n-notification-provider>
+
   </div>
 </template>
 
@@ -43,11 +44,64 @@ const toggleDarkMode = () => {
   }
 }
 
-onMounted(() => {
+
+
+const injectRawScript = (rawScriptString: string) => {
+  if (process.client) {
+    // 创建一个临时容器来解析原始字符串
+    const container = document.createElement('div');
+    container.innerHTML = rawScriptString.trim();
+
+    // 获取解析后的 script 元素
+    const script = container.querySelector('script');
+
+    if (script) {
+      // 创建新的 script 元素
+      const newScript = document.createElement('script');
+
+      // 复制所有属性（包括 data-*、async、defer 等）
+      Array.from(script.attributes).forEach((attr) => {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+
+      // 复制内容（如果是内联脚本）
+      if (script.innerHTML) {
+        newScript.innerHTML = script.innerHTML;
+      }
+
+      // 插入到 DOM
+      document.head.appendChild(newScript);
+    }
+  }
+};
+
+// 获取三方统计代码并直接加载
+const fetchStatsCode = async () => {
+  try {
+    const { usePublicSystemConfigApi } = await import('~/composables/useApi')
+    const publicSystemConfigApi = usePublicSystemConfigApi()
+    const response = await publicSystemConfigApi.getPublicSystemConfig()
+    
+    if (response?.data && response.data.third_party_stats_code) {
+      injectRawScript(response.data.third_party_stats_code);
+      console.log('三方统计代码已加载')
+    }
+  } catch (error) {
+    console.error('获取三方统计代码失败:', error)
+  }
+}
+
+
+
+onMounted(async () => {
   // 初始化主题
   if (localStorage.getItem('theme') === 'dark') {
     isDark.value = true
     document.documentElement.classList.add('dark')
   }
+  
+  // 获取三方统计代码并直接加载
+  await fetchStatsCode()
+  
 })
 </script> 

@@ -1,5 +1,9 @@
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- 设置通用title -->
+    <Head>
+      <title>管理后台 - 老九网盘资源数据库</title>
+    </Head>
     <!-- 顶部导航栏 -->
     <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div class="flex items-center justify-between px-6 py-4">
@@ -368,6 +372,12 @@ const handleLogout = () => {
 // 管理员菜单项
 const userMenuItems = computed(() => [
   {
+    to: '/admin/tasks',
+    icon: 'fas fa-tasks',
+    label: '任务列表',
+    type: 'link'
+  },
+  {
     to: '/admin/accounts',
     icon: 'fas fa-user-shield',
     label: '账号管理',
@@ -377,6 +387,12 @@ const userMenuItems = computed(() => [
     to: '/admin/system-config',
     icon: 'fas fa-cog',
     label: '系统配置',
+    type: 'link'
+  },
+  {
+    to: '/admin/version',
+    icon: 'fas fa-code-branch',
+    label: '版本信息',
     type: 'link'
   },
   {
@@ -415,6 +431,7 @@ const dataManagementItems = ref([
     icon: 'fas fa-clock',
     active: (route: any) => route.path.startsWith('/admin/ready-resources')
   },
+
   {
     to: '/admin/tags',
     label: '标签管理',
@@ -460,12 +477,6 @@ const systemConfigItems = ref([
     label: '用户管理',
     icon: 'fas fa-users',
     active: (route: any) => route.path.startsWith('/admin/users')
-  },
-  {
-    to: '/admin/version',
-    label: '版本信息',
-    icon: 'fas fa-code-branch',
-    active: (route: any) => route.path.startsWith('/admin/version')
   }
 ])
 
@@ -518,7 +529,7 @@ const autoExpandCurrentGroup = () => {
   const currentPath = useRoute().path
   
   // 检查当前页面属于哪个分组并展开
-  if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts')) {
+  if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tasks') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts')) {
     expandedGroups.value.dataManagement = true
   } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users') || currentPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
@@ -540,7 +551,7 @@ watch(() => useRoute().path, (newPath) => {
   }
   
   // 根据新路径展开对应分组
-  if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts')) {
+  if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tasks') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts')) {
     expandedGroups.value.dataManagement = true
   } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users') || newPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true

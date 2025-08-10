@@ -75,6 +75,13 @@ func main() {
 	transferProcessor := task.NewTransferProcessor(repoManager)
 	taskManager.RegisterProcessor(transferProcessor)
 
+	// 恢复运行中的任务（服务器重启后）
+	if err := taskManager.RecoverRunningTasks(); err != nil {
+		utils.Error("恢复运行中任务失败: %v", err)
+	} else {
+		utils.Info("运行中任务恢复完成")
+	}
+
 	utils.Info("任务管理器初始化完成")
 
 	// 创建Gin实例

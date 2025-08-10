@@ -27,6 +27,9 @@ const (
 	ConfigKeyPageSize        = "page_size"
 	ConfigKeyMaintenanceMode = "maintenance_mode"
 	ConfigKeyEnableRegister  = "enable_register"
+
+	// 三方统计配置
+	ConfigKeyThirdPartyStatsCode = "third_party_stats_code"
 )
 
 // ConfigType 配置类型常量
@@ -69,6 +72,9 @@ const (
 	ConfigResponseFieldPageSize        = "page_size"
 	ConfigResponseFieldMaintenanceMode = "maintenance_mode"
 	ConfigResponseFieldEnableRegister  = "enable_register"
+
+	// 三方统计配置字段
+	ConfigResponseFieldThirdPartyStatsCode = "third_party_stats_code"
 )
 
 // ConfigDefaultValue 配置默认值常量
@@ -98,4 +104,7 @@ const (
 	ConfigDefaultPageSize        = "100"
 	ConfigDefaultMaintenanceMode = "false"
 	ConfigDefaultEnableRegister  = "true"
+
+	// 三方统计配置默认值
+	ConfigDefaultThirdPartyStatsCode = ""
 )

@@ -42,6 +42,9 @@ type Task struct {
 	// 任务配置 (JSON格式存储)
 	Config string `json:"config" gorm:"type:text;comment:任务配置"`
 
+	// 任务消息
+	Message string `json:"message" gorm:"type:text;comment:任务消息"`
+
 	// 时间信息
 	StartedAt   *time.Time     `json:"started_at" gorm:"comment:开始时间"`
 	CompletedAt *time.Time     `json:"completed_at" gorm:"comment:完成时间"`

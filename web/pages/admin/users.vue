@@ -578,10 +578,7 @@ onMounted(() => {
   fetchData()
 })
 
-// 设置页面标题
-useHead({
-  title: '用户管理 - 老九网盘资源数据库'
-})
+
 
 // 计算属性
 const showModal = computed({

@@ -265,14 +265,6 @@ const columns = [
     }
   },
   {
-    title: '创建时间',
-    key: 'created_at',
-    width: 180,
-    render: (row: Tag) => {
-      return h('span', { class: 'text-gray-500' }, formatDate(row.created_at))
-    }
-  },
-  {
     title: '操作',
     key: 'actions',
     width: 150,
@@ -451,10 +443,7 @@ onMounted(() => {
   fetchData()
 })
 
-// 设置页面标题
-useHead({
-  title: '标签管理 - 老九网盘资源数据库'
-})
+
 </script>
 
 <style scoped>

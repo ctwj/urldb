@@ -27,6 +27,9 @@ type SystemConfigRequest struct {
 	PageSize        int  `json:"page_size"`
 	MaintenanceMode bool `json:"maintenance_mode"`
 	EnableRegister  bool `json:"enable_register"` // 开启注册功能
+
+	// 三方统计配置
+	ThirdPartyStatsCode string `json:"third_party_stats_code"` // 三方统计代码
 }
 
 // SystemConfigResponse 系统配置响应
@@ -60,6 +63,9 @@ type SystemConfigResponse struct {
 	PageSize        int  `json:"page_size"`
 	MaintenanceMode bool `json:"maintenance_mode"`
 	EnableRegister  bool `json:"enable_register"` // 开启注册功能
+
+	// 三方统计配置
+	ThirdPartyStatsCode string `json:"third_party_stats_code"` // 三方统计代码
 }
 
 // SystemConfigItem 单个配置项

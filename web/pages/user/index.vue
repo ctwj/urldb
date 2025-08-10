@@ -362,11 +362,6 @@ onMounted(async () => {
   await fetchUserStats()
   await fetchRecentResources()
 })
-
-// 设置页面标题
-useHead({
-  title: '用户中心 - 老九网盘资源数据库'
-})
 </script>
 
 <style scoped>

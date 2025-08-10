@@ -70,6 +70,8 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response.EnableRegister = val
 			}
+		case entity.ConfigKeyThirdPartyStatsCode:
+			response.ThirdPartyStatsCode = config.Value
 		}
 	}
 
@@ -127,6 +129,11 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferLimitDays, Value: strconv.Itoa(req.AutoTransferLimitDays), Type: entity.ConfigTypeInt})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferMinSpace, Value: strconv.Itoa(req.AutoTransferMinSpace), Type: entity.ConfigTypeInt})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(req.PageSize), Type: entity.ConfigTypeInt})
+
+	// 三方统计配置
+	if req.ThirdPartyStatsCode != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyThirdPartyStatsCode, Value: req.ThirdPartyStatsCode, Type: entity.ConfigTypeString})
+	}
 
 	return configs
 }
@@ -205,6 +212,8 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response[entity.ConfigResponseFieldEnableRegister] = val
 			}
+		case entity.ConfigKeyThirdPartyStatsCode:
+			response[entity.ConfigResponseFieldThirdPartyStatsCode] = config.Value
 		}
 	}
 
@@ -236,5 +245,6 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		PageSize:                  100,
 		MaintenanceMode:           false,
 		EnableRegister:            true, // 默认开启注册功能
+		ThirdPartyStatsCode:       entity.ConfigDefaultThirdPartyStatsCode,
 	}
 }

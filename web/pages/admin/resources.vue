@@ -692,10 +692,7 @@ onMounted(() => {
   fetchData()
 })
 
-// 设置页面标题
-useHead({
-  title: '资源管理 - 老九网盘资源数据库'
-})
+
 </script>
 
 <style scoped>

@@ -24,13 +24,7 @@ definePageMeta({
   middleware: ['auth']
 })
 
-// 页面元数据
-useHead({
-  title: '版本信息 - 老九网盘资源数据库',
-  meta: [
-    { name: 'description', content: '查看系统版本信息和更新状态' }
-  ]
-})
+
 
 interface VersionChange {
   type: 'feature' | 'fix' | 'improvement' | 'breaking'

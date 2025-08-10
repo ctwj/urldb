@@ -14,6 +14,7 @@ type TaskRepository interface {
 	UpdateStatus(id uint, status string) error
 	UpdateProgress(id uint, progress float64, progressData string) error
 	UpdateStatusAndMessage(id uint, status, message string) error
+	UpdateTaskStats(id uint, processed, success, failed int) error
 }
 
 // TaskRepositoryImpl 任务仓库实现
@@ -86,6 +87,17 @@ func (r *TaskRepositoryImpl) UpdateStatus(id uint, status string) error {
 
 // UpdateProgress 更新任务进度
 func (r *TaskRepositoryImpl) UpdateProgress(id uint, progress float64, progressData string) error {
+	// 检查progress和progress_data字段是否存在
+	var count int64
+	err := r.db.Raw("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'progress'").Count(&count).Error
+	if err != nil || count == 0 {
+		// 如果检查失败或字段不存在，只更新processed_items等现有字段
+		return r.db.Model(&entity.Task{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"processed_items": progress, // 使用progress作为processed_items的近似值
+		}).Error
+	}
+
+	// 字段存在，正常更新
 	return r.db.Model(&entity.Task{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"progress":      progress,
 		"progress_data": progressData,
@@ -94,8 +106,31 @@ func (r *TaskRepositoryImpl) UpdateProgress(id uint, progress float64, progressD
 
 // UpdateStatusAndMessage 更新任务状态和消息
 func (r *TaskRepositoryImpl) UpdateStatusAndMessage(id uint, status, message string) error {
+	// 检查message字段是否存在
+	var count int64
+	err := r.db.Raw("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'tasks' AND column_name = 'message'").Count(&count).Error
+	if err != nil {
+		// 如果检查失败，只更新状态
+		return r.db.Model(&entity.Task{}).Where("id = ?", id).Update("status", status).Error
+	}
+
+	if count > 0 {
+		// message字段存在，更新状态和消息
+		return r.db.Model(&entity.Task{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"status":  status,
+			"message": message,
+		}).Error
+	} else {
+		// message字段不存在，只更新状态
+		return r.db.Model(&entity.Task{}).Where("id = ?", id).Update("status", status).Error
+	}
+}
+
+// UpdateTaskStats 更新任务统计信息
+func (r *TaskRepositoryImpl) UpdateTaskStats(id uint, processed, success, failed int) error {
 	return r.db.Model(&entity.Task{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"status":  status,
-		"message": message,
+		"processed_items": processed,
+		"success_items":   success,
+		"failed_items":    failed,
 	}).Error
 }

@@ -371,25 +371,6 @@ const systemConfig = ref({
 })
 const originalConfig = ref(null)
 
-// 页面元数据 - 移到变量声明之后
-useHead({
-  title: () => `${systemConfig.value.site_title} - 系统配置`,
-  meta: [
-    { 
-      name: 'description', 
-      content: () => systemConfig.value.site_description
-    },
-    { 
-      name: 'keywords', 
-      content: () => systemConfig.value.keywords
-    },
-    { 
-      name: 'author', 
-      content: () => systemConfig.value.author
-    }
-  ]
-})
-
 // 加载配置
 const loadConfig = async () => {
   try {

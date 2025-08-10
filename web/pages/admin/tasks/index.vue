@@ -10,59 +10,65 @@
 
     <!-- 任务列表 -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-      <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">任务列表</h2>
-        
-        <!-- 筛选条件 -->
-        <div class="flex items-center space-x-4">
-          <div class="flex items-center space-x-2">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">任务状态：</label>
-            <n-select
-              v-model:value="statusFilter"
-              :options="statusOptions"
-              placeholder="全部状态"
-              style="width: 120px"
-              size="small"
-              clearable
-              @update:value="onStatusFilterChange"
-            />
-          </div>
+      <div class="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">任务列表</h2>
           
-          <div class="flex items-center space-x-2">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">任务类型：</label>
-            <n-select
-              v-model:value="typeFilter"
-              :options="typeOptions"
-              placeholder="全部类型"
-              style="width: 100px"
+          <!-- 筛选条件 -->
+          <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+            <div class="flex items-center space-x-2">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">任务状态：</label>
+              <n-select
+                v-model:value="statusFilter"
+                :options="statusOptions"
+                placeholder="全部状态"
+                style="width: 120px"
+                size="small"
+                clearable
+                @update:value="onStatusFilterChange"
+              />
+            </div>
+            
+            <div class="flex items-center space-x-2">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">任务类型：</label>
+              <n-select
+                v-model:value="typeFilter"
+                :options="typeOptions"
+                placeholder="全部类型"
+                style="width: 100px"
+                size="small"
+                clearable
+                @update:value="onTypeFilterChange"
+              />
+            </div>
+            
+            <n-button
+              type="primary"
               size="small"
-              clearable
-              @update:value="onTypeFilterChange"
-            />
+              @click="refreshTasks"
+            >
+              <template #icon>
+                <i class="fas fa-refresh"></i>
+              </template>
+              刷新
+            </n-button>
           </div>
-          
-          <n-button
-            type="primary"
-            size="small"
-            @click="refreshTasks"
-          >
-            <template #icon>
-              <i class="fas fa-refresh"></i>
-            </template>
-            刷新
-          </n-button>
         </div>
       </div>
       
-      <div class="p-6">
-        <n-data-table
-          :columns="taskColumns"
-          :data="tasks"
-          :loading="loading"
-          :pagination="paginationConfig"
-          :row-class-name="getRowClassName"
-          size="small"
-        />
+      <div class="p-4 md:p-6">
+        <div class="overflow-x-auto">
+          <n-data-table
+            :columns="taskColumns"
+            :data="tasks"
+            :loading="loading"
+            :pagination="paginationConfig"
+            :row-class-name="getRowClassName"
+            size="small"
+            :scroll-x="800"
+            class="min-w-full"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -127,21 +133,35 @@ const taskColumns = [
   {
     title: 'ID',
     key: 'id',
-    width: 80,
+    width: 60,
+    minWidth: 60,
+    maxWidth: 60,
     sorter: true
   },
   {
     title: '任务标题',
     key: 'title',
-    minWidth: 200,
+    minWidth: 180,
     ellipsis: {
       tooltip: true
+    },
+    render: (row: any) => {
+      return h('a', {
+        href: `/admin/tasks/${row.id}`,
+        class: 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer hover:underline',
+        onClick: (e: Event) => {
+          e.preventDefault()
+          navigateTo(`/admin/tasks/${row.id}`)
+        }
+      }, row.title)
     }
   },
   {
     title: '类型',
     key: 'task_type',
-    width: 100,
+    width: 80,
+    minWidth: 80,
+    maxWidth: 80,
     render: (row: any) => {
       const typeMap: Record<string, { text: string; color: string }> = {
         transfer: { text: '转存', color: 'blue' }
@@ -153,7 +173,9 @@ const taskColumns = [
   {
     title: '状态',
     key: 'status',
-    width: 120,
+    width: 90,
+    minWidth: 90,
+    maxWidth: 90,
     render: (row: any) => {
       const statusMap: Record<string, { text: string; color: string }> = {
         pending: { text: '待处理', color: 'warning' },
@@ -176,7 +198,9 @@ const taskColumns = [
   {
     title: '进度',
     key: 'progress',
-    width: 120,
+    width: 110,
+    minWidth: 110,
+    maxWidth: 110,
     render: (row: any) => {
       const total = row.total_items || 0
       const processed = (row.processed_items || 0)
@@ -189,7 +213,7 @@ const taskColumns = [
           percentage, 
           height: 4,
           showIndicator: false,
-          style: { width: '60px' }
+          style: { width: '50px' }
         })
       ])
     }
@@ -197,7 +221,9 @@ const taskColumns = [
   {
     title: '创建时间',
     key: 'created_at',
-    width: 180,
+    width: 140,
+    minWidth: 140,
+    maxWidth: 140,
     render: (row: any) => {
       return new Date(row.created_at).toLocaleString('zh-CN')
     }
@@ -205,7 +231,9 @@ const taskColumns = [
   {
     title: '操作',
     key: 'actions',
-    width: 180,
+    width: 120,
+    minWidth: 120,
+    maxWidth: 120,
     render: (row: any) => {
       return renderActions(row)
     }
@@ -304,7 +332,7 @@ const renderActions = (row: any) => {
     )
   }
   
-  return h('div', { class: 'task-actions flex space-x-1 flex-wrap' }, buttons)
+  return h('div', { class: 'task-actions flex flex-wrap gap-1 justify-center' }, buttons)
 }
 
 // 行样式
@@ -497,6 +525,15 @@ definePageMeta({
   background-color: rgb(30 58 138 / 0.1);
 }
 
+/* 表格自适应优化 */
+:deep(.n-data-table) {
+  min-width: 100%;
+}
+
+:deep(.n-data-table-wrapper) {
+  overflow-x: auto;
+}
+
 /* 任务操作按钮 hover 效果 */
 :deep(.task-actions .n-button) {
   transition: all 0.2s ease;
@@ -526,5 +563,21 @@ definePageMeta({
 
 :deep(.task-actions .n-button:active) {
   transform: translateY(0);
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  :deep(.n-data-table) {
+    font-size: 12px;
+  }
+  
+  :deep(.n-data-table .n-button) {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+  
+  :deep(.n-data-table .n-tag) {
+    font-size: 11px;
+  }
 }
 </style>

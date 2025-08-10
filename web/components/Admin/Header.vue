@@ -112,6 +112,7 @@ const pageConfig = computed(() => {
     '/admin/users': { title: '用户管理', icon: 'fas fa-users', description: '管理系统用户' },
     '/admin/categories': { title: '分类管理', icon: 'fas fa-folder', description: '管理资源分类' },
     '/admin/tags': { title: '标签管理', icon: 'fas fa-tags', description: '管理资源标签' },
+    '/admin/tasks': { title: '任务管理', icon: 'fas fa-tasks', description: '管理系统任务' },
     '/admin/system-config': { title: '系统配置', icon: 'fas fa-cog', description: '系统参数设置' },
     '/admin/resources': { title: '资源管理', icon: 'fas fa-database', description: '管理网盘资源' },
     '/admin/cks': { title: '平台账号管理', icon: 'fas fa-key', description: '管理第三方平台账号' },

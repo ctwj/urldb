@@ -77,6 +77,14 @@ export const adminNewNavigationItems = [
     group: 'operation'
   },
   {
+    key: 'tasks',
+    label: '任务管理',
+    icon: 'fas fa-tasks',
+    to: '/admin/tasks',
+    active: (route: any) => route.path.startsWith('/admin/tasks'),
+    group: 'operation'
+  },
+  {
     key: 'seo',
     label: 'SEO',
     icon: 'fas fa-search',

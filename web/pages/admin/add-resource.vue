@@ -92,10 +92,7 @@ const handleCancel = () => {
   navigateTo('/admin/resources')
 }
 
-// 设置页面标题
-useHead({
-  title: '添加资源 - 老九网盘资源数据库'
-})
+
 </script>
 
 <style scoped>

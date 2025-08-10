@@ -55,6 +55,7 @@ const pageTitle = computed(() => {
     '/admin-old/users': '用户管理',
     '/admin-old/categories': '分类管理',
     '/admin-old/tags': '标签管理',
+    '/admin-old/tasks': '任务管理',
     '/admin-old/system-config': '系统配置',
     '/admin-old/resources': '资源管理',
     '/admin-old/cks': '平台账号管理',

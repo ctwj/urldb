@@ -449,10 +449,7 @@ onMounted(async () => {
   }
 })
 
-// 设置页面标题
-useHead({
-  title: '待处理资源管理 - 老九网盘资源数据库'
-})
+
 </script>
 
 <style scoped>

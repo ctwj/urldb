@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	pan "github.com/ctwj/urldb/common"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
@@ -69,28 +70,60 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 	}
 
 	if exists {
-		// 资源已存在，更新输出数据
-		output := TransferOutput{
-			ResourceID: existingResource.ID,
-			SaveURL:    existingResource.SaveURL,
-			Success:    true,
-			Time:       time.Now().Format("2006-01-02 15:04:05"),
+		// 检查已存在的资源是否有有效的转存链接
+		if existingResource.SaveURL == "" {
+			// 资源存在但没有转存链接，需要重新转存
+			utils.Info("资源已存在但无转存链接，重新转存: %s", input.Title)
+		} else {
+			// 资源已存在且有转存链接，跳过转存
+			output := TransferOutput{
+				ResourceID: existingResource.ID,
+				SaveURL:    existingResource.SaveURL,
+				Success:    true,
+				Time:       time.Now().Format("2006-01-02 15:04:05"),
+			}
+
+			outputJSON, _ := json.Marshal(output)
+			item.OutputData = string(outputJSON)
+
+			utils.Info("资源已存在且有转存链接，跳过转存: %s", input.Title)
+			return nil
 		}
-
-		outputJSON, _ := json.Marshal(output)
-		item.OutputData = string(outputJSON)
-
-		utils.Info("资源已存在，跳过转存: %s", input.Title)
-		return nil
 	}
 
 	// 执行转存操作
 	resourceID, saveURL, err := tp.performTransfer(ctx, &input)
 	if err != nil {
+		// 转存失败，更新输出数据
+		output := TransferOutput{
+			Error:   err.Error(),
+			Success: false,
+			Time:    time.Now().Format("2006-01-02 15:04:05"),
+		}
+
+		outputJSON, _ := json.Marshal(output)
+		item.OutputData = string(outputJSON)
+
+		utils.Error("转存任务项处理失败: %d, 错误: %v", item.ID, err)
 		return fmt.Errorf("转存失败: %v", err)
 	}
 
-	// 更新输出数据
+	// 验证转存结果
+	if saveURL == "" {
+		output := TransferOutput{
+			Error:   "转存成功但未获取到分享链接",
+			Success: false,
+			Time:    time.Now().Format("2006-01-02 15:04:05"),
+		}
+
+		outputJSON, _ := json.Marshal(output)
+		item.OutputData = string(outputJSON)
+
+		utils.Error("转存任务项处理失败: %d, 未获取到分享链接", item.ID)
+		return fmt.Errorf("转存成功但未获取到分享链接")
+	}
+
+	// 转存成功，更新输出数据
 	output := TransferOutput{
 		ResourceID: resourceID,
 		SaveURL:    saveURL,
@@ -101,7 +134,7 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 	outputJSON, _ := json.Marshal(output)
 	item.OutputData = string(outputJSON)
 
-	utils.Info("转存任务项处理完成: %d, 资源ID: %d", item.ID, resourceID)
+	utils.Info("转存任务项处理完成: %d, 资源ID: %d, 转存链接: %s", item.ID, resourceID, saveURL)
 	return nil
 }
 
@@ -154,7 +187,20 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		return 0, "", fmt.Errorf("解析分享链接失败: %v", err)
 	}
 
-	// 创建资源记录
+	// 先执行转存操作
+	saveURL, err := tp.transferToCloud(ctx, shareInfo)
+	if err != nil {
+		utils.Error("云端转存失败: %v", err)
+		return 0, "", fmt.Errorf("转存失败: %v", err)
+	}
+
+	// 验证转存链接是否有效
+	if saveURL == "" {
+		utils.Error("转存成功但未获取到分享链接")
+		return 0, "", fmt.Errorf("转存成功但未获取到分享链接")
+	}
+
+	// 转存成功，创建资源记录
 	var categoryID *uint
 	if input.CategoryID != 0 {
 		categoryID = &input.CategoryID
@@ -164,6 +210,7 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		Title:      input.Title,
 		URL:        input.URL,
 		CategoryID: categoryID,
+		SaveURL:    saveURL, // 直接设置转存链接
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
@@ -171,6 +218,7 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 	// 保存资源到数据库
 	err = tp.repoMgr.ResourceRepository.Create(resource)
 	if err != nil {
+		utils.Error("保存转存成功的资源失败: %v", err)
 		return 0, "", fmt.Errorf("保存资源失败: %v", err)
 	}
 
@@ -179,25 +227,11 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		err = tp.addResourceTags(resource.ID, input.Tags)
 		if err != nil {
 			utils.Error("添加资源标签失败: %v", err)
+			// 标签添加失败不影响资源创建，只记录错误
 		}
 	}
 
-	// 执行实际转存操作
-	saveURL, err := tp.transferToCloud(ctx, shareInfo)
-	if err != nil {
-		utils.Error("云端转存失败: %v", err)
-		// 转存失败但资源已创建，返回原始URL
-		return resource.ID, input.URL, nil
-	}
-
-	// 更新资源的转存链接
-	if saveURL != "" {
-		err = tp.repoMgr.ResourceRepository.UpdateSaveURL(resource.ID, saveURL)
-		if err != nil {
-			utils.Error("更新转存链接失败: %v", err)
-		}
-	}
-
+	utils.Info("转存成功，资源已创建 - 资源ID: %d, 转存链接: %s", resource.ID, saveURL)
 	return resource.ID, saveURL, nil
 }
 
@@ -245,14 +279,155 @@ func (tp *TransferProcessor) addResourceTags(resourceID uint, tagIDs []uint) err
 
 // transferToCloud 执行云端转存
 func (tp *TransferProcessor) transferToCloud(ctx context.Context, shareInfo *ShareInfo) (string, error) {
-	// 检查是否启用自动转存
-	autoTransferEnabled, err := tp.repoMgr.SystemConfigRepository.GetConfigBool("auto_transfer")
-	if err != nil || !autoTransferEnabled {
-		utils.Info("自动转存未启用，跳过云端转存")
-		return "", nil
+	// 转存任务独立于自动转存开关，直接执行转存逻辑
+	// 获取转存相关的配置（如最小存储空间等），但不检查自动转存开关
+
+	// 获取夸克平台ID
+	quarkPanID, err := tp.getQuarkPanID()
+	if err != nil {
+		return "", fmt.Errorf("获取夸克平台ID失败: %v", err)
 	}
 
-	// TODO: 实现云端转存逻辑
-	utils.Info("云端转存功能暂未实现，跳过转存: %s", shareInfo.ShareID)
-	return "", nil
+	// 获取可用的夸克账号
+	accounts, err := tp.repoMgr.CksRepository.FindAll()
+	if err != nil {
+		return "", fmt.Errorf("获取网盘账号失败: %v", err)
+	}
+
+	// 获取最小存储空间配置（转存任务需要关注此配置）
+	autoTransferMinSpace, err := tp.repoMgr.SystemConfigRepository.GetConfigInt("auto_transfer_min_space")
+	if err != nil {
+		utils.Error("获取最小存储空间配置失败: %v", err)
+		autoTransferMinSpace = 5 // 默认5GB
+	}
+
+	// 过滤：只保留已激活、夸克平台、剩余空间足够的账号
+	minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
+	var validAccounts []entity.Cks
+	for _, acc := range accounts {
+		if acc.IsValid && acc.PanID == quarkPanID && acc.LeftSpace >= minSpaceBytes {
+			validAccounts = append(validAccounts, acc)
+		}
+	}
+
+	if len(validAccounts) == 0 {
+		return "", fmt.Errorf("没有可用的夸克网盘账号（需要剩余空间 >= %d GB）", autoTransferMinSpace)
+	}
+
+	utils.Info("找到 %d 个可用夸克网盘账号，开始转存处理...", len(validAccounts))
+
+	// 使用第一个可用账号进行转存
+	account := validAccounts[0]
+
+	// 创建网盘服务工厂
+	factory := pan.NewPanFactory()
+
+	// 执行转存
+	result := tp.transferSingleResource(shareInfo, account, factory)
+	if !result.Success {
+		return "", fmt.Errorf("转存失败: %s", result.ErrorMsg)
+	}
+
+	return result.SaveURL, nil
+}
+
+// getQuarkPanID 获取夸克网盘ID
+func (tp *TransferProcessor) getQuarkPanID() (uint, error) {
+	// 通过FindAll方法查找所有平台，然后过滤出quark平台
+	pans, err := tp.repoMgr.PanRepository.FindAll()
+	if err != nil {
+		return 0, fmt.Errorf("查询平台信息失败: %v", err)
+	}
+
+	for _, p := range pans {
+		if p.Name == "quark" {
+			return p.ID, nil
+		}
+	}
+
+	return 0, fmt.Errorf("未找到quark平台")
+}
+
+// TransferResult 转存结果
+type TransferResult struct {
+	Success  bool   `json:"success"`
+	SaveURL  string `json:"save_url"`
+	ErrorMsg string `json:"error_msg"`
+}
+
+// transferSingleResource 转存单个资源
+func (tp *TransferProcessor) transferSingleResource(shareInfo *ShareInfo, account entity.Cks, factory *pan.PanFactory) TransferResult {
+	utils.Info("开始转存资源 - 分享ID: %s, 账号: %s", shareInfo.ShareID, account.Username)
+
+	service, err := factory.CreatePanService(shareInfo.URL, &pan.PanConfig{
+		URL:         shareInfo.URL,
+		ExpiredType: 0,
+		IsType:      0,
+		Cookie:      account.Ck,
+	})
+	if err != nil {
+		utils.Error("创建网盘服务失败: %v", err)
+		return TransferResult{
+			Success:  false,
+			ErrorMsg: fmt.Sprintf("创建网盘服务失败: %v", err),
+		}
+	}
+
+	// 执行转存
+	transferResult, err := service.Transfer(shareInfo.ShareID)
+	if err != nil {
+		utils.Error("转存失败: %v", err)
+		return TransferResult{
+			Success:  false,
+			ErrorMsg: fmt.Sprintf("转存失败: %v", err),
+		}
+	}
+
+	if transferResult == nil || !transferResult.Success {
+		errMsg := "转存失败"
+		if transferResult != nil && transferResult.Message != "" {
+			errMsg = transferResult.Message
+		}
+		utils.Error("转存失败: %s", errMsg)
+		return TransferResult{
+			Success:  false,
+			ErrorMsg: errMsg,
+		}
+	}
+
+	// 提取转存链接
+	var saveURL string
+	if data, ok := transferResult.Data.(map[string]interface{}); ok {
+		if v, ok := data["shareUrl"]; ok {
+			saveURL, _ = v.(string)
+		}
+	}
+	if saveURL == "" {
+		saveURL = transferResult.ShareURL
+	}
+
+	// 验证转存链接是否有效
+	if saveURL == "" {
+		utils.Error("转存成功但未获取到分享链接 - 分享ID: %s", shareInfo.ShareID)
+		return TransferResult{
+			Success:  false,
+			ErrorMsg: "转存成功但未获取到分享链接",
+		}
+	}
+
+	// 验证链接格式
+	if !strings.HasPrefix(saveURL, "http") {
+		utils.Error("转存链接格式无效 - 分享ID: %s, 链接: %s", shareInfo.ShareID, saveURL)
+		return TransferResult{
+			Success:  false,
+			ErrorMsg: "转存链接格式无效",
+		}
+	}
+
+	utils.Info("转存成功 - 分享ID: %s, 转存链接: %s", shareInfo.ShareID, saveURL)
+
+	return TransferResult{
+		Success: true,
+		SaveURL: saveURL,
+	}
 }

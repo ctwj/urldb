@@ -105,6 +105,25 @@ func (tm *TaskManager) PauseTask(taskID uint) error {
 	// 检查任务是否在运行
 	cancel, exists := tm.running[taskID]
 	if !exists {
+		// 检查数据库中任务状态
+		task, err := tm.repoMgr.TaskRepository.GetByID(taskID)
+		if err != nil {
+			utils.Error("获取任务信息失败: %v", err)
+			return fmt.Errorf("获取任务信息失败: %v", err)
+		}
+
+		// 如果数据库中的状态是running，说明服务器重启了，直接更新状态
+		if task.Status == "running" {
+			utils.Info("任务 %d 在数据库中状态为running，但内存中不存在，可能是服务器重启，直接更新状态为paused", taskID)
+			err := tm.repoMgr.TaskRepository.UpdateStatus(taskID, "paused")
+			if err != nil {
+				utils.Error("更新任务状态为暂停失败: %v", err)
+				return fmt.Errorf("更新任务状态失败: %v", err)
+			}
+			utils.Info("任务 %d 暂停成功（服务器重启恢复）", taskID)
+			return nil
+		}
+
 		utils.Info("任务 %d 未在运行，无法暂停", taskID)
 		return fmt.Errorf("任务 %d 未在运行", taskID)
 	}
@@ -131,6 +150,25 @@ func (tm *TaskManager) StopTask(taskID uint) error {
 
 	cancel, exists := tm.running[taskID]
 	if !exists {
+		// 检查数据库中任务状态
+		task, err := tm.repoMgr.TaskRepository.GetByID(taskID)
+		if err != nil {
+			utils.Error("获取任务信息失败: %v", err)
+			return fmt.Errorf("获取任务信息失败: %v", err)
+		}
+
+		// 如果数据库中的状态是running，说明服务器重启了，直接更新状态
+		if task.Status == "running" {
+			utils.Info("任务 %d 在数据库中状态为running，但内存中不存在，可能是服务器重启，直接更新状态为paused", taskID)
+			err := tm.repoMgr.TaskRepository.UpdateStatus(taskID, "paused")
+			if err != nil {
+				utils.Error("更新任务状态失败: %v", err)
+				return fmt.Errorf("更新任务状态失败: %v", err)
+			}
+			utils.Info("任务 %d 停止成功（服务器重启恢复）", taskID)
+			return nil
+		}
+
 		return fmt.Errorf("任务 %d 未在运行", taskID)
 	}
 
@@ -265,6 +303,13 @@ func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *e
 
 // updateTaskProgress 更新任务进度
 func (tm *TaskManager) updateTaskProgress(taskID uint, progress float64, processed, success, failed int) {
+	// 更新任务统计信息
+	err := tm.repoMgr.TaskRepository.UpdateTaskStats(taskID, processed, success, failed)
+	if err != nil {
+		utils.Error("更新任务统计信息失败: %v", err)
+	}
+
+	// 更新进度数据（用于兼容性）
 	progressData := map[string]interface{}{
 		"progress":  progress,
 		"processed": processed,
@@ -275,9 +320,9 @@ func (tm *TaskManager) updateTaskProgress(taskID uint, progress float64, process
 
 	progressJSON, _ := json.Marshal(progressData)
 
-	err := tm.repoMgr.TaskRepository.UpdateProgress(taskID, progress, string(progressJSON))
+	err = tm.repoMgr.TaskRepository.UpdateProgress(taskID, progress, string(progressJSON))
 	if err != nil {
-		utils.Error("更新任务进度失败: %v", err)
+		utils.Error("更新任务进度数据失败: %v", err)
 	}
 }
 
@@ -304,4 +349,48 @@ func (tm *TaskManager) IsTaskRunning(taskID uint) bool {
 	defer tm.mu.RUnlock()
 	_, exists := tm.running[taskID]
 	return exists
+}
+
+// RecoverRunningTasks 恢复运行中的任务（服务器重启后调用）
+func (tm *TaskManager) RecoverRunningTasks() error {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	utils.Info("开始恢复运行中的任务...")
+
+	// 获取数据库中状态为running的任务
+	tasks, _, err := tm.repoMgr.TaskRepository.GetList(1, 1000, "", "running")
+	if err != nil {
+		utils.Error("获取运行中任务失败: %v", err)
+		return fmt.Errorf("获取运行中任务失败: %v", err)
+	}
+
+	recoveredCount := 0
+	for _, task := range tasks {
+		// 检查任务是否已在内存中运行
+		if _, exists := tm.running[task.ID]; exists {
+			utils.Info("任务 %d 已在内存中运行，跳过恢复", task.ID)
+			continue
+		}
+
+		// 获取处理器
+		processor, exists := tm.processors[string(task.Type)]
+		if !exists {
+			utils.Error("未找到任务类型 %s 的处理器，跳过恢复任务 %d", task.Type, task.ID)
+			// 将任务状态重置为pending，避免卡在running状态
+			tm.repoMgr.TaskRepository.UpdateStatus(task.ID, "pending")
+			continue
+		}
+
+		// 创建上下文并恢复任务
+		ctx, cancel := context.WithCancel(context.Background())
+		tm.running[task.ID] = cancel
+
+		utils.Info("恢复任务 %d (类型: %s)", task.ID, task.Type)
+		go tm.processTask(ctx, task, processor)
+		recoveredCount++
+	}
+
+	utils.Info("任务恢复完成，共恢复 %d 个任务", recoveredCount)
+	return nil
 }
