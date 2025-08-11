@@ -201,6 +201,19 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 		return
 	}
 
+	// 获取任务项统计信息，用于计算正确的进度
+	stats, err := tm.repoMgr.TaskItemRepository.GetStatsByTaskID(task.ID)
+	if err != nil {
+		utils.Error("获取任务项统计失败: %v", err)
+		stats = map[string]int{
+			"total":      0,
+			"pending":    0,
+			"processing": 0,
+			"completed":  0,
+			"failed":     0,
+		}
+	}
+
 	// 获取待处理的任务项
 	items, err := tm.repoMgr.TaskItemRepository.GetByTaskIDAndStatus(task.ID, "pending")
 	if err != nil {
@@ -209,12 +222,35 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 		return
 	}
 
-	totalItems := len(items)
-	processedItems := 0
-	successItems := 0
-	failedItems := 0
+	// 计算总任务项数和已完成的项数
+	totalItems := stats["total"]
+	completedItems := stats["completed"]
+	initialFailedItems := stats["failed"]
+	processingItems := stats["processing"]
 
-	utils.Info("任务 %d 共有 %d 个待处理项", task.ID, totalItems)
+	// 如果当前批次有处理中的任务项，重置它们为pending状态（服务器重启恢复）
+	if processingItems > 0 {
+		utils.Info("任务 %d 发现 %d 个处理中的任务项，重置为pending状态", task.ID, processingItems)
+		err = tm.repoMgr.TaskItemRepository.ResetProcessingItems(task.ID)
+		if err != nil {
+			utils.Error("重置处理中任务项失败: %v", err)
+		}
+		// 重新获取待处理的任务项
+		items, err = tm.repoMgr.TaskItemRepository.GetByTaskIDAndStatus(task.ID, "pending")
+		if err != nil {
+			utils.Error("重新获取任务项失败: %v", err)
+			tm.markTaskFailed(task.ID, fmt.Sprintf("重新获取任务项失败: %v", err))
+			return
+		}
+	}
+
+	currentBatchItems := len(items)
+	processedItems := completedItems + initialFailedItems // 已经处理的项目数
+	successItems := completedItems
+	failedItems := initialFailedItems
+
+	utils.Info("任务 %d 统计信息: 总计=%d, 已完成=%d, 已失败=%d, 待处理=%d",
+		task.ID, totalItems, completedItems, failedItems, currentBatchItems)
 
 	for _, item := range items {
 		select {
@@ -233,9 +269,11 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 				successItems++
 			}
 
-			// 更新任务进度
-			progress := float64(processedItems) / float64(totalItems) * 100
-			tm.updateTaskProgress(task.ID, progress, processedItems, successItems, failedItems)
+			// 更新任务进度（基于总任务项数）
+			if totalItems > 0 {
+				progress := float64(processedItems) / float64(totalItems) * 100
+				tm.updateTaskProgress(task.ID, progress, processedItems, successItems, failedItems)
+			}
 		}
 	}
 

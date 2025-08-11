@@ -46,6 +46,37 @@
             />
           </div>
 
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              网盘账号 <span class="text-red-500">*</span>
+            </label>
+            <n-select
+              v-model:value="selectedAccounts"
+              :options="accountOptions"
+              placeholder="选择网盘账号"
+              multiple
+              filterable
+              :loading="accountsLoading"
+              @update:value="handleAccountChange"
+            >
+              <template #option="{ option: accountOption }">
+                <div class="flex items-center justify-between w-full">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm">{{ accountOption.label }}</span>
+                    <n-tag v-if="accountOption.is_valid" type="success" size="small">有效</n-tag>
+                    <n-tag v-else type="error" size="small">无效</n-tag>
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    {{ formatSpace(accountOption.left_space) }}
+                  </div>
+                </div>
+              </template>
+            </n-select>
+            <div class="text-xs text-gray-500 mt-1">
+              请选择要使用的网盘账号，系统将使用选中的账号进行转存操作
+            </div>
+          </div>
+
           <!-- 操作按钮 -->
           <div class="space-y-3 pt-4">
             <n-button 
@@ -53,7 +84,7 @@
               block 
               size="large"
               :loading="processing"
-              :disabled="!resourceText.trim() || processing"
+              :disabled="!resourceText.trim() || !selectedAccounts.length || processing"
               @click="handleBatchTransfer"
             >
               <template #icon>
@@ -115,7 +146,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
-import { usePanApi, useTaskApi } from '~/composables/useApi'
+import { usePanApi, useTaskApi, useCksApi } from '~/composables/useApi'
 import { useMessage } from 'naive-ui'
 
 // 数据状态
@@ -142,13 +173,17 @@ const selectedPlatform = ref(null)
 const autoValidate = ref(true)
 const skipExisting = ref(true)
 const autoTransfer = ref(false)
+const selectedAccounts = ref<number[]>([])
 
 // 选项数据
 const platformOptions = ref<any[]>([])
+const accountOptions = ref<any[]>([])
+const accountsLoading = ref(false)
 
 // API实例
 const panApi = usePanApi()
 const taskApi = useTaskApi()
+const cksApi = useCksApi()
 const message = useMessage()
 
 // 计算属性
@@ -275,6 +310,11 @@ const handleBatchTransfer = async () => {
     return
   }
 
+  if (!selectedAccounts.value || selectedAccounts.value.length === 0) {
+    message.warning('请选择至少一个网盘账号')
+    return
+  }
+
   processing.value = true
   results.value = []
 
@@ -291,7 +331,7 @@ const handleBatchTransfer = async () => {
     const taskTitle = `批量转存任务_${new Date().toLocaleString('zh-CN')}`
     const taskData = {
       title: taskTitle,
-      description: `批量转存 ${resourceList.length} 个资源`,
+      description: `批量转存 ${resourceList.length} 个资源，使用 ${selectedAccounts.value.length} 个账号`,
       resources: resourceList.map(item => {
         const resource: any = {
           title: item.title,
@@ -304,7 +344,9 @@ const handleBatchTransfer = async () => {
           resource.tags = selectedTags.value
         }
         return resource
-      })
+      }),
+      // 添加选择的账号信息
+      selected_accounts: selectedAccounts.value
     }
 
     console.log('创建任务数据:', taskData)
@@ -472,15 +514,55 @@ const updateResultsDisplay = () => {
   }
 }
 
+// 获取网盘账号选项
+const getAccountOptions = async () => {
+  accountsLoading.value = true
+  try {
+    const response = await cksApi.getCks() as any
+    const accounts = Array.isArray(response) ? response : []
+    
+    accountOptions.value = accounts.map((account: any) => ({
+      label: `${account.username || '未知用户'} (${account.pan?.name || '未知平台'})`,
+      value: account.id,
+      is_valid: account.is_valid,
+      left_space: account.left_space,
+      username: account.username,
+      pan_name: account.pan?.name || '未知平台'
+    }))
+  } catch (error) {
+    console.error('获取网盘账号选项失败:', error)
+    message.error('获取网盘账号失败')
+  } finally {
+    accountsLoading.value = false
+  }
+}
+
+// 处理账号选择变化
+const handleAccountChange = (value: number[]) => {
+  selectedAccounts.value = value
+  console.log('选择的账号:', value)
+}
+
+// 格式化空间大小
+const formatSpace = (bytes: number) => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
 // 清空输入
 const clearInput = () => {
   resourceText.value = ''
   results.value = []
+  selectedAccounts.value = []
 }
 
 // 初始化
 onMounted(() => {
   fetchPlatforms()
+  getAccountOptions()
 })
 
 // 组件销毁时清理定时器

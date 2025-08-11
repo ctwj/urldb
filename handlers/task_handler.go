@@ -32,15 +32,17 @@ type BatchTransferResource struct {
 	Title      string `json:"title" binding:"required"`
 	URL        string `json:"url" binding:"required"`
 	CategoryID uint   `json:"category_id,omitempty"`
+	PanID      uint   `json:"pan_id,omitempty"`
 	Tags       []uint `json:"tags,omitempty"`
 }
 
 // CreateBatchTransferTask 创建批量转存任务
 func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 	var req struct {
-		Title       string                  `json:"title" binding:"required"`
-		Description string                  `json:"description"`
-		Resources   []BatchTransferResource `json:"resources" binding:"required,min=1"`
+		Title            string                  `json:"title" binding:"required"`
+		Description      string                  `json:"description"`
+		Resources        []BatchTransferResource `json:"resources" binding:"required,min=1"`
+		SelectedAccounts []uint                  `json:"selected_accounts,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -48,7 +50,13 @@ func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 		return
 	}
 
-	utils.Info("创建批量转存任务: %s，资源数量: %d", req.Title, len(req.Resources))
+	utils.Info("创建批量转存任务: %s，资源数量: %d，选择账号数量: %d", req.Title, len(req.Resources), len(req.SelectedAccounts))
+
+	// 构建任务配置
+	taskConfig := map[string]interface{}{
+		"selected_accounts": req.SelectedAccounts,
+	}
+	configJSON, _ := json.Marshal(taskConfig)
 
 	// 创建任务
 	newTask := &entity.Task{
@@ -57,6 +65,7 @@ func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 		Type:        "transfer",
 		Status:      "pending",
 		TotalItems:  len(req.Resources),
+		Config:      string(configJSON),
 		CreatedAt:   utils.GetCurrentTime(),
 		UpdatedAt:   utils.GetCurrentTime(),
 	}
@@ -75,6 +84,7 @@ func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 			Title:      resource.Title,
 			URL:        resource.URL,
 			CategoryID: resource.CategoryID,
+			PanID:      resource.PanID,
 			Tags:       resource.Tags,
 		}
 

@@ -36,6 +36,7 @@ type TransferInput struct {
 	Title      string `json:"title"`
 	URL        string `json:"url"`
 	CategoryID uint   `json:"category_id"`
+	PanID      uint   `json:"pan_id"`
 	Tags       []uint `json:"tags"`
 }
 
@@ -61,6 +62,22 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 	// 验证输入数据
 	if err := tp.validateInput(&input); err != nil {
 		return fmt.Errorf("输入数据验证失败: %v", err)
+	}
+
+	// 获取任务配置中的账号信息
+	var selectedAccounts []uint
+	task, err := tp.repoMgr.TaskRepository.GetByID(taskID)
+	if err == nil && task.Config != "" {
+		var taskConfig map[string]interface{}
+		if err := json.Unmarshal([]byte(task.Config), &taskConfig); err == nil {
+			if accounts, ok := taskConfig["selected_accounts"].([]interface{}); ok {
+				for _, acc := range accounts {
+					if accID, ok := acc.(float64); ok {
+						selectedAccounts = append(selectedAccounts, uint(accID))
+					}
+				}
+			}
+		}
 	}
 
 	// 检查资源是否已存在
@@ -92,7 +109,7 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 	}
 
 	// 执行转存操作
-	resourceID, saveURL, err := tp.performTransfer(ctx, &input)
+	resourceID, saveURL, err := tp.performTransfer(ctx, &input, selectedAccounts)
 	if err != nil {
 		// 转存失败，更新输出数据
 		output := TransferOutput{
@@ -180,7 +197,7 @@ func (tp *TransferProcessor) checkResourceExists(url string) (bool, *entity.Reso
 }
 
 // performTransfer 执行转存操作
-func (tp *TransferProcessor) performTransfer(ctx context.Context, input *TransferInput) (uint, string, error) {
+func (tp *TransferProcessor) performTransfer(ctx context.Context, input *TransferInput, selectedAccounts []uint) (uint, string, error) {
 	// 解析URL获取分享信息
 	shareInfo, err := tp.parseShareURL(input.URL)
 	if err != nil {
@@ -188,7 +205,7 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 	}
 
 	// 先执行转存操作
-	saveURL, err := tp.transferToCloud(ctx, shareInfo)
+	saveURL, err := tp.transferToCloud(ctx, shareInfo, selectedAccounts)
 	if err != nil {
 		utils.Error("云端转存失败: %v", err)
 		return 0, "", fmt.Errorf("转存失败: %v", err)
@@ -206,10 +223,28 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		categoryID = &input.CategoryID
 	}
 
+	// 确定平台ID
+	var panID uint
+	if input.PanID != 0 {
+		// 使用指定的平台ID
+		panID = input.PanID
+		utils.Info("使用指定的平台ID: %d", panID)
+	} else {
+		// 如果没有指定，默认使用夸克平台ID
+		quarkPanID, err := tp.getQuarkPanID()
+		if err != nil {
+			utils.Error("获取夸克平台ID失败: %v", err)
+			return 0, "", fmt.Errorf("获取夸克平台ID失败: %v", err)
+		}
+		panID = quarkPanID
+		utils.Info("使用默认夸克平台ID: %d", panID)
+	}
+
 	resource := &entity.Resource{
 		Title:      input.Title,
 		URL:        input.URL,
 		CategoryID: categoryID,
+		PanID:      &panID,  // 设置平台ID
 		SaveURL:    saveURL, // 直接设置转存链接
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -278,9 +313,54 @@ func (tp *TransferProcessor) addResourceTags(resourceID uint, tagIDs []uint) err
 }
 
 // transferToCloud 执行云端转存
-func (tp *TransferProcessor) transferToCloud(ctx context.Context, shareInfo *ShareInfo) (string, error) {
+func (tp *TransferProcessor) transferToCloud(ctx context.Context, shareInfo *ShareInfo, selectedAccounts []uint) (string, error) {
 	// 转存任务独立于自动转存开关，直接执行转存逻辑
 	// 获取转存相关的配置（如最小存储空间等），但不检查自动转存开关
+
+	// 如果指定了账号，使用指定的账号
+	if len(selectedAccounts) > 0 {
+		utils.Info("使用指定的账号进行转存，账号数量: %d", len(selectedAccounts))
+
+		// 获取指定的账号
+		var validAccounts []entity.Cks
+		for _, accountID := range selectedAccounts {
+			account, err := tp.repoMgr.CksRepository.FindByID(accountID)
+			if err != nil {
+				utils.Error("获取账号 %d 失败: %v", accountID, err)
+				continue
+			}
+
+			if !account.IsValid {
+				utils.Error("账号 %d 无效", accountID)
+				continue
+			}
+
+			validAccounts = append(validAccounts, *account)
+		}
+
+		if len(validAccounts) == 0 {
+			return "", fmt.Errorf("指定的账号都无效或不存在")
+		}
+
+		utils.Info("找到 %d 个有效账号，开始转存处理...", len(validAccounts))
+
+		// 使用第一个有效账号进行转存
+		account := validAccounts[0]
+
+		// 创建网盘服务工厂
+		factory := pan.NewPanFactory()
+
+		// 执行转存
+		result := tp.transferSingleResource(shareInfo, account, factory)
+		if !result.Success {
+			return "", fmt.Errorf("转存失败: %s", result.ErrorMsg)
+		}
+
+		return result.SaveURL, nil
+	}
+
+	// 如果没有指定账号，使用原来的逻辑（自动选择）
+	utils.Info("未指定账号，使用自动选择逻辑")
 
 	// 获取夸克平台ID
 	quarkPanID, err := tp.getQuarkPanID()

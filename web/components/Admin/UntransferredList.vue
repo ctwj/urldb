@@ -164,30 +164,7 @@
                       </div>
                     </div>
 
-                    <!-- 操作按钮 -->
-                    <div class="flex flex-col space-y-2 ml-4">
-                      <n-button 
-                        size="small" 
-                        type="primary"
-                        :loading="item.transferring"
-                        @click="handleSingleTransfer(item)"
-                      >
-                        <template #icon>
-                          <i class="fas fa-exchange-alt"></i>
-                        </template>
-                        {{ item.transferring ? '转存中' : '立即转存' }}
-                      </n-button>
-                      
-                      <n-button 
-                        size="small" 
-                        @click="viewResource(item)"
-                      >
-                        <template #icon>
-                          <i class="fas fa-eye"></i>
-                        </template>
-                        查看详情
-                      </n-button>
-                    </div>
+
                   </div>
                 </div>
               </div>
@@ -210,6 +187,73 @@
         </div>
       </div>
     </n-card>
+
+    <!-- 网盘账号选择模态框 -->
+    <n-modal v-model:show="showAccountSelectionModal" preset="card" title="选择网盘账号" style="width: 600px">
+      <div class="space-y-4">
+        <div class="text-sm text-gray-600 dark:text-gray-400">
+          请选择要使用的网盘账号进行批量转存操作
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            网盘账号 <span class="text-red-500">*</span>
+          </label>
+          <n-select
+            v-model:value="selectedAccounts"
+            :options="accountOptions"
+            placeholder="选择网盘账号"
+            multiple
+            filterable
+            :loading="accountsLoading"
+            @update:value="handleAccountChange"
+          >
+            <template #option="{ option: accountOption }">
+              <div class="flex items-center justify-between w-full">
+                <div class="flex items-center space-x-2">
+                  <span class="text-sm">{{ accountOption.label }}</span>
+                  <n-tag v-if="accountOption.is_valid" type="success" size="small">有效</n-tag>
+                  <n-tag v-else type="error" size="small">无效</n-tag>
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ formatSpace(accountOption.left_space) }}
+                </div>
+              </div>
+            </template>
+          </n-select>
+          <div class="text-xs text-gray-500 mt-1">
+            请选择要使用的网盘账号，系统将使用选中的账号进行转存操作
+          </div>
+        </div>
+
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded border border-yellow-200 dark:border-yellow-800">
+          <div class="flex items-start space-x-2">
+            <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5"></i>
+            <div class="text-sm text-yellow-800 dark:text-yellow-200">
+              <p>• 转存过程可能需要较长时间</p>
+              <p>• 请确保选中的网盘账号有足够的存储空间</p>
+              <p>• 转存完成后可在"已转存列表"中查看结果</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <template #footer>
+        <div class="flex justify-end space-x-3">
+          <n-button @click="showAccountSelectionModal = false">
+            取消
+          </n-button>
+          <n-button 
+            type="primary" 
+            :disabled="selectedAccounts.length === 0"
+            :loading="batchTransferring"
+            @click="confirmBatchTransfer"
+          >
+            {{ batchTransferring ? '创建任务中...' : '继续' }}
+          </n-button>
+        </div>
+      </template>
+    </n-modal>
 
     <!-- 转存结果模态框 -->
     <n-modal v-model:show="showTransferResult" preset="card" title="转存结果" style="width: 600px">
@@ -252,14 +296,15 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useResourceApi, useCategoryApi, useTagApi } from '~/composables/useApi'
+import { useResourceApi, useCategoryApi, useTagApi, useCksApi, useTaskApi } from '~/composables/useApi'
+import { useMessage } from 'naive-ui'
 
 // 数据状态
 const loading = ref(false)
 const resources = ref([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(10000)
+const pageSize = ref(2000)
 
 // 搜索条件
 const searchQuery = ref('')
@@ -274,6 +319,10 @@ const selectedResources = ref([])
 const batchTransferring = ref(false)
 const showTransferResult = ref(false)
 const transferResults = ref([])
+const showAccountSelectionModal = ref(false)
+const selectedAccounts = ref<number[]>([])
+const accountOptions = ref<any[]>([])
+const accountsLoading = ref(false)
 
 // 选项数据
 const categoryOptions = ref([])
@@ -288,6 +337,9 @@ const statusOptions = [
 const resourceApi = useResourceApi()
 const categoryApi = useCategoryApi()
 const tagApi = useTagApi()
+const cksApi = useCksApi()
+const taskApi = useTaskApi()
+const message = useMessage()
 
 // 计算属性
 const isAllSelected = computed(() => {
@@ -376,6 +428,44 @@ const fetchTags = async () => {
   }
 }
 
+// 获取网盘账号选项
+const getAccountOptions = async () => {
+  accountsLoading.value = true
+  try {
+    const response = await cksApi.getCks() as any
+    const accounts = Array.isArray(response) ? response : []
+    
+    accountOptions.value = accounts.map((account: any) => ({
+      label: `${account.username || '未知用户'} (${account.pan?.name || '未知平台'})`,
+      value: account.id,
+      is_valid: account.is_valid,
+      left_space: account.left_space,
+      username: account.username,
+      pan_name: account.pan?.name || '未知平台'
+    }))
+  } catch (error) {
+    console.error('获取网盘账号选项失败:', error)
+    message.error('获取网盘账号失败')
+  } finally {
+    accountsLoading.value = false
+  }
+}
+
+// 处理账号选择变化
+const handleAccountChange = (value: number[]) => {
+  selectedAccounts.value = value
+  console.log('选择的账号:', value)
+}
+
+// 格式化空间大小
+const formatSpace = (bytes: number) => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
 // 搜索处理
 const handleSearch = () => {
   currentPage.value = 1
@@ -421,79 +511,23 @@ const toggleResourceSelection = (id: number, checked: boolean) => {
   }
 }
 
-// 单个转存
-const handleSingleTransfer = async (resource: any) => {
-  resource.transferring = true
-  
-  try {
-    // 这里应该调用实际的转存API
-    // 由于只是UI展示，模拟转存过程
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // 模拟随机成功/失败
-    const isSuccess = Math.random() > 0.3
-    
-    if (isSuccess) {
-      $message.success(`${resource.title} 转存成功`)
-      // 刷新列表
-      refreshData()
-    } else {
-      $message.error(`${resource.title} 转存失败`)
-    }
-  } catch (error) {
-    console.error('转存失败:', error)
-    $message.error('转存失败')
-  } finally {
-    resource.transferring = false
-  }
-}
+
 
 // 批量转存
 const handleBatchTransfer = async () => {
   if (selectedResources.value.length === 0) {
-    $message.warning('请选择要转存的资源')
+    message.warning('请选择要转存的资源')
     return
   }
 
-  batchTransferring.value = true
-  transferResults.value = []
-
-  try {
-    const selectedItems = resources.value.filter(r => selectedResources.value.includes(r.id))
-    
-    // 这里应该调用实际的批量转存API
-    // 由于只是UI展示，模拟批量转存过程
-    for (const item of selectedItems) {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const isSuccess = Math.random() > 0.3
-      transferResults.value.push({
-        id: item.id,
-        title: item.title,
-        url: item.url,
-        success: isSuccess,
-        message: isSuccess ? '转存成功' : '转存失败：网络错误'
-      })
-    }
-
-    showTransferResult.value = true
-    
-    // 刷新列表
-    refreshData()
-    
-  } catch (error) {
-    console.error('批量转存失败:', error)
-    $message.error('批量转存失败')
-  } finally {
-    batchTransferring.value = false
-  }
+  // 先获取网盘账号列表
+  await getAccountOptions()
+  
+  // 显示账号选择模态框
+  showAccountSelectionModal.value = true
 }
 
-// 查看资源详情
-const viewResource = (resource: any) => {
-  console.log('查看资源详情:', resource)
-  // 这里可以打开资源详情模态框
-}
+
 
 // 获取状态类型
 const getStatusType = (resource: any) => {
@@ -512,6 +546,47 @@ const getStatusText = (resource: any) => {
 // 格式化日期
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString()
+}
+
+// 确认批量转存
+const confirmBatchTransfer = async () => {
+  if (selectedAccounts.value.length === 0) {
+    message.warning('请选择至少一个网盘账号')
+    return
+  }
+
+  batchTransferring.value = true
+  try {
+    const selectedItems = resources.value.filter(r => selectedResources.value.includes(r.id))
+    
+    const taskData = {
+      title: `批量转存 ${selectedItems.length} 个资源`,
+      description: `批量转存 ${selectedItems.length} 个资源，使用 ${selectedAccounts.value.length} 个账号`,
+      resources: selectedItems.map(r => ({
+        title: r.title,
+        url: r.url,
+        category_id: r.category_id || 0,
+        pan_id: r.pan_id || 0
+      })),
+      selected_accounts: selectedAccounts.value
+    }
+    
+    const response = await taskApi.createBatchTransferTask(taskData) as any
+    message.success(`批量转存任务已创建，共 ${selectedItems.length} 个资源`)
+    
+    // 关闭模态框
+    showAccountSelectionModal.value = false
+    selectedAccounts.value = []
+    
+    // 刷新列表
+    refreshData()
+    
+  } catch (error) {
+    console.error('创建批量转存任务失败:', error)
+    message.error('创建批量转存任务失败')
+  } finally {
+    batchTransferring.value = false
+  }
 }
 
 // 初始化

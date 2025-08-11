@@ -16,6 +16,7 @@ type TaskItemRepository interface {
 	UpdateStatus(id uint, status string) error
 	UpdateStatusAndOutput(id uint, status, outputData string) error
 	GetStatsByTaskID(taskID uint) (map[string]int, error)
+	ResetProcessingItems(taskID uint) error
 }
 
 // TaskItemRepositoryImpl 任务项仓库实现
@@ -134,4 +135,11 @@ func (r *TaskItemRepositoryImpl) GetStatsByTaskID(taskID uint) (map[string]int, 
 	}
 
 	return stats, nil
+}
+
+// ResetProcessingItems 重置处理中的任务项为pending状态
+func (r *TaskItemRepositoryImpl) ResetProcessingItems(taskID uint) error {
+	return r.db.Model(&entity.TaskItem{}).
+		Where("task_id = ? AND status = ?", taskID, "processing").
+		Update("status", "pending").Error
 }

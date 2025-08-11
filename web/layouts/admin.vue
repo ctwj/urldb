@@ -33,22 +33,22 @@
           <!-- 自动处理状态 -->
           <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2">
             <div class="w-2 h-2 rounded-full animate-pulse" :class="{ 
-              'bg-red-400': !systemConfig?.auto_process_ready_resources,
-              'bg-green-400': systemConfig?.auto_process_ready_resources
+              'bg-red-400': !isAutoProcessEnabled,
+              'bg-green-400': isAutoProcessEnabled
             }"></div>
             <span class="text-xs text-gray-700 dark:text-gray-300 font-medium">
-              自动处理已<span>{{ systemConfig?.auto_process_ready_resources ? '开启' : '关闭' }}</span>
+              自动处理已<span>{{ isAutoProcessEnabled ? '开启' : '关闭' }}</span>
             </span>
           </div>
           
           <!-- 自动转存状态 -->
           <div class="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-2">
             <div class="w-2 h-2 rounded-full animate-pulse" :class="{ 
-              'bg-red-400': !systemConfig?.auto_transfer_enabled,
-              'bg-green-400': systemConfig?.auto_transfer_enabled
+              'bg-red-400': !isAutoTransferEnabled,
+              'bg-green-400': isAutoTransferEnabled
             }"></div>
             <span class="text-xs text-gray-700 dark:text-gray-300 font-medium">
-              自动转存已<span>{{ systemConfig?.auto_transfer_enabled ? '开启' : '关闭' }}</span>
+              自动转存已<span>{{ isAutoTransferEnabled ? '开启' : '关闭' }}</span>
             </span>
           </div>
           
@@ -305,6 +305,7 @@ const systemConfigStore = useSystemConfigStore()
 const taskStore = useTaskStore()
 
 // 初始化系统配置（管理员页面使用管理员API）
+// 在setup阶段初始化，确保数据可用
 await systemConfigStore.initConfig(false, true)
 
 // 版本信息
@@ -344,7 +345,21 @@ onBeforeUnmount(() => {
 const systemConfig = computed(() => {
   const config = systemConfigStore.config || {}
   console.log('顶部导航系统配置:', config)
+  console.log('自动处理状态:', config.auto_process_ready_resources)
+  console.log('自动转存状态:', config.auto_transfer_enabled)
   return config
+})
+
+// 自动处理状态（确保布尔值）
+const isAutoProcessEnabled = computed(() => {
+  const value = systemConfig.value?.auto_process_ready_resources
+  return value === true || value === 'true' || value === '1'
+})
+
+// 自动转存状态（确保布尔值）
+const isAutoTransferEnabled = computed(() => {
+  const value = systemConfig.value?.auto_transfer_enabled
+  return value === true || value === 'true' || value === '1'
 })
 
 // 用户菜单状态

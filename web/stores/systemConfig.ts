@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { parseApiResponse } from '~/composables/useApi'
 
 export const useSystemConfigStore = defineStore('systemConfig', {
   state: () => ({
@@ -15,9 +16,11 @@ export const useSystemConfigStore = defineStore('systemConfig', {
         const response = await useApiFetch(apiUrl)
         console.log('Store API响应:', response) // 调试信息
         
-        // 正确处理API响应结构
-        const data = response.data || response
+        // 使用parseApiResponse正确解析API响应
+        const data = parseApiResponse(response)
         console.log('Store 处理后的数据:', data) // 调试信息
+        console.log('Store 自动处理状态:', data.auto_process_ready_resources)
+        console.log('Store 自动转存状态:', data.auto_transfer_enabled)
         
         this.config = data
         this.initialized = true

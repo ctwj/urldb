@@ -159,13 +159,8 @@ func GetSearchesTrend(c *gin.Context) {
 			Where("DATE(date) = ?", dateStr).
 			Count(&searches)
 
-		// 如果没有搜索记录，生成模拟数据
-		if searches == 0 {
-			// 基于当前时间的随机因子生成模拟搜索量
-			baseSearches := int64(50 + utils.GetCurrentTime().Day()*2) // 基础搜索量
-			randomFactor := float64(70+utils.GetCurrentTime().Hour()*i) / 100.0
-			searches = int64(float64(baseSearches) * randomFactor)
-		}
+		// 如果没有搜索记录，返回0
+		// 移除模拟数据生成逻辑，只返回真实数据
 
 		results = append(results, gin.H{
 			"date":     dateStr,

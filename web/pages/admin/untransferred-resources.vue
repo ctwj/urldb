@@ -400,7 +400,8 @@ const singleTransfer = async (resource: any) => {
       resources: [{
         title: resource.title,
         url: resource.url,
-        category_id: resource.category_id || 0
+        category_id: resource.category_id || 0,
+        pan_id: resource.pan_id || 0
       }]
     }
     
@@ -443,7 +444,8 @@ const confirmBatchTransfer = async () => {
       resources: selectedResources.value.map(r => ({
         title: r.title,
         url: r.url,
-        category_id: r.category_id || 0
+        category_id: r.category_id || 0,
+        pan_id: r.pan_id || 0
       }))
     }
     
