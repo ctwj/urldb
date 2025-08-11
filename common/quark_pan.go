@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -187,6 +188,11 @@ func (q *QuarkPanService) Transfer(shareID string) (*TransferResult, error) {
 	// 删除广告文件（如果有配置）
 	if err := q.deleteAdFiles(myData.SaveAs.SaveAsTopFids[0]); err != nil {
 		log.Printf("删除广告文件失败: %v", err)
+	}
+
+	// 添加个人自定义广告
+	if err := q.addAd(myData.SaveAs.SaveAsTopFids[0]); err != nil {
+		log.Printf("添加广告文件失败: %v", err)
 	}
 
 	// 分享资源
@@ -548,8 +554,139 @@ func (q *QuarkPanService) waitForTask(taskID string) (*TaskResult, error) {
 
 // deleteAdFiles 删除广告文件
 func (q *QuarkPanService) deleteAdFiles(pdirFid string) error {
-	// 这里可以添加广告文件删除逻辑
-	// 需要从配置中读取禁止的关键词列表
+	log.Printf("开始删除广告文件，目录ID: %s", pdirFid)
+
+	// 获取目录文件列表
+	fileList, err := q.getDirFile(pdirFid)
+	if err != nil {
+		log.Printf("获取目录文件失败: %v", err)
+		return err
+	}
+
+	if fileList == nil || len(fileList) == 0 {
+		log.Printf("目录为空，无需删除广告文件")
+		return nil
+	}
+
+	// 删除包含广告关键词的文件
+	for _, file := range fileList {
+		if fileName, ok := file["file_name"].(string); ok {
+			log.Printf("检查文件: %s", fileName)
+			if q.containsAdKeywords(fileName) {
+				if fid, ok := file["fid"].(string); ok {
+					log.Printf("删除广告文件: %s (FID: %s)", fileName, fid)
+					_, err := q.DeleteFiles([]string{fid})
+					if err != nil {
+						log.Printf("删除广告文件失败: %v", err)
+					} else {
+						log.Printf("成功删除广告文件: %s", fileName)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// containsAdKeywords 检查文件名是否包含广告关键词
+func (q *QuarkPanService) containsAdKeywords(filename string) bool {
+	// 默认广告关键词列表
+	defaultAdKeywords := []string{
+		"微信", "独家", "V信", "v信", "威信", "胖狗资源",
+		"加微", "会员群", "q群", "v群", "公众号",
+		"广告", "特价", "最后机会", "不要错过", "立减",
+		"立得", "赚", "省", "回扣", "抽奖",
+		"失效", "年会员", "空间容量", "微信群", "群文件", "全网资源", "影视资源", "扫码", "最新资源",
+		"IMG_", "资源汇总", "緑铯粢源", ".url", "网盘推广", "大额优惠券",
+		"资源文档", "dy8.xyz", "妙妙屋", "资源合集", "kkdm", "赚收益",
+	}
+
+	// 尝试从系统配置中获取广告关键词
+	adKeywords := defaultAdKeywords
+
+	// 这里可以添加从系统配置读取广告关键词的逻辑
+	// 例如：从数据库或配置文件中读取自定义的广告关键词
+
+	return q.checkKeywordsInFilename(filename, adKeywords)
+}
+
+// checkKeywordsInFilename 检查文件名是否包含指定关键词
+func (q *QuarkPanService) checkKeywordsInFilename(filename string, keywords []string) bool {
+	// 转为小写进行比较
+	lowercaseFilename := strings.ToLower(filename)
+
+	for _, keyword := range keywords {
+		if strings.Contains(lowercaseFilename, strings.ToLower(keyword)) {
+			log.Printf("文件 %s 包含广告关键词: %s", filename, keyword)
+			return true
+		}
+	}
+
+	return false
+}
+
+// addAd 添加个人自定义广告
+func (q *QuarkPanService) addAd(dirID string) error {
+	log.Printf("开始添加个人自定义广告到目录: %s", dirID)
+
+	// 这里可以从配置中读取广告文件ID列表
+	// 暂时使用硬编码的广告文件ID，后续可以从系统配置中读取
+	adFileIDs := []string{
+		// 可以配置多个广告文件ID
+		// "4c0381f2d1ca", // 示例广告文件ID
+	}
+
+	if len(adFileIDs) == 0 {
+		log.Printf("没有配置广告文件，跳过广告插入")
+		return nil
+	}
+
+	// 随机选择一个广告文件
+	rand.Seed(time.Now().UnixNano())
+	selectedAdID := adFileIDs[rand.Intn(len(adFileIDs))]
+
+	log.Printf("选择广告文件ID: %s", selectedAdID)
+
+	// 获取广告文件的stoken
+	stokenResult, err := q.getStoken(selectedAdID)
+	if err != nil {
+		log.Printf("获取广告文件stoken失败: %v", err)
+		return err
+	}
+
+	// 获取广告文件详情
+	adDetail, err := q.getShare(selectedAdID, stokenResult.Stoken)
+	if err != nil {
+		log.Printf("获取广告文件详情失败: %v", err)
+		return err
+	}
+
+	if len(adDetail.List) == 0 {
+		log.Printf("广告文件详情为空")
+		return fmt.Errorf("广告文件详情为空")
+	}
+
+	// 获取第一个广告文件的信息
+	adFile := adDetail.List[0]
+	fid := adFile.Fid
+	shareFidToken := adFile.ShareFidToken
+
+	// 保存广告文件到目标目录
+	saveResult, err := q.getShareSave(selectedAdID, stokenResult.Stoken, []string{fid}, []string{shareFidToken})
+	if err != nil {
+		log.Printf("保存广告文件失败: %v", err)
+		return err
+	}
+
+	// 等待保存完成
+	_, err = q.waitForTask(saveResult.TaskID)
+	if err != nil {
+		log.Printf("等待广告文件保存完成失败: %v", err)
+		return err
+	}
+
+	log.Printf("广告文件添加成功")
 	return nil
 }
 
