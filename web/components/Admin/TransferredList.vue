@@ -48,6 +48,7 @@
       @update:page="handlePageChange"
       @update:page-size="handlePageSizeChange"
       :row-key="(row: any) => row.id"
+      virtual-scroll
       max-height="500"
     />
   </div>
@@ -66,7 +67,7 @@ const loading = ref(false)
 const resources = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(10000)
 
 // 搜索条件
 const searchQuery = ref('')
@@ -79,9 +80,9 @@ const resourceApi = useResourceApi()
 // 分页配置
 const pagination = reactive({
   page: 1,
-  pageSize: 20,
+  pageSize: 10000,
   itemCount: 0,
-  pageSizes: [10, 20, 50, 100],
+  pageSizes: [10000, 20000, 50000, 100000],
   showSizePicker: true,
   showQuickJumper: true,
   prefix: ({ itemCount }: any) => `共 ${itemCount} 条`

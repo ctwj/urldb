@@ -160,7 +160,21 @@
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
         <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 class="text-base font-semibold text-gray-900 dark:text-white">任务项列表</h2>
-          <span class="text-sm text-gray-500 dark:text-gray-400">共 {{ total }} 项</span>
+          <div class="flex items-center space-x-3">
+            <!-- 状态过滤 -->
+            <div class="flex items-center space-x-2">
+              <span class="text-sm text-gray-500 dark:text-gray-400">状态:</span>
+              <n-select
+                v-model:value="statusFilter"
+                :options="statusOptions"
+                placeholder="全部状态"
+                size="small"
+                style="width: 120px"
+                @update:value="onStatusFilterChange"
+              />
+            </div>
+            <span class="text-sm text-gray-500 dark:text-gray-400">共 {{ total }} 项</span>
+          </div>
         </div>
         
         <div class="overflow-x-auto">
@@ -171,7 +185,10 @@
             :pagination="itemsPaginationConfig"
             size="small"
             :scroll-x="600"
+            virtual-scroll
+            :max-height="400"
             :bordered="false"
+            :empty="emptyConfig"
           />
         </div>
       </div>
@@ -198,23 +215,35 @@ const message = useMessage()
 const dialog = useDialog()
 
 // 数据状态
-const task = ref(null)
-const taskItems = ref([])
+const task = ref<any>(null)
+const taskItems = ref<any[]>([])
 const loading = ref(false)
 const itemsLoading = ref(false)
 const actionLoading = ref(false)
 
 // 分页配置
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(10000)
 const total = ref(0)
+
+// 状态过滤
+const statusFilter = ref('')
+
+// 状态选项
+const statusOptions = [
+  { label: '全部状态', value: '' },
+  { label: '待处理', value: 'pending' },
+  { label: '处理中', value: 'processing' },
+  { label: '已完成', value: 'completed' },
+  { label: '失败', value: 'failed' }
+]
 
 const itemsPaginationConfig = computed(() => ({
   page: currentPage.value,
   pageSize: pageSize.value,
   itemCount: total.value,
   showSizePicker: true,
-  pageSizes: [10, 20, 50, 100],
+  pageSizes: [1000, 5000, 10000, 20000],
   onChange: (page: number) => {
     currentPage.value = page
     fetchTaskItems()
@@ -325,27 +354,49 @@ const fetchTaskItems = async () => {
     const { useTaskApi } = await import('~/composables/useApi')
     const taskApi = useTaskApi()
     
-    const params = {
+    const params: any = {
       page: currentPage.value,
       page_size: pageSize.value
     }
     
+    // 添加状态过滤
+    if (statusFilter.value && statusFilter.value !== '') {
+      params.status = statusFilter.value
+    }
+    
     const response = await taskApi.getTaskItems(parseInt(route.params.id as string), params) as any
     
+    // 正确处理API响应，包括items为null的情况
     if (response && response.items) {
-      taskItems.value = response.items
+      taskItems.value = response.items || []
       total.value = response.total || 0
+    } else {
+      taskItems.value = []
+      total.value = 0
     }
   } catch (error) {
     console.error('获取任务项列表失败:', error)
     message.error('获取任务项列表失败')
+    // 发生错误时也要重置数据
+    taskItems.value = []
+    total.value = 0
   } finally {
     itemsLoading.value = false
   }
 }
 
+// 状态过滤变化处理
+const onStatusFilterChange = () => {
+  currentPage.value = 1
+  // 立即清空当前数据，避免显示旧数据
+  taskItems.value = []
+  total.value = 0
+  fetchTaskItems()
+}
+
 // 任务操作
 const startTask = async () => {
+  if (!task.value) return
   actionLoading.value = true
   try {
     const success = await taskStore.startTask(task.value.id)
@@ -364,6 +415,7 @@ const startTask = async () => {
 }
 
 const pauseTask = async () => {
+  if (!task.value) return
   actionLoading.value = true
   try {
     const success = await taskStore.pauseTask(task.value.id)
@@ -382,6 +434,7 @@ const pauseTask = async () => {
 }
 
 const resumeTask = async () => {
+  if (!task.value) return
   actionLoading.value = true
   try {
     const success = await taskStore.startTask(task.value.id)
@@ -400,6 +453,7 @@ const resumeTask = async () => {
 }
 
 const retryTask = async () => {
+  if (!task.value) return
   actionLoading.value = true
   try {
     const success = await taskStore.startTask(task.value.id)
@@ -418,6 +472,7 @@ const retryTask = async () => {
 }
 
 const deleteTask = async () => {
+  if (!task.value) return
   dialog.warning({
     title: '确认删除',
     content: '确定要删除这个任务吗？此操作不可恢复。',
@@ -426,7 +481,7 @@ const deleteTask = async () => {
     onPositiveClick: async () => {
       actionLoading.value = true
       try {
-        const success = await taskStore.deleteTask(task.value.id)
+        const success = await taskStore.deleteTask(task.value!.id)
         if (success) {
           message.success('任务删除成功')
           router.push('/admin/tasks')
@@ -451,9 +506,9 @@ const getTaskTypeText = (type: string) => {
   return typeMap[type] || type
 }
 
-const getTaskTypeColor = (type: string) => {
-  const colorMap: Record<string, string> = {
-    transfer: 'blue'
+const getTaskTypeColor = (type: string): 'error' | 'default' | 'primary' | 'info' | 'success' | 'warning' => {
+  const colorMap: Record<string, 'error' | 'default' | 'primary' | 'info' | 'success' | 'warning'> = {
+    transfer: 'primary'
   }
   return colorMap[type] || 'default'
 }
@@ -469,8 +524,8 @@ const getTaskStatusText = (status: string) => {
   return statusMap[status] || status
 }
 
-const getTaskStatusColor = (status: string) => {
-  const colorMap: Record<string, string> = {
+const getTaskStatusColor = (status: string): 'error' | 'default' | 'primary' | 'info' | 'success' | 'warning' => {
+  const colorMap: Record<string, 'error' | 'default' | 'primary' | 'info' | 'success' | 'warning'> = {
     pending: 'warning',
     running: 'info',
     completed: 'success',
@@ -482,6 +537,22 @@ const getTaskStatusColor = (status: string) => {
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleString('zh-CN')
+}
+
+// 空状态配置
+const emptyConfig = computed(() => ({
+  description: statusFilter.value ? `暂无${getTaskItemStatusText(statusFilter.value)}状态的任务项` : '暂无任务项记录'
+}))
+
+// 获取任务项状态文本
+const getTaskItemStatusText = (status: string) => {
+  const statusMap: Record<string, string> = {
+    pending: '待处理',
+    processing: '处理中',
+    completed: '已完成',
+    failed: '失败'
+  }
+  return statusMap[status] || status
 }
 
 // 页面加载

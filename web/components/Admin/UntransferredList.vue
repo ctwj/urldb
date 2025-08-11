@@ -201,7 +201,7 @@
             v-model:page="currentPage"
             v-model:page-size="pageSize"
             :item-count="total"
-            :page-sizes="[20, 50, 100, 200]"
+            :page-sizes="[10000, 20000, 50000, 100000]"
             show-size-picker
             show-quick-jumper
             @update:page="handlePageChange"
@@ -259,7 +259,7 @@ const loading = ref(false)
 const resources = ref([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(20)
+const pageSize = ref(10000)
 
 // 搜索条件
 const searchQuery = ref('')

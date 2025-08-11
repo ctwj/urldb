@@ -314,10 +314,10 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 	if pageSizeVal, ok := params["page_size"].(int); ok && pageSizeVal > 0 {
 		pageSize = pageSizeVal
 		fmt.Printf("原始pageSize: %d\n", pageSize)
-		// 限制最大page_size为1000
-		if pageSize > 1000 {
-			pageSize = 1000
-			fmt.Printf("pageSize超过1000，限制为: %d\n", pageSize)
+		// 限制最大page_size为10000（管理后台需要更大的数据量）
+		if pageSize > 10000 {
+			pageSize = 10000
+			fmt.Printf("pageSize超过10000，限制为: %d\n", pageSize)
 		}
 		fmt.Printf("最终pageSize: %d\n", pageSize)
 	}

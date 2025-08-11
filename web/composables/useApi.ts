@@ -26,28 +26,6 @@ export const parseApiResponse = <T>(response: any): T => {
   // 检查是否是包含success字段的响应格式（如登录接口）
   if (response && typeof response === 'object' && 'success' in response && 'data' in response) {
     if (response.success) {
-      // 特殊处理资源接口返回的data格式，转换为resources格式
-      if (response.data && Array.isArray(response.data) && response.total !== undefined) {
-        return {
-          resources: response.data,
-          total: response.total,
-          page: response.page,
-          page_size: response.page_size
-        } as T
-      }
-      // 特殊处理资源接口返回的data.list格式，转换为resources格式
-      if (response.data && response.data.list && Array.isArray(response.data.list)) {
-        return {
-          resources: response.data.list,
-          total: response.data.total,
-          page: response.data.page,
-          page_size: response.data.limit
-        } as T
-      }
-      // 特殊处理失败资源接口，返回完整的data结构
-      if (response.data && response.data.data && Array.isArray(response.data.data) && response.data.total !== undefined) {
-        return response.data
-      }
       // 特殊处理登录接口，直接返回data部分（包含token和user）
       if (response.data && response.data.token && response.data.user) {
         console.log('parseApiResponse - 登录接口处理，返回data:', response.data)

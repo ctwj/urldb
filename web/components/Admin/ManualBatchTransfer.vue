@@ -16,7 +16,7 @@
               placeholder="请输入资源内容，格式：标题和URL为一组..."
               :autosize="{ minRows: 10, maxRows: 15 }"
               show-count
-              :maxlength="10000"
+              :maxlength="100000"
             />
           </div>
         </div>
