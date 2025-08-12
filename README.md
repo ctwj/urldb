@@ -50,8 +50,8 @@
 ### ⚙️ 系统配置
 ![系统配置](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/config.webp)
 
-### 🔍 搜索统计
-![资源搜索](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/search.webp)
+### 🔍 批量转存
+![资源搜索](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/save.webp)
 
 ### 👤 多账号管理
 ![账号管理](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/account.webp)
