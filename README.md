@@ -29,11 +29,27 @@
 
 ---
 
-## 🔔 温馨提示
+## 🔔 版本改动
 
 - [文档说明](https://ecn5khs4t956.feishu.cn/wiki/PsnDwtxghiP0mLkTiruczKtxnwd?from=from_copylink)
 - [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
 - [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
+
+### v1.2.0
+1. 新增手动批量转存
+2. 新增QQ机器人
+3. 新增任务管理功能
+4. 自动转存改版（批量转存修改为，显示二维码时自动转存）
+5. 新增支持第三方统计代码配置
+
+### v1.0.0
+1. 支持API，手动批量录入资源
+2. 支持，自动判断资源有效性
+3. 支持自动转存
+4. 支持平台多账号管理（Quark）
+5. 支持简单的数据统计
+
+
 
 ---
 
@@ -85,112 +101,6 @@
 
 ---
 
-
-## 🚀 快速开始
-
-### 环境要求
-
-- **Docker** 和 **Docker Compose**
-- 或者本地环境：
-  - **Go** 1.23+
-  - **Node.js** 18+
-  - **PostgreSQL** 15+
-  - **pnpm** (推荐) 或 npm
-
-### 方式一：Docker 部署（推荐）
-
-```bash
-# 克隆项目
-git clone https://github.com/ctwj/urldb.git
-cd urldb
-
-# 使用 Docker Compose 启动
-docker compose up --build -d
-
-# 访问应用
-# 前端: http://localhost:3030
-# 后端API: http://localhost:8080
-```
-
-### 方式二：本地开发
-
-#### 1. 克隆项目
-```bash
-git clone https://github.com/ctwj/urldb.git
-cd urldb
-```
-
-#### 2. 后端设置
-```bash
-# 复制环境变量文件
-cp env.example .env
-
-# 编辑环境变量
-vim .env
-
-# 安装Go依赖
-go mod tidy
-
-# 启动后端服务
-go run main.go
-```
-
-#### 3. 前端设置
-```bash
-# 进入前端目录
-cd web
-
-# 安装依赖
-pnpm install
-
-# 启动开发服务器
-pnpm dev
-```
-
-#### 4. 数据库设置
-```sql
--- 创建数据库
-CREATE DATABASE url_db;
-```
-
----
-
-## 📁 项目结构
-
-```
-l9pan/
-├── 📁 common/                 # 通用功能模块
-│   ├── 📄 pan_factory.go     # 网盘工厂模式
-│   ├── 📄 alipan.go          # 阿里云盘实现
-│   ├── 📄 baidu_pan.go       # 百度网盘实现
-│   ├── 📄 quark_pan.go       # 夸克网盘实现
-│   └── 📄 uc_pan.go          # UC网盘实现
-├── 📁 db/                     # 数据库层
-│   ├── 📁 entity/            # 数据实体
-│   ├── 📁 repo/              # 数据仓库
-│   ├── 📁 dto/               # 数据传输对象
-│   └── 📁 converter/         # 数据转换器
-├── 📁 handlers/               # API处理器
-├── 📁 middleware/             # 中间件
-├── 📁 utils/                  # 工具函数
-├── 📁 web/                    # 前端项目
-│   ├── 📁 pages/             # 页面组件
-│   ├── 📁 components/        # 通用组件
-│   ├── 📁 composables/       # 组合式函数
-│   └── 📁 stores/            # 状态管理
-├── 📁 docs/                   # 项目文档
-├── 📁 nginx/                  # Nginx配置
-│   ├── 📄 nginx.conf         # 主配置文件
-│   └── 📁 conf.d/            # 站点配置
-├── 📄 main.go                # 主程序入口
-├── 📄 Dockerfile             # Docker配置
-├── 📄 docker-compose.yml     # Docker Compose配置
-├── 📄 docker-start-nginx.sh  # Nginx启动脚本
-└── 📄 README.md              # 项目说明
-```
-
----
-
 ## 🔧 配置说明
 
 ### 环境变量配置
@@ -210,13 +120,6 @@ PORT=8080
 TIMEZONE=Asia/Shanghai
 ```
 
-### Docker 服务说明
-
-| 服务 | 端口 | 说明 |
-|------|------|------|
-| server | 3030 | 应用 |
-| postgres | 5431 | PostgreSQL 数据库 |
-
 ### 镜像构建
 
 ```
@@ -227,18 +130,6 @@ docker push ctwj/urldb-backend:1.0.7
 ```
 
 ---
-
-## 📚 API 文档
-
-### 公开统计
-
-提供，批量入库和搜索api，通过 apiToken 授权
-
-> 📖 完整API文档请访问：`http://doc.l9.lc/`
-
-## 🤝 贡献指南
-
-我们欢迎所有形式的贡献！
 
 ## 📄 许可证
 
