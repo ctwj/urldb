@@ -23,6 +23,10 @@ const (
 	// 违禁词配置
 	ConfigKeyForbiddenWords = "forbidden_words"
 
+	// 广告配置
+	ConfigKeyAdKeywords    = "ad_keywords"     // 广告关键词
+	ConfigKeyAutoInsertAd  = "auto_insert_ad"  // 自动插入广告
+
 	// 其他配置
 	ConfigKeyPageSize        = "page_size"
 	ConfigKeyMaintenanceMode = "maintenance_mode"
@@ -68,6 +72,10 @@ const (
 	// 违禁词配置字段
 	ConfigResponseFieldForbiddenWords = "forbidden_words"
 
+	// 广告配置字段
+	ConfigResponseFieldAdKeywords   = "ad_keywords"
+	ConfigResponseFieldAutoInsertAd = "auto_insert_ad"
+
 	// 其他配置字段
 	ConfigResponseFieldPageSize        = "page_size"
 	ConfigResponseFieldMaintenanceMode = "maintenance_mode"
@@ -99,6 +107,10 @@ const (
 
 	// 违禁词配置默认值
 	ConfigDefaultForbiddenWords = ""
+
+	// 广告配置默认值
+	ConfigDefaultAdKeywords   = ""
+	ConfigDefaultAutoInsertAd = ""
 
 	// 其他配置默认值
 	ConfigDefaultPageSize        = "100"

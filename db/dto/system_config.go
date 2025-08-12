@@ -23,6 +23,10 @@ type SystemConfigRequest struct {
 	// 违禁词配置
 	ForbiddenWords string `json:"forbidden_words"` // 违禁词列表，用逗号分隔
 
+	// 广告配置
+	AdKeywords   string `json:"ad_keywords"`   // 广告关键词列表，用逗号分隔
+	AutoInsertAd string `json:"auto_insert_ad"` // 自动插入广告内容
+
 	// 其他配置
 	PageSize        int  `json:"page_size"`
 	MaintenanceMode bool `json:"maintenance_mode"`
@@ -58,6 +62,10 @@ type SystemConfigResponse struct {
 
 	// 违禁词配置
 	ForbiddenWords string `json:"forbidden_words"` // 违禁词列表，用逗号分隔
+
+	// 广告配置
+	AdKeywords   string `json:"ad_keywords"`   // 广告关键词列表，用逗号分隔
+	AutoInsertAd string `json:"auto_insert_ad"` // 自动插入广告内容
 
 	// 其他配置
 	PageSize        int  `json:"page_size"`
