@@ -644,15 +644,7 @@ func (q *QuarkPanService) deleteAdFiles(pdirFid string) error {
 // containsAdKeywords 检查文件名是否包含广告关键词
 func (q *QuarkPanService) containsAdKeywords(filename string) bool {
 	// 默认广告关键词列表
-	defaultAdKeywords := []string{
-		"微信", "独家", "V信", "v信", "威信", "胖狗资源",
-		"加微", "会员群", "q群", "v群", "公众号",
-		"广告", "特价", "最后机会", "不要错过", "立减",
-		"立得", "赚", "省", "回扣", "抽奖",
-		"失效", "年会员", "空间容量", "微信群", "群文件", "全网资源", "影视资源", "扫码", "最新资源",
-		"IMG_", "资源汇总", "緑铯粢源", ".url", "网盘推广", "大额优惠券",
-		"资源文档", "dy8.xyz", "妙妙屋", "资源合集", "kkdm", "赚收益",
-	}
+	defaultAdKeywords := []string{}
 
 	// 尝试从系统配置中获取广告关键词
 	adKeywords := defaultAdKeywords
