@@ -281,8 +281,26 @@ func (q *QuarkPanService) DeleteFiles(fileList []string) (*TransferResult, error
 		return ErrorResult("文件列表为空"), nil
 	}
 
+	// 逐个删除文件，确保每个删除操作都完成
+	for _, fileID := range fileList {
+		err := q.deleteSingleFile(fileID)
+		if err != nil {
+			log.Printf("删除文件 %s 失败: %v", fileID, err)
+			return ErrorResult(fmt.Sprintf("删除文件 %s 失败: %v", fileID, err)), nil
+		}
+	}
+
+	return SuccessResult("删除成功", nil), nil
+}
+
+// deleteSingleFile 删除单个文件
+func (q *QuarkPanService) deleteSingleFile(fileID string) error {
+	log.Printf("正在删除文件: %s", fileID)
+
 	data := map[string]interface{}{
-		"fid_list": fileList,
+		"action_type":  2,
+		"filelist":     []string{fileID},
+		"exclude_fids": []string{},
 	}
 
 	queryParams := map[string]string{
@@ -291,12 +309,41 @@ func (q *QuarkPanService) DeleteFiles(fileList []string) (*TransferResult, error
 		"uc_param_str": "",
 	}
 
-	_, err := q.HTTPPost("https://drive-pc.quark.cn/1/clouddrive/file/delete", data, queryParams)
+	respData, err := q.HTTPPost("https://drive-pc.quark.cn/1/clouddrive/file/delete", data, queryParams)
 	if err != nil {
-		return ErrorResult(fmt.Sprintf("删除文件失败: %v", err)), nil
+		return fmt.Errorf("删除文件请求失败: %v", err)
 	}
 
-	return SuccessResult("删除成功", nil), nil
+	// 解析响应
+	var response struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+		Data    struct {
+			TaskID string `json:"task_id"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(respData, &response); err != nil {
+		return fmt.Errorf("解析删除响应失败: %v", err)
+	}
+
+	if response.Status != 200 {
+		return fmt.Errorf("删除文件失败: %s", response.Message)
+	}
+
+	// 如果有任务ID，等待任务完成
+	if response.Data.TaskID != "" {
+		log.Printf("删除文件任务ID: %s", response.Data.TaskID)
+		_, err := q.waitForTask(response.Data.TaskID)
+		if err != nil {
+			return fmt.Errorf("等待删除任务完成失败: %v", err)
+		}
+		log.Printf("文件 %s 删除完成", fileID)
+	} else {
+		log.Printf("文件 %s 删除完成（无任务ID）", fileID)
+	}
+
+	return nil
 }
 
 // getStoken 获取stoken
@@ -376,12 +423,17 @@ func (q *QuarkPanService) getShare(shareID, stoken string) (*ShareResult, error)
 
 // getShareSave 转存分享
 func (q *QuarkPanService) getShareSave(shareID, stoken string, fidList, fidTokenList []string) (*SaveResult, error) {
+	return q.getShareSaveToDir(shareID, stoken, fidList, fidTokenList, "0")
+}
+
+// getShareSaveToDir 转存分享到指定目录
+func (q *QuarkPanService) getShareSaveToDir(shareID, stoken string, fidList, fidTokenList []string, toPdirFid string) (*SaveResult, error) {
 	data := map[string]interface{}{
 		"pwd_id":         shareID,
 		"stoken":         stoken,
 		"fid_list":       fidList,
 		"fid_token_list": fidTokenList,
-		"to_pdir_fid":    "0", // 默认存储到根目录
+		"to_pdir_fid":    toPdirFid, // 存储到指定目录
 	}
 
 	queryParams := map[string]string{
@@ -634,7 +686,7 @@ func (q *QuarkPanService) addAd(dirID string) error {
 	// 暂时使用硬编码的广告文件ID，后续可以从系统配置中读取
 	adFileIDs := []string{
 		// 可以配置多个广告文件ID
-		// "4c0381f2d1ca", // 示例广告文件ID
+		"eeb2ccce25ad", // 示例广告文件ID
 	}
 
 	if len(adFileIDs) == 0 {
@@ -643,7 +695,7 @@ func (q *QuarkPanService) addAd(dirID string) error {
 	}
 
 	// 随机选择一个广告文件
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(utils.GetCurrentTimestampNano())
 	selectedAdID := adFileIDs[rand.Intn(len(adFileIDs))]
 
 	log.Printf("选择广告文件ID: %s", selectedAdID)
@@ -673,7 +725,7 @@ func (q *QuarkPanService) addAd(dirID string) error {
 	shareFidToken := adFile.ShareFidToken
 
 	// 保存广告文件到目标目录
-	saveResult, err := q.getShareSave(selectedAdID, stokenResult.Stoken, []string{fid}, []string{shareFidToken})
+	saveResult, err := q.getShareSaveToDir(selectedAdID, stokenResult.Stoken, []string{fid}, []string{shareFidToken}, dirID)
 	if err != nil {
 		log.Printf("保存广告文件失败: %v", err)
 		return err
@@ -729,26 +781,8 @@ func (q *QuarkPanService) getDirFile(pdirFid string) ([]map[string]interface{}, 
 		return nil, fmt.Errorf(response.Message)
 	}
 
-	// 递归处理子目录
-	var allFiles []map[string]interface{}
-	for _, item := range response.Data.List {
-		// 添加当前文件/目录
-		allFiles = append(allFiles, item)
-
-		// 如果是目录，递归获取子目录内容
-		if fileType, ok := item["file_type"].(float64); ok && fileType == 1 { // 1表示目录
-			if fid, ok := item["fid"].(string); ok {
-				subFiles, err := q.getDirFile(fid)
-				if err != nil {
-					log.Printf("获取子目录 %s 失败: %v", fid, err)
-					continue
-				}
-				allFiles = append(allFiles, subFiles...)
-			}
-		}
-	}
-
-	return allFiles, nil
+	// 直接返回文件列表，不递归处理子目录（与参考代码保持一致）
+	return response.Data.List, nil
 }
 
 // 定义各种结果结构体

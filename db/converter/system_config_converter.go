@@ -58,6 +58,10 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			response.ApiToken = config.Value
 		case entity.ConfigKeyForbiddenWords:
 			response.ForbiddenWords = config.Value
+		case entity.ConfigKeyAdKeywords:
+			response.AdKeywords = config.Value
+		case entity.ConfigKeyAutoInsertAd:
+			response.AutoInsertAd = config.Value
 		case entity.ConfigKeyPageSize:
 			if val, err := strconv.Atoi(config.Value); err == nil {
 				response.PageSize = val
@@ -114,6 +118,12 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	if req.ForbiddenWords != "" {
 		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyForbiddenWords, Value: req.ForbiddenWords, Type: entity.ConfigTypeString})
 	}
+	if req.AdKeywords != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAdKeywords, Value: req.AdKeywords, Type: entity.ConfigTypeString})
+	}
+	if req.AutoInsertAd != "" {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoInsertAd, Value: req.AutoInsertAd, Type: entity.ConfigTypeString})
+	}
 
 	// 布尔值字段 - 只处理实际提交的字段
 	// 注意：由于 Go 的零值机制，我们需要通过其他方式判断字段是否被提交
@@ -156,6 +166,8 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		entity.ConfigResponseFieldAutoTransferMinSpace:      100,
 		entity.ConfigResponseFieldAutoFetchHotDramaEnabled:  false,
 		entity.ConfigResponseFieldForbiddenWords:            "",
+		entity.ConfigResponseFieldAdKeywords:                "",
+		entity.ConfigResponseFieldAutoInsertAd:              "",
 		entity.ConfigResponseFieldPageSize:                  100,
 		entity.ConfigResponseFieldMaintenanceMode:           false,
 		entity.ConfigResponseFieldEnableRegister:            true, // 默认开启注册功能
@@ -200,6 +212,10 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			}
 		case entity.ConfigKeyForbiddenWords:
 			response[entity.ConfigResponseFieldForbiddenWords] = config.Value
+		case entity.ConfigKeyAdKeywords:
+			response[entity.ConfigResponseFieldAdKeywords] = config.Value
+		case entity.ConfigKeyAutoInsertAd:
+			response[entity.ConfigResponseFieldAutoInsertAd] = config.Value
 		case entity.ConfigKeyPageSize:
 			if val, err := strconv.Atoi(config.Value); err == nil {
 				response[entity.ConfigResponseFieldPageSize] = val
@@ -242,6 +258,8 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		AutoFetchHotDramaEnabled:  false,
 		ApiToken:                  entity.ConfigDefaultApiToken,
 		ForbiddenWords:            entity.ConfigDefaultForbiddenWords,
+		AdKeywords:                entity.ConfigDefaultAdKeywords,
+		AutoInsertAd:              entity.ConfigDefaultAutoInsertAd,
 		PageSize:                  100,
 		MaintenanceMode:           false,
 		EnableRegister:            true, // 默认开启注册功能
