@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	commonutils "github.com/ctwj/urldb/common/utils"
+	"github.com/ctwj/urldb/db"
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
 )
 
@@ -643,14 +648,20 @@ func (q *QuarkPanService) deleteAdFiles(pdirFid string) error {
 
 // containsAdKeywords 检查文件名是否包含广告关键词
 func (q *QuarkPanService) containsAdKeywords(filename string) bool {
-	// 默认广告关键词列表
-	defaultAdKeywords := []string{}
+	// 从系统配置中获取广告关键词
+	adKeywordsStr, err := q.getSystemConfigValue(entity.ConfigKeyAdKeywords)
+	if err != nil {
+		log.Printf("获取广告关键词配置失败: %v", err)
+		return false
+	}
 
-	// 尝试从系统配置中获取广告关键词
-	adKeywords := defaultAdKeywords
+	// 如果配置为空，返回false
+	if adKeywordsStr == "" {
+		return false
+	}
 
-	// 这里可以添加从系统配置读取广告关键词的逻辑
-	// 例如：从数据库或配置文件中读取自定义的广告关键词
+	// 按逗号分割关键词（支持中文和英文逗号）
+	adKeywords := q.splitKeywords(adKeywordsStr)
 
 	return q.checkKeywordsInFilename(filename, adKeywords)
 }
@@ -670,19 +681,99 @@ func (q *QuarkPanService) checkKeywordsInFilename(filename string, keywords []st
 	return false
 }
 
+// getSystemConfigValue 获取系统配置值
+func (q *QuarkPanService) getSystemConfigValue(key string) (string, error) {
+	// 使用全局数据库连接创建系统配置仓库
+	systemConfigRepo := repo.NewSystemConfigRepository(db.DB)
+	return systemConfigRepo.GetConfigValue(key)
+}
+
+// splitKeywords 按逗号分割关键词（支持中文和英文逗号）
+func (q *QuarkPanService) splitKeywords(keywordsStr string) []string {
+	if keywordsStr == "" {
+		return []string{}
+	}
+
+	// 使用正则表达式同时匹配中英文逗号
+	re := regexp.MustCompile(`[,，]`)
+	parts := re.Split(keywordsStr, -1)
+
+	var result []string
+	for _, part := range parts {
+		// 去除首尾空格
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	return result
+}
+
+// splitAdURLs 按换行符分割广告URL列表
+func (q *QuarkPanService) splitAdURLs(autoInsertAdStr string) []string {
+	if autoInsertAdStr == "" {
+		return []string{}
+	}
+
+	// 按换行符分割
+	lines := strings.Split(autoInsertAdStr, "\n")
+	var result []string
+
+	for _, line := range lines {
+		// 去除首尾空格
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	return result
+}
+
+// extractAdFileIDs 从广告URL列表中提取文件ID
+func (q *QuarkPanService) extractAdFileIDs(adURLs []string) []string {
+	var result []string
+
+	for _, url := range adURLs {
+		// 使用 ExtractShareIdString 提取分享ID
+		shareID, _ := commonutils.ExtractShareIdString(url)
+		if shareID != "" {
+			result = append(result, shareID)
+		}
+	}
+
+	return result
+}
+
 // addAd 添加个人自定义广告
 func (q *QuarkPanService) addAd(dirID string) error {
 	log.Printf("开始添加个人自定义广告到目录: %s", dirID)
 
-	// 这里可以从配置中读取广告文件ID列表
-	// 暂时使用硬编码的广告文件ID，后续可以从系统配置中读取
-	adFileIDs := []string{
-		// 可以配置多个广告文件ID
-		"eeb2ccce25ad", // 示例广告文件ID
+	// 从系统配置中获取自动插入广告内容
+	autoInsertAdStr, err := q.getSystemConfigValue(entity.ConfigKeyAutoInsertAd)
+	if err != nil {
+		log.Printf("获取自动插入广告配置失败: %v", err)
+		return err
 	}
 
+	// 如果配置为空，跳过广告插入
+	if autoInsertAdStr == "" {
+		log.Printf("没有配置自动插入广告，跳过广告插入")
+		return nil
+	}
+
+	// 按换行符分割广告URL列表
+	adURLs := q.splitAdURLs(autoInsertAdStr)
+	if len(adURLs) == 0 {
+		log.Printf("没有有效的广告URL，跳过广告插入")
+		return nil
+	}
+
+	// 提取广告文件ID列表
+	adFileIDs := q.extractAdFileIDs(adURLs)
 	if len(adFileIDs) == 0 {
-		log.Printf("没有配置广告文件，跳过广告插入")
+		log.Printf("没有有效的广告文件ID，跳过广告插入")
 		return nil
 	}
 
