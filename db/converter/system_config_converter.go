@@ -96,34 +96,17 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 
 	var configs []entity.SystemConfig
 
-	// 只添加有值的字段
-	if req.SiteTitle != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteTitle, Value: req.SiteTitle, Type: entity.ConfigTypeString})
-	}
-	if req.SiteDescription != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteDescription, Value: req.SiteDescription, Type: entity.ConfigTypeString})
-	}
-	if req.Keywords != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyKeywords, Value: req.Keywords, Type: entity.ConfigTypeString})
-	}
-	if req.Author != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAuthor, Value: req.Author, Type: entity.ConfigTypeString})
-	}
-	if req.Copyright != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyCopyright, Value: req.Copyright, Type: entity.ConfigTypeString})
-	}
-	if req.ApiToken != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiToken, Value: req.ApiToken, Type: entity.ConfigTypeString})
-	}
-	if req.ForbiddenWords != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyForbiddenWords, Value: req.ForbiddenWords, Type: entity.ConfigTypeString})
-	}
-	if req.AdKeywords != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAdKeywords, Value: req.AdKeywords, Type: entity.ConfigTypeString})
-	}
-	if req.AutoInsertAd != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoInsertAd, Value: req.AutoInsertAd, Type: entity.ConfigTypeString})
-	}
+	// 字符串字段 - 处理所有字段，包括空值
+	// 对于广告相关字段，允许空值以便清空配置
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteTitle, Value: req.SiteTitle, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteDescription, Value: req.SiteDescription, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyKeywords, Value: req.Keywords, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAuthor, Value: req.Author, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyCopyright, Value: req.Copyright, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiToken, Value: req.ApiToken, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyForbiddenWords, Value: req.ForbiddenWords, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAdKeywords, Value: req.AdKeywords, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoInsertAd, Value: req.AutoInsertAd, Type: entity.ConfigTypeString})
 
 	// 布尔值字段 - 只处理实际提交的字段
 	// 注意：由于 Go 的零值机制，我们需要通过其他方式判断字段是否被提交
@@ -141,9 +124,7 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(req.PageSize), Type: entity.ConfigTypeInt})
 
 	// 三方统计配置
-	if req.ThirdPartyStatsCode != "" {
-		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyThirdPartyStatsCode, Value: req.ThirdPartyStatsCode, Type: entity.ConfigTypeString})
-	}
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyThirdPartyStatsCode, Value: req.ThirdPartyStatsCode, Type: entity.ConfigTypeString})
 
 	return configs
 }

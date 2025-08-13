@@ -368,7 +368,7 @@ const toggleLink = async (resource: any) => {
     selectedResource.value = {
       ...resource,
       loading: false,
-      error: '获取链接失败，显示原始链接'
+      error: '检测有效性失败，请自行验证'
     }
   }
 }

@@ -24,10 +24,15 @@ type QuarkPanService struct {
 	configMutex sync.RWMutex // 保护配置的读写锁
 }
 
+// 全局配置缓存刷新信号
+var configRefreshChan = make(chan bool, 1)
+
 // 单例相关变量
 var (
-	quarkInstance *QuarkPanService
-	quarkOnce     sync.Once
+	quarkInstance    *QuarkPanService
+	quarkOnce        sync.Once
+	systemConfigRepo repo.SystemConfigRepository
+	systemConfigOnce sync.Once
 )
 
 // NewQuarkPanService 创建夸克网盘服务（单例模式）
@@ -683,9 +688,41 @@ func (q *QuarkPanService) checkKeywordsInFilename(filename string, keywords []st
 
 // getSystemConfigValue 获取系统配置值
 func (q *QuarkPanService) getSystemConfigValue(key string) (string, error) {
-	// 使用全局数据库连接创建系统配置仓库
-	systemConfigRepo := repo.NewSystemConfigRepository(db.DB)
+	// 检查是否需要刷新缓存
+	select {
+	case <-configRefreshChan:
+		// 收到刷新信号，清空缓存
+		systemConfigOnce.Do(func() {
+			systemConfigRepo = repo.NewSystemConfigRepository(db.DB)
+		})
+		systemConfigRepo.ClearConfigCache()
+	default:
+		// 没有刷新信号，继续使用缓存
+	}
+
+	// 使用单例模式获取系统配置仓库
+	systemConfigOnce.Do(func() {
+		systemConfigRepo = repo.NewSystemConfigRepository(db.DB)
+	})
 	return systemConfigRepo.GetConfigValue(key)
+}
+
+// refreshSystemConfigCache 刷新系统配置缓存
+func (q *QuarkPanService) refreshSystemConfigCache() {
+	systemConfigOnce.Do(func() {
+		systemConfigRepo = repo.NewSystemConfigRepository(db.DB)
+	})
+	systemConfigRepo.ClearConfigCache()
+}
+
+// RefreshSystemConfigCache 全局刷新系统配置缓存（供外部调用）
+func RefreshSystemConfigCache() {
+	select {
+	case configRefreshChan <- true:
+		// 发送刷新信号
+	default:
+		// 通道已满，忽略
+	}
 }
 
 // splitKeywords 按逗号分割关键词（支持中文和英文逗号）

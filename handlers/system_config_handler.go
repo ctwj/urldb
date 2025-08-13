@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	pan "github.com/ctwj/urldb/common"
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
@@ -80,6 +81,9 @@ func (h *SystemConfigHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
+	// 刷新系统配置缓存
+	pan.RefreshSystemConfigCache()
+
 	// 返回更新后的配置
 	updatedConfigs, err := h.systemConfigRepo.FindAll()
 	if err != nil {
@@ -154,6 +158,9 @@ func UpdateSystemConfig(c *gin.Context) {
 		ErrorResponse(c, "保存系统配置失败", http.StatusInternalServerError)
 		return
 	}
+
+	// 刷新系统配置缓存
+	pan.RefreshSystemConfigCache()
 
 	// 根据配置更新定时任务状态（错误不影响配置保存）
 	scheduler := scheduler.GetGlobalScheduler(
