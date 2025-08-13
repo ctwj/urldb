@@ -109,9 +109,18 @@
 
               <!-- 违禁词 -->
               <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">违禁词</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">包含这些词汇的资源将被过滤，多个词汇用逗号分隔</span>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">违禁词</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">包含这些词汇的资源将被过滤，多个词汇用逗号分隔</span>
+                  </div>
+                  <a 
+                    href="https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/db/forbidden.txt" 
+                    target="_blank" 
+                    class="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                  >
+                    开源违禁词
+                  </a>
                 </div>
                 <n-input
                   v-model:value="configForm.forbidden_words"

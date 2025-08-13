@@ -98,9 +98,18 @@
 
               <!-- 广告关键词 -->
               <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">广告关键词</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">设置广告关键词，转存时，如果文件名包含广告关键词，则文件被删除</span>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">广告关键词</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">设置广告关键词，转存时，如果文件名包含广告关键词，则文件被删除</span>
+                  </div>
+                  <a 
+                    href="https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/db/ad.txt" 
+                    target="_blank" 
+                    class="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                  >
+                    开源广告关键词
+                  </a>
                 </div>
                 <n-input
                   v-model:value="configForm.ad_keywords"
