@@ -35,6 +35,10 @@
 - [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
 - [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
 
+### v1.2.1
+1. 修复转存移除广告失败的问题和添加广告失败的问题
+2. 管理后台UI优化
+
 ### v1.2.0
 1. 新增手动批量转存
 2. 新增QQ机器人

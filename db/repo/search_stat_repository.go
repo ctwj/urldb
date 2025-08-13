@@ -18,6 +18,7 @@ type SearchStatRepository interface {
 	GetSearchTrend(days int) ([]entity.DailySearchStat, error)
 	GetKeywordTrend(keyword string, days int) ([]entity.DailySearchStat, error)
 	GetSummary() (map[string]int64, error)
+	FindWithPaginationOrdered(page, limit int) ([]entity.SearchStat, int64, error)
 }
 
 // SearchStatRepositoryImpl 搜索统计Repository实现
@@ -156,4 +157,21 @@ func (r *SearchStatRepositoryImpl) GetSummary() (map[string]int64, error) {
 		"month":    month,
 		"keywords": keywords,
 	}, nil
+}
+
+// FindWithPaginationOrdered 按时间倒序分页查找搜索记录
+func (r *SearchStatRepositoryImpl) FindWithPaginationOrdered(page, limit int) ([]entity.SearchStat, int64, error) {
+	var stats []entity.SearchStat
+	var total int64
+
+	offset := (page - 1) * limit
+
+	// 获取总数
+	if err := r.db.Model(&entity.SearchStat{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据，按创建时间倒序排列（最新的在前面）
+	err := r.db.Order("created_at DESC").Offset(offset).Limit(limit).Find(&stats).Error
+	return stats, total, err
 }

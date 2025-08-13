@@ -65,51 +65,60 @@
       </div>
     </n-card>
 
-    <!-- 热门关键词 -->
-    <n-card>
-      <template #header>
-        <span class="text-xl font-semibold text-gray-900 dark:text-white">热门关键词</span>
-      </template>
-      <div class="space-y-4">
-        <div v-for="keyword in stats.hotKeywords" :key="keyword.keyword" 
-             class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div class="flex items-center">
-            <span class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full text-sm font-medium mr-3">
-              {{ keyword.rank }}
-            </span>
-            <span class="text-gray-900 dark:text-white font-medium">{{ keyword.keyword }}</span>
-          </div>
-          <div class="flex items-center">
-            <span class="text-gray-600 dark:text-gray-400 mr-2">{{ keyword.count }}次</span>
-            <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div class="bg-blue-600 h-2 rounded-full" 
-                   :style="{ width: getPercentage(keyword.count) + '%' }"></div>
+    <!-- 热门关键词和搜索记录并排显示 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- 热门关键词 -->
+      <n-card>
+        <template #header>
+          <span class="text-xl font-semibold text-gray-900 dark:text-white">热门关键词</span>
+        </template>
+        <div class="space-y-4">
+          <div v-for="keyword in limitedHotKeywords" :key="keyword.keyword" 
+               class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div class="flex items-center">
+              <span class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full text-sm font-medium mr-3">
+                {{ keyword.rank }}
+              </span>
+              <span class="text-gray-900 dark:text-white font-medium">{{ keyword.keyword }}</span>
+            </div>
+            <div class="flex items-center">
+              <span class="text-gray-600 dark:text-gray-400 mr-2">{{ keyword.count }}次</span>
+              <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-blue-600 h-2 rounded-full" 
+                     :style="{ width: getPercentage(keyword.count) + '%' }"></div>
+              </div>
             </div>
           </div>
+          <div v-if="!stats.hotKeywords || stats.hotKeywords.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
+            暂无热门关键词数据
+          </div>
         </div>
-        <div v-if="!stats.hotKeywords || stats.hotKeywords.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
-          暂无热门关键词数据
-        </div>
-      </div>
-    </n-card>
+      </n-card>
 
-    <!-- 搜索记录 -->
-    <n-card>
-      <template #header>
-        <span class="text-xl font-semibold text-gray-900 dark:text-white">搜索记录</span>
-      </template>
-      <n-data-table
-        :columns="columns"
-        :data="searchList"
-        :pagination="pagination"
-        :loading="loading"
-        :bordered="false"
-        striped
-      />
-      <div v-if="searchList.length === 0 && !loading" class="text-center py-8 text-gray-500 dark:text-gray-400">
-        暂无搜索记录
-      </div>
-    </n-card>
+      <!-- 搜索记录 -->
+      <n-card>
+        <template #header>
+          <span class="text-xl font-semibold text-gray-900 dark:text-white">搜索记录</span>
+        </template>
+        <div class="space-y-3">
+          <div v-for="record in limitedSearchList" :key="record.id" 
+               class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div class="flex-1">
+              <div class="font-medium text-gray-900 dark:text-white">{{ record.keyword }}</div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">
+                {{ formatDate(record.created_at) }}
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm font-medium text-gray-900 dark:text-white">{{ record.count }}次</div>
+            </div>
+          </div>
+          <div v-if="searchList.length === 0 && !loading" class="text-center py-8 text-gray-500 dark:text-gray-400">
+            暂无搜索记录
+          </div>
+        </div>
+      </n-card>
+    </div>
   </div>
 </template>
 
@@ -160,44 +169,35 @@ const loading = ref(false)
 const trendChart = ref<HTMLCanvasElement | null>(null)
 let chart: any = null
 
-// 分页配置
-const pagination = ref({
-  page: 1,
-  pageSize: 20,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50, 100],
-  onChange: (page: number) => {
-    pagination.value.page = page
-    loadSearchRecords()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.value.pageSize = pageSize
-    pagination.value.page = 1
-    loadSearchRecords()
-  }
+// 按时间排序的搜索记录（最新的在前面）
+const sortedSearchList = computed(() => {
+  return [...searchList.value].sort((a, b) => {
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
 })
 
-// 表格列配置
-const columns = [
-  {
-    title: '关键词',
-    key: 'keyword',
-    width: 200
-  },
-  {
-    title: '搜索次数',
-    key: 'count',
-    width: 120
-  },
-  {
-    title: '日期',
-    key: 'date',
-    width: 150,
-    render: (row: any) => {
-      return row.date ? new Date(row.date).toLocaleDateString() : ''
-    }
-  }
-]
+// 限制显示前10条热门关键词
+const limitedHotKeywords = computed(() => {
+  return stats.value.hotKeywords.slice(0, 10)
+})
+
+// 限制显示前10条搜索记录
+const limitedSearchList = computed(() => {
+  return sortedSearchList.value.slice(0, 10)
+})
+
+// 格式化日期
+const formatDate = (dateString: string) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 
 // 获取百分比
 const getPercentage = (count: number) => {

@@ -105,16 +105,16 @@
 
       <!-- 资源列表 -->
       <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow">
-        <table class="w-full min-w-full table-fixed">
+        <table class="w-full min-w-full">
           <thead>
             <tr class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100">
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm w-1/2 sm:w-4/6">
+              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">
                 <div class="flex items-center">
                   <i class="fas fa-cloud mr-1 text-gray-300"></i> 文件名
                 </div>
               </th>
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-1/6">链接</th>
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-1/6">更新时间</th>
+              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-24">链接</th>
+              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-32">更新时间</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
@@ -136,10 +136,16 @@
               :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-900 bg-pink-50/30 dark:bg-pink-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800'"
               :data-index="index"
             >
-              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm w-1/2 sm:w-2/5">
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm">
                 <div class="flex items-start">
                   <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(resource.pan_id || 0)"></span>
-                  <span class="break-words">{{ resource.title }}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="break-words font-medium">{{ resource.title }}</div>
+                    <!-- 显示描述 -->
+                    <div v-if="resource.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words line-clamp-2">
+                      {{ resource.description }}
+                    </div>
+                  </div>
                 </div>
                 <div class="sm:hidden mt-1 space-y-1">
                   <!-- 移动端显示更新时间 -->
@@ -155,7 +161,7 @@
                   </button>
                 </div>
               </td>
-              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell w-1/5">
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell w-32">
                 <button 
                   class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn" 
                   @click="toggleLink(resource)"
@@ -163,7 +169,7 @@
                   <i class="fas fa-eye"></i> 显示链接
                 </button>
               </td>
-              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500 hidden sm:table-cell w-2/5" :title="resource.updated_at">
+              <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500 hidden sm:table-cell w-32" :title="resource.updated_at">
                 <span v-html="formatRelativeTime(resource.updated_at)"></span>
               </td>
             </tr>
@@ -509,5 +515,28 @@ const animateCounters = () => {
       rgba(0,0,0,0.1) 0%, 
       rgba(0,0,0,0.25) 100%
   );
+}
+
+/* 文本截断样式 */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 表格单元格内容溢出控制 */
+table td {
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 确保flex容器不会溢出 */
+.min-w-0 {
+  min-width: 0;
 }
 </style> 

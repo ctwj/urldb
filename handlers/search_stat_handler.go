@@ -37,7 +37,8 @@ func GetSearchStats(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	stats, total, err := repoManager.SearchStatRepository.FindWithPagination(page, pageSize)
+	// 使用自定义方法获取按时间倒序排列的搜索记录
+	stats, total, err := repoManager.SearchStatRepository.FindWithPaginationOrdered(page, pageSize)
 	if err != nil {
 		ErrorResponse(c, "获取搜索统计失败", http.StatusInternalServerError)
 		return
