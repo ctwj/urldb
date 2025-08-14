@@ -79,13 +79,15 @@
         
         <!-- 夸克链接：只显示二维码 -->
         <div v-if="isQuarkLink" class="space-y-4">
-          <div class="flex justify-center">
-            <n-qr-code 
-              :value="save_url || url" 
-              :size="size" 
-              :color="color"
-              :background-color="backgroundColor"
-              />
+          <div class=" flex justify-center">
+            <div class="flex qr-container items-center justify-center w-full">
+              <n-qr-code 
+                :value="save_url || url" 
+                :size="size" 
+                :color="color"
+                :background-color="backgroundColor"
+                />
+            </div>
           </div>
           <div class="text-center">
             <n-button type="primary" @click="closeModal">
@@ -100,8 +102,8 @@
         
         <!-- 其他链接：同时显示链接和二维码 -->
         <div v-else class="space-y-4">
-          <div class="mb-4">
-            <div class="flex justify-center">
+          <div class="mb-4 flex justify-center">
+            <div class="flex qr-container items-center justify-center w-full">
               <n-qr-code :value="save_url || url" 
                 :size="size"
                 :color="color"
@@ -159,7 +161,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 const emit = defineEmits<Emits>()
 
-const size = ref(200)
+const size = ref(180)
 const color = ref('#409eff')
 const backgroundColor = ref('#F5F5F5')
 
@@ -247,5 +249,14 @@ watch(() => props.visible, (newVisible) => {
   to {
     opacity: 1;
   }
+}
+
+.qr-container {
+  height: 200px;
+  width: 200px;
+  background-color: #F5F5F5;
+}
+.n-qr-code {
+  padding: 0 !important;
 }
 </style> 
