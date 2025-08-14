@@ -1,153 +1,144 @@
 <template>
-  <div v-if="visible" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="closeModal">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full mx-4" @click.stop>
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {{ isQuarkLink ? '夸克网盘链接' : '链接二维码' }}
-        </h3>
-        <button 
-          @click="closeModal"
-          class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-        >
-          <i class="fas fa-times text-xl"></i>
-        </button>
+  <n-modal :show="visible" @update:show="closeModal" preset="card" title="链接二维码" class="max-w-sm">
+    <div class="text-center">
+      <!-- 加载状态 -->
+      <div v-if="loading" class="space-y-4">
+        <div class="flex flex-col items-center justify-center py-8">
+          <n-spin size="large" />
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-4">正在获取链接...</p>
+        </div>
       </div>
       
-      <div class="text-center">
-        <!-- 加载状态 -->
-        <div v-if="loading" class="space-y-4">
-          <div class="flex flex-col items-center justify-center py-8">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p class="text-sm text-gray-600 dark:text-gray-400">正在获取链接...</p>
-          </div>
-        </div>
-        
-        <!-- 错误状态 -->
-        <div v-else-if="error" class="space-y-4">
-          <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
-            <div class="flex items-center">
-              <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
-              <p class="text-sm text-red-700 dark:text-red-300">{{ error }}</p>
-            </div>
-          </div>
-          <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-            <p class="text-sm text-gray-700 dark:text-gray-300 break-all">{{ url }}</p>
-          </div>
-          <div class="flex gap-2">
-            <button 
-              @click="openLink"
-              class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center justify-center gap-2"
-            >
-              <i class="fas fa-external-link-alt"></i> 跳转
-            </button>
-            <button 
-              @click="copyUrl"
-              class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
-            >
-              <i class="fas fa-copy"></i> 复制
-            </button>
-          </div>
-        </div>
-        
-        <!-- 正常显示 -->
-        <div v-else>
-          <!-- 移动端：所有链接都显示链接文本和操作按钮 -->
-          <div v-if="isMobile" class="space-y-4">
-            <!-- 显示链接状态信息 -->
-            <div v-if="message" class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-              <div class="flex items-center">
-                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
-                <p class="text-sm text-blue-700 dark:text-blue-300">{{ message }}</p>
-              </div>
-            </div>
-            
-            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-              <p class="text-sm text-gray-700 dark:text-gray-300 break-all">{{ url }}</p>
-            </div>
-            <div class="flex gap-2">
-              <button 
-                @click="openLink"
-                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center justify-center gap-2"
-              >
-                <i class="fas fa-external-link-alt"></i> 跳转
-              </button>
-              <button 
-                @click="copyUrl"
-                class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
-              >
-                <i class="fas fa-copy"></i> 复制
-              </button>
-            </div>
-          </div>
-        
-        <!-- PC端：根据链接类型显示不同内容 -->
-        <div v-else class="space-y-4">
-          <!-- 显示链接状态信息 -->
-          <div v-if="message" class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-            <div class="flex items-center">
-              <i class="fas fa-info-circle text-blue-500 mr-2"></i>
-              <p class="text-sm text-blue-700 dark:text-blue-300">{{ message }}</p>
-            </div>
-          </div>
-          
-          <!-- 夸克链接：只显示二维码 -->
-          <div v-if="isQuarkLink" class="space-y-4">
-            <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-              <canvas ref="qrCanvas" class="mx-auto"></canvas>
-            </div>
-            <div class="text-center">
-              <button 
-                @click="closeModal"
-                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center justify-center gap-2 mx-auto"
-              >
-                <i class="fas fa-check"></i> 确认
-              </button>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">请使用手机扫码操作</p>
-            </div>
-          </div>
-          
-          <!-- 其他链接：同时显示链接和二维码 -->
-          <div v-else class="space-y-4">
-            <div class="mb-4">
-              <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-                <canvas ref="qrCanvas" class="mx-auto"></canvas>
-              </div>
-            </div>
-            
-            <div class="mb-4">
-              <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">扫描二维码访问链接</p>
-              <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded border">
-                <p class="text-xs text-gray-700 dark:text-gray-300 break-all">{{ url }}</p>
-              </div>
-            </div>
-            
-            <div class="flex gap-2">
-              <button 
-                @click="copyUrl"
-                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center justify-center gap-2"
-              >
-                <i class="fas fa-copy"></i>
-                复制链接
-              </button>
-              <button 
-                @click="downloadQrCode"
-                class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm flex items-center justify-center gap-2"
-              >
-                <i class="fas fa-download"></i>
-                下载二维码
-              </button>
-            </div>
-          </div>
-        </div>
+      <!-- 错误状态 -->
+      <div v-else-if="error" class="space-y-4">
+        <n-alert type="error" :show-icon="false">
+          <template #icon>
+            <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
+          </template>
+          {{ error }}
+        </n-alert>
+        <n-card size="small">
+          <p class="text-sm text-gray-700 dark:text-gray-300 break-all">{{ url }}</p>
+        </n-card>
+        <div class="flex gap-2">
+          <n-button type="primary" @click="openLink" class="flex-1">
+            <template #icon>
+              <i class="fas fa-external-link-alt"></i>
+            </template>
+            跳转
+          </n-button>
+          <n-button type="success" @click="copyUrl" class="flex-1">
+            <template #icon>
+              <i class="fas fa-copy"></i>
+            </template>
+            复制
+          </n-button>
         </div>
       </div>
+      
+      <!-- 正常显示 -->
+      <div v-else>
+        <!-- 移动端：所有链接都显示链接文本和操作按钮 -->
+        <div v-if="isMobile" class="space-y-4">
+          <!-- 显示链接状态信息 -->
+          <n-alert v-if="message" type="info" :show-icon="false">
+            <template #icon>
+              <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+            </template>
+            {{ message }}
+          </n-alert>
+          
+          <n-card size="small">
+            <p class="text-sm text-gray-700 dark:text-gray-300 break-all">{{ url }}</p>
+          </n-card>
+          <div class="flex gap-2">
+            <n-button type="primary" @click="openLink" class="flex-1">
+              <template #icon>
+                <i class="fas fa-external-link-alt"></i>
+              </template>
+              跳转
+            </n-button>
+            <n-button type="success" @click="copyUrl" class="flex-1">
+              <template #icon>
+                <i class="fas fa-copy"></i>
+              </template>
+              复制
+            </n-button>
+          </div>
+        </div>
+      
+      <!-- PC端：根据链接类型显示不同内容 -->
+      <div v-else class="space-y-4">
+        <!-- 显示链接状态信息 -->
+        <n-alert v-if="message" type="info" :show-icon="false">
+          <template #icon>
+            <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+          </template>
+          {{ message }}
+        </n-alert>
+        
+        <!-- 夸克链接：只显示二维码 -->
+        <div v-if="isQuarkLink" class="space-y-4">
+          <div class="flex justify-center">
+            <n-qr-code 
+              :value="save_url || url" 
+              :size="size" 
+              :color="color"
+              :background-color="backgroundColor"
+              />
+          </div>
+          <div class="text-center">
+            <n-button type="primary" @click="closeModal">
+              <template #icon>
+                <i class="fas fa-check"></i>
+              </template>
+              确认
+            </n-button>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">请使用手机扫码操作</p>
+          </div>
+        </div>
+        
+        <!-- 其他链接：同时显示链接和二维码 -->
+        <div v-else class="space-y-4">
+          <div class="mb-4">
+            <div class="flex justify-center">
+              <n-qr-code :value="save_url || url" 
+                :size="size"
+                :color="color"
+                :background-color="backgroundColor"
+                />
+            </div>
+          </div>
+          
+          <div class="mb-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">扫描二维码访问链接</p>
+            <n-card size="small">
+              <p class="text-xs text-gray-700 dark:text-gray-300 break-all">{{ url }}</p>
+            </n-card>
+          </div>
+          
+          <div class="flex gap-2">
+            <n-button type="primary" @click="copyUrl" class="flex-1">
+              <template #icon>
+                <i class="fas fa-copy"></i>
+              </template>
+              复制链接
+            </n-button>
+            <n-button type="success" @click="downloadQrCode" class="flex-1">
+              <template #icon>
+                <i class="fas fa-download"></i>
+              </template>
+              下载二维码
+            </n-button>
+          </div>
+        </div>
+      </div>
+      </div>
     </div>
-  </div>
+  </n-modal>
 </template>
 
 <script setup lang="ts">
-import QRCode from 'qrcode'
-
 interface Props {
   visible: boolean
   save_url?: string
@@ -163,12 +154,14 @@ interface Emits {
   (e: 'close'): void
 }
 
-const props =  withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   url: ''
 })
 const emit = defineEmits<Emits>()
 
-const qrCanvas = ref<HTMLCanvasElement>()
+const size = ref(200)
+const color = ref('#409eff')
+const backgroundColor = ref('#F5F5F5')
 
 // 检测是否为移动设备
 const isMobile = ref(false)
@@ -184,24 +177,6 @@ const detectDevice = () => {
 const isQuarkLink = computed(() => {
   return (props.url.includes('pan.quark.cn') || props.url.includes('quark.cn')) && !!props.save_url
 })
-
-// 生成二维码
-const generateQrCode = async () => {
-  if (!qrCanvas.value || !props.url) return
-  
-  try {
-    await QRCode.toCanvas(qrCanvas.value, props.save_url || props.url, {
-      width: 200,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    })
-  } catch (error) {
-    console.error('生成二维码失败:', error)
-  }
-}
 
 // 关闭模态框
 const closeModal = () => {
@@ -237,44 +212,31 @@ const openLink = () => {
 
 // 下载二维码
 const downloadQrCode = () => {
-  if (!qrCanvas.value) return
+  // 使用 Naive UI 的二维码组件，需要获取 DOM 元素
+  const qrElement = document.querySelector('.n-qr-code canvas') as HTMLCanvasElement
+  if (!qrElement) return
   
   try {
     const link = document.createElement('a')
     link.download = 'qrcode.png'
-    link.href = qrCanvas.value.toDataURL()
+    link.href = qrElement.toDataURL()
     link.click()
   } catch (error) {
     console.error('下载失败:', error)
   }
 }
 
-// 监听visible变化，生成二维码
+// 监听visible变化
 watch(() => props.visible, (newVisible) => {
   if (newVisible) {
     detectDevice()
-    nextTick(() => {
-      // PC端生成二维码（包括夸克链接）
-      if (!isMobile.value) {
-        generateQrCode()
-      }
-    })
-  }
-})
-
-// 监听url变化，重新生成二维码
-watch(() => props.url, () => {
-  if (props.visible && !isMobile.value) {
-    nextTick(() => {
-      generateQrCode()
-    })
   }
 })
 </script>
 
 <style scoped>
 /* 可以添加一些动画效果 */
-.fixed {
+.n-modal {
   animation: fadeIn 0.2s ease-out;
 }
 
