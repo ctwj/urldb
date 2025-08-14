@@ -20,7 +20,11 @@ func GetResources(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	utils.Info("资源列表请求 - page: %d, pageSize: %d", page, pageSize)
+	utils.Info("资源列表请求 - page: %d, pageSize: %d, User-Agent: %s", page, pageSize, c.GetHeader("User-Agent"))
+
+	// 添加缓存控制头，优化 SSR 性能
+	c.Header("Cache-Control", "public, max-age=30") // 30秒缓存，平衡性能和实时性
+	c.Header("ETag", fmt.Sprintf("resources-%d-%d-%s-%s", page, pageSize, c.Query("search"), c.Query("pan_id")))
 
 	params := map[string]interface{}{
 		"page":      page,
@@ -61,16 +65,6 @@ func GetResources(c *gin.Context) {
 	}
 
 	resources, total, err := repoManager.ResourceRepository.SearchWithFilters(params)
-
-	// 搜索统计（仅非管理员）
-	if search, ok := params["search"].(string); ok && search != "" {
-		user, _ := c.Get("user")
-		if user == nil || (user != nil && user.(entity.User).Role != "admin") {
-			ip := c.ClientIP()
-			userAgent := c.GetHeader("User-Agent")
-			repoManager.SearchStatRepository.RecordSearch(search, ip, userAgent)
-		}
-	}
 
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
@@ -283,10 +277,6 @@ func SearchResources(c *gin.Context) {
 	} else {
 		// 有搜索关键词时，执行搜索
 		resources, total, err = repoManager.ResourceRepository.Search(query, nil, page, pageSize)
-		// 新增：记录搜索关键词
-		ip := c.ClientIP()
-		userAgent := c.GetHeader("User-Agent")
-		repoManager.SearchStatRepository.RecordSearch(query, ip, userAgent)
 	}
 
 	if err != nil {

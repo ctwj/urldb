@@ -62,7 +62,13 @@ export default defineNuxtConfig({
   },
   ssr: true,
   nitro: {
-    logLevel: 'verbose',
-    preset: 'node-server'
+    logLevel: 'info',
+    preset: 'node-server',
+    storage: {
+      redis: {
+        driver: 'memory',
+        max: 1000
+      }
+    }
   }
 })

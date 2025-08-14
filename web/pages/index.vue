@@ -230,7 +230,7 @@ useHead({
 // 获取运行时配置
 const config = useRuntimeConfig()
 
-import { useResourceApi, useStatsApi, usePanApi, useSystemConfigApi, usePublicSystemConfigApi } from '~/composables/useApi'
+import { useResourceApi, useStatsApi, usePanApi, useSystemConfigApi, usePublicSystemConfigApi, useSearchStatsApi } from '~/composables/useApi'
 
 const resourceApi = useResourceApi()
 const statsApi = useStatsApi()
@@ -329,6 +329,20 @@ const handleSearch = () => {
 // 初始化认证状态
 onMounted(() => {
   animateCounters()
+  
+  // 页面挂载完成时，如果有搜索关键词，请求 record 接口
+  if (process.client && route.query.search) {
+    const searchKeyword = route.query.search as string
+    if (searchKeyword.trim()) {
+      // 延迟执行，确保页面完全加载
+      setTimeout(() => {
+        const searchStatsApi = useSearchStatsApi()
+        searchStatsApi.recordSearch({ keyword: searchKeyword }).catch(err => {
+          console.error('记录搜索统计失败:', err)
+        })
+      }, 0)
+    }
+  }
 })
 
 

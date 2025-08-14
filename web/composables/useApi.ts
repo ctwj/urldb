@@ -148,6 +148,25 @@ export const useStatsApi = () => {
   return { getStats }
 }
 
+export const useSearchStatsApi = () => {
+  const getSearchStats = (params?: any) => useApiFetch('/search-stats', { params }).then(parseApiResponse)
+  const getHotKeywords = (params?: any) => useApiFetch('/search-stats/hot-keywords', { params }).then(parseApiResponse)
+  const getDailyStats = (params?: any) => useApiFetch('/search-stats/daily', { params }).then(parseApiResponse)
+  const getSearchTrend = (params?: any) => useApiFetch('/search-stats/trend', { params }).then(parseApiResponse)
+  const getKeywordTrend = (keyword: string, params?: any) => useApiFetch(`/search-stats/keyword/${keyword}/trend`, { params }).then(parseApiResponse)
+  const getSearchStatsSummary = () => useApiFetch('/search-stats/summary').then(parseApiResponse)
+  const recordSearch = (data: { keyword: string }) => useApiFetch('/search-stats/record', { method: 'POST', body: data }).then(parseApiResponse)
+  return { 
+    getSearchStats, 
+    getHotKeywords, 
+    getDailyStats, 
+    getSearchTrend, 
+    getKeywordTrend, 
+    getSearchStatsSummary,
+    recordSearch
+  }
+}
+
 export const useSystemConfigApi = () => {
   const getSystemConfig = () => useApiFetch('/system/config').then(parseApiResponse)
   const updateSystemConfig = (data: any) => useApiFetch('/system/config', { method: 'POST', body: data }).then(parseApiResponse)
