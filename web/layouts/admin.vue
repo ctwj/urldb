@@ -464,6 +464,12 @@ const dataManagementItems = ref([
     label: '平台账号',
     icon: 'fas fa-user-shield',
     active: (route: any) => route.path.startsWith('/admin/accounts')
+  },
+  {
+    to: '/admin/files',
+    label: '文件管理',
+    icon: 'fas fa-file-upload',
+    active: (route: any) => route.path.startsWith('/admin/files')
   }
 ])
 
@@ -544,7 +550,7 @@ const autoExpandCurrentGroup = () => {
   const currentPath = useRoute().path
   
   // 检查当前页面属于哪个分组并展开
-  if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tasks') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts')) {
+  if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts') || currentPath.startsWith('/admin/files')) {
     expandedGroups.value.dataManagement = true
   } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users') || currentPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
@@ -566,7 +572,7 @@ watch(() => useRoute().path, (newPath) => {
   }
   
   // 根据新路径展开对应分组
-  if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tasks') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts')) {
+  if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts') || newPath.startsWith('/admin/files')) {
     expandedGroups.value.dataManagement = true
   } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users') || newPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true

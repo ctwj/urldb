@@ -26,7 +26,7 @@ export const adminNewNavigationItems = [
     icon: 'fas fa-database',
     to: '/admin/resources',
     active: (route: any) => route.path.startsWith('/admin/resources'),
-    group: 'operation'
+    group: 'data'
   },
   {
     key: 'ready-resources',
@@ -34,7 +34,7 @@ export const adminNewNavigationItems = [
     icon: 'fas fa-clock',
     to: '/admin/ready-resources',
     active: (route: any) => route.path.startsWith('/admin/ready-resources'),
-    group: 'operation'
+    group: 'data'
   },
   {
     key: 'categories',
@@ -42,7 +42,7 @@ export const adminNewNavigationItems = [
     icon: 'fas fa-folder',
     to: '/admin/categories',
     active: (route: any) => route.path.startsWith('/admin/categories'),
-    group: 'operation'
+    group: 'data'
   },
   {
     key: 'tags',
@@ -50,7 +50,7 @@ export const adminNewNavigationItems = [
     icon: 'fas fa-tags',
     to: '/admin/tags',
     active: (route: any) => route.path.startsWith('/admin/tags'),
-    group: 'operation'
+    group: 'data'
   },
   {
     key: 'platforms',
@@ -99,6 +99,14 @@ export const adminNewNavigationItems = [
     to: '/admin/data-push',
     active: (route: any) => route.path.startsWith('/admin/data-push'),
     group: 'operation'
+  },
+  {
+    key: 'files',
+    label: '文件管理',
+    icon: 'fas fa-file-upload',
+    to: '/admin/files',
+    active: (route: any) => route.path.startsWith('/admin/files'),
+    group: 'data'
   },
   {
     key: 'bot',

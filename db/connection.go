@@ -81,6 +81,7 @@ func InitDB() error {
 			&entity.ResourceView{},
 			&entity.Task{},
 			&entity.TaskItem{},
+			&entity.File{},
 		)
 		if err != nil {
 			utils.Fatal("数据库迁移失败: %v", err)
@@ -144,6 +145,7 @@ func autoMigrate() error {
 		&entity.User{},
 		&entity.SearchStat{},
 		&entity.HotDrama{},
+		&entity.File{},
 	)
 }
 

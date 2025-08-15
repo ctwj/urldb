@@ -24,8 +24,8 @@ const (
 	ConfigKeyForbiddenWords = "forbidden_words"
 
 	// 广告配置
-	ConfigKeyAdKeywords    = "ad_keywords"     // 广告关键词
-	ConfigKeyAutoInsertAd  = "auto_insert_ad"  // 自动插入广告
+	ConfigKeyAdKeywords   = "ad_keywords"    // 广告关键词
+	ConfigKeyAutoInsertAd = "auto_insert_ad" // 自动插入广告
 
 	// 其他配置
 	ConfigKeyPageSize        = "page_size"

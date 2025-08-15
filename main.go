@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/repo"
@@ -105,6 +106,9 @@ func main() {
 
 	// 创建任务处理器
 	taskHandler := handlers.NewTaskHandler(repoManager, taskManager)
+
+	// 创建文件处理器
+	fileHandler := handlers.NewFileHandler(repoManager.FileRepository, repoManager.SystemConfigRepository, repoManager.UserRepository)
 
 	// API路由
 	api := r.Group("/api")
@@ -236,10 +240,26 @@ func main() {
 		api.GET("/version/string", handlers.GetVersionString)
 		api.GET("/version/full", handlers.GetFullVersionInfo)
 		api.GET("/version/check-update", handlers.CheckUpdate)
+
+		// 文件上传相关路由
+		api.POST("/files/upload", middleware.AuthMiddleware(), fileHandler.UploadFile)
+		api.GET("/files", fileHandler.GetFileList)
+		api.DELETE("/files", middleware.AuthMiddleware(), fileHandler.DeleteFiles)
+		api.PUT("/files", middleware.AuthMiddleware(), fileHandler.UpdateFile)
 	}
 
 	// 静态文件服务
 	r.Static("/uploads", "./uploads")
+
+	// 添加CORS头到静态文件
+	r.Use(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/uploads/") {
+			c.Header("Access-Control-Allow-Origin", "*")
+			c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept")
+		}
+		c.Next()
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {

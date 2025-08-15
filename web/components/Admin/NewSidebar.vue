@@ -12,6 +12,25 @@
           <span>{{ dashboardItem.label }}</span>
         </NuxtLink>
 
+        <!-- 数据管理分组 -->
+        <div class="mt-6">
+          <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            数据管理
+          </div>
+          <div class="space-y-1">
+            <NuxtLink
+              v-for="item in dataItems"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
+              :class="{ 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400': item.active($route) }"
+            >
+              <i :class="item.icon + ' w-5 h-5 mr-3'"></i>
+              <span>{{ item.label }}</span>
+            </NuxtLink>
+          </div>
+        </div>
+
         <!-- 运营管理分组 -->
         <div class="mt-6">
           <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -82,8 +101,8 @@ const dashboardItem = ref({
   active: (route: any) => route.path === '/admin'
 })
 
-// 运营管理分组
-const operationItems = ref([
+// 数据管理分组
+const dataItems = ref([
   {
     to: '/admin/resources',
     label: '资源管理',
@@ -109,6 +128,16 @@ const operationItems = ref([
     active: (route: any) => route.path.startsWith('/admin/tags')
   },
   {
+    to: '/admin/files',
+    label: '文件管理',
+    icon: 'fas fa-file-upload',
+    active: (route: any) => route.path.startsWith('/admin/files')
+  }
+])
+
+// 运营管理分组
+const operationItems = ref([
+  {
     to: '/admin/platforms',
     label: '平台管理',
     icon: 'fas fa-cloud',
@@ -125,6 +154,12 @@ const operationItems = ref([
     label: '热播剧管理',
     icon: 'fas fa-film',
     active: (route: any) => route.path.startsWith('/admin/hot-dramas')
+  },
+  {
+    to: '/admin/data-transfer',
+    label: '数据转存管理',
+    icon: 'fas fa-exchange-alt',
+    active: (route: any) => route.path.startsWith('/admin/data-transfer')
   },
   {
     to: '/admin/seo',
@@ -175,6 +210,12 @@ const systemItems = ref([
     label: '系统配置',
     icon: 'fas fa-cog',
     active: (route: any) => route.path.startsWith('/admin/system-config')
+  },
+  {
+    to: '/admin/version',
+    label: '版本信息',
+    icon: 'fas fa-code-branch',
+    active: (route: any) => route.path.startsWith('/admin/version')
   }
 ])
 </script>

@@ -19,6 +19,7 @@ type RepositoryManager struct {
 	ResourceViewRepository  ResourceViewRepository
 	TaskRepository          TaskRepository
 	TaskItemRepository      TaskItemRepository
+	FileRepository          FileRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -37,5 +38,6 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		ResourceViewRepository:  NewResourceViewRepository(db),
 		TaskRepository:          NewTaskRepository(db),
 		TaskItemRepository:      NewTaskItemRepository(db),
+		FileRepository:          NewFileRepository(db),
 	}
 }
