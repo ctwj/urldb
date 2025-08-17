@@ -19,7 +19,7 @@
         点击或者拖动文件到该区域来上传
       </n-text>
       <n-p depth="3" style="margin: 8px 0 0 0">
-        请不要上传敏感数据，比如你的银行卡号和密码，信用卡号有效期和安全码
+        支持极速上传，相同文件将直接返回已上传的文件信息
       </n-p>
     </n-upload-dragger>
   </n-upload>
@@ -39,6 +39,7 @@ interface FileItem {
   file_size: number
   file_type: string
   mime_type: string
+  file_hash: string
   access_url: string
   user_id: number
   user: string
@@ -72,7 +73,28 @@ const acceptTypes = ref('image/*')
 const uploadedFiles = ref<Map<string, boolean>>(new Map()) // 文件哈希 -> 是否已上传
 const uploadingFiles = ref<Set<string>>(new Set()) // 正在上传的文件哈希
 
-// 生成文件哈希值（基于文件名、大小和修改时间）
+// 计算文件SHA256哈希值
+const calculateFileHash = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const arrayBuffer = e.target?.result as ArrayBuffer
+        crypto.subtle.digest('SHA-256', arrayBuffer).then(hashBuffer => {
+          const hashArray = Array.from(new Uint8Array(hashBuffer))
+          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+          resolve(hashHex)
+        }).catch(reject)
+      } catch (error) {
+        reject(error)
+      }
+    }
+    reader.onerror = reject
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+// 生成文件哈希值（基于文件名、大小和修改时间，用于前端去重）
 const generateFileHash = (file: File): string => {
   return `${file.name}_${file.size}_${file.lastModified}`
 }
@@ -133,10 +155,15 @@ const customRequest = async (options: any) => {
   console.log('开始上传文件:', file.name, file.file)
   
   try {
+    // 计算文件哈希值
+    const fileHash = await calculateFileHash(file.file)
+    console.log('文件哈希值:', fileHash)
+    
     // 创建FormData
     const formData = new FormData()
     formData.append('file', file.file)
     formData.append('is_public', isPublic.value.toString())
+    formData.append('file_hash', fileHash)
     
     // 调用统一的API接口
     const response = await fileApi.uploadFile(formData)
@@ -145,6 +172,13 @@ const customRequest = async (options: any) => {
     
     // 标记文件为已上传
     markFileAsUploaded(file.file)
+    
+    // 检查是否为重复文件
+    if (response.data && response.data.is_duplicate) {
+      message.success(`${file.name} 极速上传成功（文件已存在）`)
+    } else {
+      message.success(`${file.name} 上传成功`)
+    }
     
     if (onSuccess) {
       onSuccess(response)
@@ -158,7 +192,6 @@ const customRequest = async (options: any) => {
     }
   }
 }
-
 
 // 默认文件列表（从props传入）
 const defaultFileList = ref<UploadFileInfo[]>([])
@@ -212,7 +245,6 @@ const handleUploadFinish = (data: { file: Required<UploadFileInfo> }) => {
   const { file } = data
   
   if (file.status === 'finished') {
-    message.success(`${file.name} 上传成功`)
     // 确保文件被标记为已上传
     if (file.file) {
       markFileAsUploaded(file.file)

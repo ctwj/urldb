@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,6 +51,28 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 	if err != nil {
 		ErrorResponse(c, "用户不存在", http.StatusUnauthorized)
 		return
+	}
+
+	// 获取文件哈希值
+	fileHash := c.PostForm("file_hash")
+	
+	// 如果提供了文件哈希，先检查是否已存在
+	if fileHash != "" {
+		existingFile, err := h.fileRepo.FindByHash(fileHash)
+		if err == nil && existingFile != nil {
+			// 文件已存在，直接返回已存在的文件信息
+			utils.Info("文件已存在，跳过上传 - Hash: %s, 文件名: %s", fileHash, existingFile.OriginalName)
+			
+			response := dto.FileUploadResponse{
+				File:       converter.FileToResponse(existingFile),
+				Message:    "文件已存在，极速上传成功",
+				Success:    true,
+				IsDuplicate: true,
+			}
+			
+			SuccessResponse(c, response)
+			return
+		}
 	}
 
 	// 获取上传目录配置（从环境变量或使用默认值）
@@ -127,6 +150,33 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 		return
 	}
 
+	// 计算文件哈希值（如果前端没有提供）
+	if fileHash == "" {
+		fileHash, err = h.calculateFileHash(filePath)
+		if err != nil {
+			ErrorResponse(c, "计算文件哈希失败", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// 再次检查文件是否已存在（使用计算出的哈希）
+	existingFile, err := h.fileRepo.FindByHash(fileHash)
+	if err == nil && existingFile != nil {
+		// 文件已存在，删除刚上传的文件，返回已存在的文件信息
+		os.Remove(filePath)
+		utils.Info("文件已存在，跳过上传 - Hash: %s, 文件名: %s", fileHash, existingFile.OriginalName)
+		
+		response := dto.FileUploadResponse{
+			File:       converter.FileToResponse(existingFile),
+			Message:    "文件已存在，极速上传成功",
+			Success:    true,
+			IsDuplicate: true,
+		}
+		
+		SuccessResponse(c, response)
+		return
+	}
+
 	// 获取文件类型
 	fileType := h.getFileType(header.Filename)
 	mimeType := header.Header.Get("Content-Type")
@@ -150,6 +200,7 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 		FileSize:     header.Size,
 		FileType:     fileType,
 		MimeType:     mimeType,
+		FileHash:     fileHash,
 		AccessURL:    accessURL,
 		UserID:       currentUser.ID,
 		Status:       entity.FileStatusActive,
@@ -379,4 +430,19 @@ func (h *FileHandler) getFileType(filename string) string {
 	}
 
 	return "image" // 默认返回image，因为只支持图片格式
+}
+
+// calculateFileHash 计算文件哈希值
+func (h *FileHandler) calculateFileHash(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }

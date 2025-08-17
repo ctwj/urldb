@@ -8,6 +8,7 @@ type SystemConfigRequest struct {
 	Keywords        string `json:"keywords"`
 	Author          string `json:"author"`
 	Copyright       string `json:"copyright"`
+	SiteLogo        string `json:"site_logo"`
 
 	// 自动处理配置组
 	AutoProcessReadyResources bool `json:"auto_process_ready_resources"` // 自动处理待处理资源
@@ -48,6 +49,7 @@ type SystemConfigResponse struct {
 	Keywords        string `json:"keywords"`
 	Author          string `json:"author"`
 	Copyright       string `json:"copyright"`
+	SiteLogo        string `json:"site_logo"`
 
 	// 自动处理配置组
 	AutoProcessReadyResources bool `json:"auto_process_ready_resources"` // 自动处理待处理资源

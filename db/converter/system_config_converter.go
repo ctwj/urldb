@@ -30,6 +30,8 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			response.Author = config.Value
 		case entity.ConfigKeyCopyright:
 			response.Copyright = config.Value
+		case entity.ConfigKeySiteLogo:
+			response.SiteLogo = config.Value
 		case entity.ConfigKeyAutoProcessReadyResources:
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response.AutoProcessReadyResources = val
@@ -103,6 +105,7 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyKeywords, Value: req.Keywords, Type: entity.ConfigTypeString})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAuthor, Value: req.Author, Type: entity.ConfigTypeString})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyCopyright, Value: req.Copyright, Type: entity.ConfigTypeString})
+	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteLogo, Value: req.SiteLogo, Type: entity.ConfigTypeString})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiToken, Value: req.ApiToken, Type: entity.ConfigTypeString})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyForbiddenWords, Value: req.ForbiddenWords, Type: entity.ConfigTypeString})
 	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAdKeywords, Value: req.AdKeywords, Type: entity.ConfigTypeString})
@@ -140,6 +143,7 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		entity.ConfigResponseFieldKeywords:                  entity.ConfigDefaultKeywords,
 		entity.ConfigResponseFieldAuthor:                    entity.ConfigDefaultAuthor,
 		entity.ConfigResponseFieldCopyright:                 entity.ConfigDefaultCopyright,
+		"site_logo":                                         "",
 		entity.ConfigResponseFieldAutoProcessReadyResources: false,
 		entity.ConfigResponseFieldAutoProcessInterval:       30,
 		entity.ConfigResponseFieldAutoTransferEnabled:       false,
@@ -167,6 +171,8 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			response[entity.ConfigResponseFieldAuthor] = config.Value
 		case entity.ConfigKeyCopyright:
 			response[entity.ConfigResponseFieldCopyright] = config.Value
+		case entity.ConfigKeySiteLogo:
+			response["site_logo"] = config.Value
 		case entity.ConfigKeyAutoProcessReadyResources:
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response[entity.ConfigResponseFieldAutoProcessReadyResources] = val
@@ -231,6 +237,7 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		Keywords:                  entity.ConfigDefaultKeywords,
 		Author:                    entity.ConfigDefaultAuthor,
 		Copyright:                 entity.ConfigDefaultCopyright,
+		SiteLogo:                  "",
 		AutoProcessReadyResources: false,
 		AutoProcessInterval:       30,
 		AutoTransferEnabled:       false,

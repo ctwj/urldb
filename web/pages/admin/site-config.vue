@@ -70,6 +70,40 @@
                 />
               </div>
 
+              <!-- 网站Logo -->
+              <div class="space-y-2">
+                <div class="flex items-center space-x-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">网站Logo</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">选择网站Logo图片，建议使用正方形图片</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                  <div v-if="configForm.site_logo" class="flex-shrink-0">
+                    <n-image
+                      :src="configForm.site_logo"
+                      alt="网站Logo"
+                      width="80"
+                      height="80"
+                      object-fit="cover"
+                      class="rounded-lg border"
+                    />
+                  </div>
+                  <div class="flex-1">
+                    <n-button type="primary" @click="openLogoSelector">
+                      <template #icon>
+                        <i class="fas fa-image"></i>
+                      </template>
+                      {{ configForm.site_logo ? '更换Logo' : '选择Logo' }}
+                    </n-button>
+                    <n-button v-if="configForm.site_logo" @click="clearLogo" class="ml-2">
+                      <template #icon>
+                        <i class="fas fa-times"></i>
+                      </template>
+                      清除
+                    </n-button>
+                  </div>
+                </div>
+              </div>
+
               <!-- 版权信息 -->
               <div class="space-y-2">
                 <div class="flex items-center space-x-2">
@@ -143,6 +177,101 @@
         </n-tab-pane>
       </n-tabs>
     </n-card>
+
+    <!-- Logo选择模态框 -->
+    <n-modal v-model:show="showLogoSelector" preset="card" title="选择Logo图片" style="width: 90vw; max-width: 1200px; max-height: 80vh;">
+      <div class="space-y-4">
+        <!-- 搜索 -->
+        <div class="flex gap-4">
+          <n-input
+            v-model:value="searchKeyword"
+            placeholder="搜索文件名..."
+            @keyup.enter="handleSearch"
+            class="flex-1"
+          >
+            <template #prefix>
+              <i class="fas fa-search"></i>
+            </template>
+          </n-input>
+          
+          <n-button type="primary" @click="handleSearch">
+            <template #icon>
+              <i class="fas fa-search"></i>
+            </template>
+            搜索
+          </n-button>
+        </div>
+
+        <!-- 文件列表 -->
+        <div v-if="loading" class="flex items-center justify-center py-8">
+          <n-spin size="large" />
+        </div>
+
+        <div v-else-if="fileList.length === 0" class="text-center py-8">
+          <i class="fas fa-file-upload text-4xl text-gray-400 mb-4"></i>
+          <p class="text-gray-500">暂无图片文件</p>
+        </div>
+
+        <div v-else class="file-grid">
+          <div 
+            v-for="file in fileList" 
+            :key="file.id" 
+            class="file-item cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-3 transition-colors"
+            :class="{ 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-600': selectedFileId === file.id }"
+            @click="selectFile(file)"
+          >
+            <div class="image-preview">
+              <n-image
+                :src="file.access_url"
+                :alt="file.original_name"
+                :lazy="true"
+                :intersection-observer-options="{
+                  root: null,
+                  rootMargin: '50px',
+                  threshold: 0.1
+                }"
+                object-fit="cover"
+                class="preview-image rounded"
+              />
+              <div class="image-info mt-2">
+                <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {{ file.original_name }}
+                </div>
+                <div class="file-size text-xs text-gray-500 dark:text-gray-400">
+                  {{ formatFileSize(file.file_size) }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 分页 -->
+        <div class="pagination-wrapper">
+          <n-pagination
+            v-model:page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :page-count="Math.ceil(pagination.total / pagination.pageSize)"
+            :page-sizes="pagination.pageSizes"
+            show-size-picker
+            @update:page="handlePageChange"
+            @update:page-size="handlePageSizeChange"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showLogoSelector = false">取消</n-button>
+          <n-button 
+            type="primary" 
+            @click="confirmSelection"
+            :disabled="!selectedFileId"
+          >
+            确认选择
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -158,12 +287,28 @@ const formRef = ref()
 const saving = ref(false)
 const activeTab = ref('basic')
 
+// Logo选择器相关数据
+const showLogoSelector = ref(false)
+const loading = ref(false)
+const fileList = ref<any[]>([])
+const selectedFileId = ref<number | null>(null)
+const searchKeyword = ref('')
+
+// 分页
+const pagination = ref({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  pageSizes: [10, 20, 50, 100]
+})
+
 // 配置表单数据
 const configForm = ref<{
   site_title: string
   site_description: string
   keywords: string
   copyright: string
+  site_logo: string
   maintenance_mode: boolean
   enable_register: boolean
   forbidden_words: string
@@ -174,6 +319,7 @@ const configForm = ref<{
   site_description: '',
   keywords: '',
   copyright: '',
+  site_logo: '',
   maintenance_mode: false,
   enable_register: false, // 新增：开启注册开关
   forbidden_words: '',
@@ -210,6 +356,7 @@ const fetchConfig = async () => {
         site_description: response.site_description || '',
         keywords: response.keywords || '',
         copyright: response.copyright || '',
+        site_logo: response.site_logo || '',
         maintenance_mode: response.maintenance_mode || false,
         enable_register: response.enable_register || false, // 新增：获取开启注册开关
         forbidden_words: response.forbidden_words || '',
@@ -240,6 +387,7 @@ const saveConfig = async () => {
       site_description: configForm.value.site_description,
       keywords: configForm.value.keywords,
       copyright: configForm.value.copyright,
+      site_logo: configForm.value.site_logo,
       maintenance_mode: configForm.value.maintenance_mode,
       enable_register: configForm.value.enable_register, // 新增：保存开启注册开关
       forbidden_words: configForm.value.forbidden_words,
@@ -267,6 +415,84 @@ const saveConfig = async () => {
   }
 }
 
+// Logo选择器方法
+const openLogoSelector = () => {
+  showLogoSelector.value = true
+  loadFileList()
+}
+
+const clearLogo = () => {
+  configForm.value.site_logo = ''
+}
+
+const loadFileList = async () => {
+  try {
+    loading.value = true
+    const { useFileApi } = await import('~/composables/useFileApi')
+    const fileApi = useFileApi()
+    
+    const response = await fileApi.getFileList({
+      page: pagination.value.page,
+      pageSize: pagination.value.pageSize,
+      search: searchKeyword.value,
+      fileType: 'image', // 只获取图片文件
+      status: 'active'   // 只获取正常状态的文件
+    }) as any
+
+    if (response && response.data) {
+      fileList.value = response.data.files || []
+      pagination.value.total = response.data.total || 0
+      console.log('获取到的图片文件:', fileList.value) // 调试信息
+    }
+  } catch (error) {
+    console.error('获取文件列表失败:', error)
+    notification.error({
+      content: '获取文件列表失败',
+      duration: 3000
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleSearch = () => {
+  pagination.value.page = 1
+  loadFileList()
+}
+
+const handlePageChange = (page: number) => {
+  pagination.value.page = page
+  loadFileList()
+}
+
+const handlePageSizeChange = (pageSize: number) => {
+  pagination.value.pageSize = pageSize
+  pagination.value.page = 1
+  loadFileList()
+}
+
+const selectFile = (file: any) => {
+  selectedFileId.value = file.id
+}
+
+const confirmSelection = () => {
+  if (selectedFileId.value) {
+    const file = fileList.value.find(f => f.id === selectedFileId.value)
+    if (file) {
+      configForm.value.site_logo = file.access_url
+      showLogoSelector.value = false
+      selectedFileId.value = null
+    }
+  }
+}
+
+const formatFileSize = (size: number) => {
+  if (size < 1024) return size + ' B'
+  if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB'
+  if (size < 1024 * 1024 * 1024) return (size / (1024 * 1024)).toFixed(1) + ' MB'
+  return (size / (1024 * 1024 * 1024)).toFixed(1) + ' GB'
+}
+
 // 页面加载时获取配置
 onMounted(() => {
   fetchConfig()
@@ -277,4 +503,33 @@ onMounted(() => {
 
 <style scoped>
 /* 自定义样式 */
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.file-item {
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.file-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.preview-image {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
 </style> 

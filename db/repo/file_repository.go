@@ -9,6 +9,7 @@ import (
 type FileRepository interface {
 	BaseRepository[entity.File]
 	FindByFileName(fileName string) (*entity.File, error)
+	FindByHash(fileHash string) (*entity.File, error)
 	FindByUserID(userID uint, page, pageSize int) ([]entity.File, int64, error)
 	FindPublicFiles(page, pageSize int) ([]entity.File, int64, error)
 	SearchFiles(search string, fileType, status string, userID uint, page, pageSize int) ([]entity.File, int64, error)
@@ -141,4 +142,14 @@ func (r *FileRepositoryImpl) UpdateFileStatus(id uint, status string) error {
 // UpdateFilePublic 更新文件公开状态
 func (r *FileRepositoryImpl) UpdateFilePublic(id uint, isPublic bool) error {
 	return r.db.Model(&entity.File{}).Where("id = ?", id).Update("is_public", isPublic).Error
+}
+
+// FindByHash 根据文件哈希查找文件
+func (r *FileRepositoryImpl) FindByHash(fileHash string) (*entity.File, error) {
+	var file entity.File
+	err := r.db.Where("file_hash = ? AND is_deleted = ?", fileHash, false).First(&file).Error
+	if err != nil {
+		return nil, err
+	}
+	return &file, nil
 }

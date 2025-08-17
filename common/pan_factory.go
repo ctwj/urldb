@@ -129,6 +129,8 @@ func (f *PanFactory) CreatePanService(url string, config *PanConfig) (PanService
 		return NewBaiduPanService(config), nil
 	case UC:
 		return NewUCService(config), nil
+	case Xunlei:
+		return NewXunleiPanService(config), nil
 	default:
 		return nil, fmt.Errorf("不支持的服务类型: %s", url)
 	}
@@ -145,8 +147,8 @@ func (f *PanFactory) CreatePanServiceByType(serviceType ServiceType, config *Pan
 		return NewBaiduPanService(config), nil
 	case UC:
 		return NewUCService(config), nil
-	// case Xunlei:
-	// 	return NewXunleiService(config), nil
+	case Xunlei:
+		return NewXunleiPanService(config), nil
 	// case Tianyi:
 	// 	return NewTianyiService(config), nil
 	default:
@@ -175,6 +177,12 @@ func (f *PanFactory) GetBaiduService(config *PanConfig) PanService {
 // GetUCService 获取UC网盘服务单例
 func (f *PanFactory) GetUCService(config *PanConfig) PanService {
 	service := NewUCService(config)
+	return service
+}
+
+// GetXunleiService 获取迅雷网盘服务单例
+func (f *PanFactory) GetXunleiService(config *PanConfig) PanService {
+	service := NewXunleiPanService(config)
 	return service
 }
 

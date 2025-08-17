@@ -17,6 +17,7 @@ type File struct {
 	FileSize     int64  `json:"file_size" gorm:"not null;comment:文件大小(字节)"`
 	FileType     string `json:"file_type" gorm:"size:100;not null;comment:文件类型"`
 	MimeType     string `json:"mime_type" gorm:"size:100;comment:MIME类型"`
+	FileHash     string `json:"file_hash" gorm:"size:64;uniqueIndex;comment:文件哈希值"`
 
 	// 访问信息
 	AccessURL string `json:"access_url" gorm:"size:500;comment:访问URL"`

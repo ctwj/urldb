@@ -13,8 +13,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -31,10 +33,6 @@ var (
 
 // 配置化 API Host
 func (x *XunleiPanService) apiHost() string {
-	// if x.config != nil && x.config.ApiHost != "" {
-	// 	return x.config.ApiHost
-	// }
-	// 推荐用官方: https://api-pan.xunlei.com
 	return "https://api-pan.xunlei.com"
 }
 
@@ -43,7 +41,6 @@ func (x *XunleiPanService) setCommonHeader(req *http.Request) {
 	for k, v := range x.headers {
 		req.Header.Set(k, v)
 	}
-	// 可扩展: Authorization, x-device-id, x-client-id, x-captcha-token
 }
 
 func NewXunleiPanService(config *PanConfig) *XunleiPanService {
@@ -61,6 +58,11 @@ func NewXunleiPanService(config *PanConfig) *XunleiPanService {
 	return xunleiInstance
 }
 
+// GetXunleiInstance 获取迅雷网盘服务单例实例
+func GetXunleiInstance() *XunleiPanService {
+	return NewXunleiPanService(nil)
+}
+
 func (x *XunleiPanService) UpdateConfig(config *PanConfig) {
 	if config == nil {
 		return
@@ -73,6 +75,249 @@ func (x *XunleiPanService) UpdateConfig(config *PanConfig) {
 	}
 }
 
+// GetServiceType 获取服务类型
+func (x *XunleiPanService) GetServiceType() ServiceType {
+	return Xunlei
+}
+
+// Transfer 转存分享链接 - 实现 PanService 接口
+func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
+	// 读取配置（线程安全）
+	x.configMutex.RLock()
+	config := x.config
+	x.configMutex.RUnlock()
+
+	log.Printf("开始处理迅雷分享: %s", shareID)
+
+	// 检查是否为检验模式
+	if config.IsType == 1 {
+		// 检验模式：直接获取分享信息
+		shareInfo, err := x.getShareInfo(shareID)
+		if err != nil {
+			return ErrorResult(fmt.Sprintf("获取分享信息失败: %v", err)), nil
+		}
+
+		return SuccessResult("检验成功", map[string]interface{}{
+			"title":    shareInfo.Title,
+			"shareUrl": config.URL,
+		}), nil
+	}
+
+	// 转存模式：实现完整的转存流程
+	// 1. 获取分享详情
+	shareDetail, err := x.GetShareFolder(shareID, "", "")
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("获取分享详情失败: %v", err)), nil
+	}
+
+	// 2. 提取文件ID列表
+	fileIDs := make([]string, 0)
+	for _, file := range shareDetail.Data.Files {
+		fileIDs = append(fileIDs, file.FileID)
+	}
+
+	if len(fileIDs) == 0 {
+		return ErrorResult("分享中没有可转存的文件"), nil
+	}
+
+	// 3. 转存文件
+	restoreResult, err := x.Restore(shareID, "", fileIDs)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("转存失败: %v", err)), nil
+	}
+
+	// 4. 等待转存完成
+	taskID := restoreResult.Data.TaskID
+	_, err = x.waitForTask(taskID)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("等待转存完成失败: %v", err)), nil
+	}
+
+	// 5. 创建新的分享
+	shareResult, err := x.FileBatchShare(fileIDs, false, 0) // 永久分享
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("创建分享失败: %v", err)), nil
+	}
+
+	// 6. 返回结果
+	return SuccessResult("转存成功", map[string]interface{}{
+		"shareUrl": shareResult.Data.ShareURL,
+		"title":    fmt.Sprintf("迅雷分享_%s", shareID),
+		"fid":      strings.Join(fileIDs, ","),
+	}), nil
+}
+
+// waitForTask 等待任务完成
+func (x *XunleiPanService) waitForTask(taskID string) (*XLTaskResult, error) {
+	maxRetries := 50
+	retryDelay := 2 * time.Second
+
+	for retryIndex := 0; retryIndex < maxRetries; retryIndex++ {
+		result, err := x.getTaskStatus(taskID, retryIndex)
+		if err != nil {
+			return nil, err
+		}
+
+		if result.Status == 2 { // 任务完成
+			return result, nil
+		}
+
+		time.Sleep(retryDelay)
+	}
+
+	return nil, fmt.Errorf("任务超时")
+}
+
+// getTaskStatus 获取任务状态
+func (x *XunleiPanService) getTaskStatus(taskID string, retryIndex int) (*XLTaskResult, error) {
+	apiURL := x.apiHost() + "/drive/v1/task"
+	params := url.Values{}
+	params.Set("task_id", taskID)
+	params.Set("retry_index", fmt.Sprintf("%d", retryIndex))
+	apiURL = apiURL + "?" + params.Encode()
+
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	x.setCommonHeader(req)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	result, _ := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(result))
+	}
+	var data XLTaskResult
+	if err := json.Unmarshal(result, &data); err != nil {
+		return nil, err
+	}
+	return &data, nil
+}
+
+// getShareInfo 获取分享信息（用于检验模式）
+func (x *XunleiPanService) getShareInfo(shareID string) (*XLShareInfo, error) {
+	// 使用现有的 GetShareFolder 方法获取分享信息
+	shareDetail, err := x.GetShareFolder(shareID, "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	// 构造分享信息
+	shareInfo := &XLShareInfo{
+		ShareID: shareID,
+		Title:   fmt.Sprintf("迅雷分享_%s", shareID),
+		Files:   make([]XLFileInfo, 0),
+	}
+
+	// 处理文件信息
+	for _, file := range shareDetail.Data.Files {
+		shareInfo.Files = append(shareInfo.Files, XLFileInfo{
+			FileID: file.FileID,
+			Name:   file.Name,
+		})
+	}
+
+	return shareInfo, nil
+}
+
+// GetFiles 获取文件列表 - 实现 PanService 接口
+func (x *XunleiPanService) GetFiles(pdirFid string) (*TransferResult, error) {
+	log.Printf("开始获取迅雷网盘文件列表，目录ID: %s", pdirFid)
+
+	// 使用现有的 GetShareList 方法获取文件列表
+	shareList, err := x.GetShareList("")
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("获取文件列表失败: %v", err)), nil
+	}
+
+	// 转换为通用格式
+	fileList := make([]interface{}, 0)
+	for _, share := range shareList.Data.List {
+		fileList = append(fileList, map[string]interface{}{
+			"share_id": share.ShareID,
+			"title":    share.Title,
+		})
+	}
+
+	return SuccessResult("获取成功", fileList), nil
+}
+
+// DeleteFiles 删除文件 - 实现 PanService 接口
+func (x *XunleiPanService) DeleteFiles(fileList []string) (*TransferResult, error) {
+	log.Printf("开始删除迅雷网盘文件，文件数量: %d", len(fileList))
+
+	// 使用现有的 ShareBatchDelete 方法删除分享
+	result, err := x.ShareBatchDelete(fileList)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("删除文件失败: %v", err)), nil
+	}
+
+	if result.Code != 0 {
+		return ErrorResult(fmt.Sprintf("删除文件失败: %s", result.Msg)), nil
+	}
+
+	return SuccessResult("删除成功", nil), nil
+}
+
+// GetUserInfo 获取用户信息 - 实现 PanService 接口
+func (x *XunleiPanService) GetUserInfo(cookie string) (*UserInfo, error) {
+	log.Printf("开始获取迅雷网盘用户信息")
+
+	// 临时设置cookie
+	originalCookie := x.GetHeader("Cookie")
+	x.SetHeader("Cookie", cookie)
+	defer x.SetHeader("Cookie", originalCookie) // 恢复原始cookie
+
+	// 获取用户信息
+	apiURL := x.apiHost() + "/drive/v1/user/info"
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %v", err)
+	}
+	x.setCommonHeader(req)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败: %v", err)
+	}
+	defer resp.Body.Close()
+	result, _ := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(result))
+	}
+
+	var response struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+		Data struct {
+			Username   string `json:"username"`
+			VIPStatus  bool   `json:"vip_status"`
+			UsedSpace  int64  `json:"used_space"`
+			TotalSpace int64  `json:"total_space"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(result, &response); err != nil {
+		return nil, fmt.Errorf("解析用户信息失败: %v", err)
+	}
+
+	if response.Code != 0 {
+		return nil, fmt.Errorf("获取用户信息失败: %s", response.Msg)
+	}
+
+	return &UserInfo{
+		Username:    response.Data.Username,
+		VIPStatus:   response.Data.VIPStatus,
+		UsedSpace:   response.Data.UsedSpace,
+		TotalSpace:  response.Data.TotalSpace,
+		ServiceType: "xunlei",
+	}, nil
+}
+
 // GetShareList 严格对齐 GET + query（xunleix实现）
 func (x *XunleiPanService) GetShareList(pageToken string) (*XLShareListResp, error) {
 	api := x.apiHost() + "/drive/v1/share/list"
@@ -82,9 +327,9 @@ func (x *XunleiPanService) GetShareList(pageToken string) (*XLShareListResp, err
 	if pageToken != "" {
 		params.Set("page_token", pageToken)
 	}
-	url := api + "?" + params.Encode()
+	apiURL := api + "?" + params.Encode()
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -108,14 +353,14 @@ func (x *XunleiPanService) GetShareList(pageToken string) (*XLShareListResp, err
 
 // FileBatchShare 创建分享（POST, body）
 func (x *XunleiPanService) FileBatchShare(ids []string, needPassword bool, expirationDays int) (*XLBatchShareResp, error) {
-	url := x.apiHost() + "/drive/v1/share/batch"
+	apiURL := x.apiHost() + "/drive/v1/share/batch"
 	body := map[string]interface{}{
 		"file_ids":        ids,
 		"need_password":   needPassword,
 		"expiration_days": expirationDays,
 	}
 	bs, _ := json.Marshal(body)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(bs))
+	req, err := http.NewRequest("POST", apiURL, bytes.NewReader(bs))
 	if err != nil {
 		return nil, err
 	}
@@ -139,12 +384,12 @@ func (x *XunleiPanService) FileBatchShare(ids []string, needPassword bool, expir
 
 // ShareBatchDelete 取消分享（POST, body）
 func (x *XunleiPanService) ShareBatchDelete(ids []string) (*XLCommonResp, error) {
-	url := x.apiHost() + "/drive/v1/share/batch/delete"
+	apiURL := x.apiHost() + "/drive/v1/share/batch/delete"
 	body := map[string]interface{}{
 		"share_ids": ids,
 	}
 	bs, _ := json.Marshal(body)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(bs))
+	req, err := http.NewRequest("POST", apiURL, bytes.NewReader(bs))
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +413,7 @@ func (x *XunleiPanService) ShareBatchDelete(ids []string) (*XLCommonResp, error)
 
 // GetShareFolder 获取分享内容（POST, body）
 func (x *XunleiPanService) GetShareFolder(shareID, passCodeToken, parentID string) (*XLShareFolderResp, error) {
-	url := x.apiHost() + "/drive/v1/share/detail"
+	apiURL := x.apiHost() + "/drive/v1/share/detail"
 	body := map[string]interface{}{
 		"share_id":        shareID,
 		"pass_code_token": passCodeToken,
@@ -178,7 +423,7 @@ func (x *XunleiPanService) GetShareFolder(shareID, passCodeToken, parentID strin
 		"order":           "6",
 	}
 	bs, _ := json.Marshal(body)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(bs))
+	req, err := http.NewRequest("POST", apiURL, bytes.NewReader(bs))
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +447,7 @@ func (x *XunleiPanService) GetShareFolder(shareID, passCodeToken, parentID strin
 
 // Restore 转存（POST, body）
 func (x *XunleiPanService) Restore(shareID, passCodeToken string, fileIDs []string) (*XLRestoreResp, error) {
-	url := x.apiHost() + "/drive/v1/share/restore"
+	apiURL := x.apiHost() + "/drive/v1/share/restore"
 	body := map[string]interface{}{
 		"share_id":          shareID,
 		"pass_code_token":   passCodeToken,
@@ -212,7 +457,7 @@ func (x *XunleiPanService) Restore(shareID, passCodeToken string, fileIDs []stri
 		"parent_id":         "",
 	}
 	bs, _ := json.Marshal(body)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(bs))
+	req, err := http.NewRequest("POST", apiURL, bytes.NewReader(bs))
 	if err != nil {
 		return nil, err
 	}
@@ -276,4 +521,24 @@ type XLRestoreResp struct {
 	} `json:"data"`
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
+}
+
+// 新增辅助结构体
+type XLShareInfo struct {
+	ShareID string       `json:"share_id"`
+	Title   string       `json:"title"`
+	Files   []XLFileInfo `json:"files"`
+}
+
+type XLFileInfo struct {
+	FileID string `json:"file_id"`
+	Name   string `json:"name"`
+}
+
+type XLTaskResult struct {
+	Status int    `json:"status"`
+	TaskID string `json:"task_id"`
+	Data   struct {
+		ShareID string `json:"share_id"`
+	} `json:"data"`
 }

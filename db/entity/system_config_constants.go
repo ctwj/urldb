@@ -8,6 +8,7 @@ const (
 	ConfigKeyKeywords        = "keywords"
 	ConfigKeyAuthor          = "author"
 	ConfigKeyCopyright       = "copyright"
+	ConfigKeySiteLogo        = "site_logo"
 
 	// 自动处理配置组
 	ConfigKeyAutoProcessReadyResources = "auto_process_ready_resources"

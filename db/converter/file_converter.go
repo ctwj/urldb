@@ -18,6 +18,7 @@ func FileToResponse(file *entity.File) dto.FileResponse {
 		FileSize:     file.FileSize,
 		FileType:     file.FileType,
 		MimeType:     file.MimeType,
+		FileHash:     file.FileHash,
 		AccessURL:    file.AccessURL,
 		UserID:       file.UserID,
 		Status:       file.Status,

@@ -2,7 +2,8 @@ package dto
 
 // FileUploadRequest 文件上传请求
 type FileUploadRequest struct {
-	IsPublic bool `json:"is_public" form:"is_public"` // 是否公开
+	IsPublic bool   `json:"is_public" form:"is_public"` // 是否公开
+	FileHash string `json:"file_hash" form:"file_hash"` // 文件哈希值
 }
 
 // FileResponse 文件响应
@@ -18,6 +19,7 @@ type FileResponse struct {
 	FileSize     int64  `json:"file_size"`
 	FileType     string `json:"file_type"`
 	MimeType     string `json:"mime_type"`
+	FileHash     string `json:"file_hash"`
 
 	// 访问信息
 	AccessURL string `json:"access_url"`
@@ -52,9 +54,10 @@ type FileListResponse struct {
 
 // FileUploadResponse 文件上传响应
 type FileUploadResponse struct {
-	File    FileResponse `json:"file"`
-	Message string       `json:"message"`
-	Success bool         `json:"success"`
+	File       FileResponse `json:"file"`
+	Message    string       `json:"message"`
+	Success    bool         `json:"success"`
+	IsDuplicate bool        `json:"is_duplicate"` // 是否为重复文件
 }
 
 // FileDeleteRequest 文件删除请求
