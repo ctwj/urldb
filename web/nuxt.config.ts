@@ -27,6 +27,16 @@ export default defineNuxtConfig({
     optimizeDeps: {
       include: ['vueuc', 'date-fns'],
       exclude: ["oxc-parser"] // 强制使用 WASM 版本
+    },
+    server: {
+      proxy: {
+        '/uploads': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path
+        }
+      }
     }
   },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],

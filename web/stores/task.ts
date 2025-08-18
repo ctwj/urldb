@@ -66,7 +66,7 @@ export const useTaskStore = defineStore('task', () => {
   const fetchTaskStats = async () => {
     try {
       const response = await taskApi.getTasks() as any
-      console.log('原始任务API响应:', response)
+      // console.log('原始任务API响应:', response)
       
       // 处理API响应格式
       let tasks: TaskInfo[] = []
@@ -76,7 +76,7 @@ export const useTaskStore = defineStore('task', () => {
         tasks = response
       }
       
-      console.log('解析后的任务列表:', tasks)
+      // console.log('解析后的任务列表:', tasks)
       
       if (tasks && tasks.length >= 0) {
         // 重置统计
@@ -94,7 +94,7 @@ export const useTaskStore = defineStore('task', () => {
         
         // 统计各种状态的任务
         tasks.forEach((task: TaskInfo) => {
-          console.log('处理任务:', task.id, '状态:', task.status, '是否运行中:', task.is_running)
+          // console.log('处理任务:', task.id, '状态:', task.status, '是否运行中:', task.is_running)
           
           // 如果任务标记为运行中，优先使用running状态
           let currentStatus = task.status
@@ -130,9 +130,9 @@ export const useTaskStore = defineStore('task', () => {
         runningTasks.value = running
         incompleteTasks.value = incomplete
         
-        console.log('任务统计更新:', stats)
-        console.log('运行中的任务:', running)
-        console.log('未完成的任务:', incomplete)
+        // console.log('任务统计更新:', stats)
+        // console.log('运行中的任务:', running)
+        // console.log('未完成的任务:', incomplete)
       }
     } catch (error) {
       console.error('获取任务统计失败:', error)

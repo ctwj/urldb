@@ -97,52 +97,59 @@
                 :class="{ 'is-image': isImageFile(file) }"
               >
                                  <!-- 图片文件显示预览 -->
-                 <div v-if="isImageFile(file)" class="image-preview">
-                   <n-image
-                     :src="file.access_url"
-                     :alt="file.original_name"
-                     :lazy="true"
-                     :intersection-observer-options="{
-                       root: null,
-                       rootMargin: '50px',
-                       threshold: 0.1
-                     }"
-                     object-fit="cover"
-                     class="preview-image"
-                   />
-                   <div class="delete-button">
-                     <n-button 
-                       size="small" 
-                       type="error" 
-                       circle
-                       @click="deleteFile(file)"
-                     >
-                       <template #icon>
-                         <i class="fas fa-trash"></i>
-                       </template>
-                     </n-button>
+                 <div v-if="isImageFile(file)" class="file-item cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-3 transition-colors border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600">
+                   <div class="image-preview relative">
+                     <n-image
+                       :src="getImageUrl(file.access_url)"
+                       :alt="file.original_name"
+                       :lazy="false"
+                       object-fit="cover"
+                       class="preview-image rounded"
+                       @error="handleImageError"
+                       @load="handleImageLoad"
+                     />
+                     <div class="delete-button">
+                       <n-button 
+                         size="small" 
+                         type="error" 
+                         circle
+                         @click="confirmDelete(file)"
+                       >
+                         <template #icon>
+                           <i class="fas fa-trash"></i>
+                         </template>
+                       </n-button>
+                     </div>
                    </div>
-                   <div class="image-info">
-                     <div class="file-name">{{ file.original_name }}</div>
-                     <div class="file-size">{{ formatFileSize(file.file_size) }}</div>
+                   <div class="image-info mt-2">
+                     <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                       {{ file.original_name }}
+                     </div>
+                     <div class="file-size text-xs text-gray-500 dark:text-gray-400">
+                       {{ formatFileSize(file.file_size) }}
+                     </div>
                    </div>
                  </div>
                 
                                  <!-- 非图片文件显示图标 -->
-                 <div v-else class="file-item">
+                 <div v-else class="file-item cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-3 transition-colors border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 relative">
                    <div class="file-icon">
                      <i :class="getFileIconClass(file.file_type)"></i>
                    </div>
                    <div class="file-info">
-                     <div class="file-name">{{ file.original_name }}</div>
-                     <div class="file-size">{{ formatFileSize(file.file_size) }}</div>
+                     <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                       {{ file.original_name }}
+                     </div>
+                     <div class="file-size text-xs text-gray-500 dark:text-gray-400">
+                       {{ formatFileSize(file.file_size) }}
+                     </div>
                    </div>
                    <div class="delete-button">
                      <n-button 
                        size="small" 
                        type="error" 
                        circle
-                       @click="deleteFile(file)"
+                       @click="confirmDelete(file)"
                      >
                        <template #icon>
                          <i class="fas fa-trash"></i>
@@ -180,6 +187,22 @@
         </n-space>
       </template>
     </n-modal>
+
+    <!-- 删除确认对话框 -->
+    <n-modal v-model:show="showDeleteModal" preset="card" title="确认删除" style="width: 400px">
+      <div class="text-center py-4">
+        <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-4"></i>
+        <p class="text-lg font-medium mb-2">确定要删除这个文件吗？</p>
+        <p class="text-gray-600 mb-4">{{ fileToDelete?.original_name }}</p>
+        <p class="text-sm text-gray-500">此操作不可撤销，文件将被永久删除。</p>
+      </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showDeleteModal = false">取消</n-button>
+          <n-button type="error" @click="handleConfirmDelete">确认删除</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -187,6 +210,8 @@
 import { ref, onMounted, h } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useFileApi } from '~/composables/useFileApi'
+import { useImageUrl } from '~/composables/useImageUrl'
+
 
 // 设置页面布局
 definePageMeta({
@@ -213,6 +238,7 @@ interface FileItem {
 
 const message = useMessage()
 const fileApi = useFileApi()
+const { getImageUrl } = useImageUrl()
 
 // 响应式数据
 const loading = ref(false)
@@ -223,6 +249,10 @@ const filterStatus = ref('')
 const showUploadModal = ref(false)
 const fileUploadRef = ref()
 const uploadModalKey = ref(0)
+
+// 删除确认相关
+const showDeleteModal = ref(false)
+const fileToDelete = ref<FileItem | null>(null)
 
 // 分页
 const pagination = ref({
@@ -239,12 +269,7 @@ const total = computed(() => pagination.value.total)
 // 选项
 const fileTypeOptions = [
   { label: '全部', value: '' },
-  { label: 'JPEG', value: 'jpeg' },
-  { label: 'PNG', value: 'png' },
-  { label: 'GIF', value: 'gif' },
-  { label: 'WebP', value: 'webp' },
-  { label: 'BMP', value: 'bmp' },
-  { label: 'SVG', value: 'svg' }
+  { label: '图片', value: 'image' }
 ]
 
 const statusOptions = [
@@ -271,6 +296,17 @@ const loadFileList = async () => {
     const response = await fileApi.getFileList(params)
     fileList.value = response.data.files || []
     pagination.value.total = response.data.total || 0
+    
+    console.log('文件列表加载完成:', {
+      total: pagination.value.total,
+      files: fileList.value.map(f => ({
+        id: f.id,
+        name: f.original_name,
+        type: f.file_type,
+        url: f.access_url,
+        isImage: isImageFile(f)
+      }))
+    })
   } catch (error) {
     console.error('加载文件列表失败:', error)
     message.error('加载文件列表失败')
@@ -331,6 +367,26 @@ const toggleFilePublic = async (file: FileItem) => {
   }
 }
 
+const confirmDelete = (file: FileItem) => {
+  fileToDelete.value = file
+  showDeleteModal.value = true
+}
+
+const handleConfirmDelete = async () => {
+  if (!fileToDelete.value) return
+  
+  try {
+    await fileApi.deleteFiles([fileToDelete.value.id])
+    message.success('文件删除成功')
+    showDeleteModal.value = false
+    fileToDelete.value = null
+    loadFileList()
+  } catch (error) {
+    console.error('删除文件失败:', error)
+    message.error('删除文件失败')
+  }
+}
+
 const deleteFile = async (file: FileItem) => {
   try {
     await fileApi.deleteFiles([file.id])
@@ -372,6 +428,7 @@ const handleModalClose = (show: boolean) => {
 
 const getFileIconClass = (fileType: string) => {
   const iconMap: Record<string, string> = {
+    'image': 'fas fa-image text-blue-500',
     'jpeg': 'fas fa-image text-blue-500',
     'jpg': 'fas fa-image text-blue-500',
     'png': 'fas fa-image text-green-500',
@@ -405,8 +462,42 @@ const formatFileSize = (bytes: number) => {
 }
 
 const isImageFile = (file: FileItem) => {
-  const imageTypes = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'bmp', 'svg']
-  return imageTypes.includes(file.file_type.toLowerCase())
+  // 后端返回的 file_type 是 "image"，所以直接检查这个值
+  const isImageByType = file.file_type.toLowerCase() === 'image'
+  
+  // 检查文件名扩展名
+  const imageExtensions = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'bmp', 'svg']
+  const fileNameLower = file.original_name.toLowerCase()
+  const hasImageExtension = imageExtensions.some(ext => fileNameLower.endsWith(`.${ext}`))
+  
+  // 检查 MIME 类型
+  const mimeTypeLower = (file.mime_type || '').toLowerCase()
+  const isImageByMime = mimeTypeLower.startsWith('image/')
+  
+  // 综合判断
+  const isImage = isImageByType || hasImageExtension || isImageByMime
+  
+  console.log('isImageFile 详细检查:', { 
+    fileName: file.original_name, 
+    fileType: file.file_type,
+    mimeType: file.mime_type,
+    isImageByType: isImageByType,
+    hasImageExtension: hasImageExtension,
+    isImageByMime: isImageByMime,
+    finalResult: isImage,
+    accessUrl: file.access_url,
+    processedUrl: getImageUrl(file.access_url)
+  })
+  
+  return isImage
+}
+
+const handleImageError = (event: any) => {
+  console.error('图片加载失败:', event)
+}
+
+const handleImageLoad = (event: any) => {
+  console.log('图片加载成功:', event)
 }
 
 // 生命周期
@@ -417,46 +508,26 @@ onMounted(() => {
 
 <style scoped>
 /* 文件管理页面样式 */
-.image-preview-container {
-  height: 400px;
-  overflow-y: auto;
-  position: relative;
-  margin-bottom: 0;
-}
+
 
 .image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  padding: 16px;
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
-.image-item {
-  border-radius: 8px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-}
 
-.image-item:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-}
 
-.image-preview {
-  position: relative;
-  height: 240px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
+
 
 .preview-image {
   width: 100%;
-  height: 200px;
+  height: 120px;
   object-fit: cover;
-  flex-shrink: 0;
+  border: 1px solid #f3f4f6;
+  border-radius: 4px;
 }
 
 .delete-button {
@@ -474,28 +545,29 @@ onMounted(() => {
 }
 
 .delete-button .n-button {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(239, 68, 68, 0.9);
   backdrop-filter: blur(4px);
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  color: white;
+  transition: all 0.3s ease;
 }
 
 .delete-button .n-button:hover {
-  background: rgba(255, 255, 255, 1);
+  background: rgba(239, 68, 68, 1);
   transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
-.image-info {
-  padding: 8px 12px;
-  background: #f8f9fa;
-  border-top: 1px solid #e9ecef;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.delete-button .n-button i {
+  font-size: 14px;
 }
 
-.image-info .file-name {
+
+
+
+
+.file-name {
   font-weight: 500;
   font-size: 13px;
   color: #333;
@@ -505,20 +577,12 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-.image-info .file-size {
+.file-size {
   font-size: 11px;
   color: #666;
 }
 
-.file-item {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  height: 240px;
-  position: relative;
-}
+
 
 .file-icon {
   font-size: 48px;
@@ -536,10 +600,7 @@ onMounted(() => {
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: 16px 0;
-  margin-top: 16px;
-  border-top: 1px solid #f0f0f0;
+  margin-top: 1rem;
 }
 
 /* 滚动条样式 */

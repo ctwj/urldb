@@ -79,7 +79,7 @@
                 <div class="flex items-center space-x-4">
                   <div v-if="configForm.site_logo" class="flex-shrink-0">
                     <n-image
-                      :src="configForm.site_logo"
+                      :src="getImageUrl(configForm.site_logo)"
                       alt="网站Logo"
                       width="80"
                       height="80"
@@ -222,17 +222,15 @@
           >
             <div class="image-preview">
               <n-image
-                :src="file.access_url"
+                :src="getImageUrl(file.access_url)"
                 :alt="file.original_name"
-                :lazy="true"
-                :intersection-observer-options="{
-                  root: null,
-                  rootMargin: '50px',
-                  threshold: 0.1
-                }"
+                :lazy="false"
                 object-fit="cover"
                 class="preview-image rounded"
+                @error="handleImageError"
+                @load="handleImageLoad"
               />
+
               <div class="image-info mt-2">
                 <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                   {{ file.original_name }}
@@ -282,7 +280,11 @@ definePageMeta({
   ssr: false
 })
 
+
+import { useImageUrl } from '~/composables/useImageUrl'
+
 const notification = useNotification()
+const { getImageUrl } = useImageUrl()
 const formRef = ref()
 const saving = ref(false)
 const activeTab = ref('basic')
@@ -443,6 +445,18 @@ const loadFileList = async () => {
       fileList.value = response.data.files || []
       pagination.value.total = response.data.total || 0
       console.log('获取到的图片文件:', fileList.value) // 调试信息
+      
+      // 添加图片URL处理调试
+      fileList.value.forEach(file => {
+        console.log('图片文件详情:', {
+          id: file.id,
+          name: file.original_name,
+          accessUrl: file.access_url,
+          processedUrl: getImageUrl(file.access_url),
+          fileType: file.file_type,
+          mimeType: file.mime_type
+        })
+      })
     }
   } catch (error) {
     console.error('获取文件列表失败:', error)
@@ -493,6 +507,14 @@ const formatFileSize = (size: number) => {
   return (size / (1024 * 1024 * 1024)).toFixed(1) + ' GB'
 }
 
+const handleImageError = (event: any) => {
+  console.error('图片加载失败:', event)
+}
+
+const handleImageLoad = (event: any) => {
+  console.log('图片加载成功:', event)
+}
+
 // 页面加载时获取配置
 onMounted(() => {
   fetchConfig()
@@ -525,7 +547,11 @@ onMounted(() => {
   width: 100%;
   height: 120px;
   object-fit: cover;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
 }
+
+
 
 .pagination-wrapper {
   display: flex;

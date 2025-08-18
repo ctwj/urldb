@@ -22,11 +22,11 @@ export function useApiFetch<T = any>(
     ...options,
     headers,
     onResponse({ response }) {
-      console.log('API响应:', {
-        status: response.status,
-        data: response._data,
-        url: url
-      })
+      // console.log('API响应:', {
+      //   status: response.status,
+      //   data: response._data,
+      //   url: url
+      // })
       
       // 处理401认证错误
       if (response.status === 401 ||
