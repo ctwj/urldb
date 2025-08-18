@@ -30,6 +30,12 @@ export default defineNuxtConfig({
     },
     server: {
       proxy: {
+        '/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path
+        },
         '/uploads': {
           target: 'http://localhost:8080',
           changeOrigin: true,
@@ -62,9 +68,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // 开发环境：直接访问后端，生产环境：通过 Nginx 反代
-      apiBase: process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8080/api',
+      apiBase: process.env.NODE_ENV === 'production' ? '/api' : '/api',
       // 服务端：开发环境直接访问，生产环境容器内访问
-      apiServer: process.env.NODE_ENV === 'production' ? 'http://backend:8080/api' : 'http://localhost:8080/api'
+      apiServer: process.env.NODE_ENV === 'production' ? 'http://backend:8080/api' : '/api'
     }
   },
   build: {
