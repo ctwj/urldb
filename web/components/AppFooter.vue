@@ -25,7 +25,7 @@ import { parseApiResponse } from '~/composables/useApi'
 const { versionInfo, fetchVersionInfo } = useVersion()
 
 // 获取系统配置
-const { data: systemConfigData } = await useAsyncData('systemConfig', 
+const { data: systemConfigData } = await useAsyncData('footerSystemConfig', 
   () => useApiFetch('/system/config').then(parseApiResponse)
 )
 
