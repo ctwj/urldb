@@ -67,10 +67,10 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      // 开发环境：直接访问后端，生产环境：通过 Nginx 反代
-      apiBase: process.env.NODE_ENV === 'production' ? '/api' : '/api',
-      // 服务端：开发环境直接访问，生产环境容器内访问
-      apiServer: process.env.NODE_ENV === 'production' ? 'http://backend:8080/api' : '/api'
+      // 客户端API地址：开发环境通过代理，生产环境通过Nginx
+      apiBase: '/api',
+      // 服务端API地址：通过环境变量配置，支持不同部署方式
+      apiServer: process.env.NUXT_PUBLIC_API_SERVER || (process.env.NODE_ENV === 'production' ? 'http://backend:8080/api' : '/api')
     }
   },
   build: {

@@ -49,23 +49,35 @@ export const useUserStore = defineStore('user', {
     initAuth() {
       // 只在客户端执行
       if (process.client && typeof window !== 'undefined') {
-        const token = localStorage.getItem('token')
-        const userStr = localStorage.getItem('user')
-        console.log('initAuth - token:', token ? 'exists' : 'not found')
-        console.log('initAuth - userStr:', userStr ? 'exists' : 'not found')
-        
-        if (token && userStr) {
-          try {
-            this.token = token
-            this.user = JSON.parse(userStr)
-            this.isAuthenticated = true
-            console.log('initAuth - 状态恢复成功:', this.user?.username)
-          } catch (error) {
-            console.error('解析用户信息失败:', error)
-            this.logout()
+        try {
+          const token = localStorage.getItem('token')
+          const userStr = localStorage.getItem('user')
+          console.log('initAuth - token:', token ? 'exists' : 'not found')
+          console.log('initAuth - userStr:', userStr ? 'exists' : 'not found')
+          
+          if (token && userStr) {
+            try {
+              this.token = token
+              this.user = JSON.parse(userStr)
+              this.isAuthenticated = true
+              console.log('initAuth - 状态恢复成功:', this.user?.username)
+            } catch (error) {
+              console.error('解析用户信息失败:', error)
+              this.logout()
+            }
+          } else {
+            console.log('initAuth - 没有找到有效的登录信息')
+            // 确保状态一致
+            this.token = null
+            this.user = null
+            this.isAuthenticated = false
           }
-        } else {
-          console.log('initAuth - 没有找到有效的登录信息')
+        } catch (error) {
+          console.error('初始化认证状态失败:', error)
+          // 确保状态一致
+          this.token = null
+          this.user = null
+          this.isAuthenticated = false
         }
       }
     },

@@ -40,8 +40,8 @@ services:
   frontend:
     image: ctwj/urldb-frontend:1.2.3
     environment:
+      NODE_ENV: production
       NUXT_PUBLIC_API_SERVER: http://backend:8080/api
-      NUXT_PUBLIC_API_CLIENT: /api
     depends_on:
       - backend
     networks:

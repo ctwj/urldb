@@ -77,15 +77,21 @@ export const useResourceStore = defineStore('resource', {
           return
         }
         
-        if (!data.resources) {
-          console.error('fetchResources - 缺少resources字段:', data)
+        // 处理嵌套的data结构：{data: {data: [...], total: ...}}
+        if (data.data && Array.isArray(data.data)) {
+          this.resources = data.data
+          this.currentPage = data.page || 1
+          this.totalPages = Math.ceil((data.total || 0) / (data.page_size || 100))
+        } else if (data.resources && Array.isArray(data.resources)) {
+          // 兼容旧格式
+          this.resources = data.resources
+          this.currentPage = data.page || 1
+          this.totalPages = Math.ceil((data.total || 0) / (data.page_size || 100))
+        } else {
+          console.error('fetchResources - 数据格式不正确:', data)
           this.resources = []
           return
         }
-        
-        this.resources = data.resources || []
-        this.currentPage = data.page || 1
-        this.totalPages = Math.ceil((data.total || 0) / (data.page_size || 100))
         console.log('fetchResources - 设置成功:', {
           resourcesCount: this.resources.length,
           currentPage: this.currentPage,

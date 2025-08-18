@@ -452,8 +452,15 @@ const fetchData = async () => {
     console.log('返回的资源数量:', response?.data?.length || 0)
     
     if (response && response.data) {
-      resources.value = response.data
-      total.value = response.total || 0
+      // 处理嵌套的data结构：{data: {data: [...], total: ...}}
+      if (response.data.data && Array.isArray(response.data.data)) {
+        resources.value = response.data.data
+        total.value = response.data.total || 0
+      } else {
+        // 处理直接的data结构：{data: [...], total: ...}
+        resources.value = response.data
+        total.value = response.total || 0
+      }
       // 清空选择（因为数据已更新）
       selectedResources.value = []
     } else {

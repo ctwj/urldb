@@ -33,14 +33,26 @@ import { ref, onMounted } from 'vue'
 const theme = lightTheme
 const isDark = ref(false)
 
+// 使用 useCookie 来确保服务端和客户端状态一致
+const themeCookie = useCookie('theme', { default: () => 'light' })
+
+// 初始化主题状态
+isDark.value = themeCookie.value === 'dark'
+
 const toggleDarkMode = () => {
   isDark.value = !isDark.value
-  if (isDark.value) {
-    document.documentElement.classList.add('dark')
-    localStorage.setItem('theme', 'dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-    localStorage.setItem('theme', 'light')
+  const newTheme = isDark.value ? 'dark' : 'light'
+  
+  // 更新 cookie
+  themeCookie.value = newTheme
+  
+  // 更新 DOM 类
+  if (process.client) {
+    if (isDark.value) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
   }
 }
 
@@ -94,14 +106,13 @@ const fetchStatsCode = async () => {
 
 
 onMounted(async () => {
-  // 初始化主题
-  if (localStorage.getItem('theme') === 'dark') {
+  // 初始化主题 - 使用 cookie 而不是 localStorage
+  if (themeCookie.value === 'dark') {
     isDark.value = true
     document.documentElement.classList.add('dark')
   }
   
   // 获取三方统计代码并直接加载
   await fetchStatsCode()
-  
 })
 </script> 

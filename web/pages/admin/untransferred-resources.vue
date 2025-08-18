@@ -344,8 +344,22 @@ const fetchResources = async () => {
     }
     
     const response = await resourceApi.getResources(params)
-    resources.value = response.resources || []
-    total.value = response.total || 0
+    // 处理嵌套的data结构：{data: {data: [...], total: ...}}
+    if (response && response.data && response.data.data && Array.isArray(response.data.data)) {
+      resources.value = response.data.data
+      total.value = response.data.total || 0
+    } else if (response && response.data && Array.isArray(response.data)) {
+      // 处理直接的data结构：{data: [...], total: ...}
+      resources.value = response.data
+      total.value = response.total || 0
+    } else if (response && response.resources) {
+      // 兼容旧格式
+      resources.value = response.resources
+      total.value = response.total || 0
+    } else {
+      resources.value = []
+      total.value = 0
+    }
   } catch (error) {
     console.error('获取未转存资源失败:', error)
     notification.error({

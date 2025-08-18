@@ -178,10 +178,19 @@ const fetchTransferredResources = async () => {
     console.log('结果结构:', Object.keys(result || {}))
 
     if (result && result.data) {
-      console.log('使用 resources 格式，数量:', result.data.length)
-      resources.value = result.data
-      total.value = result.total || 0
-      pagination.itemCount = result.total || 0
+      // 处理嵌套的data结构：{data: {data: [...], total: ...}}
+      if (result.data.data && Array.isArray(result.data.data)) {
+        console.log('使用嵌套data格式，数量:', result.data.data.length)
+        resources.value = result.data.data
+        total.value = result.data.total || 0
+        pagination.itemCount = result.data.total || 0
+      } else {
+        // 处理直接的data结构：{data: [...], total: ...}
+        console.log('使用直接data格式，数量:', result.data.length)
+        resources.value = result.data
+        total.value = result.total || 0
+        pagination.itemCount = result.total || 0
+      }
     } else if (Array.isArray(result)) {
       console.log('使用数组格式，数量:', result.length)
       resources.value = result

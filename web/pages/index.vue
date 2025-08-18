@@ -47,21 +47,23 @@
               <i class="fas fa-book text-xs"></i> API文档
             </n-button>
           </NuxtLink>
-          <NuxtLink v-if="authInitialized && !userStore.isAuthenticated" to="/login" class="sm:flex">
-            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-              <i class="fas fa-sign-in-alt text-xs"></i> 登录
-            </n-button>
-          </NuxtLink>
-          <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role === 'admin'" to="/admin" class="hidden sm:flex">
-            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-              <i class="fas fa-user-shield text-xs"></i> 管理后台
-            </n-button>
-          </NuxtLink>
-          <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role !== 'admin'" to="/user" class="hidden sm:flex">
-            <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-              <i class="fas fa-user text-xs"></i> 用户中心
-            </n-button>
-          </NuxtLink>
+          <ClientOnly>
+            <NuxtLink v-if="authInitialized && !userStore.isAuthenticated" to="/login" class="sm:flex">
+              <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+                <i class="fas fa-sign-in-alt text-xs"></i> 登录
+              </n-button>
+            </NuxtLink>
+            <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role === 'admin'" to="/admin" class="hidden sm:flex">
+              <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+                <i class="fas fa-user-shield text-xs"></i> 管理后台
+              </n-button>
+            </NuxtLink>
+            <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role !== 'admin'" to="/user" class="hidden sm:flex">
+              <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
+                <i class="fas fa-user text-xs"></i> 用户中心
+              </n-button>
+            </NuxtLink>
+          </ClientOnly>
         </nav>
       </div>
 
@@ -251,8 +253,10 @@ const router = useRouter()
 // 响应式数据
 const showLinkModal = ref(false)
 const selectedResource = ref<any>(null)
-const authInitialized = ref(true) // 在app.vue中已经初始化，这里直接设为true
 const pageLoading = ref(false)
+
+// 使用 ClientOnly 包装器来处理认证状态
+const authInitialized = ref(false)
 
 // 用户状态管理
 const userStore = useUserStore()
@@ -324,16 +328,50 @@ watch(systemConfigError, (error) => {
 })
 
 // 从 SSR 数据中获取值
-const safeResources = computed(() => (resourcesData.value as any)?.data || [])
+const safeResources = computed(() => {
+  const data = resourcesData.value as any
+  // 处理嵌套的data结构：{data: {data: [...], total: ...}}
+  if (data?.data?.data && Array.isArray(data.data.data)) {
+    return data.data.data
+  }
+  // 处理直接的data结构：{data: [...], total: ...}
+  if (data?.data && Array.isArray(data.data)) {
+    return data.data
+  }
+  // 处理直接的数组结构
+  if (Array.isArray(data)) {
+    return data
+  }
+  return []
+})
 const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_resources: 0 })
 const platforms = computed(() => (platformsData.value as any) || [])
-const systemConfig = computed(() => (systemConfigData.value as any).data || { site_title: '老九网盘资源数据库' })
+const systemConfig = computed(() => (systemConfigData.value as any)?.data || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
 
 
 // 从路由参数获取当前状态
 const searchQuery = ref(route.query.search as string || '')
 const selectedPlatform = computed(() => route.query.platform as string || '')
+
+// 记录搜索统计的函数
+const recordSearchStats = (keyword: string) => {
+  if (!keyword || keyword.trim().length === 0) {
+    // console.log('搜索关键词为空，跳过统计记录')
+    return
+  }
+  
+  const trimmedKeyword = keyword.trim()
+  // console.log('记录搜索统计:', trimmedKeyword)
+  
+  // 延迟执行，确保页面完全加载
+  setTimeout(() => {
+    const searchStatsApi = useSearchStatsApi()
+    searchStatsApi.recordSearch({ keyword: trimmedKeyword }).catch(err => {
+      console.error('记录搜索统计失败:', err)
+    })
+  }, 0)
+}
 
 const handleSearch = () => {
   const params = new URLSearchParams()
@@ -344,20 +382,17 @@ const handleSearch = () => {
 
 // 初始化认证状态
 onMounted(() => {
+  // 初始化认证状态
+  authInitialized.value = true
+  
   animateCounters()
   
-  // 页面挂载完成时，如果有搜索关键词，请求 record 接口
+  // 页面挂载完成时，如果有搜索关键词，记录搜索统计
   if (process.client && route.query.search) {
     const searchKeyword = route.query.search as string
-    if (searchKeyword.trim()) {
-      // 延迟执行，确保页面完全加载
-      setTimeout(() => {
-        const searchStatsApi = useSearchStatsApi()
-        searchStatsApi.recordSearch({ keyword: searchKeyword }).catch(err => {
-          console.error('记录搜索统计失败:', err)
-        })
-      }, 0)
-    }
+    recordSearchStats(searchKeyword)
+  } else {
+    console.log('无搜索参数，跳过统计记录')
   }
 })
 

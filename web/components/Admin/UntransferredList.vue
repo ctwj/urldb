@@ -382,8 +382,15 @@ const fetchUntransferredResources = async () => {
     console.log('未转存资源结果:', result)
 
     if (result && result.data) {
-      resources.value = result.data
-      total.value = result.total || 0
+      // 处理嵌套的data结构：{data: {data: [...], total: ...}}
+      if (result.data.data && Array.isArray(result.data.data)) {
+        resources.value = result.data.data
+        total.value = result.data.total || 0
+      } else {
+        // 处理直接的data结构：{data: [...], total: ...}
+        resources.value = result.data
+        total.value = result.total || 0
+      }
     } else if (Array.isArray(result)) {
       resources.value = result
       total.value = result.length
