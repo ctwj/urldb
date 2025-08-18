@@ -136,10 +136,6 @@
                           {{ item.category_name || '未分类' }}
                         </span>
                         <span class="flex items-center">
-                          <i class="fas fa-cloud mr-1"></i>
-                          夸克网盘
-                        </span>
-                        <span class="flex items-center">
                           <i class="fas fa-eye mr-1"></i>
                           {{ item.view_count || 0 }} 次浏览
                         </span>
@@ -296,8 +292,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useResourceApi, useCategoryApi, useTagApi, useCksApi, useTaskApi } from '~/composables/useApi'
+import { useResourceApi, useCategoryApi, useTagApi, useCksApi, useTaskApi, usePanApi } from '~/composables/useApi'
 import { useMessage } from 'naive-ui'
+
+// 消息提示
+const $message = useMessage()
 
 // 数据状态
 const loading = ref(false)
@@ -339,7 +338,10 @@ const categoryApi = useCategoryApi()
 const tagApi = useTagApi()
 const cksApi = useCksApi()
 const taskApi = useTaskApi()
-const message = useMessage()
+const panApi = usePanApi()
+
+// 获取平台数据
+const { data: platformsData } = await useAsyncData('untransferredPlatforms', () => panApi.getPans())
 
 // 计算属性
 const isAllSelected = computed(() => {
@@ -445,7 +447,7 @@ const getAccountOptions = async () => {
     }))
   } catch (error) {
     console.error('获取网盘账号选项失败:', error)
-    message.error('获取网盘账号失败')
+    $message.error('获取网盘账号失败')
   } finally {
     accountsLoading.value = false
   }
@@ -516,7 +518,7 @@ const toggleResourceSelection = (id: number, checked: boolean) => {
 // 批量转存
 const handleBatchTransfer = async () => {
   if (selectedResources.value.length === 0) {
-    message.warning('请选择要转存的资源')
+    $message.warning('请选择要转存的资源')
     return
   }
 
@@ -543,6 +545,16 @@ const getStatusText = (resource: any) => {
   return '待验证'
 }
 
+// 获取平台名称
+const getPlatformName = (panId: number) => {
+  if (!panId) return '未知平台'
+  
+  // 从后端获取的平台数据
+  const platforms = platformsData.value as any
+  const platform = platforms?.data?.find((p: any) => p.id === panId)
+  return platform?.remark || platform?.name || '未知平台'
+}
+
 // 格式化日期
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString()
@@ -551,7 +563,7 @@ const formatDate = (dateString: string) => {
 // 确认批量转存
 const confirmBatchTransfer = async () => {
   if (selectedAccounts.value.length === 0) {
-    message.warning('请选择至少一个网盘账号')
+    $message.warning('请选择至少一个网盘账号')
     return
   }
 
@@ -572,7 +584,7 @@ const confirmBatchTransfer = async () => {
     }
     
     const response = await taskApi.createBatchTransferTask(taskData) as any
-    message.success(`批量转存任务已创建，共 ${selectedItems.length} 个资源`)
+    $message.success(`批量转存任务已创建，共 ${selectedItems.length} 个资源`)
     
     // 关闭模态框
     showAccountSelectionModal.value = false
@@ -583,7 +595,7 @@ const confirmBatchTransfer = async () => {
     
   } catch (error) {
     console.error('创建批量转存任务失败:', error)
-    message.error('创建批量转存任务失败')
+    $message.error('创建批量转存任务失败')
   } finally {
     batchTransferring.value = false
   }

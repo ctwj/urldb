@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
-import { useResourceApi } from '~/composables/useApi'
+import { useResourceApi, usePanApi } from '~/composables/useApi'
 import { useMessage } from 'naive-ui'
 
 // 消息提示
@@ -76,6 +76,26 @@ const selectedTag = ref(null)
 
 // API实例
 const resourceApi = useResourceApi()
+const panApi = usePanApi()
+
+// 获取平台数据
+const { data: platformsData } = await useAsyncData('transferredPlatforms', () => panApi.getPans())
+
+// 平台选项
+const platformOptions = computed(() => {
+  const data = platformsData.value as any
+  const platforms = data?.data || data || []
+  return platforms.map((platform: any) => ({
+    label: platform.remark || platform.name,
+    value: platform.id
+  }))
+})
+
+// 获取平台名称
+const getPlatformName = (platformId: number) => {
+  const platform = (platformsData.value as any)?.data?.find((plat: any) => plat.id === platformId)
+  return platform?.remark || platform?.name || '未知平台'
+}
 
 // 分页配置
 const pagination = reactive({
@@ -110,18 +130,6 @@ const columns: any[] = [
     width: 80
   },
   {
-    title: '平台',
-    key: 'pan_name',
-    width: 80,
-    render: (row: any) => {
-      if (row.pan_id) {
-        const platform = platformOptions.value.find((p: any) => p.value === row.pan_id)
-        return platform?.label || '未知'
-      }
-      return '未知'
-    }
-  },
-  {
     title: '转存链接',
     key: 'save_url',
     width: 200,
@@ -143,40 +151,8 @@ const columns: any[] = [
     render: (row: any) => {
       return new Date(row.updated_at).toLocaleDateString()
     }
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 120,
-    fixed: 'right',
-    render: (row: any) => {
-      return h('div', { class: 'flex space-x-2' }, [
-        h('n-button', {
-          size: 'small',
-          type: 'primary',
-          onClick: () => viewResource(row)
-        }, { default: () => '查看' }),
-        h('n-button', {
-          size: 'small',
-          type: 'info',
-          onClick: () => copyLink(row.save_url)
-        }, { default: () => '复制' })
-      ])
-    }
   }
 ]
-
-// 平台选项
-const platformOptions = ref([
-  { label: '夸克网盘', value: 1 },
-  { label: '百度网盘', value: 2 },
-  { label: '阿里云盘', value: 3 },
-  { label: '天翼云盘', value: 4 },
-  { label: '迅雷云盘', value: 5 },
-  { label: '123云盘', value: 6 },
-  { label: '115网盘', value: 7 },
-  { label: 'UC网盘', value: 8 }
-])
 
 // 获取已转存资源
 const fetchTransferredResources = async () => {
@@ -255,23 +231,6 @@ const handlePageSizeChange = (size: number) => {
   currentPage.value = 1
   pagination.page = 1
   fetchTransferredResources()
-}
-
-// 查看资源
-const viewResource = (resource: any) => {
-  // 这里可以打开资源详情模态框
-  console.log('查看资源:', resource)
-}
-
-// 复制链接
-const copyLink = async (url: string) => {
-  try {
-    await navigator.clipboard.writeText(url)
-    $message.success('链接已复制到剪贴板')
-  } catch (error) {
-    console.error('复制失败:', error)
-    $message.error('复制失败')
-  }
 }
 
 // 初始化
