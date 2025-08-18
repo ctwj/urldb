@@ -55,21 +55,21 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 
 	// 获取文件哈希值
 	fileHash := c.PostForm("file_hash")
-	
+
 	// 如果提供了文件哈希，先检查是否已存在
 	if fileHash != "" {
 		existingFile, err := h.fileRepo.FindByHash(fileHash)
 		if err == nil && existingFile != nil {
 			// 文件已存在，直接返回已存在的文件信息
 			utils.Info("文件已存在，跳过上传 - Hash: %s, 文件名: %s", fileHash, existingFile.OriginalName)
-			
+
 			response := dto.FileUploadResponse{
-				File:       converter.FileToResponse(existingFile),
-				Message:    "文件已存在，极速上传成功",
-				Success:    true,
+				File:        converter.FileToResponse(existingFile),
+				Message:     "文件已存在，极速上传成功",
+				Success:     true,
 				IsDuplicate: true,
 			}
-			
+
 			SuccessResponse(c, response)
 			return
 		}
@@ -165,14 +165,14 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 		// 文件已存在，删除刚上传的文件，返回已存在的文件信息
 		os.Remove(filePath)
 		utils.Info("文件已存在，跳过上传 - Hash: %s, 文件名: %s", fileHash, existingFile.OriginalName)
-		
+
 		response := dto.FileUploadResponse{
-			File:       converter.FileToResponse(existingFile),
-			Message:    "文件已存在，极速上传成功",
-			Success:    true,
+			File:        converter.FileToResponse(existingFile),
+			Message:     "文件已存在，极速上传成功",
+			Success:     true,
 			IsDuplicate: true,
 		}
-		
+
 		SuccessResponse(c, response)
 		return
 	}
@@ -241,6 +241,10 @@ func (h *FileHandler) GetFileList(c *gin.Context) {
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
+
+	// 添加调试日志
+	utils.Info("文件列表请求参数: page=%d, pageSize=%d, search='%s', fileType='%s', status='%s', userID=%d",
+		req.Page, req.PageSize, req.Search, req.FileType, req.Status, req.UserID)
 
 	// 获取当前用户ID和角色
 	userIDInterface, exists := c.Get("user_id")

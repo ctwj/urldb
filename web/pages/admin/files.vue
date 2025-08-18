@@ -27,32 +27,20 @@
 
     <!-- 搜索和筛选 -->
     <n-card>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="flex gap-4">
         <n-input
           v-model:value="searchKeyword"
-          placeholder="搜索文件名..."
+          placeholder="搜索原始文件名..."
           @keyup.enter="handleSearch"
+          class="flex-1"
+          clearable
         >
           <template #prefix>
             <i class="fas fa-search"></i>
           </template>
         </n-input>
         
-        <n-select
-          v-model:value="filterType"
-          placeholder="文件类型"
-          :options="fileTypeOptions"
-          clearable
-        />
-        
-        <n-select
-          v-model:value="filterStatus"
-          placeholder="状态"
-          :options="statusOptions"
-          clearable
-        />
-        
-        <n-button type="primary" @click="handleSearch">
+        <n-button type="primary" @click="handleSearch" class="w-20">
           <template #icon>
             <i class="fas fa-search"></i>
           </template>
@@ -244,8 +232,6 @@ const { getImageUrl } = useImageUrl()
 const loading = ref(false)
 const fileList = ref<FileItem[]>([])
 const searchKeyword = ref('')
-const filterType = ref('')
-const filterStatus = ref('')
 const showUploadModal = ref(false)
 const fileUploadRef = ref()
 const uploadModalKey = ref(0)
@@ -266,18 +252,7 @@ const pagination = ref({
 // 总数
 const total = computed(() => pagination.value.total)
 
-// 选项
-const fileTypeOptions = [
-  { label: '全部', value: '' },
-  { label: '图片', value: 'image' }
-]
-
-const statusOptions = [
-  { label: '全部', value: '' },
-  { label: '正常', value: 'active' },
-  { label: '禁用', value: 'inactive' },
-  { label: '已删除', value: 'deleted' }
-]
+// 选项 - 已移除不需要的过滤条件
 
 
 
@@ -288,10 +263,10 @@ const loadFileList = async () => {
     const params = {
       page: pagination.value.page,
       page_size: pagination.value.pageSize,
-      search: searchKeyword.value,
-      file_type: filterType.value,
-      status: filterStatus.value
+      search: searchKeyword.value
     }
+    
+    console.log('发送文件列表请求参数:', params)
     
     const response = await fileApi.getFileList(params)
     fileList.value = response.data.files || []
@@ -316,17 +291,12 @@ const loadFileList = async () => {
 }
 
 const handleSearch = () => {
+  console.log('执行搜索，关键词:', searchKeyword.value)
   pagination.value.page = 1
   loadFileList()
 }
 
-const resetFilters = () => {
-  searchKeyword.value = ''
-  filterType.value = ''
-  filterStatus.value = ''
-  pagination.value.page = 1
-  loadFileList()
-}
+
 
 const handlePageChange = (page: number) => {
   pagination.value.page = page

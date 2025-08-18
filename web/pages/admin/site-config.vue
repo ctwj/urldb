@@ -188,13 +188,14 @@
             placeholder="搜索文件名..."
             @keyup.enter="handleSearch"
             class="flex-1"
+            clearable
           >
             <template #prefix>
               <i class="fas fa-search"></i>
             </template>
           </n-input>
           
-          <n-button type="primary" @click="handleSearch">
+          <n-button type="primary" @click="handleSearch" class="w-20">
             <template #icon>
               <i class="fas fa-search"></i>
             </template>

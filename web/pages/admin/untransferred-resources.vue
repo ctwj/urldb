@@ -68,6 +68,7 @@
           v-model:value="searchQuery"
           placeholder="搜索资源标题..."
           @keyup.enter="handleSearch"
+          clearable
         >
           <template #prefix>
             <i class="fas fa-search"></i>
@@ -87,7 +88,7 @@
           :options="sortOptions"
         />
         
-        <n-button type="primary" @click="handleSearch">
+        <n-button type="primary" @click="handleSearch" class="w-20">
           <template #icon>
             <i class="fas fa-search"></i>
           </template>

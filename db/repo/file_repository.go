@@ -2,6 +2,7 @@ package repo
 
 import (
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 	"gorm.io/gorm"
 )
 
@@ -96,9 +97,14 @@ func (r *FileRepositoryImpl) SearchFiles(search string, fileType, status string,
 	offset := (page - 1) * pageSize
 	query := r.db.Model(&entity.File{}).Where("is_deleted = ?", false)
 
+	// 添加调试日志
+	utils.Info("搜索文件参数: search='%s', fileType='%s', status='%s', userID=%d, page=%d, pageSize=%d",
+		search, fileType, status, userID, page, pageSize)
+
 	// 添加搜索条件
 	if search != "" {
-		query = query.Where("original_name LIKE ? OR file_name LIKE ?", "%"+search+"%", "%"+search+"%")
+		query = query.Where("original_name LIKE ?", "%"+search+"%")
+		utils.Info("添加搜索条件: original_name LIKE '%%%s%%'", search)
 	}
 
 	if fileType != "" {
@@ -125,6 +131,12 @@ func (r *FileRepositoryImpl) SearchFiles(search string, fileType, status string,
 		Offset(offset).
 		Limit(pageSize).
 		Find(&files).Error
+
+	// 添加调试日志
+	utils.Info("搜索结果: 总数=%d, 当前页文件数=%d", total, len(files))
+	if len(files) > 0 {
+		utils.Info("第一个文件: ID=%d, 文件名='%s'", files[0].ID, files[0].OriginalName)
+	}
 
 	return files, total, err
 }

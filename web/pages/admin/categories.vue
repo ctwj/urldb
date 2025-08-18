@@ -42,11 +42,13 @@
               v-model:value="searchQuery" 
               @input="debounceSearch" 
               type="text"
-              placeholder="搜索分类名称..." 
-            />
-            <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <i class="fas fa-search text-gray-400 text-sm"></i>
-            </div>
+              placeholder="搜索分类名称..."
+              clearable
+            >
+              <template #prefix>
+                <i class="fas fa-search text-gray-400 text-sm"></i>
+              </template>
+            </n-input>
           </div>
           <n-button @click="refreshData" type="tertiary">
             <template #icon>

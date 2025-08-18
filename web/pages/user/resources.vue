@@ -80,7 +80,7 @@
           clearable
         />
         
-        <n-button type="primary" @click="handleSearch">
+        <n-button type="primary" @click="handleSearch" class="w-20">
           <template #icon>
             <i class="fas fa-search"></i>
           </template>

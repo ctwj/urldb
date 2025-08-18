@@ -30,15 +30,26 @@
 
     <!-- 搜索 -->
     <n-card>
-      <n-input
-        v-model:value="searchQuery"
-        placeholder="搜索热播剧..."
-        @keyup.enter="handleSearch"
-      >
-        <template #prefix>
-          <i class="fas fa-search"></i>
-        </template>
-      </n-input>
+      <div class="flex gap-4">
+        <n-input
+          v-model:value="searchQuery"
+          placeholder="搜索热播剧..."
+          @keyup.enter="handleSearch"
+          class="flex-1"
+          clearable
+        >
+          <template #prefix>
+            <i class="fas fa-search"></i>
+          </template>
+        </n-input>
+        
+        <n-button type="primary" @click="handleSearch" class="w-20">
+          <template #icon>
+            <i class="fas fa-search"></i>
+          </template>
+          搜索
+        </n-button>
+      </div>
     </n-card>
 
     <!-- 热播剧列表 -->

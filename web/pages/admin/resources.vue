@@ -35,6 +35,7 @@
           v-model:value="searchQuery"
           placeholder="搜索资源..."
           @keyup.enter="handleSearch"
+          clearable
         >
           <template #prefix>
             <i class="fas fa-search"></i>
@@ -55,7 +56,7 @@
           clearable
         />
         
-        <n-button type="primary" @click="handleSearch">
+        <n-button type="primary" @click="handleSearch" class="w-20">
           <template #icon>
             <i class="fas fa-search"></i>
           </template>

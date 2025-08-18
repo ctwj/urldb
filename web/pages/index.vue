@@ -18,7 +18,14 @@
       <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
       <div class="header-container bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
-        <h1 class="text-2xl sm:text-3xl font-bold mb-4">
+        <h1 class="text-2xl sm:text-3xl font-bold mb-4 flex items-center justify-center gap-3">
+          <img 
+            v-if="systemConfig?.site_logo" 
+            :src="getImageUrl(systemConfig.site_logo)" 
+            :alt="systemConfig?.site_title || 'Logo'"
+            class="h-8 w-auto object-contain"
+            @error="handleLogoError"
+          />
           <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
             {{ systemConfig?.site_title || '老九网盘资源数据库' }}
           </a>
@@ -62,8 +69,8 @@
       <div class="w-full max-w-3xl mx-auto mb-4 sm:mb-8 px-2 sm:px-0">
         <ClientOnly>
           <div class="relative">
-            <n-input round placeholder="搜索" v-model:value="searchQuery" @blur="handleSearch" @keyup.enter="handleSearch">
-                <template #suffix>
+            <n-input round placeholder="搜索" v-model:value="searchQuery" @blur="handleSearch" @keyup.enter="handleSearch" clearable>
+                <template #prefix>
                 <i class="fas fa-search text-gray-400"></i>
                 </template>
               </n-input>
@@ -249,6 +256,15 @@ const pageLoading = ref(false)
 
 // 用户状态管理
 const userStore = useUserStore()
+
+// 图片URL处理
+const { getImageUrl } = useImageUrl()
+
+// Logo错误处理
+const handleLogoError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.style.display = 'none'
+}
 
 // 使用 useAsyncData 获取资源数据
 const { data: resourcesData, pending, refresh } = await useAsyncData(

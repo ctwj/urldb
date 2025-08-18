@@ -10,7 +10,7 @@
       <n-tab-pane name="site-submit" tab="站点提交">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="mb-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">站点提交</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">站点提交（待开发）</h3>
             <p class="text-gray-600 dark:text-gray-400">向各大搜索引擎提交站点信息</p>
           </div>
 
@@ -186,7 +186,7 @@
       <n-tab-pane name="link-building" tab="外链建设">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="mb-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">外链建设</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">外链建设（待开发）</h3>
             <p class="text-gray-600 dark:text-gray-400">管理和监控外部链接建设情况</p>
           </div>
 
