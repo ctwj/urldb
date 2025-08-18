@@ -165,10 +165,47 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useNotification } from 'naive-ui'
+import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
+
 // 设置页面布局
 definePageMeta({
   layout: 'admin',
   ssr: false
+})
+
+// 配置表单数据类型
+interface FeatureConfigForm {
+  auto_process_enabled: boolean
+  auto_process_interval: string
+  auto_transfer_enabled: boolean
+  auto_transfer_min_space: string
+  ad_keywords: string
+  auto_insert_ad: string
+  hot_drama_auto_fetch: boolean
+}
+
+// 使用配置改动检测
+const {
+  setOriginalConfig,
+  updateCurrentConfig,
+  getChangedConfig,
+  hasChanges,
+  updateOriginalConfig,
+  saveConfig: saveConfigWithDetection
+} = useConfigChangeDetection<FeatureConfigForm>({
+  debug: true,
+  // 字段映射：前端字段名 -> 后端字段名
+  fieldMapping: {
+    auto_process_enabled: 'auto_process_ready_resources',
+    auto_process_interval: 'auto_process_interval',
+    auto_transfer_enabled: 'auto_transfer_enabled',
+    auto_transfer_min_space: 'auto_transfer_min_space',
+    ad_keywords: 'ad_keywords',
+    auto_insert_ad: 'auto_insert_ad',
+    hot_drama_auto_fetch: 'auto_fetch_hot_drama_enabled'
+  }
 })
 
 const notification = useNotification()
@@ -176,7 +213,7 @@ const saving = ref(false)
 const activeTab = ref('resource')
 
 // 配置表单数据
-const configForm = ref({
+const configForm = ref<FeatureConfigForm>({
   auto_process_enabled: false,
   auto_process_interval: '30',
   auto_transfer_enabled: false,
@@ -197,7 +234,7 @@ const fetchConfig = async () => {
     const response = await systemConfigApi.getSystemConfig() as any
     
     if (response) {
-      configForm.value = {
+      const configData = {
         auto_process_enabled: response.auto_process_ready_resources || false,
         auto_process_interval: String(response.auto_process_interval || 30),
         auto_transfer_enabled: response.auto_transfer_enabled || false,
@@ -206,6 +243,9 @@ const fetchConfig = async () => {
         auto_insert_ad: response.auto_insert_ad || '',
         hot_drama_auto_fetch: response.auto_fetch_hot_drama_enabled || false
       }
+      
+      configForm.value = { ...configData }
+      setOriginalConfig(configData)
     }
   } catch (error) {
     console.error('获取系统配置失败:', error)
@@ -221,34 +261,67 @@ const saveConfig = async () => {
   try {
     saving.value = true
     
+    // 更新当前配置数据
+    updateCurrentConfig({
+      auto_process_enabled: configForm.value.auto_process_enabled,
+      auto_process_interval: configForm.value.auto_process_interval,
+      auto_transfer_enabled: configForm.value.auto_transfer_enabled,
+      auto_transfer_min_space: configForm.value.auto_transfer_min_space,
+      ad_keywords: configForm.value.ad_keywords,
+      auto_insert_ad: configForm.value.auto_insert_ad,
+      hot_drama_auto_fetch: configForm.value.hot_drama_auto_fetch
+    })
+    
     const { useSystemConfigApi } = await import('~/composables/useApi')
     const systemConfigApi = useSystemConfigApi()
     
-    await systemConfigApi.updateSystemConfig({
-      auto_process_ready_resources: configForm.value.auto_process_enabled,
-      auto_process_interval: parseInt(configForm.value.auto_process_interval) || 30,
-      auto_transfer_enabled: configForm.value.auto_transfer_enabled,
-      auto_transfer_min_space: parseInt(configForm.value.auto_transfer_min_space) || 500,
-      ad_keywords: configForm.value.ad_keywords,
-      auto_insert_ad: configForm.value.auto_insert_ad,
-      auto_fetch_hot_drama_enabled: configForm.value.hot_drama_auto_fetch
-    })
+    // 使用通用保存函数
+    const result = await saveConfigWithDetection(
+      systemConfigApi.updateSystemConfig,
+      {
+        onlyChanged: true,
+        includeAllFields: true,
+        // 自定义数据转换
+        transformSubmitData: (data) => {
+          // 转换字符串为数字
+          if (data.auto_process_interval !== undefined) {
+            data.auto_process_interval = parseInt(data.auto_process_interval) || 30
+          }
+          if (data.auto_transfer_min_space !== undefined) {
+            data.auto_transfer_min_space = parseInt(data.auto_transfer_min_space) || 500
+          }
+          return data
+        }
+      },
+      // 成功回调
+      async () => {
+        notification.success({
+          content: '功能配置保存成功',
+          duration: 3000
+        })
+        
+        // 刷新系统配置状态，确保顶部导航同步更新
+        const { useSystemConfigStore } = await import('~/stores/systemConfig')
+        const systemConfigStore = useSystemConfigStore()
+        await systemConfigStore.initConfig(true, true)
+      },
+      // 错误回调
+      (error) => {
+        console.error('保存功能配置失败:', error)
+        notification.error({
+          content: '保存功能配置失败',
+          duration: 3000
+        })
+      }
+    )
     
-    notification.success({
-      content: '功能配置保存成功',
-      duration: 3000
-    })
-    
-    // 刷新系统配置状态，确保顶部导航同步更新
-    const { useSystemConfigStore } = await import('~/stores/systemConfig')
-    const systemConfigStore = useSystemConfigStore()
-    await systemConfigStore.initConfig(true, true) // 强制刷新，使用管理员API
-  } catch (error) {
-    console.error('保存功能配置失败:', error)
-    notification.error({
-      content: '保存功能配置失败',
-      duration: 3000
-    })
+    // 如果没有改动，显示提示
+    if (result && result.message === '没有检测到任何改动') {
+      notification.info({
+        content: '没有检测到任何改动',
+        duration: 3000
+      })
+    }
   } finally {
     saving.value = false
   }

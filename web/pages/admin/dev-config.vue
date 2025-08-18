@@ -76,17 +76,39 @@
 </template>
 
 <script setup lang="ts">
+import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
+
 // 设置页面布局
 definePageMeta({
   layout: 'admin',
   ssr: false
 })
 
+// 定义配置表单类型
+interface DevConfigForm {
+  api_token: string
+}
+
+// 使用配置改动检测
+const {
+  setOriginalConfig,
+  updateCurrentConfig,
+  getChangedConfig,
+  hasChanges,
+  updateOriginalConfig,
+  saveConfig: saveConfigWithDetection
+} = useConfigChangeDetection<DevConfigForm>({
+  debug: true,
+  fieldMapping: {
+    api_token: 'api_token'
+  }
+})
+
 const notification = useNotification()
 const saving = ref(false)
 
 // 配置表单数据
-const configForm = ref({
+const configForm = ref<DevConfigForm>({
   api_token: ''
 })
 
@@ -98,9 +120,12 @@ const fetchConfig = async () => {
     const response = await systemConfigApi.getSystemConfig()
     
     if (response) {
-      configForm.value = {
-        api_token: response.api_token || ''
+      const configData = {
+        api_token: (response as any).api_token || ''
       }
+      
+      configForm.value = { ...configData }
+      setOriginalConfig(configData)
     }
   } catch (error) {
     console.error('获取系统配置失败:', error)
@@ -116,28 +141,50 @@ const saveConfig = async () => {
   try {
     saving.value = true
     
-    const { useSystemConfigApi } = await import('~/composables/useApi')
-    const systemConfigApi = useSystemConfigApi()
-    
-    await systemConfigApi.updateSystemConfig({
+    // 更新当前配置数据
+    updateCurrentConfig({
       api_token: configForm.value.api_token
     })
     
-    notification.success({
-      content: '开发配置保存成功',
-      duration: 3000
-    })
+    const { useSystemConfigApi } = await import('~/composables/useApi')
+    const systemConfigApi = useSystemConfigApi()
     
-    // 刷新系统配置状态，确保顶部导航同步更新
-    const { useSystemConfigStore } = await import('~/stores/systemConfig')
-    const systemConfigStore = useSystemConfigStore()
-    await systemConfigStore.initConfig(true, true) // 强制刷新，使用管理员API
-  } catch (error) {
-    console.error('保存开发配置失败:', error)
-    notification.error({
-      content: '保存开发配置失败',
-      duration: 3000
-    })
+    // 使用通用保存函数
+    const result = await saveConfigWithDetection(
+      systemConfigApi.updateSystemConfig,
+      {
+        onlyChanged: true,
+        includeAllFields: true
+      },
+      // 成功回调
+      async () => {
+        notification.success({
+          content: '开发配置保存成功',
+          duration: 3000
+        })
+        
+        // 刷新系统配置状态，确保顶部导航同步更新
+        const { useSystemConfigStore } = await import('~/stores/systemConfig')
+        const systemConfigStore = useSystemConfigStore()
+        await systemConfigStore.initConfig(true, true)
+      },
+      // 错误回调
+      (error) => {
+        console.error('保存开发配置失败:', error)
+        notification.error({
+          content: '保存开发配置失败',
+          duration: 3000
+        })
+      }
+    )
+    
+    // 如果没有改动，显示提示
+    if (result && result.message === '没有检测到任何改动') {
+      notification.info({
+        content: '没有检测到任何改动',
+        duration: 3000
+      })
+    }
   } finally {
     saving.value = false
   }

@@ -282,6 +282,7 @@ definePageMeta({
 
 
 import { useImageUrl } from '~/composables/useImageUrl'
+import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
 
 const notification = useNotification()
 const { getImageUrl } = useImageUrl()
@@ -304,8 +305,8 @@ const pagination = ref({
   pageSizes: [10, 20, 50, 100]
 })
 
-// 配置表单数据
-const configForm = ref<{
+// 配置表单数据类型
+interface SiteConfigForm {
   site_title: string
   site_description: string
   keywords: string
@@ -316,14 +317,43 @@ const configForm = ref<{
   forbidden_words: string
   enable_sitemap: boolean
   sitemap_update_frequency: string
-}>({
+}
+
+// 使用配置改动检测
+const {
+  setOriginalConfig,
+  updateCurrentConfig,
+  getChangedConfig,
+  hasChanges,
+  getChangedDetails,
+  updateOriginalConfig,
+  saveConfig: saveConfigWithDetection
+} = useConfigChangeDetection<SiteConfigForm>({
+  debug: true,
+  // 字段映射：前端字段名 -> 后端字段名
+  fieldMapping: {
+    site_title: 'site_title',
+    site_description: 'site_description',
+    keywords: 'keywords',
+    copyright: 'copyright',
+    site_logo: 'site_logo',
+    maintenance_mode: 'maintenance_mode',
+    enable_register: 'enable_register',
+    forbidden_words: 'forbidden_words',
+    enable_sitemap: 'enable_sitemap',
+    sitemap_update_frequency: 'sitemap_update_frequency'
+  }
+})
+
+// 配置表单数据
+const configForm = ref<SiteConfigForm>({
   site_title: '',
   site_description: '',
   keywords: '',
   copyright: '',
   site_logo: '',
   maintenance_mode: false,
-  enable_register: false, // 新增：开启注册开关
+  enable_register: false,
   forbidden_words: '',
   enable_sitemap: false,
   sitemap_update_frequency: 'daily'
@@ -353,18 +383,22 @@ const fetchConfig = async () => {
     const response = await systemConfigApi.getSystemConfig() as any
     
     if (response) {
-      configForm.value = {
+      const configData = {
         site_title: response.site_title || '',
         site_description: response.site_description || '',
         keywords: response.keywords || '',
         copyright: response.copyright || '',
         site_logo: response.site_logo || '',
         maintenance_mode: response.maintenance_mode || false,
-        enable_register: response.enable_register || false, // 新增：获取开启注册开关
+        enable_register: response.enable_register || false,
         forbidden_words: response.forbidden_words || '',
         enable_sitemap: response.enable_sitemap || false,
         sitemap_update_frequency: response.sitemap_update_frequency || 'daily'
       }
+      
+      // 设置表单数据和原始数据
+      configForm.value = { ...configData }
+      setOriginalConfig(configData)
     }
   } catch (error) {
     console.error('获取系统配置失败:', error)
@@ -375,43 +409,68 @@ const fetchConfig = async () => {
   }
 }
 
+
+
 // 保存配置
 const saveConfig = async () => {
   try {
     await formRef.value?.validate()
+    
     saving.value = true
     
-    const { useSystemConfigApi } = await import('~/composables/useApi')
-    const systemConfigApi = useSystemConfigApi()
-    
-    await systemConfigApi.updateSystemConfig({
+    // 更新当前配置数据
+    updateCurrentConfig({
       site_title: configForm.value.site_title,
       site_description: configForm.value.site_description,
       keywords: configForm.value.keywords,
       copyright: configForm.value.copyright,
       site_logo: configForm.value.site_logo,
       maintenance_mode: configForm.value.maintenance_mode,
-      enable_register: configForm.value.enable_register, // 新增：保存开启注册开关
+      enable_register: configForm.value.enable_register,
       forbidden_words: configForm.value.forbidden_words,
       enable_sitemap: configForm.value.enable_sitemap,
       sitemap_update_frequency: configForm.value.sitemap_update_frequency
     })
     
-    notification.success({
-      content: '站点配置保存成功',
-      duration: 3000
-    })
+    const { useSystemConfigApi } = await import('~/composables/useApi')
+    const systemConfigApi = useSystemConfigApi()
     
-    // 刷新系统配置状态，确保顶部导航同步更新
-    const { useSystemConfigStore } = await import('~/stores/systemConfig')
-    const systemConfigStore = useSystemConfigStore()
-    await systemConfigStore.initConfig(true, true) // 强制刷新，使用管理员API
-  } catch (error) {
-    console.error('保存站点配置失败:', error)
-    notification.error({
-      content: '保存站点配置失败',
-      duration: 3000
-    })
+    // 使用通用保存函数
+    const result = await saveConfigWithDetection(
+      systemConfigApi.updateSystemConfig,
+      {
+        onlyChanged: true,
+        includeAllFields: true
+      },
+      // 成功回调
+      async () => {
+        notification.success({
+          content: '站点配置保存成功',
+          duration: 3000
+        })
+        
+        // 刷新系统配置状态，确保顶部导航同步更新
+        const { useSystemConfigStore } = await import('~/stores/systemConfig')
+        const systemConfigStore = useSystemConfigStore()
+        await systemConfigStore.initConfig(true, true)
+      },
+      // 错误回调
+      (error) => {
+        console.error('保存站点配置失败:', error)
+        notification.error({
+          content: '保存站点配置失败',
+          duration: 3000
+        })
+      }
+    )
+    
+    // 如果没有改动，显示提示
+    if (result && result.message === '没有检测到任何改动') {
+      notification.info({
+        content: '没有检测到任何改动',
+        duration: 3000
+      })
+    }
   } finally {
     saving.value = false
   }

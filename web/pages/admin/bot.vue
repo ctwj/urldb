@@ -189,10 +189,32 @@
 </template>
 
 <script setup lang="ts">
+import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
+
 // 设置页面布局
 definePageMeta({
   layout: 'admin',
   ssr: false
+})
+
+// 定义配置表单类型
+interface BotConfigForm {
+  api_token: string
+}
+
+// 使用配置改动检测
+const {
+  setOriginalConfig,
+  updateCurrentConfig,
+  getChangedConfig,
+  hasChanges,
+  updateOriginalConfig,
+  saveConfig: saveConfigWithDetection
+} = useConfigChangeDetection<BotConfigForm>({
+  debug: true,
+  fieldMapping: {
+    api_token: 'api_token'
+  }
 })
 
 const notification = useNotification()
@@ -215,8 +237,13 @@ const fetchApiToken = async () => {
     const systemConfigApi = useSystemConfigApi()
     const response = await systemConfigApi.getSystemConfig()
     
-    if (response && (response as any).api_token) {
-      apiToken.value = (response as any).api_token
+    if (response) {
+      const configData = {
+        api_token: (response as any).api_token || ''
+      }
+      
+      apiToken.value = configData.api_token || '未配置API Token'
+      setOriginalConfig(configData)
     } else {
       apiToken.value = '未配置API Token'
     }

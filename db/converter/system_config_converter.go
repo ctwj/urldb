@@ -97,37 +97,100 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	}
 
 	var configs []entity.SystemConfig
+	var updatedKeys []string
 
-	// 字符串字段 - 处理所有字段，包括空值
-	// 对于广告相关字段，允许空值以便清空配置
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteTitle, Value: req.SiteTitle, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteDescription, Value: req.SiteDescription, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyKeywords, Value: req.Keywords, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAuthor, Value: req.Author, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyCopyright, Value: req.Copyright, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteLogo, Value: req.SiteLogo, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiToken, Value: req.ApiToken, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyForbiddenWords, Value: req.ForbiddenWords, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAdKeywords, Value: req.AdKeywords, Type: entity.ConfigTypeString})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoInsertAd, Value: req.AutoInsertAd, Type: entity.ConfigTypeString})
+	// 字符串字段 - 只处理被设置的字段
+	if req.SiteTitle != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteTitle, Value: *req.SiteTitle, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySiteTitle)
+	}
+	if req.SiteDescription != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteDescription, Value: *req.SiteDescription, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySiteDescription)
+	}
+	if req.Keywords != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyKeywords, Value: *req.Keywords, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyKeywords)
+	}
+	if req.Author != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAuthor, Value: *req.Author, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAuthor)
+	}
+	if req.Copyright != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyCopyright, Value: *req.Copyright, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyCopyright)
+	}
+	if req.SiteLogo != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySiteLogo, Value: *req.SiteLogo, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySiteLogo)
+	}
+	if req.ApiToken != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiToken, Value: *req.ApiToken, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyApiToken)
+	}
+	if req.ForbiddenWords != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyForbiddenWords, Value: *req.ForbiddenWords, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyForbiddenWords)
+	}
+	if req.AdKeywords != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAdKeywords, Value: *req.AdKeywords, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAdKeywords)
+	}
+	if req.AutoInsertAd != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoInsertAd, Value: *req.AutoInsertAd, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoInsertAd)
+	}
 
-	// 布尔值字段 - 只处理实际提交的字段
-	// 注意：由于 Go 的零值机制，我们需要通过其他方式判断字段是否被提交
-	// 这里暂时保持原样，但建议前端只提交有变化的字段
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessReadyResources, Value: strconv.FormatBool(req.AutoProcessReadyResources), Type: entity.ConfigTypeBool})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferEnabled, Value: strconv.FormatBool(req.AutoTransferEnabled), Type: entity.ConfigTypeBool})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: strconv.FormatBool(req.AutoFetchHotDramaEnabled), Type: entity.ConfigTypeBool})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMaintenanceMode, Value: strconv.FormatBool(req.MaintenanceMode), Type: entity.ConfigTypeBool})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyEnableRegister, Value: strconv.FormatBool(req.EnableRegister), Type: entity.ConfigTypeBool})
+	// 布尔值字段 - 只处理被设置的字段
+	if req.AutoProcessReadyResources != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessReadyResources, Value: strconv.FormatBool(*req.AutoProcessReadyResources), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoProcessReadyResources)
+	}
+	if req.AutoTransferEnabled != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferEnabled, Value: strconv.FormatBool(*req.AutoTransferEnabled), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoTransferEnabled)
+	}
+	if req.AutoFetchHotDramaEnabled != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: strconv.FormatBool(*req.AutoFetchHotDramaEnabled), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoFetchHotDramaEnabled)
+	}
+	if req.MaintenanceMode != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMaintenanceMode, Value: strconv.FormatBool(*req.MaintenanceMode), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyMaintenanceMode)
+	}
+	if req.EnableRegister != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyEnableRegister, Value: strconv.FormatBool(*req.EnableRegister), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyEnableRegister)
+	}
 
-	// 整数字段 - 添加所有提交的字段，包括0值
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessInterval, Value: strconv.Itoa(req.AutoProcessInterval), Type: entity.ConfigTypeInt})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferLimitDays, Value: strconv.Itoa(req.AutoTransferLimitDays), Type: entity.ConfigTypeInt})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferMinSpace, Value: strconv.Itoa(req.AutoTransferMinSpace), Type: entity.ConfigTypeInt})
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(req.PageSize), Type: entity.ConfigTypeInt})
+	// 整数字段 - 只处理被设置的字段
+	if req.AutoProcessInterval != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoProcessInterval, Value: strconv.Itoa(*req.AutoProcessInterval), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoProcessInterval)
+	}
+	if req.AutoTransferLimitDays != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferLimitDays, Value: strconv.Itoa(*req.AutoTransferLimitDays), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoTransferLimitDays)
+	}
+	if req.AutoTransferMinSpace != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferMinSpace, Value: strconv.Itoa(*req.AutoTransferMinSpace), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoTransferMinSpace)
+	}
+	if req.PageSize != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(*req.PageSize), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyPageSize)
+	}
 
-	// 三方统计配置
-	configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyThirdPartyStatsCode, Value: req.ThirdPartyStatsCode, Type: entity.ConfigTypeString})
+	// 三方统计配置 - 只处理被设置的字段
+	if req.ThirdPartyStatsCode != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyThirdPartyStatsCode, Value: *req.ThirdPartyStatsCode, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyThirdPartyStatsCode)
+	}
+
+	// 记录更新的配置项
+	if len(updatedKeys) > 0 {
+		utils.Info("配置更新 - 被修改的配置项: %v", updatedKeys)
+	}
 
 	return configs
 }

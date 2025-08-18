@@ -215,6 +215,7 @@ func main() {
 		// 系统配置路由
 		api.GET("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemConfig)
 		api.POST("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSystemConfig)
+		api.GET("/system/config/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetConfigStatus)
 		api.POST("/system/config/toggle-auto-process", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ToggleAutoProcess)
 		api.GET("/public/system-config", handlers.GetPublicSystemConfig)
 

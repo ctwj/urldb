@@ -320,10 +320,31 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
+import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
 
 // 页面配置
 definePageMeta({
   layout: 'admin'
+})
+
+// 定义配置表单类型
+interface ThirdPartyStatsForm {
+  third_party_stats_code: string
+}
+
+// 使用配置改动检测
+const {
+  setOriginalConfig,
+  updateCurrentConfig,
+  getChangedConfig,
+  hasChanges,
+  updateOriginalConfig,
+  saveConfig: saveConfigWithDetection
+} = useConfigChangeDetection<ThirdPartyStatsForm>({
+  debug: true,
+  fieldMapping: {
+    third_party_stats_code: 'third_party_stats_code'
+  }
 })
 
 // 状态管理
@@ -338,8 +359,13 @@ const fetchConfig = async () => {
     const systemConfigApi = useSystemConfigApi()
     const response = await systemConfigApi.getSystemConfig()
     
-    if (response && response.third_party_stats_code) {
-      statsCode.value = response.third_party_stats_code
+    if (response) {
+      const configData = {
+        third_party_stats_code: (response as any).third_party_stats_code || ''
+      }
+      
+      statsCode.value = configData.third_party_stats_code
+      setOriginalConfig(configData)
     }
   } catch (error) {
     console.error('获取配置失败:', error)
@@ -349,18 +375,39 @@ const fetchConfig = async () => {
 
 // 保存配置
 const saveCode = async () => {
-  saving.value = true
   try {
-    const { useSystemConfigApi } = await import('~/composables/useApi')
-    const systemConfigApi = useSystemConfigApi()
-    await systemConfigApi.updateSystemConfig({
+    saving.value = true
+    
+    // 更新当前配置
+    updateCurrentConfig({
       third_party_stats_code: statsCode.value
     })
     
-    message.success('配置保存成功')
-  } catch (error) {
-    console.error('保存配置失败:', error)
-    message.error('保存配置失败')
+    const { useSystemConfigApi } = await import('~/composables/useApi')
+    const systemConfigApi = useSystemConfigApi()
+    
+    // 使用通用保存函数
+    const result = await saveConfigWithDetection(
+      systemConfigApi.updateSystemConfig,
+      {
+        onlyChanged: true,
+        includeAllFields: true
+      },
+      // 成功回调
+      () => {
+        message.success('配置保存成功')
+      },
+      // 错误回调
+      (error) => {
+        console.error('保存配置失败:', error)
+        message.error('保存配置失败')
+      }
+    )
+    
+    // 如果没有改动，显示提示
+    if (result && result.message === '没有检测到任何改动') {
+      message.info('没有检测到任何改动')
+    }
   } finally {
     saving.value = false
   }

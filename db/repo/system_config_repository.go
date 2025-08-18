@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 
 	"gorm.io/gorm"
 )
@@ -21,6 +22,8 @@ type SystemConfigRepository interface {
 	GetConfigInt(key string) (int, error)
 	GetCachedConfigs() map[string]string
 	ClearConfigCache()
+	SafeRefreshConfigCache() error
+	ValidateConfigIntegrity() error
 }
 
 // SystemConfigRepositoryImpl 系统配置Repository实现
@@ -60,27 +63,39 @@ func (r *SystemConfigRepositoryImpl) FindByKey(key string) (*entity.SystemConfig
 
 // UpsertConfigs 批量创建或更新配置
 func (r *SystemConfigRepositoryImpl) UpsertConfigs(configs []entity.SystemConfig) error {
-	for _, config := range configs {
-		var existingConfig entity.SystemConfig
-		err := r.db.Where("key = ?", config.Key).First(&existingConfig).Error
+	// 使用事务确保数据一致性
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 在更新前备份当前配置
+		var existingConfigs []entity.SystemConfig
+		if err := tx.Find(&existingConfigs).Error; err != nil {
+			utils.Error("备份配置失败: %v", err)
+			// 不返回错误，继续执行更新
+		}
 
-		if err != nil {
-			// 如果不存在，则创建
-			if err := r.db.Create(&config).Error; err != nil {
-				return err
-			}
-		} else {
-			// 如果存在，则更新
-			config.ID = existingConfig.ID
-			if err := r.db.Save(&config).Error; err != nil {
-				return err
+		for _, config := range configs {
+			var existingConfig entity.SystemConfig
+			err := tx.Where("key = ?", config.Key).First(&existingConfig).Error
+
+			if err != nil {
+				// 如果不存在，则创建
+				if err := tx.Create(&config).Error; err != nil {
+					utils.Error("创建配置失败 [%s]: %v", config.Key, err)
+					return fmt.Errorf("创建配置失败 [%s]: %v", config.Key, err)
+				}
+			} else {
+				// 如果存在，则更新
+				config.ID = existingConfig.ID
+				if err := tx.Save(&config).Error; err != nil {
+					utils.Error("更新配置失败 [%s]: %v", config.Key, err)
+					return fmt.Errorf("更新配置失败 [%s]: %v", config.Key, err)
+				}
 			}
 		}
-	}
 
-	// 更新配置后刷新缓存
-	r.refreshConfigCache()
-	return nil
+		// 更新成功后刷新缓存
+		r.refreshConfigCache()
+		return nil
+	})
 }
 
 // GetOrCreateDefault 获取配置或创建默认配置
@@ -92,6 +107,7 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 
 	// 如果没有配置，创建默认配置
 	if len(configs) == 0 {
+		utils.Info("未找到任何配置，创建默认配置")
 		defaultConfigs := []entity.SystemConfig{
 			{Key: entity.ConfigKeySiteTitle, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeySiteDescription, Value: entity.ConfigDefaultSiteDescription, Type: entity.ConfigTypeString},
@@ -105,10 +121,10 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyAutoTransferMinSpace, Value: entity.ConfigDefaultAutoTransferMinSpace, Type: entity.ConfigTypeInt},
 			{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: entity.ConfigDefaultAutoFetchHotDramaEnabled, Type: entity.ConfigTypeBool},
 			{Key: entity.ConfigKeyApiToken, Value: entity.ConfigDefaultApiToken, Type: entity.ConfigTypeString},
-					{Key: entity.ConfigKeyPageSize, Value: entity.ConfigDefaultPageSize, Type: entity.ConfigTypeInt},
-		{Key: entity.ConfigKeyMaintenanceMode, Value: entity.ConfigDefaultMaintenanceMode, Type: entity.ConfigTypeBool},
-		{Key: entity.ConfigKeyEnableRegister, Value: entity.ConfigDefaultEnableRegister, Type: entity.ConfigTypeBool},
-		{Key: entity.ConfigKeyThirdPartyStatsCode, Value: entity.ConfigDefaultThirdPartyStatsCode, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyPageSize, Value: entity.ConfigDefaultPageSize, Type: entity.ConfigTypeInt},
+			{Key: entity.ConfigKeyMaintenanceMode, Value: entity.ConfigDefaultMaintenanceMode, Type: entity.ConfigTypeBool},
+			{Key: entity.ConfigKeyEnableRegister, Value: entity.ConfigDefaultEnableRegister, Type: entity.ConfigTypeBool},
+			{Key: entity.ConfigKeyThirdPartyStatsCode, Value: entity.ConfigDefaultThirdPartyStatsCode, Type: entity.ConfigTypeString},
 		}
 
 		err = r.UpsertConfigs(defaultConfigs)
@@ -206,6 +222,66 @@ func (r *SystemConfigRepositoryImpl) refreshConfigCache() {
 
 	// 重新初始化缓存
 	r.initConfigCache()
+}
+
+// SafeRefreshConfigCache 安全的刷新配置缓存（带错误处理）
+func (r *SystemConfigRepositoryImpl) SafeRefreshConfigCache() error {
+	defer func() {
+		if r := recover(); r != nil {
+			utils.Error("配置缓存刷新时发生panic: %v", r)
+		}
+	}()
+
+	r.refreshConfigCache()
+	return nil
+}
+
+// ValidateConfigIntegrity 验证配置完整性
+func (r *SystemConfigRepositoryImpl) ValidateConfigIntegrity() error {
+	configs, err := r.FindAll()
+	if err != nil {
+		return fmt.Errorf("获取配置失败: %v", err)
+	}
+
+	// 检查关键配置是否存在
+	requiredKeys := []string{
+		entity.ConfigKeySiteTitle,
+		entity.ConfigKeySiteDescription,
+		entity.ConfigKeyKeywords,
+		entity.ConfigKeyAuthor,
+		entity.ConfigKeyCopyright,
+		entity.ConfigKeyAutoProcessReadyResources,
+		entity.ConfigKeyAutoProcessInterval,
+		entity.ConfigKeyAutoTransferEnabled,
+		entity.ConfigKeyAutoTransferLimitDays,
+		entity.ConfigKeyAutoTransferMinSpace,
+		entity.ConfigKeyAutoFetchHotDramaEnabled,
+		entity.ConfigKeyApiToken,
+		entity.ConfigKeyPageSize,
+		entity.ConfigKeyMaintenanceMode,
+		entity.ConfigKeyEnableRegister,
+		entity.ConfigKeyThirdPartyStatsCode,
+	}
+
+	existingKeys := make(map[string]bool)
+	for _, config := range configs {
+		existingKeys[config.Key] = true
+	}
+
+	var missingKeys []string
+	for _, key := range requiredKeys {
+		if !existingKeys[key] {
+			missingKeys = append(missingKeys, key)
+		}
+	}
+
+	if len(missingKeys) > 0 {
+		utils.Error("发现缺失的配置项: %v", missingKeys)
+		return fmt.Errorf("配置不完整，缺失: %v", missingKeys)
+	}
+
+	utils.Info("配置完整性检查通过")
+	return nil
 }
 
 // GetConfigValue 获取配置值（字符串）
