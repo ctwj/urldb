@@ -51,6 +51,8 @@ func CreateCks(c *gin.Context) {
 		serviceType = panutils.BaiduPan
 	case "uc":
 		serviceType = panutils.UC
+	case "xunlei":
+		serviceType = panutils.Xunlei
 	default:
 		ErrorResponse(c, "不支持的平台类型", http.StatusBadRequest)
 		return

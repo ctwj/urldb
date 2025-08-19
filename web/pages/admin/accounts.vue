@@ -191,7 +191,7 @@
           平台类型 <span class="text-red-500">*</span>
         </label>
         <n-select v-model:value="form.pan_id" placeholder="请选择平台"
-          :options="platforms.filter(pan => pan.name === 'quark').map(pan => ({ label: pan.remark, value: pan.id }))"
+          :options="platforms.filter(pan => pan.name === 'quark' || pan.name === 'xunlei').map(pan => ({ label: pan.remark, value: pan.id }))"
           :disabled="showEditModal" required />
         <p v-if="showEditModal" class="mt-1 text-xs text-gray-500">编辑时不允许修改平台类型</p>
       </div>
@@ -201,11 +201,25 @@
         <n-input :value="editingCks.username" disabled readonly />
       </div>
 
-      <div>
+      <div v-if="isQuark">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Cookie <span class="text-red-500">*</span>
         </label>
         <n-input v-model:value="form.ck" type="textarea" placeholder="请输入Cookie内容，系统将自动识别容量" :rows="4" required />
+      </div>
+
+      <div v-if="isXunlei">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Authorization <span class="text-red-500">*</span>
+        </label>
+        <n-input v-model:value="form.ck" type="textarea" placeholder="请输入Authorization内容，带 Berear" :rows="4" required />
+      </div>
+
+      <div v-if="isXunlei">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Token <span class="text-red-500">*</span>
+        </label>
+        <n-input v-model:value="form.ck" type="textarea" placeholder="请输入" :rows="4" required />
       </div>
 
       <div>
@@ -239,6 +253,9 @@ definePageMeta({
   ssr: false
 })
 
+const isQuark = ref(false)
+const isXunlei = ref(false)
+
 const notification = useNotification()
 const router = useRouter()
 const userStore = useUserStore()
@@ -253,6 +270,21 @@ const form = ref({
   ck: '',
   is_valid: true,
   remark: ''
+})
+
+watch(() => form.value.pan_id, (newVal) => {
+  isQuark.value = false
+  isXunlei.value = false
+  const list = platforms.value.filter(it => it.id === newVal)
+  if (!list || list.length === 0) {
+    return
+  }
+  const pan = list[0]
+  if (pan.name === 'quark') {
+    isQuark.value = true
+  } else if (pan.name === 'xunlei') {
+    isXunlei.value = true
+  }
 })
 
 // 搜索和分页逻辑

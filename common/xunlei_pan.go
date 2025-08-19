@@ -32,7 +32,10 @@ var (
 )
 
 // 配置化 API Host
-func (x *XunleiPanService) apiHost() string {
+func (x *XunleiPanService) apiHost(apiType string) string {
+	if apiType == "user" {
+		return "https://xluser-ssl.xunlei.com"
+	}
 	return "https://api-pan.xunlei.com"
 }
 
@@ -50,8 +53,19 @@ func NewXunleiPanService(config *PanConfig) *XunleiPanService {
 		}
 		xunleiInstance.SetHeaders(map[string]string{
 			"Content-Type": "application/json",
-			"User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-			"Cookie":       config.Cookie,
+			// "access-control-allow-credentials": "true",
+			// "access-control-allow-methods":     "GET, POST, PUT, DELETE, OPTIONS",
+			// "access-control-allow-origin":      "https://pan.xunlei.com",
+			// "access-control-max-age":           "86400",
+			// "access-control-expose-headers": "Content-Type, Content-Length, Content-Encoding, X-Request-Id, X-Response-Time",
+			// "access-control-allow-headers":  "Authorization, Content-Type,Accept, X-Project-Id, X-Device-Id, X-Request-Id, X-Captcha-Token, X-Client-Id, x-sdk-version, x-client-version, x-device-name, x-device-model, x-captcha-token, x-net-work-type, x-os-version, x-protocol-version, x-platform-version, x-provider-name, x-client-channel-id, x-appname, x-appid, x-device-sign, x-auto-login, x-peer-id, x-action",
+			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+			// "X-Client-Id":                      "Xqp0kJBXWhwaTpB6",
+			// "X-Device-Id":                      "c24ecadc44c643637d127fb847dbe36d",
+			// "X-Device-Sign":                    "wdi10.c24ecadc44c643637d127fb847dbe36d74ee67f56a443148fc801eb27bb3e058",
+			// "x-sdk-version":                    "5.2.4",
+			// "x-protocol-version":               "301",
+			"Authorization": config.Cookie,
 		})
 	})
 	xunleiInstance.UpdateConfig(config)
@@ -170,7 +184,7 @@ func (x *XunleiPanService) waitForTask(taskID string) (*XLTaskResult, error) {
 
 // getTaskStatus 获取任务状态
 func (x *XunleiPanService) getTaskStatus(taskID string, retryIndex int) (*XLTaskResult, error) {
-	apiURL := x.apiHost() + "/drive/v1/task"
+	apiURL := x.apiHost("") + "/drive/v1/task"
 	params := url.Values{}
 	params.Set("task_id", taskID)
 	params.Set("retry_index", fmt.Sprintf("%d", retryIndex))
@@ -268,12 +282,10 @@ func (x *XunleiPanService) GetUserInfo(cookie string) (*UserInfo, error) {
 	log.Printf("开始获取迅雷网盘用户信息")
 
 	// 临时设置cookie
-	originalCookie := x.GetHeader("Cookie")
-	x.SetHeader("Cookie", cookie)
-	defer x.SetHeader("Cookie", originalCookie) // 恢复原始cookie
+	x.SetHeader("Authorization", cookie)
 
 	// 获取用户信息
-	apiURL := x.apiHost() + "/drive/v1/user/info"
+	apiURL := x.apiHost("user") + "/v1/user/me"
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %v", err)
@@ -291,36 +303,37 @@ func (x *XunleiPanService) GetUserInfo(cookie string) (*UserInfo, error) {
 	}
 
 	var response struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-		Data struct {
-			Username   string `json:"username"`
-			VIPStatus  bool   `json:"vip_status"`
-			UsedSpace  int64  `json:"used_space"`
-			TotalSpace int64  `json:"total_space"`
-		} `json:"data"`
+		Username string `json:"name"`
 	}
 
 	if err := json.Unmarshal(result, &response); err != nil {
 		return nil, fmt.Errorf("解析用户信息失败: %v", err)
 	}
 
-	if response.Code != 0 {
-		return nil, fmt.Errorf("获取用户信息失败: %s", response.Msg)
+	aboutURL := x.apiHost("") + "/drive/v1/about"
+	req, err = http.NewRequest("GET", aboutURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %v", err)
+	}
+	resp, err = client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败: %v", err)
+	}
+	defer resp.Body.Close()
+	result, _ = ioutil.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(result))
 	}
 
 	return &UserInfo{
-		Username:    response.Data.Username,
-		VIPStatus:   response.Data.VIPStatus,
-		UsedSpace:   response.Data.UsedSpace,
-		TotalSpace:  response.Data.TotalSpace,
+		Username:    response.Username,
 		ServiceType: "xunlei",
 	}, nil
 }
 
 // GetShareList 严格对齐 GET + query（xunleix实现）
 func (x *XunleiPanService) GetShareList(pageToken string) (*XLShareListResp, error) {
-	api := x.apiHost() + "/drive/v1/share/list"
+	api := x.apiHost("") + "/drive/v1/share/list"
 	params := url.Values{}
 	params.Set("limit", "100")
 	params.Set("thumbnail_size", "SIZE_SMALL")
@@ -353,7 +366,7 @@ func (x *XunleiPanService) GetShareList(pageToken string) (*XLShareListResp, err
 
 // FileBatchShare 创建分享（POST, body）
 func (x *XunleiPanService) FileBatchShare(ids []string, needPassword bool, expirationDays int) (*XLBatchShareResp, error) {
-	apiURL := x.apiHost() + "/drive/v1/share/batch"
+	apiURL := x.apiHost("") + "/drive/v1/share/batch"
 	body := map[string]interface{}{
 		"file_ids":        ids,
 		"need_password":   needPassword,
@@ -384,7 +397,7 @@ func (x *XunleiPanService) FileBatchShare(ids []string, needPassword bool, expir
 
 // ShareBatchDelete 取消分享（POST, body）
 func (x *XunleiPanService) ShareBatchDelete(ids []string) (*XLCommonResp, error) {
-	apiURL := x.apiHost() + "/drive/v1/share/batch/delete"
+	apiURL := x.apiHost("") + "/drive/v1/share/batch/delete"
 	body := map[string]interface{}{
 		"share_ids": ids,
 	}
@@ -413,7 +426,7 @@ func (x *XunleiPanService) ShareBatchDelete(ids []string) (*XLCommonResp, error)
 
 // GetShareFolder 获取分享内容（POST, body）
 func (x *XunleiPanService) GetShareFolder(shareID, passCodeToken, parentID string) (*XLShareFolderResp, error) {
-	apiURL := x.apiHost() + "/drive/v1/share/detail"
+	apiURL := x.apiHost("") + "/drive/v1/share/detail"
 	body := map[string]interface{}{
 		"share_id":        shareID,
 		"pass_code_token": passCodeToken,
@@ -447,7 +460,7 @@ func (x *XunleiPanService) GetShareFolder(shareID, passCodeToken, parentID strin
 
 // Restore 转存（POST, body）
 func (x *XunleiPanService) Restore(shareID, passCodeToken string, fileIDs []string) (*XLRestoreResp, error) {
-	apiURL := x.apiHost() + "/drive/v1/share/restore"
+	apiURL := x.apiHost("") + "/drive/v1/share/restore"
 	body := map[string]interface{}{
 		"share_id":          shareID,
 		"pass_code_token":   passCodeToken,
