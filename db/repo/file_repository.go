@@ -104,7 +104,7 @@ func (r *FileRepositoryImpl) SearchFiles(search string, fileType, status string,
 	// 添加搜索条件
 	if search != "" {
 		query = query.Where("original_name LIKE ?", "%"+search+"%")
-		utils.Info("添加搜索条件: original_name LIKE '%%%s%%'", search)
+		utils.Info("添加搜索条件: file_name LIKE '%%%s%%'", search)
 	}
 
 	if fileType != "" {

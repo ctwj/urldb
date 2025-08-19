@@ -146,8 +146,8 @@ export const adminNewNavigationItems = [
     key: 'system-config',
     label: '系统配置',
     icon: 'fas fa-cog',
-    to: '/admin/system-config',
-    active: (route: any) => route.path.startsWith('/admin/system-config'),
+    to: '/admin/site-config',
+    active: (route: any) => route.path.startsWith('/admin/site-config'),
     group: 'system'
   },
   {

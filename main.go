@@ -244,7 +244,7 @@ func main() {
 
 		// 文件上传相关路由
 		api.POST("/files/upload", middleware.AuthMiddleware(), fileHandler.UploadFile)
-		api.GET("/files", fileHandler.GetFileList)
+		api.GET("/files", middleware.AuthMiddleware(), fileHandler.GetFileList)
 		api.DELETE("/files", middleware.AuthMiddleware(), fileHandler.DeleteFiles)
 		api.PUT("/files", middleware.AuthMiddleware(), fileHandler.UpdateFile)
 	}

@@ -246,33 +246,23 @@ func (h *FileHandler) GetFileList(c *gin.Context) {
 	utils.Info("文件列表请求参数: page=%d, pageSize=%d, search='%s', fileType='%s', status='%s', userID=%d",
 		req.Page, req.PageSize, req.Search, req.FileType, req.Status, req.UserID)
 
-	// 获取当前用户ID和角色
-	userIDInterface, exists := c.Get("user_id")
-	roleInterface, _ := c.Get("role")
+	// 获取当前用户ID和角色（现在总是有认证）
+	userID := c.GetUint("user_id")
+	role := c.GetString("role")
 
-	var userID uint
-	var role string
-	if exists {
-		userID = userIDInterface.(uint)
-	}
-	if roleInterface != nil {
-		role = roleInterface.(string)
-	}
+	utils.Info("GetFileList - 用户ID: %d, 角色: %s", userID, role)
 
 	// 根据用户角色决定查询范围
 	var files []entity.File
 	var total int64
 	var err error
 
-	if exists && role == "admin" {
+	if role == "admin" {
 		// 管理员可以查看所有文件
 		files, total, err = h.fileRepo.SearchFiles(req.Search, req.FileType, req.Status, req.UserID, req.Page, req.PageSize)
-	} else if userID > 0 {
+	} else {
 		// 普通用户只能查看自己的文件
 		files, total, err = h.fileRepo.SearchFiles(req.Search, req.FileType, req.Status, userID, req.Page, req.PageSize)
-	} else {
-		// 未登录用户只能查看公开文件
-		files, total, err = h.fileRepo.FindPublicFiles(req.Page, req.PageSize)
 	}
 
 	if err != nil {

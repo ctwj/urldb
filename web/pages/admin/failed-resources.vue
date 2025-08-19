@@ -51,12 +51,12 @@
            clearable
          />
          
-         <n-button type="primary" @click="handleSearch">
-           <template #icon>
-             <i class="fas fa-search"></i>
-           </template>
-           搜索
-         </n-button>
+                 <n-button type="primary" @click="handleSearch" class="w-full md:w-auto md:min-w-[100px]">
+          <template #icon>
+            <i class="fas fa-search"></i>
+          </template>
+          搜索
+        </n-button>
        </div>
      </n-card>
 

@@ -24,17 +24,17 @@
 
     <!-- 搜索和筛选 -->
     <n-card>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <n-input v-model:value="searchQuery" placeholder="搜索账号..." clearable>
+      <div class="flex flex-col md:flex-row gap-4">
+        <n-input v-model:value="searchQuery" placeholder="搜索账号..." clearable class="flex-1">
           <template #prefix>
             <i class="fas fa-search"></i>
           </template>
         </n-input>
 
         <n-select v-model:value="platform" placeholder="选择平台" :options="platformOptions" clearable
-          @update:value="onPlatformChange" />
+          @update:value="onPlatformChange" class="w-full md:w-48" />
 
-        <n-button type="primary" @click="handleSearch">
+        <n-button type="primary" @click="handleSearch" class="w-full md:w-auto md:min-w-[100px]">
           <template #icon>
             <i class="fas fa-search"></i>
           </template>
