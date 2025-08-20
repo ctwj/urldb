@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -18,6 +19,18 @@ import (
 )
 
 func main() {
+	// 检查命令行参数
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		versionInfo := utils.GetVersionInfo()
+		fmt.Printf("版本: v%s\n", versionInfo.Version)
+		fmt.Printf("构建时间: %s\n", versionInfo.BuildTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Git提交: %s\n", versionInfo.GitCommit)
+		fmt.Printf("Git分支: %s\n", versionInfo.GitBranch)
+		fmt.Printf("Go版本: %s\n", versionInfo.GoVersion)
+		fmt.Printf("平台: %s/%s\n", versionInfo.Platform, versionInfo.Arch)
+		return
+	}
+
 	// 初始化日志系统
 	if err := utils.InitLogger(nil); err != nil {
 		log.Fatal("初始化日志系统失败:", err)
