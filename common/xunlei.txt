@@ -1,0 +1,444 @@
+POST /v1/shield/captcha/init HTTP/1.1
+Host: xluser-ssl.xunlei.com
+Connection: close
+Content-Length: 502
+sec-ch-ua-platform: "macOS"
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+x-device-name: PC-Chrome
+sec-ch-ua-mobile: ?0
+x-device-model: chrome%2F139.0.0.0
+x-provider-name: NONE
+x-platform-version: 1
+content-type: application/json
+x-client-id: XW5SkOhLDjnOZP7J
+x-protocol-version: 301
+x-net-work-type: NONE
+x-os-version: MacIntel
+x-device-sign: wdi10.c24ecadc44c643637d127fb847dbe36d74ee67f56a443148fc801eb27bb3e058
+accept-language: zh-cn
+x-sdk-version: 8.1.4
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+x-client-version: 1.1.6
+DNT: 1
+Accept: */*
+Origin: https://i.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://i.xunlei.com/
+Accept-Encoding: gzip, deflate
+
+{"client_id":"XW5SkOhLDjnOZP7J","action":"POST:/v1/auth/verification","device_id":"c24ecadc44c643637d127fb847dbe36d","captcha_token":"ck0.iomdNE7hSgjR_6Q8bb4T0diVDSUD2Q2XRAdXr3xiVyvgSks1GLMw88pwxSSiTMiPcJojvVGxjKk58tg0iFMLPVOIi1qdstLeWtIJfgk2C2FtyNtl-XveEYFy_gyW4qUVYkeEPoDScctqSBNjDKvCIpLuCh3p6dKXFpiMAMBcY8USOYzutMt0oO_L-a-YisQGG9x6yN2Iik3fPAu4_IbfhdBctqha10OajDCPBaRqjdZtBuFifxq9qMpSUiZWuP6FiZ8hxj66_mrgY-yW90lCYT6JerSal78OYByU8DWh6UnfUzRgrhsqQukgeZv9YEtE","meta":{"phone_number":"+86 18163659661"}}
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 13:50:28 GMT
+Content-Type: application/json; charset=utf-8
+Connection: close
+Vary: Accept-Encoding
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: Authorization, Content-Type, Accept, X-Project-Id, X-Device-Id, X-Request-Id, X-Captcha-Token, X-Client-Id, X-Sdk-Version, X-Client-Version, X-Action, X-Auto-Login, X-Device-Name, X-Device-Model, X-Net-Work-Type, X-Os-Version, X-Protocol-Version, X-Platform-Version, X-Provider-Name, X-Device-Sign, X-Client-Channel-Id, X-Peer-Id
+Access-Control-Allow-Methods: POST, GET, PUT, DELETE, PATCH, OPTIONS
+Access-Control-Allow-Origin: https://i.xunlei.com
+Access-Control-Max-Age: 86400
+Strict-Transport-Security: max-age=5184000; includeSubDomains
+Vary: Origin, Accept-Encoding
+X-Content-Type-Options: nosniff
+X-Dns-Prefetch-Control: off
+X-Download-Options: noopen
+X-Frame-Options: DENY
+X-Request-Id: 421c1f2621e9acd295973c3df960ce37
+X-Xss-Protection: 1; mode=block
+Content-Length: 340
+
+{"captcha_token":"ck0.yiuSDIIJNBkSmuz9aViGbFVX39L7wcxw6GjlMB7xBDTx7trq1EvQFLQzfzSCrDdicNDrda35Pt6lps-mUFzKehxZo3g_Xmw93R7UpImXB-9zsFVeaNGrQ1V0J0TJ4TbTpKJ6UIEr3agYs29g5DAZmuHxgIg1GjFq53GzGv6sh-eshFYA9tViXoTGo0OjmwdTvFnsPaQhgn0Ubn6Io8LDQpnKOAw74L5zKxxzowd7kSZqpJeeDuFxAeIGOHnl0FGtL6S4e5Cswa-xixQZLq_ufT7rxiJW4bM4ndgsC6jFFxY","expires_in":300}
+
+
+===================
+
+POST /v1/auth/verification HTTP/1.1
+Host: xluser-ssl.xunlei.com
+Connection: close
+Content-Length: 98
+sec-ch-ua-platform: "macOS"
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+x-device-name: PC-Chrome
+sec-ch-ua-mobile: ?0
+x-device-model: chrome%2F139.0.0.0
+x-provider-name: NONE
+x-platform-version: 1
+content-type: application/json
+x-client-id: XW5SkOhLDjnOZP7J
+x-protocol-version: 301
+x-net-work-type: NONE
+x-os-version: MacIntel
+x-device-sign: wdi10.c24ecadc44c643637d127fb847dbe36d74ee67f56a443148fc801eb27bb3e058
+accept-language: zh-cn
+x-sdk-version: 8.1.4
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+x-captcha-token: ck0.yiuSDIIJNBkSmuz9aViGbFVX39L7wcxw6GjlMB7xBDTx7trq1EvQFLQzfzSCrDdicNDrda35Pt6lps-mUFzKehxZo3g_Xmw93R7UpImXB-9zsFVeaNGrQ1V0J0TJ4TbTpKJ6UIEr3agYs29g5DAZmuHxgIg1GjFq53GzGv6sh-eshFYA9tViXoTGo0OjmwdTvFnsPaQhgn0Ubn6Io8LDQpnKOAw74L5zKxxzowd7kSZqpJeeDuFxAeIGOHnl0FGtL6S4e5Cswa-xixQZLq_ufT7rxiJW4bM4ndgsC6jFFxY
+x-client-version: 1.1.6
+DNT: 1
+Accept: */*
+Origin: https://i.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://i.xunlei.com/
+Accept-Encoding: gzip, deflate
+
+{"phone_number":"+86 18163659661","target":"ANY","usage":"SIGN_IN","client_id":"XW5SkOhLDjnOZP7J"}
+
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 13:50:28 GMT
+Content-Type: application/json
+Connection: close
+Vary: Accept-Encoding
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: Authorization, Content-Type,Accept, X-Project-Id, X-Device-Id, X-Request-Id, X-Captcha-Token, X-Client-Id, x-sdk-version, x-client-version, x-device-name, x-device-model, x-captcha-token, x-net-work-type, x-os-version, x-protocol-version, x-platform-version, x-provider-name, x-client-channel-id, x-appname, x-appid, x-device-sign, x-auto-login, x-peer-id, x-action
+Access-Control-Allow-Methods: POST, GET, PUT, DELETE, PATCH, OPTIONS
+Access-Control-Allow-Origin: https://i.xunlei.com
+Access-Control-Max-Age: 86400
+Vary: Origin, Accept-Encoding
+Vary: Accept-Encoding
+Content-Length: 691
+
+{"verification_id":"eyJhbGciOiJSUzI1NiIsImtpZCI6ImRhMjNiMGFiLTc5NjAtNDQzNS1hMmY1LWNmMGMzMjAxNWE0NiJ9.eyJhdWQiOiJYVzVTa09oTERqbk9aUDdKIiwiZXhwIjoxNzU1Njk4MTI4LCJwIjoiKzg2IDE4MTYzNjU5NjYxIiwicHJvamVjdF9pZCI6IjJydms0ZTNna2RubDd1MWtsMGsiLCJ0IjoiYUtYU3BHTnljSFFGelYtVTVicFQifQ.JN2i0feZedA4VDrCZzMDc0MEnVSe6j6jhB11RsSvt9qiByge5lCsYuMGz-RwxMiU_FEnUxYHSzPJu82sskU4a66k8AOXBqCyhLy3TlSq1KkUXl7uylGRxf99AZfJhZs0Rgm_H---rWIxx8x4DJdrQxWp5hcUCmSGL95p47xJGQDayNhb4Y-eOup9DYik6KOAzHtGl8NRzeE-k-XCXiGMRc-sv2mILPpWWinVhSExR2fHhDcjNtsPJgSguEv7Kqevg029fXSQ-uZAh9WmPkW5rHnb-e7buXMrSOGtKdV7AVarRRWWa039M7L8rrYmq33dv5IX_BvGUk7elAaMmWXrxw", "is_user":true, "expires_in":300, "selected_channel":"VERIFICATION_PHONE"}
+
+=======================
+
+POST /v1/auth/verification/verify HTTP/1.1
+Host: xluser-ssl.xunlei.com
+Connection: close
+Content-Length: 676
+sec-ch-ua-platform: "macOS"
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+x-device-name: PC-Chrome
+sec-ch-ua-mobile: ?0
+x-device-model: chrome%2F139.0.0.0
+x-provider-name: NONE
+x-platform-version: 1
+content-type: application/json
+x-client-id: XW5SkOhLDjnOZP7J
+x-protocol-version: 301
+x-net-work-type: NONE
+x-os-version: MacIntel
+x-device-sign: wdi10.c24ecadc44c643637d127fb847dbe36d74ee67f56a443148fc801eb27bb3e058
+accept-language: zh-cn
+x-sdk-version: 8.1.4
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+x-client-version: 1.1.6
+DNT: 1
+Accept: */*
+Origin: https://i.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://i.xunlei.com/
+Accept-Encoding: gzip, deflate
+
+{"verification_id":"eyJhbGciOiJSUzI1NiIsImtpZCI6ImRhMjNiMGFiLTc5NjAtNDQzNS1hMmY1LWNmMGMzMjAxNWE0NiJ9.eyJhdWQiOiJYVzVTa09oTERqbk9aUDdKIiwiZXhwIjoxNzU1Njk4MTI4LCJwIjoiKzg2IDE4MTYzNjU5NjYxIiwicHJvamVjdF9pZCI6IjJydms0ZTNna2RubDd1MWtsMGsiLCJ0IjoiYUtYU3BHTnljSFFGelYtVTVicFQifQ.JN2i0feZedA4VDrCZzMDc0MEnVSe6j6jhB11RsSvt9qiByge5lCsYuMGz-RwxMiU_FEnUxYHSzPJu82sskU4a66k8AOXBqCyhLy3TlSq1KkUXl7uylGRxf99AZfJhZs0Rgm_H---rWIxx8x4DJdrQxWp5hcUCmSGL95p47xJGQDayNhb4Y-eOup9DYik6KOAzHtGl8NRzeE-k-XCXiGMRc-sv2mILPpWWinVhSExR2fHhDcjNtsPJgSguEv7Kqevg029fXSQ-uZAh9WmPkW5rHnb-e7buXMrSOGtKdV7AVarRRWWa039M7L8rrYmq33dv5IX_BvGUk7elAaMmWXrxw","verification_code":"454882","client_id":"XW5SkOhLDjnOZP7J"}
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 13:50:46 GMT
+Content-Type: application/json
+Connection: close
+Vary: Accept-Encoding
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: Authorization, Content-Type,Accept, X-Project-Id, X-Device-Id, X-Request-Id, X-Captcha-Token, X-Client-Id, x-sdk-version, x-client-version, x-device-name, x-device-model, x-captcha-token, x-net-work-type, x-os-version, x-protocol-version, x-platform-version, x-provider-name, x-client-channel-id, x-appname, x-appid, x-device-sign, x-auto-login, x-peer-id, x-action
+Access-Control-Allow-Methods: POST, GET, PUT, DELETE, PATCH, OPTIONS
+Access-Control-Allow-Origin: https://i.xunlei.com
+Access-Control-Max-Age: 86400
+Vary: Origin, Accept-Encoding
+Vary: Accept-Encoding
+Content-Length: 706
+
+{"verification_token":"eyJhbGciOiJSUzI1NiIsImtpZCI6ImRhMjNiMGFiLTc5NjAtNDQzNS1hMmY1LWNmMGMzMjAxNWE0NiJ9.eyJhdWQiOiJYVzVTa09oTERqbk9aUDdKIiwiZXhwIjoxNzU1Njk4NDQ2LCJpc3MiOiJodHRwczovL2FwaXMueGJhc2UuY2xvdWQiLCJwaG9uZV9udW1iZXIiOiIrODYgMTgxNjM2NTk2NjEiLCJwcm9qZWN0X2lkIjoiMnJ2azRlM2drZG5sN3Uxa2wwayIsInJlc3VsdCI6IjAiLCJ0eXBlIjoidmVyaWZpY2F0aW9uIn0.EGyqiswEF72e_OiiL0sLhZRkZpCbnd-atG4zCAXTIkaoWQ5Gpuceg1lyXGDT-HNo-BtmtqjZBXgJveO8j1q12w2l1iloaYvarVDmIgEzH-Iq-LN5BHcUYJCLZKIhd0sU1SpoU7U3Hjv837TACJ9L2PS3g9evtqyXNv-E6_9U0xwTj_0BCKbil3qyOtlp-W24RY2yOkUPN4uKLlQAUpIcujDsKRjTsZvIzoED7RZutHsdwg4qhy5VaquP9hc62z6HSAwhtTlp4cwXEMpkev3PfjDzAbE1h935UqVgm3NmaylCAcICRB5VwfLwe8qLAT_N7-gFXMwdaqJPrDoOkWZZpg", "expires_in":600}
+
+====================================
+
+
+POST /v1/auth/signin HTTP/1.1
+Host: xluser-ssl.xunlei.com
+Connection: close
+Content-Length: 777
+sec-ch-ua-platform: "macOS"
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+x-device-name: PC-Chrome
+sec-ch-ua-mobile: ?0
+x-device-model: chrome%2F139.0.0.0
+x-provider-name: NONE
+x-platform-version: 1
+content-type: application/json
+x-client-id: XW5SkOhLDjnOZP7J
+x-protocol-version: 301
+x-net-work-type: NONE
+x-os-version: MacIntel
+x-device-sign: wdi10.c24ecadc44c643637d127fb847dbe36d74ee67f56a443148fc801eb27bb3e058
+accept-language: zh-cn
+x-sdk-version: 8.1.4
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+x-captcha-token: ck0.yiuSDIIJNBkSmuz9aViGbFVX39L7wcxw6GjlMB7xBDTx7trq1EvQFLQzfzSCrDdicNDrda35Pt6lps-mUFzKehxZo3g_Xmw93R7UpImXB-9zsFVeaNGrQ1V0J0TJ4TbTpKJ6UIEr3agYs29g5DAZmuHxgIg1GjFq53GzGv6sh-eshFYA9tViXoTGo0OjmwdTvFnsPaQhgn0Ubn6Io8LDQpnKOAw74L5zKxxzowd7kSZqpJeeDuFxAeIGOHnl0FGtL6S4e5Cswa-xixQZLq_ufT7rxiJW4bM4ndgsC6jFFxY
+x-client-version: 1.1.6
+DNT: 1
+Accept: */*
+Origin: https://i.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://i.xunlei.com/
+Accept-Encoding: gzip, deflate
+
+{"username":"+86 18163659661","verification_code":"454882","verification_token":"eyJhbGciOiJSUzI1NiIsImtpZCI6ImRhMjNiMGFiLTc5NjAtNDQzNS1hMmY1LWNmMGMzMjAxNWE0NiJ9.eyJhdWQiOiJYVzVTa09oTERqbk9aUDdKIiwiZXhwIjoxNzU1Njk4NDQ2LCJpc3MiOiJodHRwczovL2FwaXMueGJhc2UuY2xvdWQiLCJwaG9uZV9udW1iZXIiOiIrODYgMTgxNjM2NTk2NjEiLCJwcm9qZWN0X2lkIjoiMnJ2azRlM2drZG5sN3Uxa2wwayIsInJlc3VsdCI6IjAiLCJ0eXBlIjoidmVyaWZpY2F0aW9uIn0.EGyqiswEF72e_OiiL0sLhZRkZpCbnd-atG4zCAXTIkaoWQ5Gpuceg1lyXGDT-HNo-BtmtqjZBXgJveO8j1q12w2l1iloaYvarVDmIgEzH-Iq-LN5BHcUYJCLZKIhd0sU1SpoU7U3Hjv837TACJ9L2PS3g9evtqyXNv-E6_9U0xwTj_0BCKbil3qyOtlp-W24RY2yOkUPN4uKLlQAUpIcujDsKRjTsZvIzoED7RZutHsdwg4qhy5VaquP9hc62z6HSAwhtTlp4cwXEMpkev3PfjDzAbE1h935UqVgm3NmaylCAcICRB5VwfLwe8qLAT_N7-gFXMwdaqJPrDoOkWZZpg","client_id":"XW5SkOhLDjnOZP7J"}
+
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 13:50:47 GMT
+Content-Type: application/json
+Connection: close
+Vary: Accept-Encoding
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: Authorization, Content-Type,Accept, X-Project-Id, X-Device-Id, X-Request-Id, X-Captcha-Token, X-Client-Id, x-sdk-version, x-client-version, x-device-name, x-device-model, x-captcha-token, x-net-work-type, x-os-version, x-protocol-version, x-platform-version, x-provider-name, x-client-channel-id, x-appname, x-appid, x-device-sign, x-auto-login, x-peer-id, x-action
+Access-Control-Allow-Methods: POST, GET, PUT, DELETE, PATCH, OPTIONS
+Access-Control-Allow-Origin: https://i.xunlei.com
+Access-Control-Max-Age: 86400
+Vary: Origin, Accept-Encoding
+Vary: Accept-Encoding
+Content-Length: 983
+
+{"token_type":"Bearer", "access_token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjAzZjlmMzYxLWI3MjktNDVjNi04MjI0LTNiNWEwNmJmOGU0NSJ9.eyJpc3MiOiJodHRwczovL3hsdXNlci1zc2wueHVubGVpLmNvbSIsInN1YiI6IjEyMTk2MzY5NTIiLCJhdWQiOiJYVzVTa09oTERqbk9aUDdKIiwiZXhwIjoxNzU1NzA1MDQ3LCJpYXQiOjE3NTU2OTc4NDcsImF0X2hhc2giOiJyLnJLZG5uWDNNRWZDZloyWTBNdlJYRnciLCJzY29wZSI6InVzZXIgcGFuIHByb2ZpbGUgb2ZmbGluZSIsInByb2plY3RfaWQiOiIycnZrNGUzZ2tkbmw3dTFrbDBrIiwibWV0YSI6eyJhIjoiR3hkMjNQK0VreGFXWVJ3K1FwdUtyRTZmb3kwRGh2aE5UMmhSbnd2S3F5VT0ifX0.s6mbN3Imr2WKDexAMXW7C5FoqPF4_eS0oPFyHTe-DbcmvTuC1KcRcDlCjt92An8A2wluvD4t1BbHSGv_1U8CFcE_VGtWJoy3yPoscfyGLQCbz38UY-q9r94s8ABtYTe4fZLOHRB20uc71aB87rGDe0IyzafkimgSbrETZiS4v95VvuZbP_YTwAdcAuiRRgMb1YWvAkkBEWTlvRVUFryCZVP0oecanpeDrXxUxV_SqAtI-ix-mCw5N1g91B88tkg7FtJfGTS5LA8KTXBIiAq73-jPzZ0padssq4uFVEiKXGOAO9rKtsI7gBxsQpW9do_bh0g2JYVz7Op5OLvMrGwJTw", "refresh_token":"a1.TK4L3Xi38Gil0rcGFvQx777bbE7luNneIpEPbPOFLF1pxmSu62Yr", "expires_in":7200, "sub":"1219636952", "user_id":"1219636952"}
+
+
+
+======================
+
+
+
+GET /v1/user/me HTTP/1.1
+Host: xluser-ssl.xunlei.com
+Connection: close
+sec-ch-ua-platform: "macOS"
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjAzZjlmMzYxLWI3MjktNDVjNi04MjI0LTNiNWEwNmJmOGU0NSJ9.eyJpc3MiOiJodHRwczovL3hsdXNlci1zc2wueHVubGVpLmNvbSIsInN1YiI6IjEyMTk2MzY5NTIiLCJhdWQiOiJYVzVTa09oTERqbk9aUDdKIiwiZXhwIjoxNzU1NzA1MDQ3LCJpYXQiOjE3NTU2OTc4NDcsImF0X2hhc2giOiJyLnJLZG5uWDNNRWZDZloyWTBNdlJYRnciLCJzY29wZSI6InVzZXIgcGFuIHByb2ZpbGUgb2ZmbGluZSIsInByb2plY3RfaWQiOiIycnZrNGUzZ2tkbmw3dTFrbDBrIiwibWV0YSI6eyJhIjoiR3hkMjNQK0VreGFXWVJ3K1FwdUtyRTZmb3kwRGh2aE5UMmhSbnd2S3F5VT0ifX0.s6mbN3Imr2WKDexAMXW7C5FoqPF4_eS0oPFyHTe-DbcmvTuC1KcRcDlCjt92An8A2wluvD4t1BbHSGv_1U8CFcE_VGtWJoy3yPoscfyGLQCbz38UY-q9r94s8ABtYTe4fZLOHRB20uc71aB87rGDe0IyzafkimgSbrETZiS4v95VvuZbP_YTwAdcAuiRRgMb1YWvAkkBEWTlvRVUFryCZVP0oecanpeDrXxUxV_SqAtI-ix-mCw5N1g91B88tkg7FtJfGTS5LA8KTXBIiAq73-jPzZ0padssq4uFVEiKXGOAO9rKtsI7gBxsQpW9do_bh0g2JYVz7Op5OLvMrGwJTw
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+x-device-name: PC-Chrome
+sec-ch-ua-mobile: ?0
+x-device-model: chrome%2F139.0.0.0
+x-provider-name: NONE
+x-platform-version: 1
+content-type: application/json
+x-client-id: XW5SkOhLDjnOZP7J
+x-protocol-version: 301
+x-net-work-type: NONE
+x-os-version: MacIntel
+x-device-sign: wdi10.c24ecadc44c643637d127fb847dbe36d74ee67f56a443148fc801eb27bb3e058
+accept-language: zh-cn
+x-sdk-version: 8.1.4
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+x-client-version: 1.1.6
+DNT: 1
+Accept: */*
+Origin: https://i.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://i.xunlei.com/
+Accept-Encoding: gzip, deflate
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 13:50:47 GMT
+Content-Type: application/json
+Content-Length: 1954
+Connection: close
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: Authorization, Content-Type,Accept, X-Project-Id, X-Device-Id, X-Request-Id, X-Captcha-Token, X-Client-Id, x-sdk-version, x-client-version, x-device-name, x-device-model, x-captcha-token, x-net-work-type, x-os-version, x-protocol-version, x-platform-version, x-provider-name, x-client-channel-id, x-appname, x-appid, x-device-sign, x-auto-login, x-peer-id, x-action
+Access-Control-Allow-Methods: POST, GET, PUT, DELETE, PATCH, OPTIONS
+Access-Control-Allow-Origin: https://i.xunlei.com
+Access-Control-Max-Age: 86400
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Vary: Origin, Accept-Encoding
+Vary: Accept-Encoding
+
+{"sub":"1219636952", "name":"王维ด้้้้้็็", "picture":"https://xfile2.a.88cdn.com/file/k/avatar/default", "phone_number":"+86 181***661", "providers":[{"id":"u", "provider_user_id":"2327081043"}, {"id":"qq.com", "provider_user_id":"UID_AC1EE453B67AF1B266C5CA0B4FB99A49"}], "status":"ACTIVE", "created_at":"2025-07-09T09:34:56Z", "password_updated_at":"2025-07-09T09:34:56Z", "id":"1219636952", "vips":[{"id":"vip15_0_0_2_15_0"}], "vip_info":[{"register":"19700101", "autodeduct":"0", "daily":"-10", "expire":"0", "grow":"0", "is_vip":"0", "last_pay":"0", "level":"0", "pay_id":"0", "remind":"0", "is_year":"0", "user_vas":"2", "vas_type":"0", "vip_icon":{"general":"https://xluser-ssl.xunlei.com/v1/file/icon/level/svip/deactivate_a/svip_level1_deactivate.png", "small":"https://xluser-ssl.xunlei.com/v1/file/icon/level/svip/deactivate_b/svip_level1_deactivate-1.png"}}, {"register":"0", "autodeduct":"0", "daily":"0", "expire":"0", "grow":"0", "is_vip":"0", "last_pay":"0", "level":"0", "pay_id":"0", "remind":"0", "is_year":"0", "user_vas":"15", "vas_type":"2", "vip_icon":{}}, {"register":"19700101", "autodeduct":"0", "daily":"0", "expire":"0", "grow":"0", "is_vip":"0", "last_pay":"0", "level":"0", "pay_id":"0", "remind":"0", "is_year":"0", "user_vas":"33", "vas_type":"0", "vip_icon":{}}, {"register":"19700101", "autodeduct":"0", "daily":"0", "expire":"0", "grow":"0", "is_vip":"0", "last_pay":"0", "level":"0", "pay_id":"0", "remind":"0", "is_year":"0", "user_vas":"303", "vas_type":"0", "vip_icon":{}}, {"register":"19700101", "autodeduct":"0", "daily":"0", "expire":"0", "grow":"0", "is_vip":"0", "last_pay":"0", "level":"0", "pay_id":"0", "remind":"0", "is_year":"0", "user_vas":"306", "vas_type":"0", "vip_icon":{"general":"https://xluser-ssl.xunlei.com/v1/file/icon/level/svip/snnual_deactivate/im_ypvip_deactivate.png", "small":"https://xluser-ssl.xunlei.com/v1/file/icon/level/svip/normal_b/im_ypvip_pure_normal.png"}}]}
+
+
+===========================
+
+
+
+POST /v1/auth/token HTTP/1.1
+Host: xluser-ssl.xunlei.com
+Connection: close
+Content-Length: 427
+sec-ch-ua-platform: "macOS"
+x-device-sign: wdi10.c24ecadc44c643637d127fb847dbe36d74ee67f56a443148fc801eb27bb3e058
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+x-sdk-version: 3.4.20
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+sec-ch-ua-mobile: ?0
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+DNT: 1
+content-type: application/json
+x-client-id: Xqp0kJBXWhwaTpB6
+x-protocol-version: 301
+Accept: */*
+Origin: https://pan.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://pan.xunlei.com/
+Accept-Encoding: gzip, deflate
+Accept-Language: zh-CN,zh;q=0.9,ko-KR;q=0.8,ko;q=0.7
+
+{"code":"a1.oGotq0yXVGil0zJF5BS1YPllaP2RT3SbqOTaGs7SjmtE7VIPc9LcpaFchdkrjN3xTGPlXo7Q7SlEu6oNg_aW76tbjo6524JMW5vS_Ga8jHFTGuhiLXiJ3UP6qBx0C79hRFS_zFLuzIzCwQtkGF8Eksuyeg3G42jxWPLrzQBswiz3oqU8Ssusbw","grant_type":"authorization_code","code_verifier":"NnmDL5IumVBn9i8TOU15QrhBvbb995tv","redirect_uri":"https://pan.xunlei.com/login/?path=%2F%E6%88%91%E7%9A%84%E8%BD%AC%E5%AD%98&sso_sign_in_in_iframe=","client_id":"Xqp0kJBXWhwaTpB6"}
+
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 13:50:51 GMT
+Content-Type: application/json
+Connection: close
+Vary: Accept-Encoding
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: Authorization, Content-Type,Accept, X-Project-Id, X-Device-Id, X-Request-Id, X-Captcha-Token, X-Client-Id, x-sdk-version, x-client-version, x-device-name, x-device-model, x-captcha-token, x-net-work-type, x-os-version, x-protocol-version, x-platform-version, x-provider-name, x-client-channel-id, x-appname, x-appid, x-device-sign, x-auto-login, x-peer-id, x-action
+Access-Control-Allow-Methods: POST, GET, PUT, DELETE, PATCH, OPTIONS
+Access-Control-Allow-Origin: https://pan.xunlei.com
+Access-Control-Max-Age: 86400
+Vary: Origin, Accept-Encoding
+Vary: Accept-Encoding
+Content-Length: 975
+
+{"token_type":"Bearer", "access_token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjAzZjlmMzYxLWI3MjktNDVjNi04MjI0LTNiNWEwNmJmOGU0NSJ9.eyJpc3MiOiJodHRwczovL3hsdXNlci1zc2wueHVubGVpLmNvbSIsInN1YiI6IjEyMTk2MzY5NTIiLCJhdWQiOiJYcXAwa0pCWFdod2FUcEI2IiwiZXhwIjoxNzU1NzQxMDUxLCJpYXQiOjE3NTU2OTc4NTEsImF0X2hhc2giOiJyLmN0UWtJMUNmU1NpNkt2RFVUa0xidHciLCJzY29wZSI6InByb2ZpbGUgcGFuIHNzbyB1c2VyIiwicHJvamVjdF9pZCI6IjJydms0ZTNna2RubDd1MWtsMGsiLCJtZXRhIjp7ImEiOiJHOHNKVlJ6RjUzOE51eDRLOCt0VUtUR1hqdlZOTUczZlNrUEVaUWZLSWRBPSJ9fQ.ktWdGaShnGuU9CFj_awHaHfAoH0gkVBvdf4A24WPkRn-MUSpGRtUuo30VZay-wTbJ2UBEmw0pNtAeAfB97qzpPtVigDf9vD2WE9jIz61dASPxi6JIvioUfRzbgWa_Qj8a0bHc1Zvfufu9cSIzm0PPE7rSHYyq5oNfFxAAaY5k9cp2I4DclZon7hHJ0439knsu8MQEwQY42bRWppKqaI5q66Zlzeoc0t2I0Ehs2XYIyVyG2EYmFlbIWrpahudUTz6PbcrDMoHf8Y1hPnJn5ij7D32YSLXeP7ighQZDqaFoJHXJxqcHYToKut4JfQHCROkbqSwq3_I75k_A36gYtxVdA", "refresh_token":"a1.wve0uF2TK2il0rsGZhkUjjZRACg1R12R9OUdpmPbat2kKwtM", "expires_in":43200, "sub":"1219636952", "user_id":"1219636952"}
+
+
+==============================
+
+GET /drive/v1/share?share_id=VOY4fDN-35yNfnqBJ3lSXfK4A1&pass_code=t84g&limit=100&pass_code_token=GdrGFHvaZTbIUKxOiJKyrWZpcdGoHysJZBa5iv7N8mmsNElcU%2F3M8%2BJkp1NO0cMKlIN%2F0QHZ%2FpmCTyNmiGIs4g%3D%3D&page_token=&thumbnail_size=SIZE_SMALL HTTP/1.1
+Host: api-pan.xunlei.com
+Connection: close
+sec-ch-ua-platform: "macOS"
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjAzZjlmMzYxLWI3MjktNDVjNi04MjI0LTNiNWEwNmJmOGU0NSJ9.eyJpc3MiOiJodHRwczovL3hsdXNlci1zc2wueHVubGVpLmNvbSIsInN1YiI6IjEyMTk2MzY5NTIiLCJhdWQiOiJYcXAwa0pCWFdod2FUcEI2IiwiZXhwIjoxNzU1NzQxMDUxLCJpYXQiOjE3NTU2OTc4NTEsImF0X2hhc2giOiJyLmN0UWtJMUNmU1NpNkt2RFVUa0xidHciLCJzY29wZSI6InByb2ZpbGUgcGFuIHNzbyB1c2VyIiwicHJvamVjdF9pZCI6IjJydms0ZTNna2RubDd1MWtsMGsiLCJtZXRhIjp7ImEiOiJHOHNKVlJ6RjUzOE51eDRLOCt0VUtUR1hqdlZOTUczZlNrUEVaUWZLSWRBPSJ9fQ.ktWdGaShnGuU9CFj_awHaHfAoH0gkVBvdf4A24WPkRn-MUSpGRtUuo30VZay-wTbJ2UBEmw0pNtAeAfB97qzpPtVigDf9vD2WE9jIz61dASPxi6JIvioUfRzbgWa_Qj8a0bHc1Zvfufu9cSIzm0PPE7rSHYyq5oNfFxAAaY5k9cp2I4DclZon7hHJ0439knsu8MQEwQY42bRWppKqaI5q66Zlzeoc0t2I0Ehs2XYIyVyG2EYmFlbIWrpahudUTz6PbcrDMoHf8Y1hPnJn5ij7D32YSLXeP7ighQZDqaFoJHXJxqcHYToKut4JfQHCROkbqSwq3_I75k_A36gYtxVdA
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+sec-ch-ua-mobile: ?0
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+x-captcha-token: ck0.heh7e1aWMkJ3z0Lz7aFmAWoI0-wDx6Os2o8d_ZF5nJEO_jk11h3FtCwOQG68zkXSaXe4T-dz5NSeT6xuqsy0RoNY5xzgT9J5b6WRAMeTsCqmb_DbntFifcvedEWK92zeFSGoNThN8MjawUXYsG8Y7C1mpVf4ftkLzjrToROm-ZJzUN18VIVur8F0U7SLKnaom-S63QLDXGcR3Qat0OVjoScqSZ9ESKOKAvd9GZ3ZRbKExXEpp16Rc_t3YHG3HFIJFsjQbn6OTsVyV4Ku1OXqJV-8iM8XVawlOxhBKrk8GtIok-UUI4CFXNjFWlrSHkQzN3GbEVPiDJaD7qoATZNUecCJig_oSWZsYKYLWiFgg2QEEzqI21C67LKygm8o1YXEQCVi2v-aMyojBnJwS3I9RsFqhU4u3ChszjyVFnQOMpCtXdLLmn2fGBYrsZP_dNcZlhZYw3yxEImvLsQ5s_5mzQ.ClMI9dP3v4wzEhBYcXAwa0pCWFdod2FUcEI2GgYxLjkyLjciDnBhbi54dW5sZWkuY29tKiBjMjRlY2FkYzQ0YzY0MzYzN2QxMjdmYjg0N2RiZTM2ZBKAAWU_LJemk9r1ThQlFBr75NH03TjR0K-PMY2-QIsEcET8mqJo4uN7iyjGfFeZmcxczsjMBbBpO_3XeYR3Wdgatr2yqImozJKh8Ek3j1718cLVywaQ79z8j_Lj85J1-JfLYPkfUW1q8uBi4Tjz8vs3uSSuOtO5Fy-OF6NyGoYtvxJF
+DNT: 1
+content-type: application/json
+x-client-id: Xqp0kJBXWhwaTpB6
+Accept: */*
+Origin: https://pan.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://pan.xunlei.com/
+Accept-Encoding: gzip, deflate
+Accept-Language: zh-CN,zh;q=0.9,ko-KR;q=0.8,ko;q=0.7
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 15:00:15 GMT
+Content-Type: application/json
+Content-Length: 1912
+Connection: close
+Grpc-Metadata-Content-Type: application/grpc
+Access-Control-Allow-Origin: https://pan.xunlei.com
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: PUT, POST, GET, DELETE, OPTIONS, PATCH
+Access-Control-Allow-Headers: DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization,csrf-token,X-Captcha-Token,X-Device-Id,X-Guid,X-Project-Id,X-Client-Id,X-Peer-Id,X-User-Id,X-Request-From,X-Client-Version-Code,space-authorization
+Access-Control-Expose-Headers: csrf-token
+
+{"share_status":"OK","share_status_text":"","file_num":"1","expiration_left":"-1","expiration_left_seconds":"-1","expiration_at":"-1","restore_count_left":"-1","files":[{"kind":"drive#folder","id":"VOY4UMZhqz1ZHO8_WNwF6V5JA1","parent_id":"VOMiZQDpN_rzJ8WNgSSCMExcA1","name":"金子般我的明星 금쪽같은 내스타 (2025)","user_id":"924119402","size":"0","revision":"5","file_extension":"","mime_type":"","starred":false,"web_content_link":"","created_time":"2025-08-20T11:19:51.349+08:00","modified_time":"2025-08-20T11:25:36.083+08:00","icon_link":"https://backstage-img-ssl.a.88cdn.com/019fc2a136a2881181e73fea74a4836efc02195d","thumbnail_link":"","md5_checksum":"","hash":"","links":{},"phase":"PHASE_TYPE_COMPLETE","audit":{"status":"STATUS_OK","message":"正常资源","title":""},"medias":[],"trashed":false,"delete_time":"","original_url":"","params":{"file_property_count":"2","file_property_size":"2345590740","platform_icon":"https://backstage-img-ssl.a.88cdn.com/05e4f2d4a751f1895746a15da2d391105418a66d","tags":"NEW"},"original_file_index":0,"space":"","apps":[],"writable":true,"folder_type":"NORMAL","collection":null,"sort_name":"金子般我的明星 금쪽같은 내스타 (0000002025)","user_modified_time":"2025-08-20T11:25:35.939+08:00","spell_name":[],"file_category":"OTHER","tags":[],"reference_events":[],"reference_resource":null}],"user_info":{"user_id":"924119402","portrait_url":"https://xfile2.a.88cdn.com/file/k/avatar/default","nickname":"什么都不知道","avatar":"https://xfile2.a.88cdn.com/file/k/avatar/default"},"next_page_token":"","pass_code_token":"GdrGFHvaZTbIUKxOiJKyrWZpcdGoHysJZBa5iv7N8mmsNElcU/3M8+Jkp1NO0cMKlIN/0QHZ/pmCTyNmiGIs4g==","title":"金子般我的明星 금쪽같은 내스타 (2025)","icon_link":"https://backstage-img-ssl.a.88cdn.com/019fc2a136a2881181e73fea74a4836efc02195d","thumbnail_link":"","contain_sensitive_resource_text":"","params":{}}
+
+=========================
+
+
+POST /drive/v1/share/restore HTTP/1.1
+Host: api-pan.xunlei.com
+Connection: close
+Content-Length: 250
+sec-ch-ua-platform: "macOS"
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjAzZjlmMzYxLWI3MjktNDVjNi04MjI0LTNiNWEwNmJmOGU0NSJ9.eyJpc3MiOiJodHRwczovL3hsdXNlci1zc2wueHVubGVpLmNvbSIsInN1YiI6IjEyMTk2MzY5NTIiLCJhdWQiOiJYcXAwa0pCWFdod2FUcEI2IiwiZXhwIjoxNzU1NzQxMDUxLCJpYXQiOjE3NTU2OTc4NTEsImF0X2hhc2giOiJyLmN0UWtJMUNmU1NpNkt2RFVUa0xidHciLCJzY29wZSI6InByb2ZpbGUgcGFuIHNzbyB1c2VyIiwicHJvamVjdF9pZCI6IjJydms0ZTNna2RubDd1MWtsMGsiLCJtZXRhIjp7ImEiOiJHOHNKVlJ6RjUzOE51eDRLOCt0VUtUR1hqdlZOTUczZlNrUEVaUWZLSWRBPSJ9fQ.ktWdGaShnGuU9CFj_awHaHfAoH0gkVBvdf4A24WPkRn-MUSpGRtUuo30VZay-wTbJ2UBEmw0pNtAeAfB97qzpPtVigDf9vD2WE9jIz61dASPxi6JIvioUfRzbgWa_Qj8a0bHc1Zvfufu9cSIzm0PPE7rSHYyq5oNfFxAAaY5k9cp2I4DclZon7hHJ0439knsu8MQEwQY42bRWppKqaI5q66Zlzeoc0t2I0Ehs2XYIyVyG2EYmFlbIWrpahudUTz6PbcrDMoHf8Y1hPnJn5ij7D32YSLXeP7ighQZDqaFoJHXJxqcHYToKut4JfQHCROkbqSwq3_I75k_A36gYtxVdA
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+sec-ch-ua-mobile: ?0
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+x-captcha-token: ck0.heh7e1aWMkJ3z0Lz7aFmAWoI0-wDx6Os2o8d_ZF5nJEO_jk11h3FtCwOQG68zkXSaXe4T-dz5NSeT6xuqsy0RoNY5xzgT9J5b6WRAMeTsCqmb_DbntFifcvedEWK92zeFSGoNThN8MjawUXYsG8Y7C1mpVf4ftkLzjrToROm-ZJzUN18VIVur8F0U7SLKnaom-S63QLDXGcR3Qat0OVjoScqSZ9ESKOKAvd9GZ3ZRbKExXEpp16Rc_t3YHG3HFIJFsjQbn6OTsVyV4Ku1OXqJV-8iM8XVawlOxhBKrk8GtIok-UUI4CFXNjFWlrSHkQzN3GbEVPiDJaD7qoATZNUecCJig_oSWZsYKYLWiFgg2QEEzqI21C67LKygm8o1YXEQCVi2v-aMyojBnJwS3I9RsFqhU4u3ChszjyVFnQOMpCtXdLLmn2fGBYrsZP_dNcZlhZYw3yxEImvLsQ5s_5mzQ.ClMI9dP3v4wzEhBYcXAwa0pCWFdod2FUcEI2GgYxLjkyLjciDnBhbi54dW5sZWkuY29tKiBjMjRlY2FkYzQ0YzY0MzYzN2QxMjdmYjg0N2RiZTM2ZBKAAWU_LJemk9r1ThQlFBr75NH03TjR0K-PMY2-QIsEcET8mqJo4uN7iyjGfFeZmcxczsjMBbBpO_3XeYR3Wdgatr2yqImozJKh8Ek3j1718cLVywaQ79z8j_Lj85J1-JfLYPkfUW1q8uBi4Tjz8vs3uSSuOtO5Fy-OF6NyGoYtvxJF
+DNT: 1
+content-type: application/json
+x-client-id: Xqp0kJBXWhwaTpB6
+Accept: */*
+Origin: https://pan.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://pan.xunlei.com/
+Accept-Encoding: gzip, deflate
+Accept-Language: zh-CN,zh;q=0.9,ko-KR;q=0.8,ko;q=0.7
+
+{"parent_id":"","share_id":"VOY4fDN-35yNfnqBJ3lSXfK4A1","pass_code_token":"GdrGFHvaZTbIUKxOiJKyrWZpcdGoHysJZBa5iv7N8mmsNElcU/3M8+Jkp1NO0cMKlIN/0QHZ/pmCTyNmiGIs4g==","ancestor_ids":[],"file_ids":["VOY4UMZhqz1ZHO8_WNwF6V5JA1"],"specify_parent_id":true}
+
+
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 15:02:59 GMT
+Content-Type: application/json
+Content-Length: 149
+Connection: close
+Grpc-Metadata-Content-Type: application/grpc
+Access-Control-Allow-Origin: https://pan.xunlei.com
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: PUT, POST, GET, DELETE, OPTIONS, PATCH
+Access-Control-Allow-Headers: DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization,csrf-token,X-Captcha-Token,X-Device-Id,X-Guid,X-Project-Id,X-Client-Id,X-Peer-Id,X-User-Id,X-Request-From,X-Client-Version-Code,space-authorization
+Access-Control-Expose-Headers: csrf-token
+
+{"share_status":"OK","share_status_text":"","file_id":"","restore_status":"RESTORE_START","restore_task_id":"VOY7-IPZkcoBobh3Az0dfyxRA1","params":{}}
+
+==================
+
+
+
+GET /drive/v1/tasks/VOY7-IPZkcoBobh3Az0dfyxRA1 HTTP/1.1
+Host: api-pan.xunlei.com
+Connection: close
+sec-ch-ua-platform: "macOS"
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjAzZjlmMzYxLWI3MjktNDVjNi04MjI0LTNiNWEwNmJmOGU0NSJ9.eyJpc3MiOiJodHRwczovL3hsdXNlci1zc2wueHVubGVpLmNvbSIsInN1YiI6IjEyMTk2MzY5NTIiLCJhdWQiOiJYcXAwa0pCWFdod2FUcEI2IiwiZXhwIjoxNzU1NzQxMDUxLCJpYXQiOjE3NTU2OTc4NTEsImF0X2hhc2giOiJyLmN0UWtJMUNmU1NpNkt2RFVUa0xidHciLCJzY29wZSI6InByb2ZpbGUgcGFuIHNzbyB1c2VyIiwicHJvamVjdF9pZCI6IjJydms0ZTNna2RubDd1MWtsMGsiLCJtZXRhIjp7ImEiOiJHOHNKVlJ6RjUzOE51eDRLOCt0VUtUR1hqdlZOTUczZlNrUEVaUWZLSWRBPSJ9fQ.ktWdGaShnGuU9CFj_awHaHfAoH0gkVBvdf4A24WPkRn-MUSpGRtUuo30VZay-wTbJ2UBEmw0pNtAeAfB97qzpPtVigDf9vD2WE9jIz61dASPxi6JIvioUfRzbgWa_Qj8a0bHc1Zvfufu9cSIzm0PPE7rSHYyq5oNfFxAAaY5k9cp2I4DclZon7hHJ0439knsu8MQEwQY42bRWppKqaI5q66Zlzeoc0t2I0Ehs2XYIyVyG2EYmFlbIWrpahudUTz6PbcrDMoHf8Y1hPnJn5ij7D32YSLXeP7ighQZDqaFoJHXJxqcHYToKut4JfQHCROkbqSwq3_I75k_A36gYtxVdA
+x-device-id: c24ecadc44c643637d127fb847dbe36d
+sec-ch-ua: "Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"
+sec-ch-ua-mobile: ?0
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36
+x-captcha-token: ck0.heh7e1aWMkJ3z0Lz7aFmAWoI0-wDx6Os2o8d_ZF5nJEO_jk11h3FtCwOQG68zkXSaXe4T-dz5NSeT6xuqsy0RoNY5xzgT9J5b6WRAMeTsCqmb_DbntFifcvedEWK92zeFSGoNThN8MjawUXYsG8Y7C1mpVf4ftkLzjrToROm-ZJzUN18VIVur8F0U7SLKnaom-S63QLDXGcR3Qat0OVjoScqSZ9ESKOKAvd9GZ3ZRbKExXEpp16Rc_t3YHG3HFIJFsjQbn6OTsVyV4Ku1OXqJV-8iM8XVawlOxhBKrk8GtIok-UUI4CFXNjFWlrSHkQzN3GbEVPiDJaD7qoATZNUecCJig_oSWZsYKYLWiFgg2QEEzqI21C67LKygm8o1YXEQCVi2v-aMyojBnJwS3I9RsFqhU4u3ChszjyVFnQOMpCtXdLLmn2fGBYrsZP_dNcZlhZYw3yxEImvLsQ5s_5mzQ.ClMI9dP3v4wzEhBYcXAwa0pCWFdod2FUcEI2GgYxLjkyLjciDnBhbi54dW5sZWkuY29tKiBjMjRlY2FkYzQ0YzY0MzYzN2QxMjdmYjg0N2RiZTM2ZBKAAWU_LJemk9r1ThQlFBr75NH03TjR0K-PMY2-QIsEcET8mqJo4uN7iyjGfFeZmcxczsjMBbBpO_3XeYR3Wdgatr2yqImozJKh8Ek3j1718cLVywaQ79z8j_Lj85J1-JfLYPkfUW1q8uBi4Tjz8vs3uSSuOtO5Fy-OF6NyGoYtvxJF
+DNT: 1
+content-type: application/json
+x-client-id: Xqp0kJBXWhwaTpB6
+Accept: */*
+Origin: https://pan.xunlei.com
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://pan.xunlei.com/
+Accept-Encoding: gzip, deflate
+Accept-Language: zh-CN,zh;q=0.9,ko-KR;q=0.8,ko;q=0.7
+
+
+
+
+HTTP/1.1 200 OK
+Date: Wed, 20 Aug 2025 15:03:01 GMT
+Content-Type: application/json
+Content-Length: 745
+Connection: close
+Grpc-Metadata-Content-Type: application/grpc
+Access-Control-Allow-Origin: https://pan.xunlei.com
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: PUT, POST, GET, DELETE, OPTIONS, PATCH
+Access-Control-Allow-Headers: DNT,X-Mx-ReqToken,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization,csrf-token,X-Captcha-Token,X-Device-Id,X-Guid,X-Project-Id,X-Client-Id,X-Peer-Id,X-User-Id,X-Request-From,X-Client-Version-Code,space-authorization
+Access-Control-Expose-Headers: csrf-token
+
+{"kind":"drive#task","id":"VOY7-IPZkcoBobh3Az0dfyxRA1","name":"restore","type":"restore","user_id":"1219636952","statuses":[],"status_size":0,"params":{"notify_restore_reward":"VOY7-IcLzcXgdt9SPIA0Naa-A1","notify_restore_skin":"VOY7-Ic2zcXgdt9SPIA0Na_kA1","share_id":"VOY4fDN-35yNfnqBJ3lSXfK4A1","trace_file_ids":"{\"VOY4UMZhqz1ZHO8_WNwF6V5JA1\":\"VOY7-IXUzcXgdt9SPIA0NaWuA1\"}"},"file_id":"","file_name":"","file_size":"0","message":"完成","created_time":"2025-08-20T23:02:59.492+08:00","updated_time":"2025-08-20T23:03:00.376+08:00","third_task_id":"","phase":"PHASE_TYPE_COMPLETE","progress":100,"icon_link":"https://backstage-img-ssl.a.88cdn.com/05e4f2d4a751f1895746a15da2d391105418a66d","callback":"","reference_resource":null,"space":""}
+
+
+
+================================
