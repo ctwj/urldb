@@ -34,6 +34,14 @@ type ResourceRepository interface {
 	GetByURL(url string) (*entity.Resource, error)
 	UpdateSaveURL(id uint, saveURL string) error
 	CreateResourceTag(resourceTag *entity.ResourceTag) error
+	FindByIDs(ids []uint) ([]entity.Resource, error)
+	FindUnsyncedToMeilisearch(page, limit int) ([]entity.Resource, int64, error)
+	FindSyncedToMeilisearch(page, limit int) ([]entity.Resource, int64, error)
+	CountUnsyncedToMeilisearch() (int64, error)
+	CountSyncedToMeilisearch() (int64, error)
+	MarkAsSyncedToMeilisearch(ids []uint) error
+	MarkAllAsUnsyncedToMeilisearch() error
+	FindAllWithPagination(page, limit int) ([]entity.Resource, int64, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -461,19 +469,144 @@ func (r *ResourceRepositoryImpl) GetResourcesForTransfer(panID uint, sinceTime t
 // GetByURL 根据URL获取资源
 func (r *ResourceRepositoryImpl) GetByURL(url string) (*entity.Resource, error) {
 	var resource entity.Resource
-	err := r.GetDB().Where("url = ?", url).First(&resource).Error
+	err := r.db.Where("url = ?", url).First(&resource).Error
 	if err != nil {
 		return nil, err
 	}
 	return &resource, nil
 }
 
-// UpdateSaveURL 更新资源的转存链接
+// FindByIDs 根据ID列表查找资源
+func (r *ResourceRepositoryImpl) FindByIDs(ids []uint) ([]entity.Resource, error) {
+	if len(ids) == 0 {
+		return []entity.Resource{}, nil
+	}
+
+	var resources []entity.Resource
+	err := r.db.Where("id IN ?", ids).Preload("Category").Preload("Pan").Preload("Tags").Find(&resources).Error
+	return resources, err
+}
+
+// UpdateSaveURL 更新保存URL
 func (r *ResourceRepositoryImpl) UpdateSaveURL(id uint, saveURL string) error {
-	return r.GetDB().Model(&entity.Resource{}).Where("id = ?", id).Update("save_url", saveURL).Error
+	return r.db.Model(&entity.Resource{}).Where("id = ?", id).Update("save_url", saveURL).Error
 }
 
 // CreateResourceTag 创建资源与标签的关联
 func (r *ResourceRepositoryImpl) CreateResourceTag(resourceTag *entity.ResourceTag) error {
-	return r.GetDB().Create(resourceTag).Error
+	return r.db.Create(resourceTag).Error
+}
+
+// FindUnsyncedToMeilisearch 查找未同步到Meilisearch的资源
+func (r *ResourceRepositoryImpl) FindUnsyncedToMeilisearch(page, limit int) ([]entity.Resource, int64, error) {
+	var resources []entity.Resource
+	var total int64
+
+	offset := (page - 1) * limit
+
+	// 查询未同步的资源
+	db := r.db.Model(&entity.Resource{}).
+		Where("synced_to_meilisearch = ?", false).
+		Preload("Category").
+		Preload("Pan").
+		Order("updated_at DESC")
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据
+	err := db.Offset(offset).Limit(limit).Find(&resources).Error
+	return resources, total, err
+}
+
+// CountUnsyncedToMeilisearch 统计未同步到Meilisearch的资源数量
+func (r *ResourceRepositoryImpl) CountUnsyncedToMeilisearch() (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Resource{}).
+		Where("synced_to_meilisearch = ?", false).
+		Count(&count).Error
+	return count, err
+}
+
+// MarkAsSyncedToMeilisearch 标记资源为已同步到Meilisearch
+func (r *ResourceRepositoryImpl) MarkAsSyncedToMeilisearch(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	return r.db.Model(&entity.Resource{}).
+		Where("id IN ?", ids).
+		Updates(map[string]interface{}{
+			"synced_to_meilisearch": true,
+			"synced_at":             now,
+		}).Error
+}
+
+// MarkAllAsUnsyncedToMeilisearch 标记所有资源为未同步到Meilisearch
+func (r *ResourceRepositoryImpl) MarkAllAsUnsyncedToMeilisearch() error {
+	return r.db.Model(&entity.Resource{}).
+		Where("1 = 1"). // 添加WHERE条件以更新所有记录
+		Updates(map[string]interface{}{
+			"synced_to_meilisearch": false,
+			"synced_at":             nil,
+		}).Error
+}
+
+// FindSyncedToMeilisearch 查找已同步到Meilisearch的资源
+func (r *ResourceRepositoryImpl) FindSyncedToMeilisearch(page, limit int) ([]entity.Resource, int64, error) {
+	var resources []entity.Resource
+	var total int64
+
+	offset := (page - 1) * limit
+
+	// 查询已同步的资源
+	db := r.db.Model(&entity.Resource{}).
+		Where("synced_to_meilisearch = ?", true).
+		Preload("Category").
+		Preload("Pan").
+		Order("updated_at DESC")
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据
+	err := db.Offset(offset).Limit(limit).Find(&resources).Error
+	return resources, total, err
+}
+
+// CountSyncedToMeilisearch 统计已同步到Meilisearch的资源数量
+func (r *ResourceRepositoryImpl) CountSyncedToMeilisearch() (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Resource{}).
+		Where("synced_to_meilisearch = ?", true).
+		Count(&count).Error
+	return count, err
+}
+
+// FindAllWithPagination 分页查找所有资源
+func (r *ResourceRepositoryImpl) FindAllWithPagination(page, limit int) ([]entity.Resource, int64, error) {
+	var resources []entity.Resource
+	var total int64
+
+	offset := (page - 1) * limit
+
+	// 查询所有资源
+	db := r.db.Model(&entity.Resource{}).
+		Preload("Category").
+		Preload("Pan").
+		Order("updated_at DESC")
+
+	// 获取总数
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据
+	err := db.Offset(offset).Limit(limit).Find(&resources).Error
+	return resources, total, err
 }

@@ -23,12 +23,12 @@
         </div>
         
         <!-- 自动处理状态 -->
-        <div class="flex items-center space-x-2">
+        <NuxtLink to="/admin/feature-config" class="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded transition-colors">
           <div :class="autoProcessEnabled ? 'w-2 h-2 bg-green-500 rounded-full' : 'w-2 h-2 bg-gray-400 rounded-full'"></div>
           <span class="text-sm text-gray-600 dark:text-gray-300">
             自动处理{{ autoProcessEnabled ? '已开启' : '已关闭' }}
           </span>
-        </div>
+        </NuxtLink>
         
         <!-- 自动转存状态 -->
         <div class="flex items-center space-x-2">

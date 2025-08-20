@@ -239,7 +239,7 @@ func (h *TaskHandler) GetTasks(c *gin.Context) {
 	taskType := c.Query("task_type")
 	status := c.Query("status")
 
-	utils.Info("GetTasks: 获取任务列表 page=%d, pageSize=%d, taskType=%s, status=%s", page, pageSize, taskType, status)
+	utils.Debug("GetTasks: 获取任务列表 page=%d, pageSize=%d, taskType=%s, status=%s", page, pageSize, taskType, status)
 
 	tasks, total, err := h.repoMgr.TaskRepository.GetList(page, pageSize, taskType, status)
 	if err != nil {
@@ -248,13 +248,13 @@ func (h *TaskHandler) GetTasks(c *gin.Context) {
 		return
 	}
 
-	utils.Info("GetTasks: 从数据库获取到 %d 个任务", len(tasks))
+	utils.Debug("GetTasks: 从数据库获取到 %d 个任务", len(tasks))
 
 	// 为每个任务添加运行状态
 	var result []gin.H
 	for _, task := range tasks {
 		isRunning := h.taskManager.IsTaskRunning(task.ID)
-		utils.Info("GetTasks: 任务 %d (%s) 数据库状态: %s, TaskManager运行状态: %v", task.ID, task.Title, task.Status, isRunning)
+		utils.Debug("GetTasks: 任务 %d (%s) 数据库状态: %s, TaskManager运行状态: %v", task.ID, task.Title, task.Status, isRunning)
 
 		result = append(result, gin.H{
 			"id":              task.ID,

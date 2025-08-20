@@ -33,28 +33,137 @@
             label-width="auto"
             require-mark-placement="right-hanging"
           >
-            <div class="space-y-6">
-              <!-- 自动处理 -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">待处理资源自动处理</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">开启后，系统将自动处理待处理的资源，无需手动操作</span>
+            <div class="space-y-8">
+              <!-- 自动处理配置组 -->
+              <div class="space-y-4">
+                <div class="flex items-center space-x-2 mb-4">
+                  <div class="w-1 h-6 bg-blue-500 rounded-full"></div>
+                  <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">自动处理配置</h3>
                 </div>
-                <n-switch v-model:value="configForm.auto_process_enabled" />
+                
+                <!-- 自动处理 -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">待处理资源自动处理</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">开启后，系统将自动处理待处理的资源，无需手动操作</span>
+                  </div>
+                  <n-switch v-model:value="configForm.auto_process_enabled" />
+                </div>
+
+                <!-- 自动处理间隔 -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">自动处理间隔 (分钟)</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">建议设置 5-60 分钟，避免过于频繁的处理</span>
+                  </div>
+                  <n-input
+                    v-model:value="configForm.auto_process_interval"
+                    type="text"
+                    placeholder="30"
+                    :disabled="!configForm.auto_process_enabled"
+                  />
+                </div>
               </div>
 
-              <!-- 自动处理间隔 -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">自动处理间隔 (分钟)</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">建议设置 5-60 分钟，避免过于频繁的处理</span>
+              <!-- Meilisearch搜索优化配置组 -->
+              <div class="space-y-4">
+                <div class="flex items-center space-x-2 mb-4">
+                  <div class="w-1 h-6 bg-green-500 rounded-full"></div>
+                  <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">搜索优化配置</h3>
                 </div>
-                <n-input
-                  v-model:value="configForm.auto_process_interval"
-                  type="text"
-                  placeholder="30"
-                  :disabled="!configForm.auto_process_enabled"
-                />
+                
+                <!-- 启用Meilisearch -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">启用Meilisearch搜索优化</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">开启后，系统将使用Meilisearch提供更快的搜索体验</span>
+                  </div>
+                  <n-switch v-model:value="configForm.meilisearch_enabled" />
+                </div>
+
+                <!-- Meilisearch服务器配置 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" :class="{ 'opacity-50': !configForm.meilisearch_enabled }">
+                  <!-- 服务器地址 -->
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">服务器地址</label>
+                    <n-input
+                      v-model:value="configForm.meilisearch_host"
+                      placeholder="localhost"
+                      :disabled="!configForm.meilisearch_enabled"
+                    />
+                  </div>
+
+                  <!-- 端口 -->
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">端口</label>
+                    <n-input
+                      v-model:value="configForm.meilisearch_port"
+                      placeholder="7700"
+                      :disabled="!configForm.meilisearch_enabled"
+                    />
+                  </div>
+
+                  <!-- 主密钥 -->
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">主密钥 (可选)</label>
+                    <n-input
+                      v-model:value="configForm.meilisearch_master_key"
+                      placeholder="留空表示无认证"
+                      type="password"
+                      show-password-on="click"
+                      :disabled="!configForm.meilisearch_enabled"
+                    />
+                  </div>
+
+                  <!-- 索引名称 -->
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">索引名称</label>
+                    <n-input
+                      v-model:value="configForm.meilisearch_index_name"
+                      placeholder="resources"
+                      :disabled="!configForm.meilisearch_enabled"
+                    />
+                  </div>
+                </div>
+
+                <!-- 操作按钮组 -->
+                <div class="flex items-center space-x-3">
+                  <n-button 
+                    type="info" 
+                    size="small"
+                    :disabled="!configForm.meilisearch_enabled"
+                    @click="testMeilisearchConnection"
+                    :loading="testingConnection"
+                  >
+                    <template #icon>
+                      <i class="fas fa-plug"></i>
+                    </template>
+                    测试连接
+                  </n-button>
+                  
+                  <n-button 
+                    type="primary" 
+                    size="small"
+                    @click="navigateTo('/admin/meilisearch-management')"
+                  >
+                    <template #icon>
+                      <i class="fas fa-cogs"></i>
+                    </template>
+                    搜索优化管理
+                  </n-button>
+
+                  <!-- 健康状态和未同步数量显示 -->
+                  <div v-if="meilisearchStatus" class="flex items-center space-x-4 ml-4">
+                    <div class="flex items-center space-x-2">
+                      <div class="w-2 h-2 rounded-full" :class="meilisearchStatus.healthy ? 'bg-green-500' : 'bg-red-500'"></div>
+                      <span class="text-sm text-gray-600 dark:text-gray-400">健康状态: {{ meilisearchStatus.healthy ? '正常' : '异常' }}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <i class="fas fa-sync-alt text-purple-500"></i>
+                      <span class="text-sm text-gray-600 dark:text-gray-400">未同步: {{ unsyncedCount || 0 }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </n-form>
@@ -184,6 +293,11 @@ interface FeatureConfigForm {
   ad_keywords: string
   auto_insert_ad: string
   hot_drama_auto_fetch: boolean
+  meilisearch_enabled: boolean
+  meilisearch_host: string
+  meilisearch_port: string
+  meilisearch_master_key: string
+  meilisearch_index_name: string
 }
 
 // 使用配置改动检测
@@ -204,13 +318,23 @@ const {
     auto_transfer_min_space: 'auto_transfer_min_space',
     ad_keywords: 'ad_keywords',
     auto_insert_ad: 'auto_insert_ad',
-    hot_drama_auto_fetch: 'auto_fetch_hot_drama_enabled'
+    hot_drama_auto_fetch: 'auto_fetch_hot_drama_enabled',
+    meilisearch_enabled: 'meilisearch_enabled',
+    meilisearch_host: 'meilisearch_host',
+    meilisearch_port: 'meilisearch_port',
+    meilisearch_master_key: 'meilisearch_master_key',
+    meilisearch_index_name: 'meilisearch_index_name'
   }
 })
 
 const notification = useNotification()
 const saving = ref(false)
 const activeTab = ref('resource')
+const testingConnection = ref(false)
+
+// Meilisearch状态
+const meilisearchStatus = ref<any>(null)
+const unsyncedCount = ref(0)
 
 // 配置表单数据
 const configForm = ref<FeatureConfigForm>({
@@ -220,7 +344,12 @@ const configForm = ref<FeatureConfigForm>({
   auto_transfer_min_space: '500',
   ad_keywords: '',
   auto_insert_ad: '',
-  hot_drama_auto_fetch: false
+  hot_drama_auto_fetch: false,
+  meilisearch_enabled: false,
+  meilisearch_host: '',
+  meilisearch_port: '',
+  meilisearch_master_key: '',
+  meilisearch_index_name: ''
 })
 
 // 表单验证规则
@@ -241,7 +370,12 @@ const fetchConfig = async () => {
         auto_transfer_min_space: String(response.auto_transfer_min_space || 500),
         ad_keywords: response.ad_keywords || '',
         auto_insert_ad: response.auto_insert_ad || '',
-        hot_drama_auto_fetch: response.auto_fetch_hot_drama_enabled || false
+        hot_drama_auto_fetch: response.auto_fetch_hot_drama_enabled || false,
+        meilisearch_enabled: response.meilisearch_enabled || false,
+        meilisearch_host: response.meilisearch_host || '',
+        meilisearch_port: String(response.meilisearch_port || 7700),
+        meilisearch_master_key: response.meilisearch_master_key || '',
+        meilisearch_index_name: response.meilisearch_index_name || 'resources'
       }
       
       configForm.value = { ...configData }
@@ -269,7 +403,12 @@ const saveConfig = async () => {
       auto_transfer_min_space: configForm.value.auto_transfer_min_space,
       ad_keywords: configForm.value.ad_keywords,
       auto_insert_ad: configForm.value.auto_insert_ad,
-      hot_drama_auto_fetch: configForm.value.hot_drama_auto_fetch
+      hot_drama_auto_fetch: configForm.value.hot_drama_auto_fetch,
+      meilisearch_enabled: configForm.value.meilisearch_enabled,
+      meilisearch_host: configForm.value.meilisearch_host,
+      meilisearch_port: configForm.value.meilisearch_port,
+      meilisearch_master_key: configForm.value.meilisearch_master_key,
+      meilisearch_index_name: configForm.value.meilisearch_index_name
     })
     
     const { useSystemConfigApi } = await import('~/composables/useApi')
@@ -327,9 +466,70 @@ const saveConfig = async () => {
   }
 }
 
+// 测试Meilisearch连接
+const testMeilisearchConnection = async () => {
+  testingConnection.value = true
+  try {
+    const { useMeilisearchApi } = await import('~/composables/useApi')
+    const meilisearchApi = useMeilisearchApi()
+    await meilisearchApi.testConnection({
+      host: configForm.value.meilisearch_host,
+      port: parseInt(configForm.value.meilisearch_port, 10),
+      masterKey: configForm.value.meilisearch_master_key,
+      indexName: configForm.value.meilisearch_index_name || 'resources'
+    })
+    notification.success({
+      content: 'Meilisearch连接测试成功！',
+      duration: 3000
+    })
+  } catch (error: any) {
+    console.error('Meilisearch连接测试失败:', error)
+    notification.error({
+      content: `Meilisearch连接测试失败: ${error?.message || error}`,
+      duration: 5000
+    })
+  } finally {
+    testingConnection.value = false
+  }
+}
+
+// 获取Meilisearch状态
+const fetchMeilisearchStatus = async () => {
+  try {
+    const { useMeilisearchApi } = await import('~/composables/useApi')
+    const meilisearchApi = useMeilisearchApi()
+    const status = await meilisearchApi.getStatus()
+    meilisearchStatus.value = status
+  } catch (error: any) {
+    console.error('获取Meilisearch状态失败:', error)
+    notification.error({
+      content: `获取Meilisearch状态失败: ${error?.message || error}`,
+      duration: 5000
+    })
+  }
+}
+
+// 获取未同步文档数量
+const fetchUnsyncedCount = async () => {
+  try {
+    const { useMeilisearchApi } = await import('~/composables/useApi')
+    const meilisearchApi = useMeilisearchApi()
+    const response = await meilisearchApi.getUnsyncedCount() as any
+    unsyncedCount.value = response?.count || 0
+  } catch (error: any) {
+    console.error('获取未同步文档数量失败:', error)
+    notification.error({
+      content: `获取未同步文档数量失败: ${error?.message || error}`,
+      duration: 5000
+    })
+  }
+}
+
 // 页面加载时获取配置
 onMounted(() => {
   fetchConfig()
+  fetchMeilisearchStatus()
+  fetchUnsyncedCount()
 })
 
 
