@@ -28,11 +28,26 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-# 先复制VERSION文件，确保构建时能正确读取版本号
-COPY VERSION ./
-
+# 复制所有源代码
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+
+# 定义构建参数
+ARG VERSION
+ARG GIT_COMMIT
+ARG GIT_BRANCH
+ARG BUILD_TIME
+
+# 获取版本信息并编译
+RUN VERSION=${VERSION:-$(cat VERSION)} && \
+    GIT_COMMIT=${GIT_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")} && \
+    GIT_BRANCH=${GIT_BRANCH:-$(git branch --show-current 2>/dev/null || echo "unknown")} && \
+    BUILD_TIME=${BUILD_TIME:-$(date '+%Y-%m-%d %H:%M:%S')} && \
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-X 'github.com/ctwj/urldb/utils.Version=${VERSION}' \
+              -X 'github.com/ctwj/urldb/utils.BuildTime=${BUILD_TIME}' \
+              -X 'github.com/ctwj/urldb/utils.GitCommit=${GIT_COMMIT}' \
+              -X 'github.com/ctwj/urldb/utils.GitBranch=${GIT_BRANCH}'" \
+    -o main .
 
 # 后端运行阶段
 FROM alpine:latest AS backend
