@@ -35,6 +35,13 @@ type SystemConfigRequest struct {
 
 	// 三方统计配置
 	ThirdPartyStatsCode *string `json:"third_party_stats_code,omitempty"` // 三方统计代码
+
+	// Meilisearch配置
+	MeilisearchEnabled   *bool   `json:"meilisearch_enabled,omitempty"`
+	MeilisearchHost      *string `json:"meilisearch_host,omitempty"`
+	MeilisearchPort      *string `json:"meilisearch_port,omitempty"`
+	MeilisearchMasterKey *string `json:"meilisearch_master_key,omitempty"`
+	MeilisearchIndexName *string `json:"meilisearch_index_name,omitempty"`
 }
 
 // SystemConfigResponse 系统配置响应
@@ -76,6 +83,13 @@ type SystemConfigResponse struct {
 
 	// 三方统计配置
 	ThirdPartyStatsCode string `json:"third_party_stats_code"` // 三方统计代码
+
+	// Meilisearch配置
+	MeilisearchEnabled   bool   `json:"meilisearch_enabled"`
+	MeilisearchHost      string `json:"meilisearch_host"`
+	MeilisearchPort      string `json:"meilisearch_port"`
+	MeilisearchMasterKey string `json:"meilisearch_master_key"`
+	MeilisearchIndexName string `json:"meilisearch_index_name"`
 }
 
 // SystemConfigItem 单个配置项

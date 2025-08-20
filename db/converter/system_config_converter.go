@@ -78,6 +78,18 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			}
 		case entity.ConfigKeyThirdPartyStatsCode:
 			response.ThirdPartyStatsCode = config.Value
+		case entity.ConfigKeyMeilisearchEnabled:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response.MeilisearchEnabled = val
+			}
+		case entity.ConfigKeyMeilisearchHost:
+			response.MeilisearchHost = config.Value
+		case entity.ConfigKeyMeilisearchPort:
+			response.MeilisearchPort = config.Value
+		case entity.ConfigKeyMeilisearchMasterKey:
+			response.MeilisearchMasterKey = config.Value
+		case entity.ConfigKeyMeilisearchIndexName:
+			response.MeilisearchIndexName = config.Value
 		}
 	}
 
@@ -187,6 +199,28 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 		updatedKeys = append(updatedKeys, entity.ConfigKeyThirdPartyStatsCode)
 	}
 
+	// Meilisearch配置 - 只处理被设置的字段
+	if req.MeilisearchEnabled != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMeilisearchEnabled, Value: strconv.FormatBool(*req.MeilisearchEnabled), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyMeilisearchEnabled)
+	}
+	if req.MeilisearchHost != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMeilisearchHost, Value: *req.MeilisearchHost, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyMeilisearchHost)
+	}
+	if req.MeilisearchPort != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMeilisearchPort, Value: *req.MeilisearchPort, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyMeilisearchPort)
+	}
+	if req.MeilisearchMasterKey != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMeilisearchMasterKey, Value: *req.MeilisearchMasterKey, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyMeilisearchMasterKey)
+	}
+	if req.MeilisearchIndexName != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMeilisearchIndexName, Value: *req.MeilisearchIndexName, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyMeilisearchIndexName)
+	}
+
 	// 记录更新的配置项
 	if len(updatedKeys) > 0 {
 		utils.Info("配置更新 - 被修改的配置项: %v", updatedKeys)
@@ -219,6 +253,12 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		entity.ConfigResponseFieldPageSize:                  100,
 		entity.ConfigResponseFieldMaintenanceMode:           false,
 		entity.ConfigResponseFieldEnableRegister:            true, // 默认开启注册功能
+		entity.ConfigResponseFieldThirdPartyStatsCode:       "",
+		entity.ConfigResponseFieldMeilisearchEnabled:        false,
+		entity.ConfigResponseFieldMeilisearchHost:           "localhost",
+		entity.ConfigResponseFieldMeilisearchPort:           "7700",
+		entity.ConfigResponseFieldMeilisearchMasterKey:      "",
+		entity.ConfigResponseFieldMeilisearchIndexName:      "resources",
 	}
 
 	// 将键值对转换为map
@@ -280,6 +320,18 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			}
 		case entity.ConfigKeyThirdPartyStatsCode:
 			response[entity.ConfigResponseFieldThirdPartyStatsCode] = config.Value
+		case entity.ConfigKeyMeilisearchEnabled:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response[entity.ConfigResponseFieldMeilisearchEnabled] = val
+			}
+		case entity.ConfigKeyMeilisearchHost:
+			response[entity.ConfigResponseFieldMeilisearchHost] = config.Value
+		case entity.ConfigKeyMeilisearchPort:
+			response[entity.ConfigResponseFieldMeilisearchPort] = config.Value
+		case entity.ConfigKeyMeilisearchMasterKey:
+			response[entity.ConfigResponseFieldMeilisearchMasterKey] = config.Value
+		case entity.ConfigKeyMeilisearchIndexName:
+			response[entity.ConfigResponseFieldMeilisearchIndexName] = config.Value
 		}
 	}
 
@@ -315,5 +367,10 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		MaintenanceMode:           false,
 		EnableRegister:            true, // 默认开启注册功能
 		ThirdPartyStatsCode:       entity.ConfigDefaultThirdPartyStatsCode,
+		MeilisearchEnabled:        false,
+		MeilisearchHost:           entity.ConfigDefaultMeilisearchHost,
+		MeilisearchPort:           entity.ConfigDefaultMeilisearchPort,
+		MeilisearchMasterKey:      entity.ConfigDefaultMeilisearchMasterKey,
+		MeilisearchIndexName:      entity.ConfigDefaultMeilisearchIndexName,
 	}
 }

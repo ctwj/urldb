@@ -149,10 +149,9 @@
                 <div class="flex items-start">
                   <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(resource.pan_id || 0)"></span>
                   <div class="flex-1 min-w-0">
-                    <div class="break-words font-medium">{{ resource.title }}</div>
+                    <div class="break-words font-medium" v-html="resource.title_highlight || resource.title"></div>
                     <!-- 显示描述 -->
-                    <div v-if="resource.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words line-clamp-2">
-                      {{ resource.description }}
+                    <div v-if="resource.description_highlight || resource.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words line-clamp-2" v-html="resource.description_highlight || resource.description">
                     </div>
                   </div>
                 </div>
@@ -273,12 +272,24 @@ const handleLogoError = (event: Event) => {
 // 使用 useAsyncData 获取资源数据
 const { data: resourcesData, pending, refresh } = await useAsyncData(
   () => `resources-1-${route.query.search || ''}-${route.query.platform || ''}`,
-  () => resourceApi.getResources({
-    page: 1,
-    page_size: 200,
-    search: route.query.search as string || '',
-    pan_id: route.query.platform as string || ''
-  })
+  async () => {
+    // 如果有搜索关键词，使用带搜索参数的资源接口（后端会优先使用Meilisearch）
+    if (route.query.search) {
+      return await resourceApi.getResources({
+        page: 1,
+        page_size: 200,
+        search: route.query.search as string,
+        pan_id: route.query.platform as string || ''
+      })
+    } else {
+      // 没有搜索关键词时，使用普通资源接口获取最新数据
+      return await resourceApi.getResources({
+        page: 1,
+        page_size: 200,
+        pan_id: route.query.platform as string || ''
+      })
+    }
+  }
 )
 
 // 获取统计数据
@@ -399,8 +410,8 @@ onMounted(() => {
 
 
 // 获取平台名称
-const getPlatformIcon = (panId: string) => {
-  const platform = (platforms.value as any).find((p: any) => p.id === panId)
+const getPlatformIcon = (panId: string | number) => {
+  const platform = (platforms.value as any).find((p: any) => p.id == panId)
   return platform?.icon || '未知平台'
 }
 

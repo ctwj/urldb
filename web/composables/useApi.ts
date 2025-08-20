@@ -225,4 +225,34 @@ function log(...args: any[]) {
   if (process.env.NODE_ENV !== 'production') {
     console.log(...args)
   }
+}
+
+// Meilisearch管理API
+export const useMeilisearchApi = () => {
+  const getStatus = () => useApiFetch('/meilisearch/status').then(parseApiResponse)
+  const getUnsyncedCount = () => useApiFetch('/meilisearch/unsynced-count').then(parseApiResponse)
+  const getUnsyncedResources = (params?: any) => useApiFetch('/meilisearch/unsynced', { params }).then(parseApiResponse)
+  const getSyncedResources = (params?: any) => useApiFetch('/meilisearch/synced', { params }).then(parseApiResponse)
+  const getAllResources = (params?: any) => useApiFetch('/meilisearch/resources', { params }).then(parseApiResponse)
+  const testConnection = (data: any) => useApiFetch('/meilisearch/test-connection', { method: 'POST', body: data }).then(parseApiResponse)
+  const syncAllResources = () => useApiFetch('/meilisearch/sync-all', { method: 'POST' }).then(parseApiResponse)
+  const stopSync = () => useApiFetch('/meilisearch/stop-sync', { method: 'POST' }).then(parseApiResponse)
+  const clearIndex = () => useApiFetch('/meilisearch/clear-index', { method: 'POST' }).then(parseApiResponse)
+  const updateIndexSettings = () => useApiFetch('/meilisearch/update-settings', { method: 'POST' }).then(parseApiResponse)
+  const getSyncProgress = () => useApiFetch('/meilisearch/sync-progress').then(parseApiResponse)
+  const debugGetAllDocuments = () => useApiFetch('/meilisearch/debug/documents').then(parseApiResponse)
+  return { 
+    getStatus, 
+    getUnsyncedCount,
+    getUnsyncedResources,
+    getSyncedResources,
+    getAllResources,
+    testConnection,
+    syncAllResources, 
+    stopSync, 
+    clearIndex,
+    updateIndexSettings,
+    getSyncProgress,
+    debugGetAllDocuments
+  }
 } 

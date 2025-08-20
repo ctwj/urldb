@@ -1,8 +1,9 @@
 package converter
 
 import (
+	"reflect"
 	"time"
-	
+
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 )
@@ -10,22 +11,24 @@ import (
 // ToResourceResponse 将Resource实体转换为ResourceResponse
 func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 	response := dto.ResourceResponse{
-		ID:          resource.ID,
-		Title:       resource.Title,
-		Description: resource.Description,
-		URL:         resource.URL,
-		PanID:       resource.PanID,
-		SaveURL:     resource.SaveURL,
-		FileSize:    resource.FileSize,
-		CategoryID:  resource.CategoryID,
-		ViewCount:   resource.ViewCount,
-		IsValid:     resource.IsValid,
-		IsPublic:    resource.IsPublic,
-		CreatedAt:   resource.CreatedAt,
-		UpdatedAt:   resource.UpdatedAt,
-		Cover:       resource.Cover,
-		Author:      resource.Author,
-		ErrorMsg:    resource.ErrorMsg,
+		ID:                  resource.ID,
+		Title:               resource.Title,
+		Description:         resource.Description,
+		URL:                 resource.URL,
+		PanID:               resource.PanID,
+		SaveURL:             resource.SaveURL,
+		FileSize:            resource.FileSize,
+		CategoryID:          resource.CategoryID,
+		ViewCount:           resource.ViewCount,
+		IsValid:             resource.IsValid,
+		IsPublic:            resource.IsPublic,
+		CreatedAt:           resource.CreatedAt,
+		UpdatedAt:           resource.UpdatedAt,
+		Cover:               resource.Cover,
+		Author:              resource.Author,
+		ErrorMsg:            resource.ErrorMsg,
+		SyncedToMeilisearch: resource.SyncedToMeilisearch,
+		SyncedAt:            resource.SyncedAt,
 	}
 
 	// 设置分类名称
@@ -42,6 +45,89 @@ func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 			Description:   tag.Description,
 			ResourceCount: 0, // 在资源上下文中，标签的资源数量不相关
 		}
+	}
+
+	return response
+}
+
+// ToResourceResponseFromMeilisearch 将MeilisearchDocument转换为ResourceResponse（包含高亮信息）
+func ToResourceResponseFromMeilisearch(doc interface{}) dto.ResourceResponse {
+	// 使用反射来获取MeilisearchDocument的字段
+	docValue := reflect.ValueOf(doc)
+	if docValue.Kind() == reflect.Ptr {
+		docValue = docValue.Elem()
+	}
+
+	response := dto.ResourceResponse{}
+
+	// 获取基本字段
+	if idField := docValue.FieldByName("ID"); idField.IsValid() {
+		response.ID = uint(idField.Uint())
+	}
+	if titleField := docValue.FieldByName("Title"); titleField.IsValid() {
+		response.Title = titleField.String()
+	}
+	if descField := docValue.FieldByName("Description"); descField.IsValid() {
+		response.Description = descField.String()
+	}
+	if urlField := docValue.FieldByName("URL"); urlField.IsValid() {
+		response.URL = urlField.String()
+	}
+	if saveURLField := docValue.FieldByName("SaveURL"); saveURLField.IsValid() {
+		response.SaveURL = saveURLField.String()
+	}
+	if fileSizeField := docValue.FieldByName("FileSize"); fileSizeField.IsValid() {
+		response.FileSize = fileSizeField.String()
+	}
+	if keyField := docValue.FieldByName("Key"); keyField.IsValid() {
+		// Key字段在ResourceResponse中不存在，跳过
+	}
+	if categoryField := docValue.FieldByName("Category"); categoryField.IsValid() {
+		response.CategoryName = categoryField.String()
+	}
+	if authorField := docValue.FieldByName("Author"); authorField.IsValid() {
+		response.Author = authorField.String()
+	}
+	if createdAtField := docValue.FieldByName("CreatedAt"); createdAtField.IsValid() {
+		response.CreatedAt = createdAtField.Interface().(time.Time)
+	}
+	if updatedAtField := docValue.FieldByName("UpdatedAt"); updatedAtField.IsValid() {
+		response.UpdatedAt = updatedAtField.Interface().(time.Time)
+	}
+
+	// 处理PanID
+	if panIDField := docValue.FieldByName("PanID"); panIDField.IsValid() && !panIDField.IsNil() {
+		panIDPtr := panIDField.Interface().(*uint)
+		if panIDPtr != nil {
+			response.PanID = panIDPtr
+		}
+	}
+
+	// 处理Tags
+	if tagsField := docValue.FieldByName("Tags"); tagsField.IsValid() {
+		tags := tagsField.Interface().([]string)
+		response.Tags = make([]dto.TagResponse, len(tags))
+		for i, tagName := range tags {
+			response.Tags[i] = dto.TagResponse{
+				Name: tagName,
+			}
+		}
+	}
+
+	// 处理高亮字段
+	if titleHighlightField := docValue.FieldByName("TitleHighlight"); titleHighlightField.IsValid() {
+		response.TitleHighlight = titleHighlightField.String()
+	}
+	if descHighlightField := docValue.FieldByName("DescriptionHighlight"); descHighlightField.IsValid() {
+		response.DescriptionHighlight = descHighlightField.String()
+	}
+	if categoryHighlightField := docValue.FieldByName("CategoryHighlight"); categoryHighlightField.IsValid() {
+		response.CategoryHighlight = categoryHighlightField.String()
+	}
+	if tagsHighlightField := docValue.FieldByName("TagsHighlight"); tagsHighlightField.IsValid() {
+		tagsHighlight := tagsHighlightField.Interface().([]string)
+		response.TagsHighlight = make([]string, len(tagsHighlight))
+		copy(response.TagsHighlight, tagsHighlight)
 	}
 
 	return response
@@ -176,7 +262,7 @@ func ToReadyResourceResponse(resource *entity.ReadyResource) dto.ReadyResourceRe
 	if isDeleted {
 		deletedAt = &resource.DeletedAt.Time
 	}
-	
+
 	return dto.ReadyResourceResponse{
 		ID:          resource.ID,
 		Title:       resource.Title,

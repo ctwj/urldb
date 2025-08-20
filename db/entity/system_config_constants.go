@@ -35,6 +35,13 @@ const (
 
 	// 三方统计配置
 	ConfigKeyThirdPartyStatsCode = "third_party_stats_code"
+
+	// Meilisearch配置
+	ConfigKeyMeilisearchEnabled   = "meilisearch_enabled"
+	ConfigKeyMeilisearchHost      = "meilisearch_host"
+	ConfigKeyMeilisearchPort      = "meilisearch_port"
+	ConfigKeyMeilisearchMasterKey = "meilisearch_master_key"
+	ConfigKeyMeilisearchIndexName = "meilisearch_index_name"
 )
 
 // ConfigType 配置类型常量
@@ -84,6 +91,13 @@ const (
 
 	// 三方统计配置字段
 	ConfigResponseFieldThirdPartyStatsCode = "third_party_stats_code"
+
+	// Meilisearch配置字段
+	ConfigResponseFieldMeilisearchEnabled   = "meilisearch_enabled"
+	ConfigResponseFieldMeilisearchHost      = "meilisearch_host"
+	ConfigResponseFieldMeilisearchPort      = "meilisearch_port"
+	ConfigResponseFieldMeilisearchMasterKey = "meilisearch_master_key"
+	ConfigResponseFieldMeilisearchIndexName = "meilisearch_index_name"
 )
 
 // ConfigDefaultValue 配置默认值常量
@@ -120,4 +134,11 @@ const (
 
 	// 三方统计配置默认值
 	ConfigDefaultThirdPartyStatsCode = ""
+
+	// Meilisearch配置默认值
+	ConfigDefaultMeilisearchEnabled   = "false"
+	ConfigDefaultMeilisearchHost      = "localhost"
+	ConfigDefaultMeilisearchPort      = "7700"
+	ConfigDefaultMeilisearchMasterKey = ""
+	ConfigDefaultMeilisearchIndexName = "resources"
 )

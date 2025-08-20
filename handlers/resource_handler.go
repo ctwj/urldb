@@ -64,7 +64,52 @@ func GetResources(c *gin.Context) {
 		params["pan_name"] = panName
 	}
 
-	resources, total, err := repoManager.ResourceRepository.SearchWithFilters(params)
+	var resources []entity.Resource
+	var total int64
+	var err error
+
+	// 如果有搜索关键词且启用了Meilisearch，优先使用Meilisearch搜索
+	if search := c.Query("search"); search != "" && meilisearchManager != nil && meilisearchManager.IsEnabled() {
+		// 构建Meilisearch过滤器
+		filters := make(map[string]interface{})
+		if panID := c.Query("pan_id"); panID != "" {
+			if id, err := strconv.ParseUint(panID, 10, 32); err == nil {
+				// 直接使用pan_id进行过滤
+				filters["pan_id"] = id
+			}
+		}
+
+		// 使用Meilisearch搜索
+		service := meilisearchManager.GetService()
+		if service != nil {
+			docs, docTotal, err := service.Search(search, filters, page, pageSize)
+			if err == nil {
+				// 将Meilisearch文档转换为ResourceResponse（包含高亮信息）
+				var resourceResponses []dto.ResourceResponse
+				for _, doc := range docs {
+					resourceResponse := converter.ToResourceResponseFromMeilisearch(doc)
+					resourceResponses = append(resourceResponses, resourceResponse)
+				}
+
+				// 返回Meilisearch搜索结果（包含高亮信息）
+				SuccessResponse(c, gin.H{
+					"data":      resourceResponses,
+					"total":     docTotal,
+					"page":      page,
+					"page_size": pageSize,
+					"source":    "meilisearch",
+				})
+				return
+			} else {
+				utils.Error("Meilisearch搜索失败，回退到数据库搜索: %v", err)
+			}
+		}
+	}
+
+	// 如果Meilisearch未启用、搜索失败或没有搜索关键词，使用数据库搜索
+	if meilisearchManager == nil || !meilisearchManager.IsEnabled() || len(resources) == 0 {
+		resources, total, err = repoManager.ResourceRepository.SearchWithFilters(params)
+	}
 
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
@@ -164,6 +209,15 @@ func CreateResource(c *gin.Context) {
 		}
 	}
 
+	// 同步到Meilisearch
+	if meilisearchManager != nil {
+		go func() {
+			if err := meilisearchManager.SyncResourceToMeilisearch(resource); err != nil {
+				utils.Error("同步资源到Meilisearch失败: %v", err)
+			}
+		}()
+	}
+
 	SuccessResponse(c, gin.H{
 		"message":  "资源创建成功",
 		"resource": converter.ToResourceResponse(resource),
@@ -240,6 +294,15 @@ func UpdateResource(c *gin.Context) {
 		}
 	}
 
+	// 同步到Meilisearch
+	if meilisearchManager != nil {
+		go func() {
+			if err := meilisearchManager.SyncResourceToMeilisearch(resource); err != nil {
+				utils.Error("同步资源到Meilisearch失败: %v", err)
+			}
+		}()
+	}
+
 	SuccessResponse(c, gin.H{"message": "资源更新成功"})
 }
 
@@ -271,12 +334,53 @@ func SearchResources(c *gin.Context) {
 	var total int64
 	var err error
 
-	if query == "" {
-		// 搜索关键词为空时，返回最新记录（分页）
-		resources, total, err = repoManager.ResourceRepository.FindWithRelationsPaginated(page, pageSize)
-	} else {
-		// 有搜索关键词时，执行搜索
-		resources, total, err = repoManager.ResourceRepository.Search(query, nil, page, pageSize)
+	// 如果启用了Meilisearch，优先使用Meilisearch搜索
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() {
+		// 构建过滤器
+		filters := make(map[string]interface{})
+		if categoryID := c.Query("category_id"); categoryID != "" {
+			if id, err := strconv.ParseUint(categoryID, 10, 32); err == nil {
+				filters["category"] = uint(id)
+			}
+		}
+
+		// 使用Meilisearch搜索
+		service := meilisearchManager.GetService()
+		if service != nil {
+			docs, docTotal, err := service.Search(query, filters, page, pageSize)
+			if err == nil {
+				// 将Meilisearch文档转换为Resource实体
+				for _, doc := range docs {
+					resource := entity.Resource{
+						ID:          doc.ID,
+						Title:       doc.Title,
+						Description: doc.Description,
+						URL:         doc.URL,
+						SaveURL:     doc.SaveURL,
+						FileSize:    doc.FileSize,
+						Key:         doc.Key,
+						PanID:       doc.PanID,
+						CreatedAt:   doc.CreatedAt,
+						UpdatedAt:   doc.UpdatedAt,
+					}
+					resources = append(resources, resource)
+				}
+				total = docTotal
+			} else {
+				utils.Error("Meilisearch搜索失败，回退到数据库搜索: %v", err)
+			}
+		}
+	}
+
+	// 如果Meilisearch未启用或搜索失败，使用数据库搜索
+	if meilisearchManager == nil || !meilisearchManager.IsEnabled() || err != nil {
+		if query == "" {
+			// 搜索关键词为空时，返回最新记录（分页）
+			resources, total, err = repoManager.ResourceRepository.FindWithRelationsPaginated(page, pageSize)
+		} else {
+			// 有搜索关键词时，执行搜索
+			resources, total, err = repoManager.ResourceRepository.Search(query, nil, page, pageSize)
+		}
 	}
 
 	if err != nil {
