@@ -9,29 +9,20 @@
         </div>
       </div>
       
-      <!-- 违禁词禁止访问状态 -->
-      <div v-else-if="forbidden" class="space-y-4">
-        <div class="flex flex-col items-center justify-center py-8">
-          <div class="text-6xl mb-4">🚫</div>
-          <h3 class="text-xl font-bold text-red-600 dark:text-red-400 mb-2">禁止访问</h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-4">{{ error || '该资源包含违禁内容，无法访问' }}</p>
-          <div v-if="forbidden_words && forbidden_words.length > 0" class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 mb-4 w-full">
-            <p class="text-sm text-red-600 dark:text-red-400 mb-2">检测到的违禁词：</p>
-            <div class="flex flex-wrap gap-2">
-              <span 
-                v-for="word in forbidden_words" 
-                :key="word"
-                class="px-2 py-1 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 text-xs rounded"
-              >
-                {{ word }}
-              </span>
-            </div>
-          </div>
-          <n-button @click="closeModal" class="bg-gray-500 hover:bg-gray-600 text-white">
-            关闭
-          </n-button>
-        </div>
-      </div>
+             <!-- 违禁词禁止访问状态 -->
+       <div v-else-if="forbidden" class="space-y-4">
+         <div class="flex flex-col items-center justify-center py-4">
+           <!-- 使用SVG图标 -->
+           <div class="mb-6">
+             <img src="/assets/svg/forbidden.svg" alt="禁止访问" class="w-48 h-48" />
+           </div>
+           <h3 class="text-xl font-bold text-red-600 dark:text-red-400 mb-2">禁止访问</h3>
+           <p class="text-gray-600 dark:text-gray-400 mb-4">该资源包含违禁内容，无法访问</p>
+           <n-button @click="closeModal" class="bg-red-500 hover:bg-red-600 text-white">
+             我知道了
+           </n-button>
+         </div>
+       </div>
       
       <!-- 错误状态 -->
       <div v-else-if="error" class="space-y-4">
