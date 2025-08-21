@@ -187,28 +187,28 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 	}
 
 	// 检查违禁词
-	forbiddenWords, err := r.systemConfigRepo.GetConfigValue(entity.ConfigKeyForbiddenWords)
-	if err == nil && forbiddenWords != "" {
-		words := strings.Split(forbiddenWords, ",")
-		var matchedWords []string
-		title := strings.ToLower(resource.Title)
-		description := strings.ToLower(resource.Description)
+	// forbiddenWords, err := r.systemConfigRepo.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	// if err == nil && forbiddenWords != "" {
+	// 	words := strings.Split(forbiddenWords, ",")
+	// 	var matchedWords []string
+	// 	title := strings.ToLower(resource.Title)
+	// 	description := strings.ToLower(resource.Description)
 
-		for _, word := range words {
-			word = strings.TrimSpace(word)
-			if word != "" {
-				wordLower := strings.ToLower(word)
-				if strings.Contains(title, wordLower) || strings.Contains(description, wordLower) {
-					matchedWords = append(matchedWords, word)
-				}
-			}
-		}
+	// 	for _, word := range words {
+	// 		word = strings.TrimSpace(word)
+	// 		if word != "" {
+	// 			wordLower := strings.ToLower(word)
+	// 			if strings.Contains(title, wordLower) || strings.Contains(description, wordLower) {
+	// 				matchedWords = append(matchedWords, word)
+	// 			}
+	// 		}
+	// 	}
 
-		if len(matchedWords) > 0 {
-			utils.Warn(fmt.Sprintf("资源包含违禁词: %s, 违禁词: %s", resource.Title, strings.Join(matchedWords, ", ")))
-			return fmt.Errorf("存在违禁词: %s", strings.Join(matchedWords, ", "))
-		}
-	}
+	// 	if len(matchedWords) > 0 {
+	// 		utils.Warn(fmt.Sprintf("资源包含违禁词: %s, 违禁词: %s", resource.Title, strings.Join(matchedWords, ", ")))
+	// 		return fmt.Errorf("存在违禁词: %s", strings.Join(matchedWords, ", "))
+	// 	}
+	// }
 
 	// 不是夸克，直接保存
 	if serviceType != panutils.Quark {

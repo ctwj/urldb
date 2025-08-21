@@ -281,40 +281,43 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 		}
 	}
 
-	// 过滤违禁词
-	filteredResources, foundForbiddenWords := h.filterForbiddenWords(resources)
+	// 获取违禁词配置（只获取一次）
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{} // 如果获取失败，使用空列表
+	}
 
-	// 计算过滤后的总数
-	filteredTotal := len(filteredResources)
-
-	// 转换为响应格式
+	// 转换为响应格式并添加违禁词标记
 	var resourceResponses []gin.H
-	for _, resource := range filteredResources {
-		resourceResponses = append(resourceResponses, gin.H{
-			"id":          resource.ID,
-			"title":       resource.Title,
-			"url":         resource.URL,
-			"description": resource.Description,
-			"view_count":  resource.ViewCount,
-			"created_at":  resource.CreatedAt.Format("2006-01-02 15:04:05"),
-			"updated_at":  resource.UpdatedAt.Format("2006-01-02 15:04:05"),
-		})
+	for i, processedResource := range resources {
+		originalResource := resources[i]
+		forbiddenInfo := utils.CheckResourceForbiddenWords(originalResource.Title, originalResource.Description, cleanWords)
+
+		resourceResponse := gin.H{
+			"id":          processedResource.ID,
+			"title":       forbiddenInfo.ProcessedTitle, // 使用处理后的标题
+			"url":         processedResource.URL,
+			"description": forbiddenInfo.ProcessedDesc, // 使用处理后的描述
+			"view_count":  processedResource.ViewCount,
+			"created_at":  processedResource.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  processedResource.UpdatedAt.Format("2006-01-02 15:04:05"),
+		}
+
+		// 添加违禁词标记
+		resourceResponse["has_forbidden_words"] = forbiddenInfo.HasForbiddenWords
+		resourceResponse["forbidden_words"] = forbiddenInfo.ForbiddenWords
+		resourceResponses = append(resourceResponses, resourceResponse)
 	}
 
 	// 构建响应数据
 	responseData := gin.H{
 		"data":      resourceResponses,
-		"total":     filteredTotal,
+		"total":     total,
 		"page":      page,
 		"page_size": pageSize,
-	}
-
-	// 如果存在违禁词过滤，添加提醒字段
-	if len(foundForbiddenWords) > 0 {
-		responseData["forbidden_words_filtered"] = true
-		responseData["filtered_forbidden_words"] = foundForbiddenWords
-		responseData["original_total"] = total
-		responseData["filtered_count"] = total - int64(filteredTotal)
 	}
 
 	SuccessResponse(c, responseData)

@@ -64,9 +64,17 @@ func GetResources(c *gin.Context) {
 		params["pan_name"] = panName
 	}
 
+	// 获取违禁词配置（只获取一次）
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{} // 如果获取失败，使用空列表
+	}
+
 	var resources []entity.Resource
 	var total int64
-	var err error
 
 	// 如果有搜索关键词且启用了Meilisearch，优先使用Meilisearch搜索
 	if search := c.Query("search"); search != "" && meilisearchManager != nil && meilisearchManager.IsEnabled() {
@@ -84,10 +92,25 @@ func GetResources(c *gin.Context) {
 		if service != nil {
 			docs, docTotal, err := service.Search(search, filters, page, pageSize)
 			if err == nil {
-				// 将Meilisearch文档转换为ResourceResponse（包含高亮信息）
+
+				// 将Meilisearch文档转换为ResourceResponse（包含高亮信息）并处理违禁词
 				var resourceResponses []dto.ResourceResponse
 				for _, doc := range docs {
 					resourceResponse := converter.ToResourceResponseFromMeilisearch(doc)
+
+					// 处理违禁词（Meilisearch场景，需要处理高亮标记）
+					if len(cleanWords) > 0 {
+						forbiddenInfo := utils.CheckResourceForbiddenWords(resourceResponse.Title, resourceResponse.Description, cleanWords)
+						if forbiddenInfo.HasForbiddenWords {
+							resourceResponse.Title = forbiddenInfo.ProcessedTitle
+							resourceResponse.Description = forbiddenInfo.ProcessedDesc
+							resourceResponse.TitleHighlight = forbiddenInfo.ProcessedTitle
+							resourceResponse.DescriptionHighlight = forbiddenInfo.ProcessedDesc
+						}
+						resourceResponse.HasForbiddenWords = forbiddenInfo.HasForbiddenWords
+						resourceResponse.ForbiddenWords = forbiddenInfo.ForbiddenWords
+					}
+
 					resourceResponses = append(resourceResponses, resourceResponse)
 				}
 
@@ -116,12 +139,48 @@ func GetResources(c *gin.Context) {
 		return
 	}
 
-	SuccessResponse(c, gin.H{
-		"data":      converter.ToResourceResponseList(resources),
+	// 处理违禁词替换和标记
+	var processedResources []entity.Resource
+	if len(cleanWords) > 0 {
+		processedResources = utils.ProcessResourcesForbiddenWords(resources, cleanWords)
+	} else {
+		processedResources = resources
+	}
+
+	// 转换为响应格式并添加违禁词标记
+	var resourceResponses []gin.H
+	for i, processedResource := range processedResources {
+		// 使用原始资源进行检查违禁词（数据库搜索场景，使用普通处理）
+		originalResource := resources[i]
+		forbiddenInfo := utils.CheckResourceForbiddenWords(originalResource.Title, originalResource.Description, cleanWords)
+
+		resourceResponse := gin.H{
+			"id":          processedResource.ID,
+			"title":       forbiddenInfo.ProcessedTitle, // 使用处理后的标题
+			"url":         processedResource.URL,
+			"description": forbiddenInfo.ProcessedDesc, // 使用处理后的描述
+			"pan_id":      processedResource.PanID,
+			"view_count":  processedResource.ViewCount,
+			"created_at":  processedResource.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  processedResource.UpdatedAt.Format("2006-01-02 15:04:05"),
+		}
+
+		// 添加违禁词标记
+		resourceResponse["has_forbidden_words"] = forbiddenInfo.HasForbiddenWords
+		resourceResponse["forbidden_words"] = forbiddenInfo.ForbiddenWords
+
+		resourceResponses = append(resourceResponses, resourceResponse)
+	}
+
+	// 构建响应数据
+	responseData := gin.H{
+		"data":      resourceResponses,
 		"total":     total,
 		"page":      page,
 		"page_size": pageSize,
-	})
+	}
+
+	SuccessResponse(c, responseData)
 }
 
 // GetResourceByID 根据ID获取资源

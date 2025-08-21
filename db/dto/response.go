@@ -37,6 +37,9 @@ type ResourceResponse struct {
 	DescriptionHighlight string   `json:"description_highlight,omitempty"`
 	CategoryHighlight    string   `json:"category_highlight,omitempty"`
 	TagsHighlight        []string `json:"tags_highlight,omitempty"`
+	// 违禁词相关字段
+	HasForbiddenWords bool     `json:"has_forbidden_words"`
+	ForbiddenWords    []string `json:"forbidden_words"`
 }
 
 // CategoryResponse 分类响应
