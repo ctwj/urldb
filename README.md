@@ -35,6 +35,12 @@
 - [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
 - [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
 
+### v1.2.4
+
+1. 搜索增强，毫秒级响应，关键字高亮显示
+2. 修复版本显示不正确的问题
+3. 配置项新增Meilisearch配置
+
 ### v1.2.3
 1. 添加图片上传功能
 2. 添加Logo配置项，首页Logo显示
