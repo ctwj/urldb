@@ -59,7 +59,7 @@
               : '需要手动处理待处理资源' 
             }}
           </div>
-          <n-button 
+          <!-- <n-button 
             @click="refreshConfig"
             :disabled="updatingConfig"
             size="small"
@@ -69,7 +69,7 @@
             <template #icon>
               <i class="fas fa-sync-alt"></i>
             </template>
-          </n-button>
+          </n-button> -->
           <n-button 
             @click="toggleAutoProcess"
             :disabled="updatingConfig"

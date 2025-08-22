@@ -322,6 +322,12 @@ func ToggleAutoProcess(c *gin.Context) {
 		return
 	}
 
+	// 确保配置缓存已刷新
+	if err := repoManager.SystemConfigRepository.SafeRefreshConfigCache(); err != nil {
+		utils.Error("刷新配置缓存失败: %v", err)
+		// 不返回错误，因为配置已经保存成功
+	}
+
 	// 更新定时任务状态
 	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,

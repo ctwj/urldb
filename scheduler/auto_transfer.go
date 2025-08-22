@@ -218,9 +218,9 @@ func (a *AutoTransferScheduler) processAutoTransfer() {
 
 			if shouldSkip {
 				// 标记为违禁词错误
-				resource.ErrorMsg = fmt.Sprintf("存在违禁词: %s", strings.Join(matchedWords, ", "))
+				resource.ErrorMsg = fmt.Sprintf("存在违禁词 (共 %d 个)", len(matchedWords))
 				forbiddenResources = append(forbiddenResources, resource)
-				utils.Info(fmt.Sprintf("标记违禁词资源: %s, 违禁词: %s", resource.Title, strings.Join(matchedWords, ", ")))
+				utils.Info(fmt.Sprintf("标记违禁词资源: %s (包含 %d 个违禁词)", resource.Title, len(matchedWords)))
 			} else {
 				filteredResources = append(filteredResources, resource)
 			}
