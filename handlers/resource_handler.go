@@ -269,7 +269,7 @@ func CreateResource(c *gin.Context) {
 	}
 
 	// 同步到Meilisearch
-	if meilisearchManager != nil {
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() {
 		go func() {
 			if err := meilisearchManager.SyncResourceToMeilisearch(resource); err != nil {
 				utils.Error("同步资源到Meilisearch失败: %v", err)
@@ -354,7 +354,7 @@ func UpdateResource(c *gin.Context) {
 	}
 
 	// 同步到Meilisearch
-	if meilisearchManager != nil {
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() {
 		go func() {
 			if err := meilisearchManager.SyncResourceToMeilisearch(resource); err != nil {
 				utils.Error("同步资源到Meilisearch失败: %v", err)

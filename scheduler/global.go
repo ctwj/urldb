@@ -26,6 +26,11 @@ func SetGlobalMeilisearchManager(manager *services.MeilisearchManager) {
 	globalMeilisearchManager = manager
 }
 
+// GetGlobalMeilisearchManager 获取全局Meilisearch管理器
+func GetGlobalMeilisearchManager() *services.MeilisearchManager {
+	return globalMeilisearchManager
+}
+
 // GetGlobalScheduler 获取全局调度器实例（单例模式）
 func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository, cksRepo repo.CksRepository, tagRepo repo.TagRepository, categoryRepo repo.CategoryRepository) *GlobalScheduler {
 	once.Do(func() {
