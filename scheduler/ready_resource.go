@@ -342,6 +342,17 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		}
 	}
 
+	// 同步到Meilisearch
+	if globalMeilisearchManager != nil {
+		go func() {
+			if err := globalMeilisearchManager.SyncResourceToMeilisearch(resource); err != nil {
+				utils.Error("同步资源到Meilisearch失败: %v", err)
+			} else {
+				utils.Info(fmt.Sprintf("资源已同步到Meilisearch: %s", resource.URL))
+			}
+		}()
+	}
+
 	return nil
 }
 

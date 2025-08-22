@@ -10,6 +10,7 @@ import (
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
+	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/task"
 	"github.com/ctwj/urldb/utils"
@@ -120,6 +121,9 @@ func main() {
 
 	// 设置Meilisearch管理器到handlers中
 	handlers.SetMeilisearchManager(meilisearchManager)
+
+	// 设置全局调度器的Meilisearch管理器
+	scheduler.SetGlobalMeilisearchManager(meilisearchManager)
 
 	// 设置公开API中间件的Repository管理器
 	middleware.SetRepositoryManager(repoManager)
