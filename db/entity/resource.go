@@ -41,3 +41,23 @@ type Resource struct {
 func (Resource) TableName() string {
 	return "resources"
 }
+
+// GetTitle 获取资源标题（实现utils.Resource接口）
+func (r *Resource) GetTitle() string {
+	return r.Title
+}
+
+// GetDescription 获取资源描述（实现utils.Resource接口）
+func (r *Resource) GetDescription() string {
+	return r.Description
+}
+
+// SetTitle 设置资源标题（实现utils.Resource接口）
+func (r *Resource) SetTitle(title string) {
+	r.Title = title
+}
+
+// SetDescription 设置资源描述（实现utils.Resource接口）
+func (r *Resource) SetDescription(description string) {
+	r.Description = description
+}

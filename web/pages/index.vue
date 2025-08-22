@@ -201,6 +201,8 @@
       :platform="selectedResource?.platform"
       :message="selectedResource?.message"
       :error="selectedResource?.error"
+      :forbidden="selectedResource?.forbidden"
+      :forbidden_words="selectedResource?.forbidden_words"
       @close="showLinkModal = false" 
     />
 
@@ -419,6 +421,18 @@ const getPlatformIcon = (panId: string | number) => {
 
 // 切换链接显示
 const toggleLink = async (resource: any) => {
+  // 如果包含违禁词，直接显示禁止访问，不发送请求
+  if (resource.has_forbidden_words) {
+    selectedResource.value = {
+      ...resource,
+      forbidden: true,
+      error: '该资源包含违禁内容，无法访问',
+      forbidden_words: resource.forbidden_words || []
+    }
+    showLinkModal.value = true
+    return
+  }
+
   // 显示加载状态
   selectedResource.value = { ...resource, loading: true }
   showLinkModal.value = true
@@ -438,9 +452,10 @@ const toggleLink = async (resource: any) => {
       platform: linkData.platform,
       message: linkData.message
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取资源链接失败:', error)
-    // 出错时使用原始资源信息
+    
+    // 其他错误
     selectedResource.value = {
       ...resource,
       loading: false,
