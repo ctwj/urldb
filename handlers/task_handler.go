@@ -50,7 +50,7 @@ func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 		return
 	}
 
-	utils.Info("创建批量转存任务: %s，资源数量: %d，选择账号数量: %d", req.Title, len(req.Resources), len(req.SelectedAccounts))
+	utils.Debug("创建批量转存任务: %s，资源数量: %d，选择账号数量: %d", req.Title, len(req.Resources), len(req.SelectedAccounts))
 
 	// 构建任务配置
 	taskConfig := map[string]interface{}{
@@ -105,7 +105,7 @@ func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 		}
 	}
 
-	utils.Info("批量转存任务创建完成: %d, 共 %d 项", newTask.ID, len(req.Resources))
+	utils.Debug("批量转存任务创建完成: %d, 共 %d 项", newTask.ID, len(req.Resources))
 
 	SuccessResponse(c, gin.H{
 		"task_id":     newTask.ID,
@@ -123,14 +123,14 @@ func (h *TaskHandler) StartTask(c *gin.Context) {
 		return
 	}
 
-	utils.Info("启动任务: %d", taskID)
-
 	err = h.taskManager.StartTask(uint(taskID))
 	if err != nil {
 		utils.Error("启动任务失败: %v", err)
 		ErrorResponse(c, "启动任务失败: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	utils.Debug("启动任务: %d", taskID)
 
 	SuccessResponse(c, gin.H{
 		"message": "任务启动成功",
@@ -146,14 +146,14 @@ func (h *TaskHandler) StopTask(c *gin.Context) {
 		return
 	}
 
-	utils.Info("停止任务: %d", taskID)
-
 	err = h.taskManager.StopTask(uint(taskID))
 	if err != nil {
 		utils.Error("停止任务失败: %v", err)
 		ErrorResponse(c, "停止任务失败: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	utils.Debug("停止任务: %d", taskID)
 
 	SuccessResponse(c, gin.H{
 		"message": "任务停止成功",
@@ -169,14 +169,14 @@ func (h *TaskHandler) PauseTask(c *gin.Context) {
 		return
 	}
 
-	utils.Info("暂停任务: %d", taskID)
-
 	err = h.taskManager.PauseTask(uint(taskID))
 	if err != nil {
 		utils.Error("暂停任务失败: %v", err)
 		ErrorResponse(c, "暂停任务失败: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	utils.Debug("暂停任务: %d", taskID)
 
 	SuccessResponse(c, gin.H{
 		"message": "任务暂停成功",
@@ -234,13 +234,25 @@ func (h *TaskHandler) GetTaskStatus(c *gin.Context) {
 
 // GetTasks 获取任务列表
 func (h *TaskHandler) GetTasks(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	taskType := c.Query("task_type")
+	// 获取查询参数
+	pageStr := c.DefaultQuery("page", "1")
+	pageSizeStr := c.DefaultQuery("pageSize", "10")
+	taskType := c.Query("taskType")
 	status := c.Query("status")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil || pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
 
 	utils.Debug("GetTasks: 获取任务列表 page=%d, pageSize=%d, taskType=%s, status=%s", page, pageSize, taskType, status)
 
+	// 获取任务列表
 	tasks, total, err := h.repoMgr.TaskRepository.GetList(page, pageSize, taskType, status)
 	if err != nil {
 		utils.Error("获取任务列表失败: %v", err)
@@ -250,17 +262,17 @@ func (h *TaskHandler) GetTasks(c *gin.Context) {
 
 	utils.Debug("GetTasks: 从数据库获取到 %d 个任务", len(tasks))
 
-	// 为每个任务添加运行状态
-	var result []gin.H
+	// 获取任务运行状态
+	var taskList []gin.H
 	for _, task := range tasks {
 		isRunning := h.taskManager.IsTaskRunning(task.ID)
 		utils.Debug("GetTasks: 任务 %d (%s) 数据库状态: %s, TaskManager运行状态: %v", task.ID, task.Title, task.Status, isRunning)
 
-		result = append(result, gin.H{
+		taskList = append(taskList, gin.H{
 			"id":              task.ID,
 			"title":           task.Title,
 			"description":     task.Description,
-			"task_type":       task.Type,
+			"type":            task.Type,
 			"status":          task.Status,
 			"total_items":     task.TotalItems,
 			"processed_items": task.ProcessedItems,
@@ -273,10 +285,11 @@ func (h *TaskHandler) GetTasks(c *gin.Context) {
 	}
 
 	SuccessResponse(c, gin.H{
-		"items": result,
-		"total": total,
-		"page":  page,
-		"size":  pageSize,
+		"tasks":       taskList,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
+		"total_pages": (total + int64(pageSize) - 1) / int64(pageSize),
 	})
 }
 
@@ -348,7 +361,7 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 
 	// 检查任务是否在运行
 	if h.taskManager.IsTaskRunning(uint(taskID)) {
-		ErrorResponse(c, "任务正在运行，请先停止任务", http.StatusBadRequest)
+		ErrorResponse(c, "任务正在运行中，无法删除", http.StatusBadRequest)
 		return
 	}
 
@@ -368,7 +381,8 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 		return
 	}
 
-	utils.Info("任务删除成功: %d", taskID)
+	utils.Debug("任务删除成功: %d", taskID)
+
 	SuccessResponse(c, gin.H{
 		"message": "任务删除成功",
 	})

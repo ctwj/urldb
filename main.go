@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ctwj/urldb/db"
+	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
@@ -124,6 +125,31 @@ func main() {
 
 	// 设置全局调度器的Meilisearch管理器
 	scheduler.SetGlobalMeilisearchManager(meilisearchManager)
+
+	// 初始化并启动调度器
+	globalScheduler := scheduler.GetGlobalScheduler(
+		repoManager.HotDramaRepository,
+		repoManager.ReadyResourceRepository,
+		repoManager.ResourceRepository,
+		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
+		repoManager.CksRepository,
+		repoManager.TagRepository,
+		repoManager.CategoryRepository,
+	)
+
+	// 根据系统配置启动相应的调度任务
+	autoFetchHotDrama, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoFetchHotDramaEnabled)
+	autoProcessReadyResources, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)
+	autoTransferEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
+
+	globalScheduler.UpdateSchedulerStatusWithAutoTransfer(
+		autoFetchHotDrama,
+		autoProcessReadyResources,
+		autoTransferEnabled,
+	)
+
+	utils.Info("调度器初始化完成")
 
 	// 设置公开API中间件的Repository管理器
 	middleware.SetRepositoryManager(repoManager)

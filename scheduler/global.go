@@ -47,12 +47,12 @@ func (gs *GlobalScheduler) StartHotDramaScheduler() {
 	defer gs.mutex.Unlock()
 
 	if gs.manager.IsHotDramaRunning() {
-		utils.Info("热播剧定时任务已在运行中")
+		utils.Debug("热播剧定时任务已在运行中")
 		return
 	}
 
 	gs.manager.StartHotDramaScheduler()
-	utils.Info("全局调度器已启动热播剧定时任务")
+	utils.Debug("全局调度器已启动热播剧定时任务")
 }
 
 // StopHotDramaScheduler 停止热播剧定时任务
@@ -61,12 +61,12 @@ func (gs *GlobalScheduler) StopHotDramaScheduler() {
 	defer gs.mutex.Unlock()
 
 	if !gs.manager.IsHotDramaRunning() {
-		utils.Info("热播剧定时任务未在运行")
+		utils.Debug("热播剧定时任务未在运行")
 		return
 	}
 
 	gs.manager.StopHotDramaScheduler()
-	utils.Info("全局调度器已停止热播剧定时任务")
+	utils.Debug("全局调度器已停止热播剧定时任务")
 }
 
 // IsHotDramaSchedulerRunning 检查热播剧定时任务是否在运行
@@ -87,12 +87,12 @@ func (gs *GlobalScheduler) StartReadyResourceScheduler() {
 	defer gs.mutex.Unlock()
 
 	if gs.manager.IsReadyResourceRunning() {
-		utils.Info("待处理资源自动处理任务已在运行中")
+		utils.Debug("待处理资源自动处理任务已在运行中")
 		return
 	}
 
 	gs.manager.StartReadyResourceScheduler()
-	utils.Info("全局调度器已启动待处理资源自动处理任务")
+	utils.Debug("全局调度器已启动待处理资源自动处理任务")
 }
 
 // StopReadyResourceScheduler 停止待处理资源自动处理任务
@@ -101,12 +101,12 @@ func (gs *GlobalScheduler) StopReadyResourceScheduler() {
 	defer gs.mutex.Unlock()
 
 	if !gs.manager.IsReadyResourceRunning() {
-		utils.Info("待处理资源自动处理任务未在运行")
+		utils.Debug("待处理资源自动处理任务未在运行")
 		return
 	}
 
 	gs.manager.StopReadyResourceScheduler()
-	utils.Info("全局调度器已停止待处理资源自动处理任务")
+	utils.Debug("全局调度器已停止待处理资源自动处理任务")
 }
 
 // IsReadyResourceRunning 检查待处理资源自动处理任务是否在运行
@@ -122,12 +122,12 @@ func (gs *GlobalScheduler) StartAutoTransferScheduler() {
 	defer gs.mutex.Unlock()
 
 	if gs.manager.IsAutoTransferRunning() {
-		utils.Info("自动转存定时任务已在运行中")
+		utils.Debug("自动转存定时任务已在运行中")
 		return
 	}
 
 	gs.manager.StartAutoTransferScheduler()
-	utils.Info("全局调度器已启动自动转存定时任务")
+	utils.Debug("全局调度器已启动自动转存定时任务")
 }
 
 // StopAutoTransferScheduler 停止自动转存定时任务
@@ -136,12 +136,12 @@ func (gs *GlobalScheduler) StopAutoTransferScheduler() {
 	defer gs.mutex.Unlock()
 
 	if !gs.manager.IsAutoTransferRunning() {
-		utils.Info("自动转存定时任务未在运行")
+		utils.Debug("自动转存定时任务未在运行")
 		return
 	}
 
 	gs.manager.StopAutoTransferScheduler()
-	utils.Info("全局调度器已停止自动转存定时任务")
+	utils.Debug("全局调度器已停止自动转存定时任务")
 }
 
 // IsAutoTransferRunning 检查自动转存定时任务是否在运行

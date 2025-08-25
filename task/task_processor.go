@@ -39,7 +39,7 @@ func (tm *TaskManager) RegisterProcessor(processor TaskProcessor) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	tm.processors[processor.GetTaskType()] = processor
-	utils.Info("注册任务处理器: %s", processor.GetTaskType())
+	utils.Debug("注册任务处理器: %s", processor.GetTaskType())
 }
 
 // getRegisteredProcessors 获取已注册的处理器列表（用于调试）
@@ -56,11 +56,11 @@ func (tm *TaskManager) StartTask(taskID uint) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
-	utils.Info("StartTask: 尝试启动任务 %d", taskID)
+	utils.Debug("StartTask: 尝试启动任务 %d", taskID)
 
 	// 检查任务是否已在运行
 	if _, exists := tm.running[taskID]; exists {
-		utils.Info("任务 %d 已在运行中", taskID)
+		utils.Debug("任务 %d 已在运行中", taskID)
 		return fmt.Errorf("任务 %d 已在运行中", taskID)
 	}
 
@@ -71,7 +71,7 @@ func (tm *TaskManager) StartTask(taskID uint) error {
 		return fmt.Errorf("获取任务失败: %v", err)
 	}
 
-	utils.Info("StartTask: 获取到任务 %d, 类型: %s, 状态: %s", task.ID, task.Type, task.Status)
+	utils.Debug("StartTask: 获取到任务 %d, 类型: %s, 状态: %s", task.ID, task.Type, task.Status)
 
 	// 获取处理器
 	processor, exists := tm.processors[string(task.Type)]
@@ -80,13 +80,13 @@ func (tm *TaskManager) StartTask(taskID uint) error {
 		return fmt.Errorf("未找到任务类型 %s 的处理器", task.Type)
 	}
 
-	utils.Info("StartTask: 找到处理器 %s", task.Type)
+	utils.Debug("StartTask: 找到处理器 %s", task.Type)
 
 	// 创建上下文
 	ctx, cancel := context.WithCancel(context.Background())
 	tm.running[taskID] = cancel
 
-	utils.Info("StartTask: 启动后台任务协程")
+	utils.Debug("StartTask: 启动后台任务协程")
 	// 启动后台任务
 	go tm.processTask(ctx, task, processor)
 
@@ -189,10 +189,10 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 		tm.mu.Lock()
 		delete(tm.running, task.ID)
 		tm.mu.Unlock()
-		utils.Info("processTask: 任务 %d 处理完成，清理资源", task.ID)
+		utils.Debug("processTask: 任务 %d 处理完成，清理资源", task.ID)
 	}()
 
-	utils.Info("processTask: 开始处理任务: %d, 类型: %s", task.ID, task.Type)
+	utils.Debug("processTask: 开始处理任务: %d, 类型: %s", task.ID, task.Type)
 
 	// 更新任务状态为运行中
 	err := tm.repoMgr.TaskRepository.UpdateStatus(task.ID, "running")
@@ -230,7 +230,7 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 
 	// 如果当前批次有处理中的任务项，重置它们为pending状态（服务器重启恢复）
 	if processingItems > 0 {
-		utils.Info("任务 %d 发现 %d 个处理中的任务项，重置为pending状态", task.ID, processingItems)
+		utils.Debug("任务 %d 发现 %d 个处理中的任务项，重置为pending状态", task.ID, processingItems)
 		err = tm.repoMgr.TaskItemRepository.ResetProcessingItems(task.ID)
 		if err != nil {
 			utils.Error("重置处理中任务项失败: %v", err)
@@ -249,13 +249,13 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 	successItems := completedItems
 	failedItems := initialFailedItems
 
-	utils.Info("任务 %d 统计信息: 总计=%d, 已完成=%d, 已失败=%d, 待处理=%d",
+	utils.Debug("任务 %d 统计信息: 总计=%d, 已完成=%d, 已失败=%d, 待处理=%d",
 		task.ID, totalItems, completedItems, failedItems, currentBatchItems)
 
 	for _, item := range items {
 		select {
 		case <-ctx.Done():
-			utils.Info("任务 %d 被取消", task.ID)
+			utils.Debug("任务 %d 被取消", task.ID)
 			return
 		default:
 			// 处理单个任务项
