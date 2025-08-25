@@ -135,9 +135,24 @@
                 <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
               </td>
             </tr>
-            <tr v-else-if="safeResources.length === 0" class="text-center py-8">
-              <td colspan="1" class="text-gray-500 dark:text-gray-400 sm:hidden">暂无数据</td>
-              <td colspan="3" class="text-gray-500 dark:text-gray-400 hidden sm:table-cell">暂无数据</td>
+            <tr v-else-if="safeResources.length === 0" class="text-center py-12">
+              <td colspan="3" class="text-gray-500 dark:text-gray-400">
+                <div class="flex flex-col items-center justify-center space-y-4">
+                  <img 
+                    src="/assets/svg/empty.svg" 
+                    alt="暂无数据" 
+                    class="!w-64 !h-64 sm:w-64 sm:h-64 opacity-60 dark:opacity-40"
+                  />
+                  <div class="text-center">
+                    <p class="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
+                      {{ searchQuery ? '没有找到相关资源' : '暂无资源数据' }}
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-500">
+                      {{ searchQuery ? '请尝试其他关键词或清除搜索条件' : '资源正在整理中，请稍后再来查看' }}
+                    </p>
+                  </div>
+                </div>
+              </td>
             </tr>
             <tr 
               v-for="(resource, index) in safeResources" 

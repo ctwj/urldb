@@ -188,11 +188,17 @@
 
         <!-- 空状态 -->
         <div v-else class="text-center py-12">
-          <div class="text-gray-400 dark:text-gray-500 mb-4">
-            <i class="fas fa-film text-6xl"></i>
+          <div class="flex flex-col items-center justify-center space-y-4">
+            <img 
+              src="/assets/svg/empty.svg" 
+              alt="暂无热播剧数据" 
+              class="!w-64 !h-64 sm:w-64 sm:h-64 opacity-60 dark:opacity-40"
+            />
+            <div class="text-center">
+              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">暂无热播剧数据</h3>
+              <p class="text-gray-500 dark:text-gray-400">请稍后再试或联系管理员</p>
+            </div>
           </div>
-          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">暂无热播剧数据</h3>
-          <p class="text-gray-500 dark:text-gray-400">请稍后再试或联系管理员</p>
         </div>
       </div>
     </div>
