@@ -197,27 +197,35 @@ func (m *MeilisearchService) UpdateIndexSettings() error {
 
 // BatchAddDocuments 批量添加文档
 func (m *MeilisearchService) BatchAddDocuments(docs []MeilisearchDocument) error {
+	utils.Debug(fmt.Sprintf("开始批量添加文档到Meilisearch - 文档数量: %d", len(docs)))
+
 	if !m.enabled {
-		return nil
+		utils.Debug("Meilisearch未启用，跳过批量添加")
+		return fmt.Errorf("Meilisearch未启用")
 	}
 
 	if len(docs) == 0 {
+		utils.Debug("文档列表为空，跳过批量添加")
 		return nil
 	}
 
 	// 转换为interface{}切片
 	var documents []interface{}
-	for _, doc := range docs {
+	for i, doc := range docs {
+		utils.Debug(fmt.Sprintf("转换文档 %d - ID: %d, 标题: %s", i+1, doc.ID, doc.Title))
 		documents = append(documents, doc)
 	}
+
+	utils.Debug(fmt.Sprintf("开始调用Meilisearch API添加 %d 个文档", len(documents)))
 
 	// 批量添加文档
 	_, err := m.index.AddDocuments(documents, nil)
 	if err != nil {
-		return fmt.Errorf("批量添加文档失败: %v", err)
+		utils.Error(fmt.Sprintf("Meilisearch批量添加文档失败: %v", err))
+		return fmt.Errorf("Meilisearch批量添加文档失败: %v", err)
 	}
 
-	utils.Debug("批量添加 %d 个文档到Meilisearch成功", len(docs))
+	utils.Debug(fmt.Sprintf("成功批量添加 %d 个文档到Meilisearch", len(docs)))
 	return nil
 }
 

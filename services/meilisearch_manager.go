@@ -221,8 +221,23 @@ func (m *MeilisearchManager) GetStatusWithHealthCheck() (MeilisearchStatus, erro
 
 // SyncResourceToMeilisearch 同步资源到Meilisearch
 func (m *MeilisearchManager) SyncResourceToMeilisearch(resource *entity.Resource) error {
+	utils.Debug(fmt.Sprintf("开始同步资源到Meilisearch - 资源ID: %d, URL: %s", resource.ID, resource.URL))
+
 	if m.service == nil || !m.service.IsEnabled() {
-		return nil
+		utils.Debug("Meilisearch服务未初始化或未启用")
+		return fmt.Errorf("Meilisearch服务未初始化或未启用")
+	}
+
+	// 先进行健康检查
+	if err := m.service.HealthCheck(); err != nil {
+		utils.Error(fmt.Sprintf("Meilisearch健康检查失败: %v", err))
+		return fmt.Errorf("Meilisearch健康检查失败: %v", err)
+	}
+
+	// 确保索引存在
+	if err := m.service.CreateIndex(); err != nil {
+		utils.Error(fmt.Sprintf("创建Meilisearch索引失败: %v", err))
+		return fmt.Errorf("创建Meilisearch索引失败: %v", err)
 	}
 
 	doc := m.convertResourceToDocument(resource)

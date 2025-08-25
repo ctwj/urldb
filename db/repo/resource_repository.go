@@ -509,6 +509,7 @@ func (r *ResourceRepositoryImpl) FindUnsyncedToMeilisearch(page, limit int) ([]e
 		Where("synced_to_meilisearch = ?", false).
 		Preload("Category").
 		Preload("Pan").
+		Preload("Tags"). // 添加Tags预加载
 		Order("updated_at DESC")
 
 	// 获取总数
