@@ -35,6 +35,9 @@
 - [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
 - [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
 
+### v1.2.5
+1. 修复一些Bug
+
 ### v1.2.4
 
 1. 搜索增强，毫秒级响应，关键字高亮显示
