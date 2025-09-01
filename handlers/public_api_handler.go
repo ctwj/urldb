@@ -314,10 +314,10 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 
 	// 构建响应数据
 	responseData := gin.H{
-		"data":      resourceResponses,
-		"total":     total,
-		"page":      page,
-		"page_size": pageSize,
+		"list":  resourceResponses,
+		"total": total,
+		"page":  page,
+		"limit": pageSize,
 	}
 
 	SuccessResponse(c, responseData)
