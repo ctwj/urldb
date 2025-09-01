@@ -20,6 +20,7 @@ type Cks struct {
 	VipStatus   bool           `json:"vip_status" gorm:"default:false;comment:VIP状态"`
 	ServiceType string         `json:"service_type" gorm:"size:20;comment:服务类型"`
 	Remark      string         `json:"remark" gorm:"size:64;not null;comment:备注"`
+	Extra       string         `json:"extra" gorm:"type:text;comment:额外的中间数据如token等"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `json:"deleted_at" gorm:"index"`
