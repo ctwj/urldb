@@ -1028,6 +1028,11 @@ func (q *QuarkPanService) GetUserInfo(cookie string) (*UserInfo, error) {
 	}, nil
 }
 
+// GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
+func (q *QuarkPanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
+	return nil, nil
+}
+
 // formatBytes 格式化字节数为可读格式
 func formatBytes(bytes int64) string {
 	const unit = 1024

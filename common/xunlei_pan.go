@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 )
 
@@ -79,7 +80,7 @@ func NewXunleiPanService(config *PanConfig, cksRepo ...repo.CksRepository) *Xunl
 
 		xunleiInstance.SetHeaders(map[string]string{
 			"Accept":             "*/;",
-			"Accept-Encoding":    "gzip, deflate",
+			"Accept-Encoding":    "deflate",
 			"Accept-Language":    "zh-CN,zh;q=0.9",
 			"Cache-Control":      "no-cache",
 			"Content-Type":       "application/json",
@@ -115,7 +116,7 @@ func GetXunleiInstance() *XunleiPanService {
 	return NewXunleiPanService(nil)
 }
 
-func (x *XunleiPanService) getAccessTokenByRefreshToken(refreshToken string) (map[string]interface{}, error) {
+func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (map[string]interface{}, error) {
 	// 构造请求体
 	body := map[string]interface{}{
 		"client_id":     x.clientId,
@@ -137,12 +138,13 @@ func (x *XunleiPanService) getAccessTokenByRefreshToken(refreshToken string) (ma
 		return map[string]interface{}{}, fmt.Errorf("获取 access_token 请求失败: %v", err)
 	}
 
-	if resp["code"] != 0 || resp["data"] == nil {
-		return map[string]interface{}{}, fmt.Errorf("获取 access_token 失败: %v", resp)
+	// 正确做法：用 exists 判断
+	if _, exists := resp["access_token"]; exists {
+		// 会输出，即使值为 nil
+	} else {
+		return map[string]interface{}{}, fmt.Errorf("获取 access_token 请求失败: %v 不存在", "access_token")
 	}
-
-	data := resp["data"].(map[string]interface{})
-	return data, nil
+	return resp, nil
 }
 
 // getAccessToken 获取 Access Token（内部包含缓存判断、刷新、保存）- 匹配 PHP 版本
@@ -177,7 +179,7 @@ func (x *XunleiPanService) getAccessToken() (string, error) {
 		return "", fmt.Errorf("未配置迅雷 refresh_token，请检查 cks 表的 ck 字段")
 	}
 
-	newData, err := x.getAccessTokenByRefreshToken(refreshTokenValue)
+	newData, err := x.GetAccessTokenByRefreshToken(refreshTokenValue)
 	if err != nil {
 		return "", fmt.Errorf("获取 access_token 失败: %v", err)
 	}
@@ -551,6 +553,11 @@ func (x *XunleiPanService) getTaskStatus(taskID string, retryIndex int, accessTo
 	return &data, nil
 }
 
+// GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
+func (x *XunleiPanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
+	return nil, nil
+}
+
 // getShare 获取分享详情 - 匹配 PHP 版本
 func (x *XunleiPanService) getShare(shareID, passCode, accessToken, captchaToken string) (map[string]interface{}, error) {
 	// 设置 headers
@@ -750,12 +757,21 @@ func (x *XunleiPanService) DeleteFiles(fileList []string) (*TransferResult, erro
 	return SuccessResult("删除成功", nil), nil
 }
 
-// GetUserInfo 获取用户信息 - 实现 PanService 接口，使用 HTTPGet
+// GetUserInfo 获取用户信息 - 实现 PanService 接口，cookie 参数为 refresh_token，先获取 access_token 再访问 API
 func (x *XunleiPanService) GetUserInfo(cookie string) (*UserInfo, error) {
-	log.Printf("开始获取迅雷网盘用户信息")
+	log.Printf("开始获取迅雷网盘用户信息（cookie 为 refresh_token）")
 
-	// 临时设置cookie
-	x.SetHeader("Authorization", cookie)
+	// 使用 refresh_token 获取 access_token
+	accessTokenData, err := x.GetAccessTokenByRefreshToken(cookie)
+	if err != nil {
+		return nil, fmt.Errorf("获取 access_token 失败: %v", err)
+	}
+
+	accessToken := accessTokenData["access_token"].(string)
+	log.Printf("成功获取 access_token")
+
+	// 设置 Authorization header 为 Bearer token
+	x.SetHeader("Authorization", "Bearer "+accessToken)
 
 	// 获取用户信息
 	respData, err := x.HTTPGet(x.apiHost("user")+"/v1/user/me", nil)

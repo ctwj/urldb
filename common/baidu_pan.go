@@ -2,6 +2,8 @@ package pan
 
 import (
 	"fmt"
+
+	"github.com/ctwj/urldb/db/entity"
 )
 
 // BaiduPanService 百度网盘服务
@@ -100,4 +102,9 @@ func (b *BaiduPanService) GetUserInfo(cookie string) (*UserInfo, error) {
 		TotalSpace:  totalCapacityBytes,
 		ServiceType: "baidu",
 	}, nil
+}
+
+// GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
+func (b *BaiduPanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
+	return nil, nil
 }

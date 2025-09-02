@@ -1,6 +1,10 @@
 package pan
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/ctwj/urldb/db/entity"
+)
 
 // UCService UC网盘服务
 type UCService struct {
@@ -96,4 +100,9 @@ func (u *UCService) GetUserInfo(cookie string) (*UserInfo, error) {
 		TotalSpace:  result.Data.TotalSpace,
 		ServiceType: "uc",
 	}, nil
+}
+
+// GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
+func (u *UCService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
+	return nil, nil
 }

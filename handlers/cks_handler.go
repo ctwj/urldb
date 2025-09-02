@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,28 +67,58 @@ func CreateCks(c *gin.Context) {
 		return
 	}
 
-	// 获取用户信息
-	userInfo, err := service.GetUserInfo(req.Ck)
-	if err != nil {
-		ErrorResponse(c, "无法获取用户信息，账号创建失败: "+err.Error(), http.StatusBadRequest)
-		return
-	}
+	var cks *entity.Cks
+	// 迅雷网盘，添加的时候 只获取token就好， 然后刷新的时候， 再补充用户信息等
+	if serviceType == panutils.Xunlei {
+		xunleiService := service.(*panutils.XunleiPanService)
+		tokenData, err := xunleiService.GetAccessTokenByRefreshToken(req.Ck)
+		if err != nil {
+			ErrorResponse(c, "无法获取有效token: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		refreshT, _ := tokenData["refresh_token"]
+		extra, _ := json.Marshal(tokenData)
 
-	leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
+		// 创建Cks实体
+		cks = &entity.Cks{
+			PanID:       req.PanID,
+			Idx:         req.Idx,
+			Ck:          refreshT.(string),
+			IsValid:     true, // 根据VIP状态设置有效性
+			Space:       0,
+			LeftSpace:   0,
+			UsedSpace:   0,
+			Username:    "-",
+			VipStatus:   false,
+			ServiceType: "xunlei",
+			Extra:       string(extra),
+			Remark:      req.Remark,
+		}
+	} else {
+		// 获取用户信息
+		userInfo, err := service.GetUserInfo(req.Ck)
+		if err != nil {
+			ErrorResponse(c, "无法获取用户信息，账号创建失败: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	// 创建Cks实体
-	cks := &entity.Cks{
-		PanID:       req.PanID,
-		Idx:         req.Idx,
-		Ck:          req.Ck,
-		IsValid:     userInfo.VIPStatus, // 根据VIP状态设置有效性
-		Space:       userInfo.TotalSpace,
-		LeftSpace:   leftSpaceBytes,
-		UsedSpace:   userInfo.UsedSpace,
-		Username:    userInfo.Username,
-		VipStatus:   userInfo.VIPStatus,
-		ServiceType: userInfo.ServiceType,
-		Remark:      req.Remark,
+		leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
+
+		// 创建Cks实体
+		cks = &entity.Cks{
+			PanID:       req.PanID,
+			Idx:         req.Idx,
+			Ck:          req.Ck,
+			IsValid:     userInfo.VIPStatus, // 根据VIP状态设置有效性
+			Space:       userInfo.TotalSpace,
+			LeftSpace:   leftSpaceBytes,
+			UsedSpace:   userInfo.UsedSpace,
+			Username:    userInfo.Username,
+			VipStatus:   userInfo.VIPStatus,
+			ServiceType: userInfo.ServiceType,
+			Extra:       userInfo.ExtraData,
+			Remark:      req.Remark,
+		}
 	}
 
 	err = repoManager.CksRepository.Create(cks)

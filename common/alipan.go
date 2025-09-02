@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/utils"
 )
 
@@ -345,6 +346,11 @@ func (a *AlipanService) getAlipan1(shareID string) (*AlipanShareInfo, error) {
 	}
 
 	return &result, nil
+}
+
+// GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
+func (a *AlipanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
+	return nil, nil
 }
 
 // getAlipan2 通过分享id获取X-Share-Token
