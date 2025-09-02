@@ -54,7 +54,6 @@ func (x *XunleiPanService) apiHost(apiType string) string {
 	return "https://api-pan.xunlei.com"
 }
 
-// 工具：自动补全必要 header
 func (x *XunleiPanService) setCommonHeader(req *http.Request) {
 	for k, v := range x.headers {
 		req.Header.Set(k, v)
@@ -116,6 +115,36 @@ func GetXunleiInstance() *XunleiPanService {
 	return NewXunleiPanService(nil)
 }
 
+func (x *XunleiPanService) getAccessTokenByRefreshToken(refreshToken string) (map[string]interface{}, error) {
+	// 构造请求体
+	body := map[string]interface{}{
+		"client_id":     x.clientId,
+		"grant_type":    "refresh_token",
+		"refresh_token": refreshToken,
+	}
+
+	// 过滤 headers（移除 Authorization 和 x-captcha-token）
+	filteredHeaders := make(map[string]string)
+	for k, v := range x.headers {
+		if k != "Authorization" && k != "x-captcha-token" {
+			filteredHeaders[k] = v
+		}
+	}
+
+	// 调用 API 获取新的 token
+	resp, err := x.requestXunleiApi("https://xluser-ssl.xunlei.com/v1/auth/token", "POST", body, nil, filteredHeaders)
+	if err != nil {
+		return map[string]interface{}{}, fmt.Errorf("获取 access_token 请求失败: %v", err)
+	}
+
+	if resp["code"] != 0 || resp["data"] == nil {
+		return map[string]interface{}{}, fmt.Errorf("获取 access_token 失败: %v", resp)
+	}
+
+	data := resp["data"].(map[string]interface{})
+	return data, nil
+}
+
 // getAccessToken 获取 Access Token（内部包含缓存判断、刷新、保存）- 匹配 PHP 版本
 func (x *XunleiPanService) getAccessToken() (string, error) {
 	if x.cksRepo == nil {
@@ -148,43 +177,21 @@ func (x *XunleiPanService) getAccessToken() (string, error) {
 		return "", fmt.Errorf("未配置迅雷 refresh_token，请检查 cks 表的 ck 字段")
 	}
 
-	// 构造请求体
-	body := map[string]interface{}{
-		"client_id":     x.clientId,
-		"grant_type":    "refresh_token",
-		"refresh_token": refreshTokenValue,
-	}
-
-	// 过滤 headers（移除 Authorization 和 x-captcha-token）
-	filteredHeaders := make(map[string]string)
-	for k, v := range x.headers {
-		if k != "Authorization" && k != "x-captcha-token" {
-			filteredHeaders[k] = v
-		}
-	}
-
-	// 调用 API 获取新的 token
-	resp, err := x.requestXunleiApi("https://xluser-ssl.xunlei.com/v1/auth/token", "POST", body, nil, filteredHeaders)
+	newData, err := x.getAccessTokenByRefreshToken(refreshTokenValue)
 	if err != nil {
-		return "", fmt.Errorf("获取 access_token 请求失败: %v", err)
+		return "", fmt.Errorf("获取 access_token 失败: %v", err)
 	}
-
-	if resp["code"] != 0 || resp["data"] == nil {
-		return "", fmt.Errorf("获取 access_token 失败: %v", resp)
-	}
-
-	data := resp["data"].(map[string]interface{})
-	newAccessToken := data["access_token"].(string)
+	newAccessToken := newData["access_token"].(string)
 
 	// 计算过期时间（当前时间 + expires_in - 60 秒缓冲）
-	expiresAt := currentTime + int64(data["expires_in"].(float64)) - 60
+	expiresAt := currentTime + int64(newData["expires_in"].(float64)) - 60
 
 	// 更新 extra 数据
 	if extraData.AccessToken == nil {
 		extraData.AccessToken = &AccessTokenData{}
 	}
 	extraData.AccessToken.AccessToken = newAccessToken
-	extraData.AccessToken.RefreshToken = data["refresh_token"].(string)
+	extraData.AccessToken.RefreshToken = newData["refresh_token"].(string)
 	extraData.AccessToken.ExpiresAt = expiresAt
 
 	// 保存到数据库

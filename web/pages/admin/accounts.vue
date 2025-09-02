@@ -191,7 +191,7 @@
           平台类型 <span class="text-red-500">*</span>
         </label>
         <n-select v-model:value="form.pan_id" placeholder="请选择平台"
-          :options="platforms.filter(pan => pan.name === 'quark' || pan.name === 'xunlei').map(pan => ({ label: pan.remark, value: pan.id }))"
+          :options="platforms.filter(pan => panEnables.includes(pan.name)).map(pan => ({ label: pan.remark, value: pan.id }))"
           :disabled="showEditModal" required />
         <p v-if="showEditModal" class="mt-1 text-xs text-gray-500">编辑时不允许修改平台类型</p>
       </div>
@@ -210,14 +210,7 @@
 
       <div v-if="isXunlei">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Authorization <span class="text-red-500">*</span>
-        </label>
-        <n-input v-model:value="form.ck" type="textarea" placeholder="请输入Authorization内容，带 Berear" :rows="4" required />
-      </div>
-
-      <div v-if="isXunlei">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Token <span class="text-red-500">*</span>
+          refresh_token <span class="text-red-500">*</span>
         </label>
         <n-input v-model:value="form.ck" type="textarea" placeholder="请输入" :rows="4" required />
       </div>
@@ -271,6 +264,14 @@ const form = ref({
   is_valid: true,
   remark: ''
 })
+
+const cookie = useCookie()
+const panEnables = ref(['quark'])
+const xunleiEnable = cookie.get('xunleiEnable')
+console.log(xunleiEnable)
+if (xunleiEnable && xunleiEnable === 'true') {
+  panEnables.value.push('xunlei')
+}
 
 watch(() => form.value.pan_id, (newVal) => {
   isQuark.value = false
