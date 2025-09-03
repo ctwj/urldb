@@ -76,14 +76,17 @@ func CreateCks(c *gin.Context) {
 			ErrorResponse(c, "无法获取有效token: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		refreshT, _ := tokenData["refresh_token"]
-		extra, _ := json.Marshal(tokenData)
+		extra := panutils.XunleiExtraData{
+			Token:   &tokenData,
+			Captcha: &panutils.CaptchaData{},
+		}
+		extraStr, _ := json.Marshal(extra)
 
 		// 创建Cks实体
 		cks = &entity.Cks{
 			PanID:       req.PanID,
 			Idx:         req.Idx,
-			Ck:          refreshT.(string),
+			Ck:          tokenData.RefreshToken,
 			IsValid:     true, // 根据VIP状态设置有效性
 			Space:       0,
 			LeftSpace:   0,
@@ -91,7 +94,7 @@ func CreateCks(c *gin.Context) {
 			Username:    "-",
 			VipStatus:   false,
 			ServiceType: "xunlei",
-			Extra:       string(extra),
+			Extra:       string(extraStr),
 			Remark:      req.Remark,
 		}
 	} else {

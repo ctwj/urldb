@@ -31,8 +31,8 @@ type XunleiTokenData struct {
 }
 
 type XunleiExtraData struct {
-	captcha *CaptchaData
-	token   *XunleiTokenData
+	Captcha *CaptchaData
+	Token   *XunleiTokenData
 }
 
 type XunleiPanService struct {
@@ -110,7 +110,7 @@ func GetXunleiInstance() *XunleiPanService {
 	return NewXunleiPanService(nil)
 }
 
-func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (map[string]interface{}, error) {
+func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (XunleiTokenData, error) {
 	// 构造请求体
 	body := map[string]interface{}{
 		"client_id":     x.clientId,
@@ -129,41 +129,44 @@ func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (ma
 	// 调用 API 获取新的 token
 	resp, err := x.requestXunleiApi("https://xluser-ssl.xunlei.com/v1/auth/token", "POST", body, nil, filteredHeaders)
 	if err != nil {
-		return map[string]interface{}{}, fmt.Errorf("获取 access_token 请求失败: %v", err)
+		return XunleiTokenData{}, fmt.Errorf("获取 access_token 请求失败: %v", err)
 	}
 
 	// 正确做法：用 exists 判断
 	if _, exists := resp["access_token"]; exists {
 		// 会输出，即使值为 nil
 	} else {
-		return map[string]interface{}{}, fmt.Errorf("获取 access_token 请求失败: %v 不存在", "access_token")
+		return XunleiTokenData{}, fmt.Errorf("获取 access_token 请求失败: %v 不存在", "access_token")
 	}
 
 	// 计算过期时间（当前时间 + expires_in - 60 秒缓冲）
 	currentTime := time.Now().Unix()
 	expiresAt := currentTime + int64(resp["expires_in"].(float64)) - 60
 	resp["expires_at"] = expiresAt
-	return resp, nil
+	jsonBytes, _ := json.Marshal(resp)
+
+	var result XunleiTokenData
+	json.Unmarshal(jsonBytes, &result)
+	return result, nil
 }
 
 // getAccessToken 获取 Access Token（内部包含缓存判断、刷新、保存）- 匹配 PHP 版本
 func (x *XunleiPanService) getAccessToken() (string, error) {
 	// 检查 Access Token 是否有效
 	currentTime := time.Now().Unix()
-	if x.extra.token != nil && x.extra.token.AccessToken != "" && x.extra.token.ExpiresAt > currentTime {
-		return x.extra.token.AccessToken, nil
+	if x.extra.Token != nil && x.extra.Token.AccessToken != "" && x.extra.Token.ExpiresAt > currentTime {
+		return x.extra.Token.AccessToken, nil
 	}
-	newData, err := x.GetAccessTokenByRefreshToken(x.extra.token.RefreshToken)
-
+	newData, err := x.GetAccessTokenByRefreshToken(x.extra.Token.RefreshToken)
 	if err != nil {
 		return "", fmt.Errorf("获取 access_token 失败: %v", err)
 	}
-	newAccessToken := newData["access_token"].(string)
-	x.extra.token.AccessToken = newAccessToken
-	x.extra.token.ExpiresAt = int64(newData["expires_in"].(float64)) - 60
+
+	x.extra.Token.AccessToken = newData.AccessToken
+	x.extra.Token.ExpiresAt = newData.ExpiresAt
 
 	// 保存到数据库
-	extraBytes, err := json.Marshal(x.extra.token)
+	extraBytes, err := json.Marshal(x.extra)
 	if err != nil {
 		return "", fmt.Errorf("序列化 extra 数据失败: %v", err)
 	}
@@ -171,15 +174,15 @@ func (x *XunleiPanService) getAccessToken() (string, error) {
 	if err := x.cksRepo.UpdateWithAllFields(&x.entity); err != nil {
 		return "", fmt.Errorf("保存 access_token 到数据库失败: %v", err)
 	}
-	return newAccessToken, nil
+	return newData.AccessToken, nil
 }
 
 // getCaptchaToken 获取 captcha_token - 匹配 PHP 版本
 func (x *XunleiPanService) getCaptchaToken() (string, error) {
 	// 检查 Captcha Token 是否有效
 	currentTime := time.Now().Unix()
-	if x.extra.captcha != nil && x.extra.captcha.CaptchaToken != "" && x.extra.captcha.ExpiresAt > currentTime {
-		return x.extra.captcha.CaptchaToken, nil
+	if x.extra.Captcha != nil && x.extra.Captcha.CaptchaToken != "" && x.extra.Captcha.ExpiresAt > currentTime {
+		return x.extra.Captcha.CaptchaToken, nil
 	}
 
 	// 构造请求体
@@ -221,11 +224,11 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 	expiresAt := currentTime + int64(data["expires_in"].(float64)) - 10
 
 	// 更新 extra 数据
-	if x.extra.captcha == nil {
-		x.extra.captcha = &CaptchaData{}
+	if x.extra.Captcha == nil {
+		x.extra.Captcha = &CaptchaData{}
 	}
-	x.extra.captcha.CaptchaToken = captchaToken
-	x.extra.captcha.ExpiresAt = expiresAt
+	x.extra.Captcha.CaptchaToken = captchaToken
+	x.extra.Captcha.ExpiresAt = expiresAt
 
 	// 保存到数据库
 	extraBytes, err := json.Marshal(x.extra)
@@ -714,11 +717,8 @@ func (x *XunleiPanService) GetUserInfo(cookie string) (*UserInfo, error) {
 		return nil, fmt.Errorf("获取 access_token 失败: %v", err)
 	}
 
-	accessToken := accessTokenData["access_token"].(string)
-	log.Printf("成功获取 access_token")
-
 	// 设置 Authorization header 为 Bearer token
-	x.SetHeader("Authorization", "Bearer "+accessToken)
+	x.SetHeader("Authorization", "Bearer "+accessTokenData.AccessToken)
 
 	// 获取用户信息
 	respData, err := x.HTTPGet(x.apiHost("user")+"/v1/user/me", nil)
