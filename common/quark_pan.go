@@ -29,35 +29,31 @@ var configRefreshChan = make(chan bool, 1)
 
 // 单例相关变量
 var (
-	quarkInstance    *QuarkPanService
-	quarkOnce        sync.Once
 	systemConfigRepo repo.SystemConfigRepository
 	systemConfigOnce sync.Once
 )
 
 // NewQuarkPanService 创建夸克网盘服务（单例模式）
 func NewQuarkPanService(config *PanConfig) *QuarkPanService {
-	quarkOnce.Do(func() {
-		quarkInstance = &QuarkPanService{
-			BasePanService: NewBasePanService(config),
-		}
+	quarkInstance := &QuarkPanService{
+		BasePanService: NewBasePanService(config),
+	}
 
-		// 设置夸克网盘的默认请求头
-		quarkInstance.SetHeaders(map[string]string{
-			"Accept":             "application/json, text/plain, */*",
-			"Accept-Language":    "zh-CN,zh;q=0.9",
-			"Content-Type":       "application/json;charset=UTF-8",
-			"Sec-Ch-Ua":          `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`,
-			"Sec-Ch-Ua-Mobile":   "?0",
-			"Sec-Ch-Ua-Platform": `"Windows"`,
-			"Sec-Fetch-Dest":     "empty",
-			"Sec-Fetch-Mode":     "cors",
-			"Sec-Fetch-Site":     "same-site",
-			"Referer":            "https://pan.quark.cn/",
-			"Referrer-Policy":    "strict-origin-when-cross-origin",
-			"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-			"Cookie":             config.Cookie,
-		})
+	// 设置夸克网盘的默认请求头
+	quarkInstance.SetHeaders(map[string]string{
+		"Accept":             "application/json, text/plain, */*",
+		"Accept-Language":    "zh-CN,zh;q=0.9",
+		"Content-Type":       "application/json;charset=UTF-8",
+		"Sec-Ch-Ua":          `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`,
+		"Sec-Ch-Ua-Mobile":   "?0",
+		"Sec-Ch-Ua-Platform": `"Windows"`,
+		"Sec-Fetch-Dest":     "empty",
+		"Sec-Fetch-Mode":     "cors",
+		"Sec-Fetch-Site":     "same-site",
+		"Referer":            "https://pan.quark.cn/",
+		"Referrer-Policy":    "strict-origin-when-cross-origin",
+		"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		"Cookie":             config.Cookie,
 	})
 
 	// 更新配置

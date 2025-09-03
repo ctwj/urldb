@@ -45,11 +45,6 @@ type XunleiPanService struct {
 	extra       XunleiExtraData // 需要保存到数据库的token信息
 }
 
-var (
-	xunleiInstance *XunleiPanService
-	xunleiOnce     sync.Once
-)
-
 // 配置化 API Host
 func (x *XunleiPanService) apiHost(apiType string) string {
 	if apiType == "user" {
@@ -66,37 +61,35 @@ func (x *XunleiPanService) setCommonHeader(req *http.Request) {
 
 // NewXunleiPanService 创建迅雷网盘服务
 func NewXunleiPanService(config *PanConfig) *XunleiPanService {
-	xunleiOnce.Do(func() {
-		xunleiInstance = &XunleiPanService{
-			BasePanService: NewBasePanService(config),
-			clientId:       "Xqp0kJBXWhwaTpB6",
-			deviceId:       "925b7631473a13716b791d7f28289cad",
-			extra:          XunleiExtraData{}, // Initialize extra with zero values
-		}
-
-		xunleiInstance.SetHeaders(map[string]string{
-			"Accept":             "*/;",
-			"Accept-Encoding":    "deflate",
-			"Accept-Language":    "zh-CN,zh;q=0.9",
-			"Cache-Control":      "no-cache",
-			"Content-Type":       "application/json",
-			"Origin":             "https://pan.xunlei.com",
-			"Pragma":             "no-cache",
-			"Priority":           "u=1,i",
-			"Referer":            "https://pan.xunlei.com/",
-			"sec-ch-ua":          `"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"`,
-			"sec-ch-ua-mobile":   "?0",
-			"sec-ch-ua-platform": `"Windows"`,
-			"sec-fetch-dest":     "empty",
-			"sec-fetch-mode":     "cors",
-			"sec-fetch-site":     "same-site",
-			"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-			"Authorization":      "",
-			"x-captcha-token":    "",
-			"x-client-id":        xunleiInstance.clientId,
-			"x-device-id":        xunleiInstance.deviceId,
-		})
+	xunleiInstance := &XunleiPanService{
+		BasePanService: NewBasePanService(config),
+		clientId:       "Xqp0kJBXWhwaTpB6",
+		deviceId:       "925b7631473a13716b791d7f28289cad",
+		extra:          XunleiExtraData{}, // Initialize extra with zero values
+	}
+	xunleiInstance.SetHeaders(map[string]string{
+		"Accept":             "*/;",
+		"Accept-Encoding":    "deflate",
+		"Accept-Language":    "zh-CN,zh;q=0.9",
+		"Cache-Control":      "no-cache",
+		"Content-Type":       "application/json",
+		"Origin":             "https://pan.xunlei.com",
+		"Pragma":             "no-cache",
+		"Priority":           "u=1,i",
+		"Referer":            "https://pan.xunlei.com/",
+		"sec-ch-ua":          `"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"`,
+		"sec-ch-ua-mobile":   "?0",
+		"sec-ch-ua-platform": `"Windows"`,
+		"sec-fetch-dest":     "empty",
+		"sec-fetch-mode":     "cors",
+		"sec-fetch-site":     "same-site",
+		"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+		"Authorization":      "",
+		"x-captcha-token":    "",
+		"x-client-id":        xunleiInstance.clientId,
+		"x-device-id":        xunleiInstance.deviceId,
 	})
+
 	xunleiInstance.UpdateConfig(config)
 	return xunleiInstance
 }
