@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -213,21 +214,20 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 		return "", fmt.Errorf("获取 captcha_token 请求失败: %v", err)
 	}
 
-	if resp["code"] != 0 || resp["data"] == nil {
+	if resp["captcha_token"] != nil && resp["captcha_token"] != "" {
+		//
+	} else {
 		return "", fmt.Errorf("获取 captcha_token 失败: %v", resp)
 	}
 
-	data := resp["data"].(map[string]interface{})
-	captchaToken := data["captcha_token"].(string)
-
 	// 计算过期时间（当前时间 + expires_in - 10 秒缓冲）
-	expiresAt := currentTime + int64(data["expires_in"].(float64)) - 10
+	expiresAt := currentTime + int64(resp["expires_in"].(float64)) - 10
 
 	// 更新 extra 数据
 	if x.extra.Captcha == nil {
 		x.extra.Captcha = &CaptchaData{}
 	}
-	x.extra.Captcha.CaptchaToken = captchaToken
+	x.extra.Captcha.CaptchaToken = resp["captcha_token"].(string)
 	x.extra.Captcha.ExpiresAt = expiresAt
 
 	// 保存到数据库
@@ -240,7 +240,7 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 		return "", fmt.Errorf("保存 captcha_token 到数据库失败: %v", err)
 	}
 
-	return captchaToken, nil
+	return resp["captcha_token"].(string), nil
 }
 
 // requestXunleiApi 迅雷 API 通用请求方法 - 使用 BasePanService 方法
@@ -709,37 +709,47 @@ func (x *XunleiPanService) DeleteFiles(fileList []string) (*TransferResult, erro
 
 // GetUserInfo 获取用户信息 - 实现 PanService 接口，cookie 参数为 refresh_token，先获取 access_token 再访问 API
 func (x *XunleiPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
-	log.Printf("开始获取迅雷网盘用户信息（cookie 为 refresh_token）")
-
-	// 使用 refresh_token 获取 access_token
-	accessTokenData, err := x.GetAccessTokenByRefreshToken(*cookie)
+	userInfo := &UserInfo{}
+	accessToken, err := x.getAccessToken()
 	if err != nil {
-		return nil, fmt.Errorf("获取 access_token 失败: %v", err)
+		return nil, err
 	}
 
-	// 设置 Authorization header 为 Bearer token
-	x.SetHeader("Authorization", "Bearer "+accessTokenData.AccessToken)
+	captchaToken, err := x.getCaptchaToken()
+	if err != nil {
+		return nil, err
+	}
+
+	headers := make(map[string]string)
+	for k, v := range x.headers {
+		headers[k] = v
+	}
+	headers["Authorization"] = "Bearer " + accessToken
+	headers["x-captcha-token"] = captchaToken
+
+	resp, err := x.requestXunleiApi("https://api-pan.xunlei.com/drive/v1/about", "GET", nil, nil, headers)
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败: %v", err)
+	}
+	limit := resp["quota"].(map[string]interface{})["limit"].(string)
+	limitInt, _ := strconv.ParseInt(limit, 10, 64)
+	used := resp["quota"].(map[string]interface{})["usage"].(string)
+	usedInt, _ := strconv.ParseInt(used, 10, 64)
+	userInfo.TotalSpace = limitInt
+	userInfo.UsedSpace = usedInt
 
 	// 获取用户信息
-	respData, err := x.HTTPGet(x.apiHost("user")+"/v1/user/me", nil)
+	respData, err := x.requestXunleiApi(x.apiHost("user")+"/v1/user/me", "GET", nil, nil, headers)
 	if err != nil {
 		return nil, fmt.Errorf("获取用户信息失败: %v", err)
 	}
 
-	var response struct {
-		Username string `json:"name"`
-	}
+	vipInfo := respData["vip_info"].([]interface{})
+	isVip := vipInfo[0].(map[string]interface{})["is_vip"].(string) != "0"
 
-	if err := json.Unmarshal(respData, &response); err != nil {
-		return nil, fmt.Errorf("解析用户信息失败: %v", err)
-	}
-
-	var userInfo *UserInfo
-	userInfo = &UserInfo{
-		Username:    response.Username,
-		ServiceType: "xunlei",
-	}
-
+	userInfo.Username = respData["name"].(string)
+	userInfo.ServiceType = x.GetServiceType().String()
+	userInfo.VIPStatus = isVip
 	return userInfo, nil
 }
 
