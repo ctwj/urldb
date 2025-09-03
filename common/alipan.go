@@ -256,9 +256,9 @@ func (a *AlipanService) DeleteFiles(fileList []string) (*TransferResult, error) 
 }
 
 // GetUserInfo 获取用户信息
-func (a *AlipanService) GetUserInfo(cookie string) (*UserInfo, error) {
+func (a *AlipanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	// 设置Cookie
-	a.SetHeader("Cookie", cookie)
+	a.SetHeader("Cookie", *cookie)
 
 	// 获取access token
 	accessToken, err := a.manageAccessToken()

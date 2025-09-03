@@ -708,11 +708,11 @@ func (x *XunleiPanService) DeleteFiles(fileList []string) (*TransferResult, erro
 }
 
 // GetUserInfo 获取用户信息 - 实现 PanService 接口，cookie 参数为 refresh_token，先获取 access_token 再访问 API
-func (x *XunleiPanService) GetUserInfo(cookie string) (*UserInfo, error) {
+func (x *XunleiPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	log.Printf("开始获取迅雷网盘用户信息（cookie 为 refresh_token）")
 
 	// 使用 refresh_token 获取 access_token
-	accessTokenData, err := x.GetAccessTokenByRefreshToken(cookie)
+	accessTokenData, err := x.GetAccessTokenByRefreshToken(*cookie)
 	if err != nil {
 		return nil, fmt.Errorf("获取 access_token 失败: %v", err)
 	}

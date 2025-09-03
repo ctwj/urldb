@@ -52,9 +52,9 @@ func (u *UCService) DeleteFiles(fileList []string) (*TransferResult, error) {
 }
 
 // GetUserInfo 获取用户信息
-func (u *UCService) GetUserInfo(cookie string) (*UserInfo, error) {
+func (u *UCService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	// 设置Cookie
-	u.SetHeader("Cookie", cookie)
+	u.SetHeader("Cookie", *cookie)
 
 	// 调用UC网盘用户信息API
 	userInfoURL := "https://drive.uc.cn/api/user/info"

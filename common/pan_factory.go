@@ -91,7 +91,7 @@ type PanService interface {
 	DeleteFiles(fileList []string) (*TransferResult, error)
 
 	// GetUserInfo 获取用户信息
-	GetUserInfo(ck string) (*UserInfo, error)
+	GetUserInfo(ck *string) (*UserInfo, error)
 
 	GetUserInfoByEntity(entity entity.Cks) (*UserInfo, error)
 

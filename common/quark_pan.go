@@ -943,10 +943,10 @@ type PasswordResult struct {
 }
 
 // GetUserInfo 获取用户信息
-func (q *QuarkPanService) GetUserInfo(cookie string) (*UserInfo, error) {
+func (q *QuarkPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	// 临时设置cookie
 	originalCookie := q.GetHeader("Cookie")
-	q.SetHeader("Cookie", cookie)
+	q.SetHeader("Cookie", *cookie)
 	defer q.SetHeader("Cookie", originalCookie) // 恢复原始cookie
 
 	// 获取用户基本信息

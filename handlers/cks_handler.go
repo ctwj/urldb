@@ -99,7 +99,7 @@ func CreateCks(c *gin.Context) {
 		}
 	} else {
 		// 获取用户信息
-		userInfo, err := service.GetUserInfo(req.Ck)
+		userInfo, err := service.GetUserInfo(&req.Ck)
 		if err != nil {
 			ErrorResponse(c, "无法获取用户信息，账号创建失败: "+err.Error(), http.StatusBadRequest)
 			return
@@ -344,40 +344,33 @@ func RefreshCapacity(c *gin.Context) {
 		return
 	}
 
-	switch service.(type) {
+	var userInfo *panutils.UserInfo
+	switch s := service.(type) {
 	case *panutils.XunleiPanService:
-		// 获取XunleiPanService实例
-		xunlei := service.(*panutils.XunleiPanService)
-		xunlei.SetCKSRepository(repoManager.CksRepository, *cks)
-
-		// 获取用户信息
-		// userInfo, err := xunlei.GetUserInfo(cks.Ck)
-		// if err != nil {
-		// 	ErrorResponse(c, "无法获取用户信息，刷新失败: "+err.Error(), http.StatusBadRequest)
-		// }
+		s.SetCKSRepository(repoManager.CksRepository, *cks) // 迅雷需要初始化 token 后才能获取，
+		userInfo, err = s.GetUserInfo(nil)
 	default:
-		// 获取最新的用户信息
-		userInfo, err := service.GetUserInfo(cks.Ck)
-		if err != nil {
-			ErrorResponse(c, "无法获取用户信息，刷新失败: "+err.Error(), http.StatusBadRequest)
-			return
-		}
-		leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
+		userInfo, err = service.GetUserInfo(&cks.Ck)
+	}
+	if err != nil {
+		ErrorResponse(c, "无法获取用户信息，刷新失败: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
 
-		// 更新账号信息
-		cks.Username = userInfo.Username
-		cks.VipStatus = userInfo.VIPStatus
-		cks.ServiceType = userInfo.ServiceType
-		cks.Space = userInfo.TotalSpace
-		cks.LeftSpace = leftSpaceBytes
-		cks.UsedSpace = userInfo.UsedSpace
-		cks.IsValid = userInfo.VIPStatus // 根据VIP状态更新有效性
+	// 更新账号信息
+	cks.Username = userInfo.Username
+	cks.VipStatus = userInfo.VIPStatus
+	cks.ServiceType = userInfo.ServiceType
+	cks.Space = userInfo.TotalSpace
+	cks.LeftSpace = leftSpaceBytes
+	cks.UsedSpace = userInfo.UsedSpace
+	cks.IsValid = userInfo.VIPStatus // 根据VIP状态更新有效性
 
-		err = repoManager.CksRepository.UpdateWithAllFields(cks)
-		if err != nil {
-			ErrorResponse(c, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	err = repoManager.CksRepository.UpdateWithAllFields(cks)
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	SuccessResponse(c, gin.H{
