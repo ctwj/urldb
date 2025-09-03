@@ -13,33 +13,36 @@ import (
 	"github.com/ctwj/urldb/db/repo"
 )
 
-// AccessTokenData 存储在数据库中的访问令牌数据
-type AccessTokenData struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresAt    int64  `json:"expires_at"`
-}
-
-// CaptchaTokenData 存储在数据库中的验证码令牌数据
-type CaptchaTokenData struct {
+// CaptchaData 存储在数据库中的验证码令牌数据
+type CaptchaData struct {
 	CaptchaToken string `json:"captcha_token"`
 	ExpiresAt    int64  `json:"expires_at"`
 }
 
 // XunleiExtraData 所有额外数据的容器
+type XunleiTokenData struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+	ExpiresAt    int64  `json:"expires_at"`
+	Sub          string `json:"sub"`
+	TokenType    string `json:"token_type"`
+	UserId       string `json:"user_id"`
+}
+
 type XunleiExtraData struct {
-	AccessToken  *AccessTokenData  `json:"access_token,omitempty"`
-	CaptchaToken *CaptchaTokenData `json:"captcha_token,omitempty"`
+	captcha *CaptchaData
+	token   *XunleiTokenData
 }
 
 type XunleiPanService struct {
 	*BasePanService
 	configMutex sync.RWMutex
-	cksRepo     repo.CksRepository
-	cksID       uint // 当前使用的 Cks ID
 	clientId    string
 	deviceId    string
-	configRepo  repo.SystemConfigRepository
+	entity      entity.Cks
+	cksRepo     repo.CksRepository
+	extra       XunleiExtraData // 需要保存到数据库的token信息
 }
 
 var (
@@ -62,21 +65,14 @@ func (x *XunleiPanService) setCommonHeader(req *http.Request) {
 }
 
 // NewXunleiPanService 创建迅雷网盘服务
-func NewXunleiPanService(config *PanConfig, cksRepo ...repo.CksRepository) *XunleiPanService {
+func NewXunleiPanService(config *PanConfig) *XunleiPanService {
 	xunleiOnce.Do(func() {
 		xunleiInstance = &XunleiPanService{
 			BasePanService: NewBasePanService(config),
 			clientId:       "Xqp0kJBXWhwaTpB6",
 			deviceId:       "925b7631473a13716b791d7f28289cad",
+			extra:          XunleiExtraData{}, // Initialize extra with zero values
 		}
-
-		// 如果提供了 cksRepo，使用它
-		if len(cksRepo) > 0 {
-			xunleiInstance.cksRepo = cksRepo[0]
-		}
-
-		// 不再需要 configRepo，因为 refresh_token 从 cks.ck 获取
-		xunleiInstance.configRepo = nil
 
 		xunleiInstance.SetHeaders(map[string]string{
 			"Accept":             "*/;",
@@ -105,10 +101,15 @@ func NewXunleiPanService(config *PanConfig, cksRepo ...repo.CksRepository) *Xunl
 	return xunleiInstance
 }
 
-// SetCKSRepository 设置 CksRepository 和 CksID
-func (x *XunleiPanService) SetCKSRepository(cksRepo repo.CksRepository, cksID uint) {
+// SetCKSRepository 设置 CksRepository 和 entity
+func (x *XunleiPanService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
 	x.cksRepo = cksRepo
-	x.cksID = cksID
+	x.entity = entity
+	var extra XunleiExtraData
+	if err := json.Unmarshal([]byte(x.entity.Extra), &extra); err != nil {
+		log.Printf("解析 extra 数据失败: %v，使用空数据", err)
+	}
+	x.extra = extra
 }
 
 // GetXunleiInstance 获取迅雷网盘服务单例实例
@@ -144,95 +145,48 @@ func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (ma
 	} else {
 		return map[string]interface{}{}, fmt.Errorf("获取 access_token 请求失败: %v 不存在", "access_token")
 	}
+
+	// 计算过期时间（当前时间 + expires_in - 60 秒缓冲）
+	currentTime := time.Now().Unix()
+	expiresAt := currentTime + int64(resp["expires_in"].(float64)) - 60
+	resp["expires_at"] = expiresAt
 	return resp, nil
 }
 
 // getAccessToken 获取 Access Token（内部包含缓存判断、刷新、保存）- 匹配 PHP 版本
 func (x *XunleiPanService) getAccessToken() (string, error) {
-	if x.cksRepo == nil {
-		return "", fmt.Errorf("CksRepository 未设置")
-	}
-
-	// 获取 Cks 数据
-	cks, err := x.cksRepo.FindByID(x.cksID)
-	if err != nil {
-		return "", fmt.Errorf("获取 Cks 数据失败: %v", err)
-	}
-
-	// 解析 extra 数据
-	var extraData XunleiExtraData
-	if cks.Extra != "" {
-		if err := json.Unmarshal([]byte(cks.Extra), &extraData); err != nil {
-			log.Printf("解析 extra 数据失败: %v，使用空数据", err)
-		}
-	}
-
 	// 检查 Access Token 是否有效
 	currentTime := time.Now().Unix()
-	if extraData.AccessToken != nil && extraData.AccessToken.ExpiresAt > currentTime {
-		return extraData.AccessToken.AccessToken, nil
+	if x.extra.token != nil && x.extra.token.AccessToken != "" && x.extra.token.ExpiresAt > currentTime {
+		return x.extra.token.AccessToken, nil
 	}
+	newData, err := x.GetAccessTokenByRefreshToken(x.extra.token.RefreshToken)
 
-	// 获取系统配置中的 refresh_token - 从 cks.ck 字段获取，而不是系统配置
-	refreshTokenValue := cks.Ck
-	if refreshTokenValue == "" {
-		return "", fmt.Errorf("未配置迅雷 refresh_token，请检查 cks 表的 ck 字段")
-	}
-
-	newData, err := x.GetAccessTokenByRefreshToken(refreshTokenValue)
 	if err != nil {
 		return "", fmt.Errorf("获取 access_token 失败: %v", err)
 	}
 	newAccessToken := newData["access_token"].(string)
-
-	// 计算过期时间（当前时间 + expires_in - 60 秒缓冲）
-	expiresAt := currentTime + int64(newData["expires_in"].(float64)) - 60
-
-	// 更新 extra 数据
-	if extraData.AccessToken == nil {
-		extraData.AccessToken = &AccessTokenData{}
-	}
-	extraData.AccessToken.AccessToken = newAccessToken
-	extraData.AccessToken.RefreshToken = newData["refresh_token"].(string)
-	extraData.AccessToken.ExpiresAt = expiresAt
+	x.extra.token.AccessToken = newAccessToken
+	x.extra.token.ExpiresAt = int64(newData["expires_in"].(float64)) - 60
 
 	// 保存到数据库
-	extraBytes, err := json.Marshal(extraData)
+	extraBytes, err := json.Marshal(x.extra.token)
 	if err != nil {
 		return "", fmt.Errorf("序列化 extra 数据失败: %v", err)
 	}
-	cks.Extra = string(extraBytes)
-	if err := x.cksRepo.UpdateWithAllFields(cks); err != nil {
+	x.entity.Extra = string(extraBytes)
+	if err := x.cksRepo.UpdateWithAllFields(&x.entity); err != nil {
 		return "", fmt.Errorf("保存 access_token 到数据库失败: %v", err)
 	}
-
 	return newAccessToken, nil
 }
 
 // getCaptchaToken 获取 captcha_token - 匹配 PHP 版本
 func (x *XunleiPanService) getCaptchaToken() (string, error) {
-	if x.cksRepo == nil {
-		return "", fmt.Errorf("CksRepository 未设置")
-	}
-
-	// 获取 Cks 数据
-	cks, err := x.cksRepo.FindByID(x.cksID)
-	if err != nil {
-		return "", fmt.Errorf("获取 Cks 数据失败: %v", err)
-	}
-
-	// 解析 extra 数据
-	var extraData XunleiExtraData
-	if cks.Extra != "" {
-		if err := json.Unmarshal([]byte(cks.Extra), &extraData); err != nil {
-			log.Printf("解析 extra 数据失败: %v，使用空数据", err)
-		}
-	}
-
 	// 检查 Captcha Token 是否有效
 	currentTime := time.Now().Unix()
-	if extraData.CaptchaToken != nil && extraData.CaptchaToken.ExpiresAt > currentTime {
-		return extraData.CaptchaToken.CaptchaToken, nil
+	if x.extra.captcha != nil && x.extra.captcha.CaptchaToken != "" && x.extra.captcha.ExpiresAt > currentTime {
+		return x.extra.captcha.CaptchaToken, nil
 	}
 
 	// 构造请求体
@@ -274,19 +228,19 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 	expiresAt := currentTime + int64(data["expires_in"].(float64)) - 10
 
 	// 更新 extra 数据
-	if extraData.CaptchaToken == nil {
-		extraData.CaptchaToken = &CaptchaTokenData{}
+	if x.extra.captcha == nil {
+		x.extra.captcha = &CaptchaData{}
 	}
-	extraData.CaptchaToken.CaptchaToken = captchaToken
-	extraData.CaptchaToken.ExpiresAt = expiresAt
+	x.extra.captcha.CaptchaToken = captchaToken
+	x.extra.captcha.ExpiresAt = expiresAt
 
 	// 保存到数据库
-	extraBytes, err := json.Marshal(extraData)
+	extraBytes, err := json.Marshal(x.extra)
 	if err != nil {
 		return "", fmt.Errorf("序列化 extra 数据失败: %v", err)
 	}
-	cks.Extra = string(extraBytes)
-	if err := x.cksRepo.UpdateWithAllFields(cks); err != nil {
+	x.entity.Extra = string(extraBytes)
+	if err := x.cksRepo.UpdateWithAllFields(&x.entity); err != nil {
 		return "", fmt.Errorf("保存 captcha_token 到数据库失败: %v", err)
 	}
 
