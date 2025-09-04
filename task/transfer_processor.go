@@ -80,6 +80,10 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 		}
 	}
 
+	if len(selectedAccounts) == 0 {
+		utils.Error("失败: %v", "没有指定转存账号")
+	}
+
 	// 检查资源是否已存在
 	exists, existingResource, err := tp.checkResourceExists(input.URL)
 	if err != nil {
@@ -108,8 +112,14 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 		}
 	}
 
+	// 查询出 账号列表
+	cks, err := tp.repoMgr.CksRepository.FindByIds(selectedAccounts)
+	if err != nil {
+		utils.Error("读取账号失败: %v", err)
+	}
+
 	// 执行转存操作
-	resourceID, saveURL, err := tp.performTransfer(ctx, &input, selectedAccounts)
+	resourceID, saveURL, err := tp.performTransfer(ctx, &input, cks)
 	if err != nil {
 		// 转存失败，更新输出数据
 		output := TransferOutput{
@@ -175,10 +185,17 @@ func (tp *TransferProcessor) validateInput(input *TransferInput) error {
 
 // isValidURL 验证URL格式
 func (tp *TransferProcessor) isValidURL(url string) bool {
-	// 简单的URL验证，可以根据需要扩展
-	quarkPattern := `https://pan\.quark\.cn/s/[a-zA-Z0-9]+`
-	matched, _ := regexp.MatchString(quarkPattern, url)
-	return matched
+	patterns := []string{
+		`https://pan\.quark\.cn/s/[a-zA-Z0-9]+`, // 夸克网盘
+		`https://pan\.xunlei\.com/s/.+`,         // 迅雷网盘
+	}
+	for _, pattern := range patterns {
+		matched, _ := regexp.MatchString(pattern, url)
+		if matched {
+			return true
+		}
+	}
+	return false
 }
 
 // checkResourceExists 检查资源是否已存在
@@ -197,22 +214,42 @@ func (tp *TransferProcessor) checkResourceExists(url string) (bool, *entity.Reso
 }
 
 // performTransfer 执行转存操作
-func (tp *TransferProcessor) performTransfer(ctx context.Context, input *TransferInput, selectedAccounts []uint) (uint, string, error) {
-	// 解析URL获取分享信息
-	shareInfo, err := tp.parseShareURL(input.URL)
-	if err != nil {
-		return 0, "", fmt.Errorf("解析分享链接失败: %v", err)
+func (tp *TransferProcessor) performTransfer(ctx context.Context, input *TransferInput, cks []*entity.Cks) (uint, string, error) {
+	// 从 cks 中，挑选出，能够转存的账号，
+	urlType := pan.ExtractServiceType(input.URL)
+	if urlType == pan.NotFound {
+		return 0, "", fmt.Errorf("未识别资源类型: %v", input.URL)
+	}
+
+	serviceType := ""
+	switch urlType {
+	case pan.Quark:
+		serviceType = "quark"
+	case pan.Xunlei:
+		serviceType = "xunlei"
+	default:
+		serviceType = ""
+	}
+
+	var account *entity.Cks
+	for _, ck := range cks {
+		if ck.ServiceType == serviceType {
+			account = ck
+		}
+	}
+	if account == nil {
+		return 0, "", fmt.Errorf("为找到匹配的账号: %v", serviceType)
 	}
 
 	// 先执行转存操作
-	saveURL, err := tp.transferToCloud(ctx, shareInfo, selectedAccounts)
+	saveData, err := tp.transferToCloud(ctx, input.URL, account)
 	if err != nil {
 		utils.Error("云端转存失败: %v", err)
 		return 0, "", fmt.Errorf("转存失败: %v", err)
 	}
 
 	// 验证转存链接是否有效
-	if saveURL == "" {
+	if saveData.SaveURL == "" {
 		utils.Error("转存成功但未获取到分享链接")
 		return 0, "", fmt.Errorf("转存成功但未获取到分享链接")
 	}
@@ -223,29 +260,16 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		categoryID = &input.CategoryID
 	}
 
-	// 确定平台ID
-	var panID uint
-	if input.PanID != 0 {
-		// 使用指定的平台ID
-		panID = input.PanID
-		utils.Info("使用指定的平台ID: %d", panID)
-	} else {
-		// 如果没有指定，默认使用夸克平台ID
-		quarkPanID, err := tp.getQuarkPanID()
-		if err != nil {
-			utils.Error("获取夸克平台ID失败: %v", err)
-			return 0, "", fmt.Errorf("获取夸克平台ID失败: %v", err)
-		}
-		panID = quarkPanID
-		utils.Info("使用默认夸克平台ID: %d", panID)
-	}
+	// 确定平台ID  根据 serviceType 确认 panId
+	panID, _ := tp.repoMgr.PanRepository.FindIdByServiceType(serviceType)
+	panIdInt := uint(panID)
 
 	resource := &entity.Resource{
 		Title:      input.Title,
 		URL:        input.URL,
 		CategoryID: categoryID,
-		PanID:      &panID,  // 设置平台ID
-		SaveURL:    saveURL, // 直接设置转存链接
+		PanID:      &panIdInt,        // 设置平台ID
+		SaveURL:    saveData.SaveURL, // 直接设置转存链接
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
@@ -266,8 +290,8 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		}
 	}
 
-	utils.Info("转存成功，资源已创建 - 资源ID: %d, 转存链接: %s", resource.ID, saveURL)
-	return resource.ID, saveURL, nil
+	utils.Info("转存成功，资源已创建 - 资源ID: %d, 转存链接: %s", resource.ID, saveData.SaveURL)
+	return resource.ID, saveData.SaveURL, nil
 }
 
 // ShareInfo 分享信息结构
@@ -277,23 +301,23 @@ type ShareInfo struct {
 	URL     string
 }
 
-// parseShareURL 解析分享链接
-func (tp *TransferProcessor) parseShareURL(url string) (*ShareInfo, error) {
-	// 解析夸克网盘链接
-	quarkPattern := `https://pan\.quark\.cn/s/([a-zA-Z0-9]+)`
-	re := regexp.MustCompile(quarkPattern)
-	matches := re.FindStringSubmatch(url)
+// // parseShareURL 解析分享链接
+// func (tp *TransferProcessor) parseShareURL(url string) (*ShareInfo, error) {
+// 	// 解析夸克网盘链接
+// 	quarkPattern := `https://pan\.quark\.cn/s/([a-zA-Z0-9]+)`
+// 	re := regexp.MustCompile(quarkPattern)
+// 	matches := re.FindStringSubmatch(url)
 
-	if len(matches) >= 2 {
-		return &ShareInfo{
-			PanType: "quark",
-			ShareID: matches[1],
-			URL:     url,
-		}, nil
-	}
+// 	if len(matches) >= 2 {
+// 		return &ShareInfo{
+// 			PanType: "quark",
+// 			ShareID: matches[1],
+// 			URL:     url,
+// 		}, nil
+// 	}
 
-	return nil, fmt.Errorf("不支持的分享链接格式: %s", url)
-}
+// 	return nil, fmt.Errorf("不支持的分享链接格式: %s", url)
+// }
 
 // addResourceTags 添加资源标签
 func (tp *TransferProcessor) addResourceTags(resourceID uint, tagIDs []uint) error {
@@ -313,102 +337,65 @@ func (tp *TransferProcessor) addResourceTags(resourceID uint, tagIDs []uint) err
 }
 
 // transferToCloud 执行云端转存
-func (tp *TransferProcessor) transferToCloud(ctx context.Context, shareInfo *ShareInfo, selectedAccounts []uint) (string, error) {
-	// 转存任务独立于自动转存开关，直接执行转存逻辑
-	// 获取转存相关的配置（如最小存储空间等），但不检查自动转存开关
-
-	// 如果指定了账号，使用指定的账号
-	if len(selectedAccounts) > 0 {
-		utils.Info("使用指定的账号进行转存，账号数量: %d", len(selectedAccounts))
-
-		// 获取指定的账号
-		var validAccounts []entity.Cks
-		for _, accountID := range selectedAccounts {
-			account, err := tp.repoMgr.CksRepository.FindByID(accountID)
-			if err != nil {
-				utils.Error("获取账号 %d 失败: %v", accountID, err)
-				continue
-			}
-
-			if !account.IsValid {
-				utils.Error("账号 %d 无效", accountID)
-				continue
-			}
-
-			validAccounts = append(validAccounts, *account)
-		}
-
-		if len(validAccounts) == 0 {
-			return "", fmt.Errorf("指定的账号都无效或不存在")
-		}
-
-		utils.Info("找到 %d 个有效账号，开始转存处理...", len(validAccounts))
-
-		// 使用第一个有效账号进行转存
-		account := validAccounts[0]
-
-		// 创建网盘服务工厂
-		factory := pan.NewPanFactory()
-
-		// 执行转存
-		result := tp.transferSingleResource(shareInfo, account, factory)
-		if !result.Success {
-			return "", fmt.Errorf("转存失败: %s", result.ErrorMsg)
-		}
-
-		return result.SaveURL, nil
-	}
-
-	// 如果没有指定账号，使用原来的逻辑（自动选择）
-	utils.Info("未指定账号，使用自动选择逻辑")
-
-	// 获取夸克平台ID
-	quarkPanID, err := tp.getQuarkPanID()
-	if err != nil {
-		return "", fmt.Errorf("获取夸克平台ID失败: %v", err)
-	}
-
-	// 获取可用的夸克账号
-	accounts, err := tp.repoMgr.CksRepository.FindAll()
-	if err != nil {
-		return "", fmt.Errorf("获取网盘账号失败: %v", err)
-	}
-
-	// 获取最小存储空间配置（转存任务需要关注此配置）
-	autoTransferMinSpace, err := tp.repoMgr.SystemConfigRepository.GetConfigInt("auto_transfer_min_space")
-	if err != nil {
-		utils.Error("获取最小存储空间配置失败: %v", err)
-		autoTransferMinSpace = 5 // 默认5GB
-	}
-
-	// 过滤：只保留已激活、夸克平台、剩余空间足够的账号
-	minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
-	var validAccounts []entity.Cks
-	for _, acc := range accounts {
-		if acc.IsValid && acc.PanID == quarkPanID && acc.LeftSpace >= minSpaceBytes {
-			validAccounts = append(validAccounts, acc)
-		}
-	}
-
-	if len(validAccounts) == 0 {
-		return "", fmt.Errorf("没有可用的夸克网盘账号（需要剩余空间 >= %d GB）", autoTransferMinSpace)
-	}
-
-	utils.Info("找到 %d 个可用夸克网盘账号，开始转存处理...", len(validAccounts))
-
-	// 使用第一个可用账号进行转存
-	account := validAccounts[0]
+func (tp *TransferProcessor) transferToCloud(ctx context.Context, url string, account *entity.Cks) (*TransferResult, error) {
 
 	// 创建网盘服务工厂
 	factory := pan.NewPanFactory()
 
+	service, err := factory.CreatePanService(url, &pan.PanConfig{
+		URL:         url,
+		ExpiredType: 0,
+		IsType:      0,
+		Cookie:      account.Ck,
+	})
+	service.SetCKSRepository(tp.repoMgr.CksRepository, *account)
+
+	// 提取分享ID
+	shareID, _ := pan.ExtractShareId(url)
+
 	// 执行转存
-	result := tp.transferSingleResource(shareInfo, account, factory)
-	if !result.Success {
-		return "", fmt.Errorf("转存失败: %s", result.ErrorMsg)
+	transferResult, err := service.Transfer(shareID) // 有些链接还需要其他信息从 url 中自行解析
+	if err != nil {
+		utils.Error("转存失败: %v", err)
+		return nil, fmt.Errorf("转存失败: %v", err)
 	}
 
-	return result.SaveURL, nil
+	if transferResult == nil || !transferResult.Success {
+		errMsg := "转存失败"
+		if transferResult != nil && transferResult.Message != "" {
+			errMsg = transferResult.Message
+		}
+		return nil, fmt.Errorf("转存失败: %v", errMsg)
+	}
+
+	// 提取转存链接
+	var saveURL string
+	var fid string
+
+	if data, ok := transferResult.Data.(map[string]interface{}); ok {
+		if v, ok := data["shareUrl"]; ok {
+			saveURL, _ = v.(string)
+		}
+		if v, ok := data["fid"]; ok {
+			fid, _ = v.(string)
+		}
+	}
+	if saveURL == "" {
+		saveURL = transferResult.ShareURL
+	}
+
+	if saveURL == "" {
+		return nil, fmt.Errorf("转存失败: %v", "转存成功但未获取到分享链接")
+	}
+
+	utils.Info("转存成功 - 资源ID: %d, 转存链接: %s", transferResult.Fid, saveURL)
+
+	return &TransferResult{
+		Success: true,
+		SaveURL: saveURL,
+		Fid:     fid,
+	}, nil
+
 }
 
 // getQuarkPanID 获取夸克网盘ID
@@ -432,82 +419,6 @@ func (tp *TransferProcessor) getQuarkPanID() (uint, error) {
 type TransferResult struct {
 	Success  bool   `json:"success"`
 	SaveURL  string `json:"save_url"`
+	Fid      string `json:"fid`
 	ErrorMsg string `json:"error_msg"`
-}
-
-// transferSingleResource 转存单个资源
-func (tp *TransferProcessor) transferSingleResource(shareInfo *ShareInfo, account entity.Cks, factory *pan.PanFactory) TransferResult {
-	utils.Info("开始转存资源 - 分享ID: %s, 账号: %s", shareInfo.ShareID, account.Username)
-
-	service, err := factory.CreatePanService(shareInfo.URL, &pan.PanConfig{
-		URL:         shareInfo.URL,
-		ExpiredType: 0,
-		IsType:      0,
-		Cookie:      account.Ck,
-	})
-	if err != nil {
-		utils.Error("创建网盘服务失败: %v", err)
-		return TransferResult{
-			Success:  false,
-			ErrorMsg: fmt.Sprintf("创建网盘服务失败: %v", err),
-		}
-	}
-
-	// 执行转存
-	transferResult, err := service.Transfer(shareInfo.ShareID)
-	if err != nil {
-		utils.Error("转存失败: %v", err)
-		return TransferResult{
-			Success:  false,
-			ErrorMsg: fmt.Sprintf("转存失败: %v", err),
-		}
-	}
-
-	if transferResult == nil || !transferResult.Success {
-		errMsg := "转存失败"
-		if transferResult != nil && transferResult.Message != "" {
-			errMsg = transferResult.Message
-		}
-		utils.Error("转存失败: %s", errMsg)
-		return TransferResult{
-			Success:  false,
-			ErrorMsg: errMsg,
-		}
-	}
-
-	// 提取转存链接
-	var saveURL string
-	if data, ok := transferResult.Data.(map[string]interface{}); ok {
-		if v, ok := data["shareUrl"]; ok {
-			saveURL, _ = v.(string)
-		}
-	}
-	if saveURL == "" {
-		saveURL = transferResult.ShareURL
-	}
-
-	// 验证转存链接是否有效
-	if saveURL == "" {
-		utils.Error("转存成功但未获取到分享链接 - 分享ID: %s", shareInfo.ShareID)
-		return TransferResult{
-			Success:  false,
-			ErrorMsg: "转存成功但未获取到分享链接",
-		}
-	}
-
-	// 验证链接格式
-	if !strings.HasPrefix(saveURL, "http") {
-		utils.Error("转存链接格式无效 - 分享ID: %s, 链接: %s", shareInfo.ShareID, saveURL)
-		return TransferResult{
-			Success:  false,
-			ErrorMsg: "转存链接格式无效",
-		}
-	}
-
-	utils.Info("转存成功 - 分享ID: %s, 转存链接: %s", shareInfo.ShareID, saveURL)
-
-	return TransferResult{
-		Success: true,
-		SaveURL: saveURL,
-	}
 }
