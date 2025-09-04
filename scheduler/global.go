@@ -103,41 +103,6 @@ func (gs *GlobalScheduler) IsReadyResourceRunning() bool {
 	return gs.manager.IsReadyResourceRunning()
 }
 
-// StartAutoTransferScheduler 启动自动转存定时任务
-func (gs *GlobalScheduler) StartAutoTransferScheduler() {
-	gs.mutex.Lock()
-	defer gs.mutex.Unlock()
-
-	if gs.manager.IsAutoTransferRunning() {
-		utils.Info("自动转存定时任务已在运行中")
-		return
-	}
-
-	gs.manager.StartAutoTransferScheduler()
-	utils.Info("全局调度器已启动自动转存定时任务")
-}
-
-// StopAutoTransferScheduler 停止自动转存定时任务
-func (gs *GlobalScheduler) StopAutoTransferScheduler() {
-	gs.mutex.Lock()
-	defer gs.mutex.Unlock()
-
-	if !gs.manager.IsAutoTransferRunning() {
-		utils.Info("自动转存定时任务未在运行")
-		return
-	}
-
-	gs.manager.StopAutoTransferScheduler()
-	utils.Info("全局调度器已停止自动转存定时任务")
-}
-
-// IsAutoTransferRunning 检查自动转存定时任务是否在运行
-func (gs *GlobalScheduler) IsAutoTransferRunning() bool {
-	gs.mutex.RLock()
-	defer gs.mutex.RUnlock()
-	return gs.manager.IsAutoTransferRunning()
-}
-
 // UpdateSchedulerStatusWithAutoTransfer 根据系统配置更新调度器状态（包含自动转存）
 func (gs *GlobalScheduler) UpdateSchedulerStatusWithAutoTransfer(autoFetchHotDramaEnabled bool, autoProcessReadyResources bool, autoTransferEnabled bool) {
 	gs.mutex.Lock()
@@ -169,16 +134,4 @@ func (gs *GlobalScheduler) UpdateSchedulerStatusWithAutoTransfer(autoFetchHotDra
 		}
 	}
 
-	// 处理自动转存功能
-	if autoTransferEnabled {
-		if !gs.manager.IsAutoTransferRunning() {
-			utils.Info("系统配置启用自动转存，启动定时任务")
-			gs.manager.StartAutoTransferScheduler()
-		}
-	} else {
-		if gs.manager.IsAutoTransferRunning() {
-			utils.Info("系统配置禁用自动转存，停止定时任务")
-			gs.manager.StopAutoTransferScheduler()
-		}
-	}
 }
