@@ -488,34 +488,34 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 
 	// 测试阶段，移除最小限制
 	// 获取最小存储空间配置
-	// autoTransferMinSpace, err := repoManager.SystemConfigRepository.GetConfigInt(entity.ConfigKeyAutoTransferMinSpace)
-	// if err != nil {
-	// 	utils.Error("获取最小存储空间配置失败: %v", err)
-	// 	autoTransferMinSpace = 5 // 默认5GB
-	// }
+	autoTransferMinSpace, err := repoManager.SystemConfigRepository.GetConfigInt(entity.ConfigKeyAutoTransferMinSpace)
+	if err != nil {
+		utils.Error("获取最小存储空间配置失败: %v", err)
+		autoTransferMinSpace = 5 // 默认5GB
+	}
 
-	// // 过滤：只保留已激活、夸克平台、剩余空间足够的账号
-	// minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
-	// var validAccounts []entity.Cks
-	// for _, acc := range accounts {
-	// 	if acc.IsValid && acc.PanID == *panID && acc.LeftSpace >= minSpaceBytes {
-	// 		validAccounts = append(validAccounts, acc)
-	// 	}
-	// }
+	// 过滤：只保留已激活、夸克平台、剩余空间足够的账号
+	minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
+	var validAccounts []entity.Cks
+	for _, acc := range accounts {
+		if acc.IsValid && acc.PanID == *panID && acc.LeftSpace >= minSpaceBytes {
+			validAccounts = append(validAccounts, acc)
+		}
+	}
 
-	// if len(validAccounts) == 0 {
-	// 	utils.Info("没有可用的网盘账号")
-	// 	return TransferResult{
-	// 		Success:  false,
-	// 		ErrorMsg: "没有可用的网盘账号",
-	// 	}
-	// }
+	if len(validAccounts) == 0 {
+		utils.Info("没有可用的网盘账号")
+		return TransferResult{
+			Success:  false,
+			ErrorMsg: "没有可用的网盘账号",
+		}
+	}
 
-	// utils.Info("找到 %d 个可用网盘账号，开始转存处理...", len(validAccounts))
+	utils.Info("找到 %d 个可用网盘账号，开始转存处理...", len(validAccounts))
 
 	// 使用第一个可用账号进行转存
-	// account := validAccounts[0]
-	account := accounts[0]
+	account := validAccounts[0]
+	// account := accounts[0]
 
 	// 创建网盘服务工厂
 	factory := pan.NewPanFactory()
