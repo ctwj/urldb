@@ -464,6 +464,7 @@ func GetResourceLink(c *gin.Context) {
 // TransferResult 转存结果
 type TransferResult struct {
 	Success  bool   `json:"success"`
+	Fid      string `json:"fid"`
 	SaveURL  string `json:"save_url"`
 	ErrorMsg string `json:"error_msg"`
 }
@@ -525,6 +526,8 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 	if result.Success {
 		// 更新资源的转存信息
 		resource.SaveURL = result.SaveURL
+		resource.Fid = result.Fid
+		resource.CkID = &account.ID
 		resource.ErrorMsg = ""
 		if err := repoManager.ResourceRepository.Update(resource); err != nil {
 			utils.Error("更新资源转存信息失败: %v", err)
@@ -594,9 +597,14 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 
 	// 提取转存链接
 	var saveURL string
+	var fid string
+
 	if data, ok := transferResult.Data.(map[string]interface{}); ok {
 		if v, ok := data["shareUrl"]; ok {
 			saveURL, _ = v.(string)
+		}
+		if v, ok := data["fid"]; ok {
+			fid, _ = v.(string)
 		}
 	}
 	if saveURL == "" {
@@ -615,6 +623,7 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 	return TransferResult{
 		Success: true,
 		SaveURL: saveURL,
+		Fid:     fid,
 	}
 }
 

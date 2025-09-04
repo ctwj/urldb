@@ -344,36 +344,37 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("获取分享详情失败: %v", err)), nil
 	}
+	if shareDetail["share_status"].(string) != "OK" {
+		return ErrorResult(fmt.Sprintf("获取分享详情失败: %v", "分享状态异常")), nil
+	}
+	if shareDetail["file_num"].(string) == "0" {
+		return ErrorResult(fmt.Sprintf("获取分享详情失败: %v", "文件列表为空")), nil
+	}
+
+	parent_id := "" // 默认存储路径
 
 	// 检查是否为检验模式
 	if config.IsType == 1 {
 		// 检验模式：直接获取分享信息
 		urls := map[string]interface{}{
-			"title":     "",
+			"title":     shareDetail["title"],
 			"share_url": config.URL,
 			"stoken":    "",
 		}
 		return SuccessResult("检验成功", urls), nil
 	}
-	files := shareDetail["files"].([]interface{})
 
-	// 转存到网盘
-	parent_id := "0" // 默认存储路径
-	if config.ExpiredType == 2 {
-		parent_id = "指定路径" // 这里可能需要从配置获取
-	}
+	// files := shareDetail["files"].([]interface{})
+	// fileIDs := make([]string, 0)
+	// for _, file := range files {
+	// 	fileMap := file.(map[string]interface{})
+	// 	if fid, ok := fileMap["id"].(string); ok {
+	// 		fileIDs = append(fileIDs, fid)
+	// 	}
+	// }
 
-	fileIDs := make([]string, 0)
-	for _, file := range files {
-		fileMap := file.(map[string]interface{})
-		if fid, ok := fileMap["id"].(string); ok {
-			fileIDs = append(fileIDs, fid)
-		}
-	}
-
-	if len(fileIDs) == 0 {
-		return ErrorResult("分享中没有可转存的文件"), nil
-	}
+	// 处理广告过滤（这里简化处理）
+	// TODO: 添加广告文件过滤逻辑
 
 	// 转存资源
 	restoreResult, err := x.getRestore(shareID, shareDetail, accessToken, captchaToken, parent_id)
@@ -381,42 +382,26 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 		return ErrorResult(fmt.Sprintf("转存失败: %v", err)), nil
 	}
 
-	if restoreResult["code"].(int) != 200 {
-		return ErrorResult("转存失败"), nil
-	}
-
 	// 获取转存任务信息
-	restoreData := restoreResult["data"].(map[string]interface{})
-	taskID := restoreData["restore_task_id"].(string)
+	taskID := restoreResult["restore_task_id"].(string)
 
 	// 等待转存完成
-	_, err = x.waitForTask(taskID, accessToken, captchaToken)
+	taskResp, err := x.waitForTask(taskID, accessToken, captchaToken)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("等待转存完成失败: %v", err)), nil
 	}
 
-	// 获取任务结果并解析文件ID
 	// 获取任务结果以获取文件ID
 	existingFileIds := make([]string, 0)
-	taskResp, err := x.getTasks(taskID, accessToken, captchaToken)
-	if err != nil {
-		return ErrorResult(fmt.Sprintf("获取任务结果失败: %v", err)), nil
-	}
-
-	if taskData, ok := taskResp["data"].(map[string]interface{}); ok {
-		if params, ok2 := taskData["params"].(map[string]interface{}); ok2 {
-			if traceIds, ok3 := params["trace_file_ids"].(string); ok3 {
-				traceData := make(map[string]interface{})
-				json.Unmarshal([]byte(traceIds), &traceData)
-				for _, fid := range traceData {
-					existingFileIds = append(existingFileIds, fid.(string))
-				}
+	if params, ok2 := taskResp["params"].(map[string]interface{}); ok2 {
+		if traceIds, ok3 := params["trace_file_ids"].(string); ok3 {
+			traceData := make(map[string]interface{})
+			json.Unmarshal([]byte(traceIds), &traceData)
+			for _, fid := range traceData {
+				existingFileIds = append(existingFileIds, fid.(string))
 			}
 		}
 	}
-
-	// 处理广告过滤（这里简化处理）
-	// TODO: 添加广告文件过滤逻辑
 
 	// 创建分享链接
 	expirationDays := "-1"
@@ -425,36 +410,30 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 	}
 
 	// 根据share_id获取到分享链接
-	passwordResult, err := x.getSharePassword(existingFileIds, accessToken, captchaToken, expirationDays)
+	shareResult, err := x.getSharePassword(existingFileIds, accessToken, captchaToken, expirationDays)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("创建分享链接失败: %v", err)), nil
 	}
 
-	if passwordResult["code"].(int) != 200 {
-		return ErrorResult("创建分享链接失败"), nil
-	}
-
-	passwordData := passwordResult["data"].(map[string]interface{})
-	shareTitle := ""
-	if len(files) > 0 {
-		file0 := files[0].(map[string]interface{})
-		if name, ok := file0["name"].(string); ok {
-			shareTitle = name
-		}
+	var fid string
+	if len(existingFileIds) > 1 {
+		fid = strings.Join(existingFileIds, ",")
+	} else {
+		fid = existingFileIds[0]
 	}
 
 	result := map[string]interface{}{
-		"title":     shareTitle,
-		"share_url": passwordData["share_url"].(string) + "?pwd=" + passwordData["pass_code"].(string),
-		"code":      passwordData["pass_code"].(string),
-		"fid":       existingFileIds,
+		"title":    "",
+		"shareUrl": shareResult["share_url"].(string) + "?pwd=" + shareResult["pass_code"].(string),
+		"code":     shareResult["pass_code"].(string),
+		"fid":      fid,
 	}
 
 	return SuccessResult("转存成功", result), nil
 }
 
 // waitForTask 等待任务完成 - 使用 HTTPGet 方法
-func (x *XunleiPanService) waitForTask(taskID string, accessToken, captchaToken string) (*XLTaskResult, error) {
+func (x *XunleiPanService) waitForTask(taskID string, accessToken, captchaToken string) (map[string]interface{}, error) {
 	maxRetries := 50
 	retryDelay := 2 * time.Second
 
@@ -464,7 +443,7 @@ func (x *XunleiPanService) waitForTask(taskID string, accessToken, captchaToken 
 			return nil, err
 		}
 
-		if result.Status == 2 { // 任务完成
+		if int64(result["progress"].(float64)) == 100 { // 任务完成
 			return result, nil
 		}
 
@@ -475,12 +454,9 @@ func (x *XunleiPanService) waitForTask(taskID string, accessToken, captchaToken 
 }
 
 // getTaskStatus 获取任务状态 - 使用 HTTPGet 方法
-func (x *XunleiPanService) getTaskStatus(taskID string, retryIndex int, accessToken, captchaToken string) (*XLTaskResult, error) {
-	apiURL := x.apiHost("") + "/drive/v1/task"
-	queryParams := map[string]string{
-		"task_id":     taskID,
-		"retry_index": fmt.Sprintf("%d", retryIndex),
-	}
+func (x *XunleiPanService) getTaskStatus(taskID string, retryIndex int, accessToken, captchaToken string) (map[string]interface{}, error) {
+	apiURL := x.apiHost("") + "/drive/v1/tasks/" + taskID
+	queryParams := map[string]string{}
 
 	// 设置 request 所需的 headers
 	headers := map[string]string{
@@ -492,17 +468,7 @@ func (x *XunleiPanService) getTaskStatus(taskID string, retryIndex int, accessTo
 	if err != nil {
 		return nil, err
 	}
-
-	if code, ok := resp["code"].(float64); ok && code != 200 {
-		return nil, fmt.Errorf("获取任务状态失败")
-	}
-
-	var data XLTaskResult
-	resultBytes, _ := json.Marshal(resp)
-	if err := json.Unmarshal(resultBytes, &data); err != nil {
-		return nil, err
-	}
-	return &data, nil
+	return resp, nil
 }
 
 // GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
