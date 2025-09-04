@@ -1024,9 +1024,7 @@ func (q *QuarkPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	}, nil
 }
 
-// GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
-func (q *QuarkPanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
-	return nil, nil
+func (xq *QuarkPanService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
 }
 
 // formatBytes 格式化字节数为可读格式

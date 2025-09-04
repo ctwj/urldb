@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 )
 
 // UCService UC网盘服务
@@ -105,4 +106,7 @@ func (u *UCService) GetUserInfo(cookie *string) (*UserInfo, error) {
 // GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
 func (u *UCService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
 	return nil, nil
+}
+
+func (u *UCService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
 }

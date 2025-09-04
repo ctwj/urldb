@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 )
 
 // BaiduPanService 百度网盘服务
@@ -107,4 +108,7 @@ func (b *BaiduPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 // GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
 func (b *BaiduPanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
 	return nil, nil
+}
+
+func (u *BaiduPanService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
 }

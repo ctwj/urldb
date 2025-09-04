@@ -345,13 +345,15 @@ func RefreshCapacity(c *gin.Context) {
 	}
 
 	var userInfo *panutils.UserInfo
-	switch s := service.(type) {
-	case *panutils.XunleiPanService:
-		s.SetCKSRepository(repoManager.CksRepository, *cks) // 迅雷需要初始化 token 后才能获取，
-		userInfo, err = s.GetUserInfo(nil)
-	default:
-		userInfo, err = service.GetUserInfo(&cks.Ck)
-	}
+	service.SetCKSRepository(repoManager.CksRepository, *cks) // 迅雷需要初始化 token 后才能获取，
+	userInfo, err = service.GetUserInfo(&cks.Ck)
+	// switch s := service.(type) {
+	// case *panutils.XunleiPanService:
+
+	// 	userInfo, err = s.GetUserInfo(nil)
+	// default:
+	// 	userInfo, err = service.GetUserInfo(&cks.Ck)
+	// }
 	if err != nil {
 		ErrorResponse(c, "无法获取用户信息，刷新失败: "+err.Error(), http.StatusBadRequest)
 		return

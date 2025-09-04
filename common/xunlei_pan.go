@@ -323,20 +323,8 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 		return ErrorResult(fmt.Sprintf("获取captchaToken失败: %v", err)), nil
 	}
 
-	// 检查是否为检验模式
-	if config.IsType == 1 {
-		// 检验模式：直接获取分享信息
-		urls := map[string]interface{}{
-			"title":     "",
-			"share_url": config.URL,
-			"stoken":    "",
-		}
-		return SuccessResult("检验成功", urls), nil
-	}
-
 	// 转存模式：实现完整的转存流程
-	shareID = strings.TrimRight(shareID, "#/")
-	thisCode := strings.TrimLeft(x.config.Code, "#")
+	thisCode := strings.TrimLeft(config.URL, "#")
 
 	// 获取分享详情
 	shareDetail, err := x.getShare(shareID, thisCode, accessToken, captchaToken)
@@ -350,6 +338,17 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 			message = shareDetail["message"].(string)
 		}
 		return ErrorResult(message), nil
+	}
+
+	// 检查是否为检验模式
+	if config.IsType == 1 {
+		// 检验模式：直接获取分享信息
+		urls := map[string]interface{}{
+			"title":     "",
+			"share_url": config.URL,
+			"stoken":    "",
+		}
+		return SuccessResult("检验成功", urls), nil
 	}
 
 	shareData := shareDetail["data"].(map[string]interface{})

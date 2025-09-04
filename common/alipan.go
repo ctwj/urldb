@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
 )
 
@@ -403,6 +404,9 @@ func (a *AlipanService) getAlipan4(shareData map[string]interface{}) (*AlipanSha
 	}
 
 	return &result, nil
+}
+
+func (u *AlipanService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
 }
 
 // manageAccessToken 管理access token

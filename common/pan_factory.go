@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 )
 
 // ServiceType 定义网盘服务类型
@@ -93,10 +94,10 @@ type PanService interface {
 	// GetUserInfo 获取用户信息
 	GetUserInfo(ck *string) (*UserInfo, error)
 
-	GetUserInfoByEntity(entity entity.Cks) (*UserInfo, error)
-
 	// GetServiceType 获取服务类型
 	GetServiceType() ServiceType
+
+	SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks)
 }
 
 // PanFactory 网盘工厂
