@@ -265,11 +265,9 @@ const form = ref({
   remark: ''
 })
 
-const cookie = useCookie()
 const panEnables = ref(['quark'])
-const xunleiEnable = cookie.get('xunleiEnable')
-console.log(xunleiEnable)
-if (xunleiEnable && xunleiEnable === 'true') {
+const xunleiEnable = useCookie('xunleiEnable', { default: () => false })
+if (xunleiEnable.value && xunleiEnable.value === 'true') {
   panEnables.value.push('xunlei')
 }
 

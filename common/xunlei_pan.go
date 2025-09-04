@@ -303,6 +303,19 @@ func (x *XunleiPanService) GetServiceType() ServiceType {
 	return Xunlei
 }
 
+func extractCode(url string) string {
+	// 查找 pwd= 的位置
+	if pwdIndex := strings.Index(url, "pwd="); pwdIndex != -1 {
+		code := url[pwdIndex+4:]
+		// 移除 # 及后面的内容（如果存在）
+		if hashIndex := strings.Index(code, "#"); hashIndex != -1 {
+			code = code[:hashIndex]
+		}
+		return code
+	}
+	return ""
+}
+
 // Transfer 转存分享链接 - 实现 PanService 接口，匹配 XunleiPan.php 的逻辑
 func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 	// 读取配置（线程安全）
@@ -324,20 +337,12 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 	}
 
 	// 转存模式：实现完整的转存流程
-	thisCode := strings.TrimLeft(config.URL, "#")
+	thisCode := extractCode(config.URL)
 
 	// 获取分享详情
 	shareDetail, err := x.getShare(shareID, thisCode, accessToken, captchaToken)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("获取分享详情失败: %v", err)), nil
-	}
-
-	if shareDetail["code"].(int) != 200 {
-		message := "获取分享详情失败"
-		if shareDetail["message"] != nil {
-			message = shareDetail["message"].(string)
-		}
-		return ErrorResult(message), nil
 	}
 
 	// 检查是否为检验模式
@@ -350,9 +355,7 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 		}
 		return SuccessResult("检验成功", urls), nil
 	}
-
-	shareData := shareDetail["data"].(map[string]interface{})
-	files := shareData["files"].([]interface{})
+	files := shareDetail["files"].([]interface{})
 
 	// 转存到网盘
 	parent_id := "0" // 默认存储路径
@@ -373,7 +376,7 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 	}
 
 	// 转存资源
-	restoreResult, err := x.getRestore(shareID, shareData, accessToken, captchaToken, parent_id)
+	restoreResult, err := x.getRestore(shareID, shareDetail, accessToken, captchaToken, parent_id)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("转存失败: %v", err)), nil
 	}
