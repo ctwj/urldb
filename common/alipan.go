@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
 )
 
@@ -255,9 +257,9 @@ func (a *AlipanService) DeleteFiles(fileList []string) (*TransferResult, error) 
 }
 
 // GetUserInfo 获取用户信息
-func (a *AlipanService) GetUserInfo(cookie string) (*UserInfo, error) {
+func (a *AlipanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	// 设置Cookie
-	a.SetHeader("Cookie", cookie)
+	a.SetHeader("Cookie", *cookie)
 
 	// 获取access token
 	accessToken, err := a.manageAccessToken()
@@ -347,6 +349,11 @@ func (a *AlipanService) getAlipan1(shareID string) (*AlipanShareInfo, error) {
 	return &result, nil
 }
 
+// GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
+func (a *AlipanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
+	return nil, nil
+}
+
 // getAlipan2 通过分享id获取X-Share-Token
 func (a *AlipanService) getAlipan2(shareID string) (*AlipanShareToken, error) {
 	data := map[string]interface{}{
@@ -397,6 +404,9 @@ func (a *AlipanService) getAlipan4(shareData map[string]interface{}) (*AlipanSha
 	}
 
 	return &result, nil
+}
+
+func (u *AlipanService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
 }
 
 // manageAccessToken 管理access token

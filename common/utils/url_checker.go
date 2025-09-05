@@ -68,7 +68,7 @@ func extractShareID(urlStr string) (string, string) {
 		},
 		XunleiStr: {
 			Domains: []string{"pan.xunlei.com"},
-			Pattern: regexp.MustCompile(`https?://(?:www\.)?pan\.xunlei\.com/s/([a-zA-Z0-9-]+)`),
+			Pattern: regexp.MustCompile(`https?://(?:www\.)?pan\.xunlei\.com/s/([a-zA-Z0-9-_]+)`),
 		},
 		BaiduStr: {
 			Domains: []string{"pan.baidu.com", "yun.baidu.com"},

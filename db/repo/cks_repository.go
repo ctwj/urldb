@@ -10,6 +10,7 @@ import (
 type CksRepository interface {
 	BaseRepository[entity.Cks]
 	FindByPanID(panID uint) ([]entity.Cks, error)
+	FindByIds(ids []uint) ([]*entity.Cks, error)
 	FindByIsValid(isValid bool) ([]entity.Cks, error)
 	UpdateSpace(id uint, space, leftSpace int64) error
 	DeleteByPanID(panID uint) error
@@ -71,6 +72,15 @@ func (r *CksRepositoryImpl) FindByID(id uint) (*entity.Cks, error) {
 		return nil, err
 	}
 	return &cks, nil
+}
+
+func (r *CksRepositoryImpl) FindByIds(ids []uint) ([]*entity.Cks, error) {
+	var cks []*entity.Cks
+	err := r.db.Preload("Pan").Where("id IN ?", ids).Find(&cks).Error
+	if err != nil {
+		return nil, err
+	}
+	return cks, nil
 }
 
 // UpdateWithAllFields 更新Cks，包括零值字段

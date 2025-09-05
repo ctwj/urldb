@@ -2,6 +2,9 @@ package pan
 
 import (
 	"fmt"
+
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 )
 
 // BaiduPanService 百度网盘服务
@@ -50,9 +53,9 @@ func (b *BaiduPanService) DeleteFiles(fileList []string) (*TransferResult, error
 }
 
 // GetUserInfo 获取用户信息
-func (b *BaiduPanService) GetUserInfo(cookie string) (*UserInfo, error) {
+func (b *BaiduPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	// 设置Cookie
-	b.SetHeader("Cookie", cookie)
+	b.SetHeader("Cookie", *cookie)
 
 	// 调用百度网盘用户信息API
 	userInfoURL := "https://pan.baidu.com/api/gettemplatevariable"
@@ -100,4 +103,12 @@ func (b *BaiduPanService) GetUserInfo(cookie string) (*UserInfo, error) {
 		TotalSpace:  totalCapacityBytes,
 		ServiceType: "baidu",
 	}, nil
+}
+
+// GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）
+func (b *BaiduPanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
+	return nil, nil
+}
+
+func (u *BaiduPanService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
 }

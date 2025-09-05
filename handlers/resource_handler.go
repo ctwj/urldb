@@ -549,8 +549,8 @@ func GetResourceLink(c *gin.Context) {
 	}
 
 	// 如果不是夸克网盘，直接返回原链接
-	if panInfo.Name != "quark" {
-		utils.Info("非夸克资源，直接返回原链接")
+	if panInfo.Name != "quark" && panInfo.Name != "xunlei" {
+		utils.Info("非夸克和迅雷资源，直接返回原链接")
 		SuccessResponse(c, gin.H{
 			"url":         resource.URL,
 			"type":        "original",
@@ -559,9 +559,6 @@ func GetResourceLink(c *gin.Context) {
 		})
 		return
 	}
-
-	// 夸克资源处理逻辑
-	utils.Info("夸克资源处理开始")
 
 	// 如果已存在转存链接，直接返回
 	if resource.SaveURL != "" {
@@ -630,6 +627,7 @@ func GetResourceLink(c *gin.Context) {
 // TransferResult 转存结果
 type TransferResult struct {
 	Success  bool   `json:"success"`
+	Fid      string `json:"fid"`
 	SaveURL  string `json:"save_url"`
 	ErrorMsg string `json:"error_msg"`
 }
@@ -638,18 +636,11 @@ type TransferResult struct {
 func performAutoTransfer(resource *entity.Resource) TransferResult {
 	utils.Info("开始执行资源转存 - ID: %d, URL: %s", resource.ID, resource.URL)
 
-	// 获取夸克平台ID
-	quarkPanID, err := getQuarkPanID()
-	if err != nil {
-		utils.Error("获取夸克平台ID失败: %v", err)
-		return TransferResult{
-			Success:  false,
-			ErrorMsg: fmt.Sprintf("获取夸克平台ID失败: %v", err),
-		}
-	}
+	// 平台ID
+	panID := resource.PanID
 
 	// 获取可用的夸克账号
-	accounts, err := repoManager.CksRepository.FindAll()
+	accounts, err := repoManager.CksRepository.FindByPanID(*panID)
 	if err != nil {
 		utils.Error("获取网盘账号失败: %v", err)
 		return TransferResult{
@@ -658,6 +649,7 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 		}
 	}
 
+	// 测试阶段，移除最小限制
 	// 获取最小存储空间配置
 	autoTransferMinSpace, err := repoManager.SystemConfigRepository.GetConfigInt(entity.ConfigKeyAutoTransferMinSpace)
 	if err != nil {
@@ -669,23 +661,24 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 	minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
 	var validAccounts []entity.Cks
 	for _, acc := range accounts {
-		if acc.IsValid && acc.PanID == quarkPanID && acc.LeftSpace >= minSpaceBytes {
+		if acc.IsValid && acc.PanID == *panID && acc.LeftSpace >= minSpaceBytes {
 			validAccounts = append(validAccounts, acc)
 		}
 	}
 
 	if len(validAccounts) == 0 {
-		utils.Info("没有可用的夸克网盘账号")
+		utils.Info("没有可用的网盘账号")
 		return TransferResult{
 			Success:  false,
-			ErrorMsg: "没有可用的夸克网盘账号",
+			ErrorMsg: "没有可用的网盘账号",
 		}
 	}
 
-	utils.Info("找到 %d 个可用夸克网盘账号，开始转存处理...", len(validAccounts))
+	utils.Info("找到 %d 个可用网盘账号，开始转存处理...", len(validAccounts))
 
 	// 使用第一个可用账号进行转存
 	account := validAccounts[0]
+	// account := accounts[0]
 
 	// 创建网盘服务工厂
 	factory := pan.NewPanFactory()
@@ -696,6 +689,8 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 	if result.Success {
 		// 更新资源的转存信息
 		resource.SaveURL = result.SaveURL
+		resource.Fid = result.Fid
+		resource.CkID = &account.ID
 		resource.ErrorMsg = ""
 		if err := repoManager.ResourceRepository.Update(resource); err != nil {
 			utils.Error("更新资源转存信息失败: %v", err)
@@ -729,6 +724,9 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 		}
 	}
 
+	// 设置账号信息
+	service.SetCKSRepository(repoManager.CksRepository, account)
+
 	// 提取分享ID
 	shareID, _ := commonutils.ExtractShareIdString(resource.URL)
 	if shareID == "" {
@@ -739,7 +737,7 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 	}
 
 	// 执行转存
-	transferResult, err := service.Transfer(shareID)
+	transferResult, err := service.Transfer(shareID) // 有些链接还需要其他信息从 url 中自行解析
 	if err != nil {
 		utils.Error("转存失败: %v", err)
 		return TransferResult{
@@ -762,9 +760,14 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 
 	// 提取转存链接
 	var saveURL string
+	var fid string
+
 	if data, ok := transferResult.Data.(map[string]interface{}); ok {
 		if v, ok := data["shareUrl"]; ok {
 			saveURL, _ = v.(string)
+		}
+		if v, ok := data["fid"]; ok {
+			fid, _ = v.(string)
 		}
 	}
 	if saveURL == "" {
@@ -783,6 +786,7 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 	return TransferResult{
 		Success: true,
 		SaveURL: saveURL,
+		Fid:     fid,
 	}
 }
 

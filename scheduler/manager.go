@@ -10,7 +10,6 @@ type Manager struct {
 	baseScheduler          *BaseScheduler
 	hotDramaScheduler      *HotDramaScheduler
 	readyResourceScheduler *ReadyResourceScheduler
-	autoTransferScheduler  *AutoTransferScheduler
 }
 
 // NewManager 创建调度器管理器
@@ -39,13 +38,11 @@ func NewManager(
 	// 创建各个具体的调度器
 	hotDramaScheduler := NewHotDramaScheduler(baseScheduler)
 	readyResourceScheduler := NewReadyResourceScheduler(baseScheduler)
-	autoTransferScheduler := NewAutoTransferScheduler(baseScheduler)
 
 	return &Manager{
 		baseScheduler:          baseScheduler,
 		hotDramaScheduler:      hotDramaScheduler,
 		readyResourceScheduler: readyResourceScheduler,
-		autoTransferScheduler:  autoTransferScheduler,
 	}
 }
 
@@ -56,11 +53,8 @@ func (m *Manager) StartAll() {
 	// 启动热播剧定时任务
 	m.StartHotDramaScheduler()
 
-	// 启动待处理资源自动处理任务
-	m.StartReadyResourceScheduler()
-
-	// 启动自动转存定时任务
-	m.StartAutoTransferScheduler()
+	// 启动待处理资源调度任务
+	m.readyResourceScheduler.Start()
 
 	utils.Debug("所有调度任务已启动")
 }
@@ -72,11 +66,8 @@ func (m *Manager) StopAll() {
 	// 停止热播剧定时任务
 	m.StopHotDramaScheduler()
 
-	// 停止待处理资源自动处理任务
-	m.StopReadyResourceScheduler()
-
-	// 停止自动转存定时任务
-	m.StopAutoTransferScheduler()
+	// 停止待处理资源调度任务
+	m.readyResourceScheduler.Stop()
 
 	utils.Debug("所有调度任务已停止")
 }
@@ -111,21 +102,6 @@ func (m *Manager) IsReadyResourceRunning() bool {
 	return m.readyResourceScheduler.IsReadyResourceRunning()
 }
 
-// StartAutoTransferScheduler 启动自动转存调度任务
-func (m *Manager) StartAutoTransferScheduler() {
-	m.autoTransferScheduler.Start()
-}
-
-// StopAutoTransferScheduler 停止自动转存调度任务
-func (m *Manager) StopAutoTransferScheduler() {
-	m.autoTransferScheduler.Stop()
-}
-
-// IsAutoTransferRunning 检查自动转存调度任务是否正在运行
-func (m *Manager) IsAutoTransferRunning() bool {
-	return m.autoTransferScheduler.IsAutoTransferRunning()
-}
-
 // GetHotDramaNames 获取热播剧名称列表
 func (m *Manager) GetHotDramaNames() ([]string, error) {
 	return m.hotDramaScheduler.GetHotDramaNames()
@@ -136,6 +112,5 @@ func (m *Manager) GetStatus() map[string]bool {
 	return map[string]bool{
 		"hot_drama":      m.IsHotDramaRunning(),
 		"ready_resource": m.IsReadyResourceRunning(),
-		"auto_transfer":  m.IsAutoTransferRunning(),
 	}
 }

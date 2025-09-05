@@ -281,7 +281,7 @@ const isValidUrl = (url: string) => {
   try {
     new URL(url)
     // 简单检查是否包含常见网盘域名
-    const diskDomains = ['quark.cn', 'pan.baidu.com', 'aliyundrive.com']
+    const diskDomains = ['quark.cn', 'pan.baidu.com', 'aliyundrive.com', 'pan.xunlei.com']
     return diskDomains.some(domain => url.includes(domain))
   } catch {
     return false
@@ -368,6 +368,8 @@ const handleBatchTransfer = async () => {
   } catch (error: any) {
     console.error('创建任务失败:', error)
     message.error('创建任务失败: ' + (error.message || '未知错误'))
+    processing.value = false
+  } finally {
     processing.value = false
   }
 }

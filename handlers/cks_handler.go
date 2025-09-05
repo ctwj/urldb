@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -51,6 +52,8 @@ func CreateCks(c *gin.Context) {
 		serviceType = panutils.BaiduPan
 	case "uc":
 		serviceType = panutils.UC
+	case "xunlei":
+		serviceType = panutils.Xunlei
 	default:
 		ErrorResponse(c, "不支持的平台类型", http.StatusBadRequest)
 		return
@@ -64,28 +67,61 @@ func CreateCks(c *gin.Context) {
 		return
 	}
 
-	// 获取用户信息
-	userInfo, err := service.GetUserInfo(req.Ck)
-	if err != nil {
-		ErrorResponse(c, "无法获取用户信息，账号创建失败: "+err.Error(), http.StatusBadRequest)
-		return
-	}
+	var cks *entity.Cks
+	// 迅雷网盘，添加的时候 只获取token就好， 然后刷新的时候， 再补充用户信息等
+	if serviceType == panutils.Xunlei {
+		xunleiService := service.(*panutils.XunleiPanService)
+		tokenData, err := xunleiService.GetAccessTokenByRefreshToken(req.Ck)
+		if err != nil {
+			ErrorResponse(c, "无法获取有效token: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		extra := panutils.XunleiExtraData{
+			Token:   &tokenData,
+			Captcha: &panutils.CaptchaData{},
+		}
+		extraStr, _ := json.Marshal(extra)
 
-	leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
+		// 创建Cks实体
+		cks = &entity.Cks{
+			PanID:       req.PanID,
+			Idx:         req.Idx,
+			Ck:          tokenData.RefreshToken,
+			IsValid:     true, // 根据VIP状态设置有效性
+			Space:       0,
+			LeftSpace:   0,
+			UsedSpace:   0,
+			Username:    "-",
+			VipStatus:   false,
+			ServiceType: "xunlei",
+			Extra:       string(extraStr),
+			Remark:      req.Remark,
+		}
+	} else {
+		// 获取用户信息
+		userInfo, err := service.GetUserInfo(&req.Ck)
+		if err != nil {
+			ErrorResponse(c, "无法获取用户信息，账号创建失败: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	// 创建Cks实体
-	cks := &entity.Cks{
-		PanID:       req.PanID,
-		Idx:         req.Idx,
-		Ck:          req.Ck,
-		IsValid:     userInfo.VIPStatus, // 根据VIP状态设置有效性
-		Space:       userInfo.TotalSpace,
-		LeftSpace:   leftSpaceBytes,
-		UsedSpace:   userInfo.UsedSpace,
-		Username:    userInfo.Username,
-		VipStatus:   userInfo.VIPStatus,
-		ServiceType: userInfo.ServiceType,
-		Remark:      req.Remark,
+		leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
+
+		// 创建Cks实体
+		cks = &entity.Cks{
+			PanID:       req.PanID,
+			Idx:         req.Idx,
+			Ck:          req.Ck,
+			IsValid:     userInfo.VIPStatus, // 根据VIP状态设置有效性
+			Space:       userInfo.TotalSpace,
+			LeftSpace:   leftSpaceBytes,
+			UsedSpace:   userInfo.UsedSpace,
+			Username:    userInfo.Username,
+			VipStatus:   userInfo.VIPStatus,
+			ServiceType: userInfo.ServiceType,
+			Extra:       userInfo.ExtraData,
+			Remark:      req.Remark,
+		}
 	}
 
 	err = repoManager.CksRepository.Create(cks)
@@ -293,6 +329,8 @@ func RefreshCapacity(c *gin.Context) {
 		serviceType = panutils.BaiduPan
 	case "uc":
 		serviceType = panutils.UC
+	case "xunlei":
+		serviceType = panutils.Xunlei
 	default:
 		ErrorResponse(c, "不支持的平台类型", http.StatusBadRequest)
 		return
@@ -306,13 +344,20 @@ func RefreshCapacity(c *gin.Context) {
 		return
 	}
 
-	// 获取最新的用户信息
-	userInfo, err := service.GetUserInfo(cks.Ck)
+	var userInfo *panutils.UserInfo
+	service.SetCKSRepository(repoManager.CksRepository, *cks) // 迅雷需要初始化 token 后才能获取，
+	userInfo, err = service.GetUserInfo(&cks.Ck)
+	// switch s := service.(type) {
+	// case *panutils.XunleiPanService:
+
+	// 	userInfo, err = s.GetUserInfo(nil)
+	// default:
+	// 	userInfo, err = service.GetUserInfo(&cks.Ck)
+	// }
 	if err != nil {
 		ErrorResponse(c, "无法获取用户信息，刷新失败: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
 
 	// 更新账号信息
@@ -322,7 +367,7 @@ func RefreshCapacity(c *gin.Context) {
 	cks.Space = userInfo.TotalSpace
 	cks.LeftSpace = leftSpaceBytes
 	cks.UsedSpace = userInfo.UsedSpace
-	cks.IsValid = userInfo.VIPStatus // 根据VIP状态更新有效性
+	// cks.IsValid = userInfo.VIPStatus // 根据VIP状态更新有效性
 
 	err = repoManager.CksRepository.UpdateWithAllFields(cks)
 	if err != nil {

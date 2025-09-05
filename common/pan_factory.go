@@ -5,6 +5,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 )
 
 // ServiceType 定义网盘服务类型
@@ -74,6 +77,7 @@ type UserInfo struct {
 	UsedSpace   int64  `json:"usedSpace"`   // 已使用空间
 	TotalSpace  int64  `json:"totalSpace"`  // 总空间
 	ServiceType string `json:"serviceType"` // 服务类型
+	ExtraData   string `json:"extraData"`   // 额外信息
 }
 
 // PanService 网盘服务接口
@@ -88,10 +92,12 @@ type PanService interface {
 	DeleteFiles(fileList []string) (*TransferResult, error)
 
 	// GetUserInfo 获取用户信息
-	GetUserInfo(cookie string) (*UserInfo, error)
+	GetUserInfo(ck *string) (*UserInfo, error)
 
 	// GetServiceType 获取服务类型
 	GetServiceType() ServiceType
+
+	SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks)
 }
 
 // PanFactory 网盘工厂
@@ -249,6 +255,9 @@ func ExtractShareId(url string) (string, ServiceType) {
 	shareID = url[substring:]
 
 	// 去除可能的锚点
+	if hashIndex := strings.Index(shareID, "?"); hashIndex != -1 {
+		shareID = shareID[:hashIndex]
+	}
 	if hashIndex := strings.Index(shareID, "#"); hashIndex != -1 {
 		shareID = shareID[:hashIndex]
 	}

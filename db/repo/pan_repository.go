@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"fmt"
+
 	"github.com/ctwj/urldb/db/entity"
 
 	"gorm.io/gorm"
@@ -10,6 +12,7 @@ import (
 type PanRepository interface {
 	BaseRepository[entity.Pan]
 	FindWithCks() ([]entity.Pan, error)
+	FindIdByServiceType(serviceType string) (int, error)
 }
 
 // PanRepositoryImpl Pan的Repository实现
@@ -29,4 +32,13 @@ func (r *PanRepositoryImpl) FindWithCks() ([]entity.Pan, error) {
 	var pans []entity.Pan
 	err := r.db.Preload("Cks").Find(&pans).Error
 	return pans, err
+}
+
+func (r *PanRepositoryImpl) FindIdByServiceType(serviceType string) (int, error) {
+	var pan entity.Pan
+	err := r.db.Where("name = ?", serviceType).Find(&pan).Error
+	if err != nil {
+		return 0, fmt.Errorf("获取panId失败： %v", serviceType)
+	}
+	return int(pan.ID), nil
 }
