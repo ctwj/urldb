@@ -195,6 +195,17 @@ func UpdateSystemConfig(c *gin.Context) {
 	// 刷新系统配置缓存
 	pan.RefreshSystemConfigCache()
 
+	// 重新加载Meilisearch配置（如果Meilisearch配置有变更）
+	if req.MeilisearchEnabled != nil || req.MeilisearchHost != nil || req.MeilisearchPort != nil || req.MeilisearchMasterKey != nil || req.MeilisearchIndexName != nil {
+		if meilisearchManager != nil {
+			if err := meilisearchManager.ReloadConfig(); err != nil {
+				utils.Error("重新加载Meilisearch配置失败: %v", err)
+			} else {
+				utils.Debug("Meilisearch配置重新加载成功")
+			}
+		}
+	}
+
 	// 根据配置更新定时任务状态（错误不影响配置保存）
 	scheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
@@ -309,6 +320,12 @@ func ToggleAutoProcess(c *gin.Context) {
 	if err != nil {
 		ErrorResponse(c, "保存系统配置失败", http.StatusInternalServerError)
 		return
+	}
+
+	// 确保配置缓存已刷新
+	if err := repoManager.SystemConfigRepository.SafeRefreshConfigCache(); err != nil {
+		utils.Error("刷新配置缓存失败: %v", err)
+		// 不返回错误，因为配置已经保存成功
 	}
 
 	// 更新定时任务状态

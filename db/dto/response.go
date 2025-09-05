@@ -12,24 +12,34 @@ type SearchResponse struct {
 
 // ResourceResponse 资源响应
 type ResourceResponse struct {
-	ID           uint          `json:"id"`
-	Title        string        `json:"title"`
-	Description  string        `json:"description"`
-	URL          string        `json:"url"`
-	PanID        *uint         `json:"pan_id"`
-	SaveURL      string        `json:"save_url"`
-	FileSize     string        `json:"file_size"`
-	CategoryID   *uint         `json:"category_id"`
-	CategoryName string        `json:"category_name"`
-	ViewCount    int           `json:"view_count"`
-	IsValid      bool          `json:"is_valid"`
-	IsPublic     bool          `json:"is_public"`
-	CreatedAt    time.Time     `json:"created_at"`
-	UpdatedAt    time.Time     `json:"updated_at"`
-	Tags         []TagResponse `json:"tags"`
-	Cover        string        `json:"cover"`
-	Author       string        `json:"author"`
-	ErrorMsg     string        `json:"error_msg"`
+	ID                  uint          `json:"id"`
+	Title               string        `json:"title"`
+	Description         string        `json:"description"`
+	URL                 string        `json:"url"`
+	PanID               *uint         `json:"pan_id"`
+	SaveURL             string        `json:"save_url"`
+	FileSize            string        `json:"file_size"`
+	CategoryID          *uint         `json:"category_id"`
+	CategoryName        string        `json:"category_name"`
+	ViewCount           int           `json:"view_count"`
+	IsValid             bool          `json:"is_valid"`
+	IsPublic            bool          `json:"is_public"`
+	CreatedAt           time.Time     `json:"created_at"`
+	UpdatedAt           time.Time     `json:"updated_at"`
+	Tags                []TagResponse `json:"tags"`
+	Cover               string        `json:"cover"`
+	Author              string        `json:"author"`
+	ErrorMsg            string        `json:"error_msg"`
+	SyncedToMeilisearch bool          `json:"synced_to_meilisearch"`
+	SyncedAt            *time.Time    `json:"synced_at"`
+	// 高亮字段
+	TitleHighlight       string   `json:"title_highlight,omitempty"`
+	DescriptionHighlight string   `json:"description_highlight,omitempty"`
+	CategoryHighlight    string   `json:"category_highlight,omitempty"`
+	TagsHighlight        []string `json:"tags_highlight,omitempty"`
+	// 违禁词相关字段
+	HasForbiddenWords bool     `json:"has_forbidden_words"`
+	ForbiddenWords    []string `json:"forbidden_words"`
 }
 
 // CategoryResponse 分类响应

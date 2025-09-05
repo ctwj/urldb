@@ -135,9 +135,24 @@
                 <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
               </td>
             </tr>
-            <tr v-else-if="safeResources.length === 0" class="text-center py-8">
-              <td colspan="1" class="text-gray-500 dark:text-gray-400 sm:hidden">暂无数据</td>
-              <td colspan="3" class="text-gray-500 dark:text-gray-400 hidden sm:table-cell">暂无数据</td>
+            <tr v-else-if="safeResources.length === 0" class="text-center py-12">
+              <td colspan="3" class="text-gray-500 dark:text-gray-400">
+                <div class="flex flex-col items-center justify-center space-y-4">
+                  <img 
+                    src="/assets/svg/empty.svg" 
+                    alt="暂无数据" 
+                    class="!w-64 !h-64 sm:w-64 sm:h-64 opacity-60 dark:opacity-40"
+                  />
+                  <div class="text-center">
+                    <p class="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
+                      {{ searchQuery ? '没有找到相关资源' : '暂无资源数据' }}
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-500">
+                      {{ searchQuery ? '请尝试其他关键词或清除搜索条件' : '资源正在整理中，请稍后再来查看' }}
+                    </p>
+                  </div>
+                </div>
+              </td>
             </tr>
             <tr 
               v-for="(resource, index) in safeResources" 
@@ -149,10 +164,9 @@
                 <div class="flex items-start">
                   <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(resource.pan_id || 0)"></span>
                   <div class="flex-1 min-w-0">
-                    <div class="break-words font-medium">{{ resource.title }}</div>
+                    <div class="break-words font-medium" v-html="resource.title_highlight || resource.title"></div>
                     <!-- 显示描述 -->
-                    <div v-if="resource.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words line-clamp-2">
-                      {{ resource.description }}
+                    <div v-if="resource.description_highlight || resource.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words line-clamp-2" v-html="resource.description_highlight || resource.description">
                     </div>
                   </div>
                 </div>
@@ -202,6 +216,8 @@
       :platform="selectedResource?.platform"
       :message="selectedResource?.message"
       :error="selectedResource?.error"
+      :forbidden="selectedResource?.forbidden"
+      :forbidden_words="selectedResource?.forbidden_words"
       @close="showLinkModal = false" 
     />
 
@@ -273,12 +289,24 @@ const handleLogoError = (event: Event) => {
 // 使用 useAsyncData 获取资源数据
 const { data: resourcesData, pending, refresh } = await useAsyncData(
   () => `resources-1-${route.query.search || ''}-${route.query.platform || ''}`,
-  () => resourceApi.getResources({
-    page: 1,
-    page_size: 200,
-    search: route.query.search as string || '',
-    pan_id: route.query.platform as string || ''
-  })
+  async () => {
+    // 如果有搜索关键词，使用带搜索参数的资源接口（后端会优先使用Meilisearch）
+    if (route.query.search) {
+      return await resourceApi.getResources({
+        page: 1,
+        page_size: 200,
+        search: route.query.search as string,
+        pan_id: route.query.platform as string || ''
+      })
+    } else {
+      // 没有搜索关键词时，使用普通资源接口获取最新数据
+      return await resourceApi.getResources({
+        page: 1,
+        page_size: 200,
+        pan_id: route.query.platform as string || ''
+      })
+    }
+  }
 )
 
 // 获取统计数据
@@ -399,8 +427,8 @@ onMounted(() => {
 
 
 // 获取平台名称
-const getPlatformIcon = (panId: string) => {
-  const platform = (platforms.value as any).find((p: any) => p.id === panId)
+const getPlatformIcon = (panId: string | number) => {
+  const platform = (platforms.value as any).find((p: any) => p.id == panId)
   return platform?.icon || '未知平台'
 }
 
@@ -408,6 +436,18 @@ const getPlatformIcon = (panId: string) => {
 
 // 切换链接显示
 const toggleLink = async (resource: any) => {
+  // 如果包含违禁词，直接显示禁止访问，不发送请求
+  if (resource.has_forbidden_words) {
+    selectedResource.value = {
+      ...resource,
+      forbidden: true,
+      error: '该资源包含违禁内容，无法访问',
+      forbidden_words: resource.forbidden_words || []
+    }
+    showLinkModal.value = true
+    return
+  }
+
   // 显示加载状态
   selectedResource.value = { ...resource, loading: true }
   showLinkModal.value = true
@@ -427,9 +467,10 @@ const toggleLink = async (resource: any) => {
       platform: linkData.platform,
       message: linkData.message
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取资源链接失败:', error)
-    // 出错时使用原始资源信息
+    
+    // 其他错误
     selectedResource.value = {
       ...resource,
       loading: false,

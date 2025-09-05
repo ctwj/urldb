@@ -121,10 +121,18 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyAutoTransferMinSpace, Value: entity.ConfigDefaultAutoTransferMinSpace, Type: entity.ConfigTypeInt},
 			{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: entity.ConfigDefaultAutoFetchHotDramaEnabled, Type: entity.ConfigTypeBool},
 			{Key: entity.ConfigKeyApiToken, Value: entity.ConfigDefaultApiToken, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyForbiddenWords, Value: entity.ConfigDefaultForbiddenWords, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyAdKeywords, Value: entity.ConfigDefaultAdKeywords, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyAutoInsertAd, Value: entity.ConfigDefaultAutoInsertAd, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyPageSize, Value: entity.ConfigDefaultPageSize, Type: entity.ConfigTypeInt},
 			{Key: entity.ConfigKeyMaintenanceMode, Value: entity.ConfigDefaultMaintenanceMode, Type: entity.ConfigTypeBool},
 			{Key: entity.ConfigKeyEnableRegister, Value: entity.ConfigDefaultEnableRegister, Type: entity.ConfigTypeBool},
 			{Key: entity.ConfigKeyThirdPartyStatsCode, Value: entity.ConfigDefaultThirdPartyStatsCode, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyMeilisearchEnabled, Value: entity.ConfigDefaultMeilisearchEnabled, Type: entity.ConfigTypeBool},
+			{Key: entity.ConfigKeyMeilisearchHost, Value: entity.ConfigDefaultMeilisearchHost, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyMeilisearchPort, Value: entity.ConfigDefaultMeilisearchPort, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyMeilisearchMasterKey, Value: entity.ConfigDefaultMeilisearchMasterKey, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyMeilisearchIndexName, Value: entity.ConfigDefaultMeilisearchIndexName, Type: entity.ConfigTypeString},
 		}
 
 		err = r.UpsertConfigs(defaultConfigs)
@@ -149,12 +157,18 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		entity.ConfigKeyAutoTransferMinSpace:      {Key: entity.ConfigKeyAutoTransferMinSpace, Value: entity.ConfigDefaultAutoTransferMinSpace, Type: entity.ConfigTypeInt},
 		entity.ConfigKeyAutoFetchHotDramaEnabled:  {Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: entity.ConfigDefaultAutoFetchHotDramaEnabled, Type: entity.ConfigTypeBool},
 		entity.ConfigKeyApiToken:                  {Key: entity.ConfigKeyApiToken, Value: entity.ConfigDefaultApiToken, Type: entity.ConfigTypeString},
+		entity.ConfigKeyForbiddenWords:            {Key: entity.ConfigKeyForbiddenWords, Value: entity.ConfigDefaultForbiddenWords, Type: entity.ConfigTypeString},
 		entity.ConfigKeyAdKeywords:                {Key: entity.ConfigKeyAdKeywords, Value: entity.ConfigDefaultAdKeywords, Type: entity.ConfigTypeString},
 		entity.ConfigKeyAutoInsertAd:              {Key: entity.ConfigKeyAutoInsertAd, Value: entity.ConfigDefaultAutoInsertAd, Type: entity.ConfigTypeString},
 		entity.ConfigKeyPageSize:                  {Key: entity.ConfigKeyPageSize, Value: entity.ConfigDefaultPageSize, Type: entity.ConfigTypeInt},
 		entity.ConfigKeyMaintenanceMode:           {Key: entity.ConfigKeyMaintenanceMode, Value: entity.ConfigDefaultMaintenanceMode, Type: entity.ConfigTypeBool},
 		entity.ConfigKeyEnableRegister:            {Key: entity.ConfigKeyEnableRegister, Value: entity.ConfigDefaultEnableRegister, Type: entity.ConfigTypeBool},
 		entity.ConfigKeyThirdPartyStatsCode:       {Key: entity.ConfigKeyThirdPartyStatsCode, Value: entity.ConfigDefaultThirdPartyStatsCode, Type: entity.ConfigTypeString},
+		entity.ConfigKeyMeilisearchEnabled:        {Key: entity.ConfigKeyMeilisearchEnabled, Value: entity.ConfigDefaultMeilisearchEnabled, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyMeilisearchHost:           {Key: entity.ConfigKeyMeilisearchHost, Value: entity.ConfigDefaultMeilisearchHost, Type: entity.ConfigTypeString},
+		entity.ConfigKeyMeilisearchPort:           {Key: entity.ConfigKeyMeilisearchPort, Value: entity.ConfigDefaultMeilisearchPort, Type: entity.ConfigTypeString},
+		entity.ConfigKeyMeilisearchMasterKey:      {Key: entity.ConfigKeyMeilisearchMasterKey, Value: entity.ConfigDefaultMeilisearchMasterKey, Type: entity.ConfigTypeString},
+		entity.ConfigKeyMeilisearchIndexName:      {Key: entity.ConfigKeyMeilisearchIndexName, Value: entity.ConfigDefaultMeilisearchIndexName, Type: entity.ConfigTypeString},
 	}
 
 	// 检查现有配置中是否有缺失的配置项

@@ -52,21 +52,21 @@ export const useUserStore = defineStore('user', {
         try {
           const token = localStorage.getItem('token')
           const userStr = localStorage.getItem('user')
-          console.log('initAuth - token:', token ? 'exists' : 'not found')
-          console.log('initAuth - userStr:', userStr ? 'exists' : 'not found')
+          // console.log('initAuth - token:', token ? 'exists' : 'not found')
+          // console.log('initAuth - userStr:', userStr ? 'exists' : 'not found')
           
           if (token && userStr) {
             try {
               this.token = token
               this.user = JSON.parse(userStr)
               this.isAuthenticated = true
-              console.log('initAuth - 状态恢复成功:', this.user?.username)
+              // console.log('initAuth - 状态恢复成功:', this.user?.username)
             } catch (error) {
               console.error('解析用户信息失败:', error)
               this.logout()
             }
           } else {
-            console.log('initAuth - 没有找到有效的登录信息')
+            // console.log('initAuth - 没有找到有效的登录信息')
             // 确保状态一致
             this.token = null
             this.user = null

@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/ctwj/urldb/db/repo"
+	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/utils"
 )
 
@@ -16,7 +17,19 @@ type GlobalScheduler struct {
 var (
 	globalScheduler *GlobalScheduler
 	once            sync.Once
+	// 全局Meilisearch管理器
+	globalMeilisearchManager *services.MeilisearchManager
 )
+
+// SetGlobalMeilisearchManager 设置全局Meilisearch管理器
+func SetGlobalMeilisearchManager(manager *services.MeilisearchManager) {
+	globalMeilisearchManager = manager
+}
+
+// GetGlobalMeilisearchManager 获取全局Meilisearch管理器
+func GetGlobalMeilisearchManager() *services.MeilisearchManager {
+	return globalMeilisearchManager
+}
 
 // GetGlobalScheduler 获取全局调度器实例（单例模式）
 func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository, cksRepo repo.CksRepository, tagRepo repo.TagRepository, categoryRepo repo.CategoryRepository) *GlobalScheduler {
@@ -34,12 +47,12 @@ func (gs *GlobalScheduler) StartHotDramaScheduler() {
 	defer gs.mutex.Unlock()
 
 	if gs.manager.IsHotDramaRunning() {
-		utils.Info("热播剧定时任务已在运行中")
+		utils.Debug("热播剧定时任务已在运行中")
 		return
 	}
 
 	gs.manager.StartHotDramaScheduler()
-	utils.Info("全局调度器已启动热播剧定时任务")
+	utils.Debug("全局调度器已启动热播剧定时任务")
 }
 
 // StopHotDramaScheduler 停止热播剧定时任务
@@ -48,12 +61,12 @@ func (gs *GlobalScheduler) StopHotDramaScheduler() {
 	defer gs.mutex.Unlock()
 
 	if !gs.manager.IsHotDramaRunning() {
-		utils.Info("热播剧定时任务未在运行")
+		utils.Debug("热播剧定时任务未在运行")
 		return
 	}
 
 	gs.manager.StopHotDramaScheduler()
-	utils.Info("全局调度器已停止热播剧定时任务")
+	utils.Debug("全局调度器已停止热播剧定时任务")
 }
 
 // IsHotDramaSchedulerRunning 检查热播剧定时任务是否在运行
@@ -74,12 +87,12 @@ func (gs *GlobalScheduler) StartReadyResourceScheduler() {
 	defer gs.mutex.Unlock()
 
 	if gs.manager.IsReadyResourceRunning() {
-		utils.Info("待处理资源自动处理任务已在运行中")
+		utils.Debug("待处理资源自动处理任务已在运行中")
 		return
 	}
 
 	gs.manager.StartReadyResourceScheduler()
-	utils.Info("全局调度器已启动待处理资源自动处理任务")
+	utils.Debug("全局调度器已启动待处理资源自动处理任务")
 }
 
 // StopReadyResourceScheduler 停止待处理资源自动处理任务
@@ -88,12 +101,12 @@ func (gs *GlobalScheduler) StopReadyResourceScheduler() {
 	defer gs.mutex.Unlock()
 
 	if !gs.manager.IsReadyResourceRunning() {
-		utils.Info("待处理资源自动处理任务未在运行")
+		utils.Debug("待处理资源自动处理任务未在运行")
 		return
 	}
 
 	gs.manager.StopReadyResourceScheduler()
-	utils.Info("全局调度器已停止待处理资源自动处理任务")
+	utils.Debug("全局调度器已停止待处理资源自动处理任务")
 }
 
 // IsReadyResourceRunning 检查待处理资源自动处理任务是否在运行

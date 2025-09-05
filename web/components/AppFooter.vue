@@ -21,15 +21,14 @@
 <script setup lang="ts">
 import { useApiFetch } from '~/composables/useApiFetch'
 import { parseApiResponse } from '~/composables/useApi'
+
 // 使用版本信息组合式函数
 const { versionInfo, fetchVersionInfo } = useVersion()
-
-// 获取系统配置
-const { data: systemConfigData } = await useAsyncData('footerSystemConfig', 
-  () => useApiFetch('/system/config').then(parseApiResponse)
-)
-
-const systemConfig = computed(() => (systemConfigData.value as any) || { copyright: '© 2025 老九网盘资源数据库 By 老九' })
+import { useSystemConfigStore } from '~/stores/systemConfig'
+const systemConfigStore = useSystemConfigStore()
+await systemConfigStore.initConfig(false, false)
+const systemConfig = computed(() => systemConfigStore.config)
+console.log(systemConfig.value)
 
 // 组件挂载时获取版本信息
 onMounted(() => {

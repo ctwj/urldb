@@ -32,4 +32,14 @@
   .resource-card {
     @apply bg-white rounded-lg shadow-md border border-gray-200 p-4 hover:shadow-lg transition-shadow duration-200;
   }
+  
+  /* 搜索高亮样式 */
+  mark {
+    @apply bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded font-medium;
+  }
+  
+  /* 暗色模式下的高亮样式 */
+  .dark mark {
+    @apply bg-yellow-600 text-yellow-100;
+  }
 } 

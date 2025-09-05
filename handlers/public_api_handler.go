@@ -7,6 +7,7 @@ import (
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 
+	"github.com/ctwj/urldb/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -182,6 +183,7 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 	keyword := c.Query("keyword")
 	tag := c.Query("tag")
 	category := c.Query("category")
+	panID := c.Query("pan_id")
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "20")
 
@@ -195,65 +197,127 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 		pageSize = 20
 	}
 
-	// 构建搜索条件
-	params := map[string]interface{}{
-		"page":      page,
-		"page_size": pageSize,
+	var resources []entity.Resource
+	var total int64
+
+	// 如果启用了Meilisearch，优先使用Meilisearch搜索
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() {
+		// 构建过滤器
+		filters := make(map[string]interface{})
+		if category != "" {
+			filters["category"] = category
+		}
+		if tag != "" {
+			filters["tags"] = tag
+		}
+		if panID != "" {
+			if id, err := strconv.ParseUint(panID, 10, 32); err == nil {
+				// 根据pan_id获取pan_name
+				pan, err := repoManager.PanRepository.FindByID(uint(id))
+				if err == nil && pan != nil {
+					filters["pan_name"] = pan.Name
+				}
+			}
+		}
+
+		// 使用Meilisearch搜索
+		service := meilisearchManager.GetService()
+		if service != nil {
+			docs, docTotal, err := service.Search(keyword, filters, page, pageSize)
+			if err == nil {
+				// 将Meilisearch文档转换为Resource实体（保持兼容性）
+				for _, doc := range docs {
+					resource := entity.Resource{
+						ID:          doc.ID,
+						Title:       doc.Title,
+						Description: doc.Description,
+						URL:         doc.URL,
+						SaveURL:     doc.SaveURL,
+						FileSize:    doc.FileSize,
+						Key:         doc.Key,
+						PanID:       doc.PanID,
+						CreatedAt:   doc.CreatedAt,
+						UpdatedAt:   doc.UpdatedAt,
+					}
+					resources = append(resources, resource)
+				}
+				total = docTotal
+			} else {
+				utils.Error("Meilisearch搜索失败，回退到数据库搜索: %v", err)
+			}
+		}
 	}
 
-	if keyword != "" {
-		params["search"] = keyword
+	// 如果Meilisearch未启用或搜索失败，使用数据库搜索
+	if meilisearchManager == nil || !meilisearchManager.IsEnabled() || err != nil {
+		// 构建搜索条件
+		params := map[string]interface{}{
+			"page":      page,
+			"page_size": pageSize,
+		}
+
+		if keyword != "" {
+			params["search"] = keyword
+		}
+
+		if tag != "" {
+			params["tag"] = tag
+		}
+
+		if category != "" {
+			params["category"] = category
+		}
+		if panID != "" {
+			if id, err := strconv.ParseUint(panID, 10, 32); err == nil {
+				params["pan_id"] = uint(id)
+			}
+		}
+
+		// 执行数据库搜索
+		resources, total, err = repoManager.ResourceRepository.SearchWithFilters(params)
+		if err != nil {
+			ErrorResponse(c, "搜索失败: "+err.Error(), 500)
+			return
+		}
 	}
 
-	if tag != "" {
-		params["tag"] = tag
-	}
-
-	if category != "" {
-		params["category"] = category
-	}
-
-	// 执行搜索
-	resources, total, err := repoManager.ResourceRepository.SearchWithFilters(params)
+	// 获取违禁词配置（只获取一次）
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
 	if err != nil {
-		ErrorResponse(c, "搜索失败: "+err.Error(), 500)
-		return
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{} // 如果获取失败，使用空列表
 	}
 
-	// 过滤违禁词
-	filteredResources, foundForbiddenWords := h.filterForbiddenWords(resources)
-
-	// 计算过滤后的总数
-	filteredTotal := len(filteredResources)
-
-	// 转换为响应格式
+	// 转换为响应格式并添加违禁词标记
 	var resourceResponses []gin.H
-	for _, resource := range filteredResources {
-		resourceResponses = append(resourceResponses, gin.H{
-			"id":          resource.ID,
-			"title":       resource.Title,
-			"url":         resource.URL,
-			"description": resource.Description,
-			"view_count":  resource.ViewCount,
-			"created_at":  resource.CreatedAt.Format("2006-01-02 15:04:05"),
-			"updated_at":  resource.UpdatedAt.Format("2006-01-02 15:04:05"),
-		})
+	for i, processedResource := range resources {
+		originalResource := resources[i]
+		forbiddenInfo := utils.CheckResourceForbiddenWords(originalResource.Title, originalResource.Description, cleanWords)
+
+		resourceResponse := gin.H{
+			"id":          processedResource.ID,
+			"title":       forbiddenInfo.ProcessedTitle, // 使用处理后的标题
+			"url":         processedResource.URL,
+			"description": forbiddenInfo.ProcessedDesc, // 使用处理后的描述
+			"view_count":  processedResource.ViewCount,
+			"created_at":  processedResource.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  processedResource.UpdatedAt.Format("2006-01-02 15:04:05"),
+		}
+
+		// 添加违禁词标记
+		resourceResponse["has_forbidden_words"] = forbiddenInfo.HasForbiddenWords
+		resourceResponse["forbidden_words"] = forbiddenInfo.ForbiddenWords
+		resourceResponses = append(resourceResponses, resourceResponse)
 	}
 
 	// 构建响应数据
 	responseData := gin.H{
 		"list":  resourceResponses,
-		"total": filteredTotal,
+		"total": total,
 		"page":  page,
 		"limit": pageSize,
-	}
-
-	// 如果存在违禁词过滤，添加提醒字段
-	if len(foundForbiddenWords) > 0 {
-		responseData["forbidden_words_filtered"] = true
-		responseData["filtered_forbidden_words"] = foundForbiddenWords
-		responseData["original_total"] = total
-		responseData["filtered_count"] = total - int64(filteredTotal)
 	}
 
 	SuccessResponse(c, responseData)

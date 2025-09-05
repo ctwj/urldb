@@ -263,6 +263,13 @@ func insertDefaultDataIfEmpty() error {
 		{Key: entity.ConfigKeyAutoInsertAd, Value: entity.ConfigDefaultAutoInsertAd, Type: entity.ConfigTypeString},
 		{Key: entity.ConfigKeyPageSize, Value: entity.ConfigDefaultPageSize, Type: entity.ConfigTypeInt},
 		{Key: entity.ConfigKeyMaintenanceMode, Value: entity.ConfigDefaultMaintenanceMode, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyEnableRegister, Value: entity.ConfigDefaultEnableRegister, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyThirdPartyStatsCode, Value: entity.ConfigDefaultThirdPartyStatsCode, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyMeilisearchEnabled, Value: entity.ConfigDefaultMeilisearchEnabled, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyMeilisearchHost, Value: entity.ConfigDefaultMeilisearchHost, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyMeilisearchPort, Value: entity.ConfigDefaultMeilisearchPort, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyMeilisearchMasterKey, Value: entity.ConfigDefaultMeilisearchMasterKey, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyMeilisearchIndexName, Value: entity.ConfigDefaultMeilisearchIndexName, Type: entity.ConfigTypeString},
 	}
 
 	for _, config := range defaultSystemConfigs {

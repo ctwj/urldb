@@ -23,13 +23,14 @@ type VersionInfo struct {
 
 // 编译时注入的版本信息
 var (
-	Version   = getVersionFromFile()
+	// 这些变量将在编译时通过 ldflags 注入
+	Version   = "unknown" // 默认版本，编译时会被覆盖
 	BuildTime = GetCurrentTimeString()
 	GitCommit = "unknown"
 	GitBranch = "unknown"
 )
 
-// getVersionFromFile 从VERSION文件读取版本号
+// getVersionFromFile 从VERSION文件读取版本号（备用方案）
 func getVersionFromFile() string {
 	data, err := os.ReadFile("VERSION")
 	if err != nil {
@@ -42,11 +43,29 @@ func getVersionFromFile() string {
 func GetVersionInfo() *VersionInfo {
 	buildTime, _ := ParseTime(BuildTime)
 
+	// 检查版本信息是否通过编译时注入
+	version := Version
+	gitCommit := GitCommit
+	gitBranch := GitBranch
+
+	// 如果编译时注入的版本是默认值，尝试从文件读取
+	if version == "unknown" {
+		version = getVersionFromFile()
+	}
+
+	// 如果Git信息是默认值，尝试从文件读取
+	if gitCommit == "unknown" {
+		gitCommit = "unknown"
+	}
+	if gitBranch == "unknown" {
+		gitBranch = "unknown"
+	}
+
 	return &VersionInfo{
-		Version:     Version,
+		Version:     version,
 		BuildTime:   buildTime,
-		GitCommit:   GitCommit,
-		GitBranch:   GitBranch,
+		GitCommit:   gitCommit,
+		GitBranch:   gitBranch,
 		GoVersion:   runtime.Version(),
 		NodeVersion: getNodeVersion(),
 		Platform:    runtime.GOOS,

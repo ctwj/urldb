@@ -1,14 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
 
 	"github.com/ctwj/urldb/db"
+	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
+	"github.com/ctwj/urldb/scheduler"
+	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/task"
 	"github.com/ctwj/urldb/utils"
 
@@ -18,6 +22,18 @@ import (
 )
 
 func main() {
+	// 检查命令行参数
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		versionInfo := utils.GetVersionInfo()
+		fmt.Printf("版本: v%s\n", versionInfo.Version)
+		fmt.Printf("构建时间: %s\n", versionInfo.BuildTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Git提交: %s\n", versionInfo.GitCommit)
+		fmt.Printf("Git分支: %s\n", versionInfo.GitBranch)
+		fmt.Printf("Go版本: %s\n", versionInfo.GoVersion)
+		fmt.Printf("平台: %s/%s\n", versionInfo.Platform, versionInfo.Arch)
+		return
+	}
+
 	// 初始化日志系统
 	if err := utils.InitLogger(nil); err != nil {
 		log.Fatal("初始化日志系统失败:", err)
@@ -76,6 +92,12 @@ func main() {
 	transferProcessor := task.NewTransferProcessor(repoManager)
 	taskManager.RegisterProcessor(transferProcessor)
 
+	// 初始化Meilisearch管理器
+	meilisearchManager := services.NewMeilisearchManager(repoManager)
+	if err := meilisearchManager.Initialize(); err != nil {
+		utils.Error("初始化Meilisearch管理器失败: %v", err)
+	}
+
 	// 恢复运行中的任务（服务器重启后）
 	if err := taskManager.RecoverRunningTasks(); err != nil {
 		utils.Error("恢复运行中任务失败: %v", err)
@@ -98,6 +120,37 @@ func main() {
 	// 将Repository管理器注入到handlers中
 	handlers.SetRepositoryManager(repoManager)
 
+	// 设置Meilisearch管理器到handlers中
+	handlers.SetMeilisearchManager(meilisearchManager)
+
+	// 设置全局调度器的Meilisearch管理器
+	scheduler.SetGlobalMeilisearchManager(meilisearchManager)
+
+	// 初始化并启动调度器
+	globalScheduler := scheduler.GetGlobalScheduler(
+		repoManager.HotDramaRepository,
+		repoManager.ReadyResourceRepository,
+		repoManager.ResourceRepository,
+		repoManager.SystemConfigRepository,
+		repoManager.PanRepository,
+		repoManager.CksRepository,
+		repoManager.TagRepository,
+		repoManager.CategoryRepository,
+	)
+
+	// 根据系统配置启动相应的调度任务
+	autoFetchHotDrama, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoFetchHotDramaEnabled)
+	autoProcessReadyResources, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)
+	autoTransferEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
+
+	globalScheduler.UpdateSchedulerStatusWithAutoTransfer(
+		autoFetchHotDrama,
+		autoProcessReadyResources,
+		autoTransferEnabled,
+	)
+
+	utils.Info("调度器初始化完成")
+
 	// 设置公开API中间件的Repository管理器
 	middleware.SetRepositoryManager(repoManager)
 
@@ -109,6 +162,9 @@ func main() {
 
 	// 创建文件处理器
 	fileHandler := handlers.NewFileHandler(repoManager.FileRepository, repoManager.SystemConfigRepository, repoManager.UserRepository)
+
+	// 创建Meilisearch处理器
+	meilisearchHandler := handlers.NewMeilisearchHandler(meilisearchManager)
 
 	// API路由
 	api := r.Group("/api")
@@ -241,6 +297,19 @@ func main() {
 		api.GET("/version/string", handlers.GetVersionString)
 		api.GET("/version/full", handlers.GetFullVersionInfo)
 		api.GET("/version/check-update", handlers.CheckUpdate)
+
+		// Meilisearch管理路由
+		api.GET("/meilisearch/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.GetStatus)
+		api.GET("/meilisearch/unsynced-count", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.GetUnsyncedCount)
+		api.GET("/meilisearch/unsynced", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.GetUnsyncedResources)
+		api.GET("/meilisearch/synced", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.GetSyncedResources)
+		api.GET("/meilisearch/resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.GetAllResources)
+		api.POST("/meilisearch/sync-all", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.SyncAllResources)
+		api.GET("/meilisearch/sync-progress", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.GetSyncProgress)
+		api.POST("/meilisearch/stop-sync", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.StopSync)
+		api.POST("/meilisearch/clear-index", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.ClearIndex)
+		api.POST("/meilisearch/test-connection", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.TestConnection)
+		api.POST("/meilisearch/update-settings", middleware.AuthMiddleware(), middleware.AdminMiddleware(), meilisearchHandler.UpdateIndexSettings)
 
 		// 文件上传相关路由
 		api.POST("/files/upload", middleware.AuthMiddleware(), fileHandler.UploadFile)

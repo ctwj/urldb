@@ -48,28 +48,28 @@ func NewManager(
 
 // StartAll 启动所有调度任务
 func (m *Manager) StartAll() {
-	utils.Info("启动所有调度任务")
+	utils.Debug("启动所有调度任务")
 
-	// 启动热播剧调度任务
-	m.hotDramaScheduler.Start()
+	// 启动热播剧定时任务
+	m.StartHotDramaScheduler()
 
 	// 启动待处理资源调度任务
 	m.readyResourceScheduler.Start()
 
-	utils.Info("所有调度任务已启动")
+	utils.Debug("所有调度任务已启动")
 }
 
 // StopAll 停止所有调度任务
 func (m *Manager) StopAll() {
-	utils.Info("停止所有调度任务")
+	utils.Debug("停止所有调度任务")
 
-	// 停止热播剧调度任务
-	m.hotDramaScheduler.Stop()
+	// 停止热播剧定时任务
+	m.StopHotDramaScheduler()
 
 	// 停止待处理资源调度任务
 	m.readyResourceScheduler.Stop()
 
-	utils.Info("所有调度任务已停止")
+	utils.Debug("所有调度任务已停止")
 }
 
 // StartHotDramaScheduler 启动热播剧调度任务

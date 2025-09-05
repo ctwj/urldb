@@ -150,6 +150,7 @@ export const adminNewNavigationItems = [
     active: (route: any) => route.path.startsWith('/admin/site-config'),
     group: 'system'
   },
+
   {
     key: 'version',
     label: '版本信息',

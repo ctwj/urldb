@@ -31,7 +31,7 @@ func NewReadyResourceScheduler(base *BaseScheduler) *ReadyResourceScheduler {
 // Start 启动待处理资源定时任务
 func (r *ReadyResourceScheduler) Start() {
 	if r.readyResourceRunning {
-		utils.Info("待处理资源自动处理任务已在运行中")
+		utils.Debug("待处理资源自动处理任务已在运行中")
 		return
 	}
 
@@ -63,7 +63,7 @@ func (r *ReadyResourceScheduler) Start() {
 						r.processReadyResources()
 					}()
 				} else {
-					utils.Info("上一次待处理资源任务还在执行中，跳过本次执行")
+					utils.Debug("上一次待处理资源任务还在执行中，跳过本次执行")
 				}
 			case <-r.GetStopChan():
 				utils.Info("停止待处理资源自动处理任务")
@@ -76,7 +76,7 @@ func (r *ReadyResourceScheduler) Start() {
 // Stop 停止待处理资源定时任务
 func (r *ReadyResourceScheduler) Stop() {
 	if !r.readyResourceRunning {
-		utils.Info("待处理资源自动处理任务未在运行")
+		utils.Debug("待处理资源自动处理任务未在运行")
 		return
 	}
 
@@ -92,7 +92,7 @@ func (r *ReadyResourceScheduler) IsReadyResourceRunning() bool {
 
 // processReadyResources 处理待处理资源
 func (r *ReadyResourceScheduler) processReadyResources() {
-	utils.Info("开始处理待处理资源...")
+	utils.Debug("开始处理待处理资源...")
 
 	// 检查系统配置，确认是否启用自动处理
 	autoProcess, err := r.systemConfigRepo.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)
@@ -102,7 +102,7 @@ func (r *ReadyResourceScheduler) processReadyResources() {
 	}
 
 	if !autoProcess {
-		utils.Info("自动处理待处理资源功能已禁用")
+		utils.Debug("自动处理待处理资源功能已禁用")
 		return
 	}
 
@@ -115,11 +115,11 @@ func (r *ReadyResourceScheduler) processReadyResources() {
 	}
 
 	if len(readyResources) == 0 {
-		utils.Info("没有待处理的资源")
+		utils.Debug("没有待处理的资源")
 		return
 	}
 
-	utils.Info(fmt.Sprintf("找到 %d 个待处理资源，开始处理...", len(readyResources)))
+	utils.Debug(fmt.Sprintf("找到 %d 个待处理资源，开始处理...", len(readyResources)))
 
 	processedCount := 0
 	factory := panutils.GetInstance() // 使用单例模式
@@ -132,7 +132,7 @@ func (r *ReadyResourceScheduler) processReadyResources() {
 			continue
 		}
 		if exits {
-			utils.Info(fmt.Sprintf("资源已存在: %s", readyResource.URL))
+			utils.Debug(fmt.Sprintf("资源已存在: %s", readyResource.URL))
 			r.readyResourceRepo.Delete(readyResource.ID)
 			continue
 		}
@@ -146,7 +146,7 @@ func (r *ReadyResourceScheduler) processReadyResources() {
 			if updateErr := r.readyResourceRepo.Update(&readyResource); updateErr != nil {
 				utils.Error(fmt.Sprintf("更新错误信息失败 (ID: %d): %v", readyResource.ID, updateErr))
 			} else {
-				utils.Info(fmt.Sprintf("已保存错误信息到资源 (ID: %d): %s", readyResource.ID, err.Error()))
+				utils.Debug(fmt.Sprintf("已保存错误信息到资源 (ID: %d): %s", readyResource.ID, err.Error()))
 			}
 
 			// 处理失败后删除资源，避免重复处理
@@ -155,11 +155,13 @@ func (r *ReadyResourceScheduler) processReadyResources() {
 			// 处理成功，删除readyResource
 			r.readyResourceRepo.Delete(readyResource.ID)
 			processedCount++
-			utils.Info(fmt.Sprintf("成功处理资源: %s", readyResource.URL))
+			utils.Debug(fmt.Sprintf("成功处理资源: %s", readyResource.URL))
 		}
 	}
 
-	utils.Info(fmt.Sprintf("待处理资源处理完成，共处理 %d 个资源", processedCount))
+	if processedCount > 0 {
+		utils.Info(fmt.Sprintf("待处理资源处理完成，共处理 %d 个资源", processedCount))
+	}
 }
 
 // convertReadyResourceToResource 将待处理资源转换为正式资源
@@ -187,28 +189,28 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 	}
 
 	// 检查违禁词
-	forbiddenWords, err := r.systemConfigRepo.GetConfigValue(entity.ConfigKeyForbiddenWords)
-	if err == nil && forbiddenWords != "" {
-		words := strings.Split(forbiddenWords, ",")
-		var matchedWords []string
-		title := strings.ToLower(resource.Title)
-		description := strings.ToLower(resource.Description)
+	// forbiddenWords, err := r.systemConfigRepo.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	// if err == nil && forbiddenWords != "" {
+	// 	words := strings.Split(forbiddenWords, ",")
+	// 	var matchedWords []string
+	// 	title := strings.ToLower(resource.Title)
+	// 	description := strings.ToLower(resource.Description)
 
-		for _, word := range words {
-			word = strings.TrimSpace(word)
-			if word != "" {
-				wordLower := strings.ToLower(word)
-				if strings.Contains(title, wordLower) || strings.Contains(description, wordLower) {
-					matchedWords = append(matchedWords, word)
-				}
-			}
-		}
+	// 	for _, word := range words {
+	// 		word = strings.TrimSpace(word)
+	// 		if word != "" {
+	// 			wordLower := strings.ToLower(word)
+	// 			if strings.Contains(title, wordLower) || strings.Contains(description, wordLower) {
+	// 				matchedWords = append(matchedWords, word)
+	// 			}
+	// 		}
+	// 	}
 
-		if len(matchedWords) > 0 {
-			utils.Warn(fmt.Sprintf("资源包含违禁词: %s, 违禁词: %s", resource.Title, strings.Join(matchedWords, ", ")))
-			return fmt.Errorf("存在违禁词: %s", strings.Join(matchedWords, ", "))
-		}
-	}
+	// 	if len(matchedWords) > 0 {
+	// 		utils.Warn(fmt.Sprintf("资源包含违禁词: %s, 违禁词: %s", resource.Title, strings.Join(matchedWords, ", ")))
+	// 		return fmt.Errorf("存在违禁词: %s", strings.Join(matchedWords, ", "))
+	// 	}
+	// }
 
 	// 不是夸克，直接保存
 	if serviceType != panutils.Quark {
@@ -340,6 +342,31 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		if err != nil {
 			return fmt.Errorf("创建资源失败: %v", err)
 		}
+	}
+
+	// 同步到Meilisearch
+	utils.Debug(fmt.Sprintf("准备同步资源到Meilisearch - 资源ID: %d, URL: %s", resource.ID, resource.URL))
+	utils.Debug(fmt.Sprintf("globalMeilisearchManager: %v", globalMeilisearchManager != nil))
+
+	if globalMeilisearchManager != nil {
+		utils.Debug(fmt.Sprintf("Meilisearch管理器已初始化，检查启用状态"))
+		isEnabled := globalMeilisearchManager.IsEnabled()
+		utils.Debug(fmt.Sprintf("Meilisearch启用状态: %v", isEnabled))
+
+		if isEnabled {
+			utils.Debug(fmt.Sprintf("Meilisearch已启用，开始同步资源"))
+			go func() {
+				if err := globalMeilisearchManager.SyncResourceToMeilisearch(resource); err != nil {
+					utils.Error("同步资源到Meilisearch失败: %v", err)
+				} else {
+					utils.Info(fmt.Sprintf("资源已同步到Meilisearch: %s", resource.URL))
+				}
+			}()
+		} else {
+			utils.Debug("Meilisearch未启用，跳过同步")
+		}
+	} else {
+		utils.Debug("Meilisearch管理器未初始化，跳过同步")
 	}
 
 	return nil
