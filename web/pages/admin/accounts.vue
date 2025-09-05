@@ -265,11 +265,11 @@ const form = ref({
   remark: ''
 })
 
-const panEnables = ref(['quark'])
-const xunleiEnable = useCookie('xunleiEnable', { default: () => false })
-if (xunleiEnable.value && xunleiEnable.value === 'true') {
-  panEnables.value.push('xunlei')
-}
+const panEnables = ref(['quark', 'xunlei'])
+// const xunleiEnable = useCookie('xunleiEnable', { default: () => false })
+// if (xunleiEnable.value && xunleiEnable.value === 'true') {
+//   panEnables.value.push('xunlei')
+// }
 
 watch(() => form.value.pan_id, (newVal) => {
   isQuark.value = false

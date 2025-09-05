@@ -255,6 +255,9 @@ func ExtractShareId(url string) (string, ServiceType) {
 	shareID = url[substring:]
 
 	// 去除可能的锚点
+	if hashIndex := strings.Index(shareID, "?"); hashIndex != -1 {
+		shareID = shareID[:hashIndex]
+	}
 	if hashIndex := strings.Index(shareID, "#"); hashIndex != -1 {
 		shareID = shareID[:hashIndex]
 	}
