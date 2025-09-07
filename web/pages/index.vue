@@ -166,7 +166,7 @@
                   <div class="flex-1 min-w-0">
                     <div class="break-words font-medium" v-html="resource.title_highlight || resource.title"></div>
                     <!-- 显示描述 -->
-                    <div v-if="resource.description_highlight || resource.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words line-clamp-2" v-html="resource.description_highlight || resource.description">
+                    <div v-if="resource.description_highlight || resource.description" class="text-xs text-gray-600 dark:text-slate-400 mt-1 break-words line-clamp-2" v-html="resource.description_highlight || resource.description">
                     </div>
                   </div>
                 </div>
