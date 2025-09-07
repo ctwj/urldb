@@ -143,6 +143,12 @@ func GetResources(c *gin.Context) {
 	var processedResources []entity.Resource
 	if len(cleanWords) > 0 {
 		processedResources = utils.ProcessResourcesForbiddenWords(resources, cleanWords)
+		// 复制标签数据到处理后的资源
+		for i := range processedResources {
+			if i < len(resources) {
+				processedResources[i].Tags = resources[i].Tags
+			}
+		}
 	} else {
 		processedResources = resources
 	}
@@ -168,6 +174,20 @@ func GetResources(c *gin.Context) {
 		// 添加违禁词标记
 		resourceResponse["has_forbidden_words"] = forbiddenInfo.HasForbiddenWords
 		resourceResponse["forbidden_words"] = forbiddenInfo.ForbiddenWords
+
+		// 添加标签信息（需要预加载）
+		var tagResponses []gin.H
+		if len(processedResource.Tags) > 0 {
+			for _, tag := range processedResource.Tags {
+				tagResponse := gin.H{
+					"id":          tag.ID,
+					"name":        tag.Name,
+					"description": tag.Description,
+				}
+				tagResponses = append(tagResponses, tagResponse)
+			}
+		}
+		resourceResponse["tags"] = tagResponses
 
 		resourceResponses = append(resourceResponses, resourceResponse)
 	}
