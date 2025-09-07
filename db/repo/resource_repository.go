@@ -568,6 +568,7 @@ func (r *ResourceRepositoryImpl) FindSyncedToMeilisearch(page, limit int) ([]ent
 		Where("synced_to_meilisearch = ?", true).
 		Preload("Category").
 		Preload("Pan").
+		Preload("Tags").
 		Order("updated_at DESC")
 
 	// 获取总数
@@ -600,6 +601,7 @@ func (r *ResourceRepositoryImpl) FindAllWithPagination(page, limit int) ([]entit
 	db := r.db.Model(&entity.Resource{}).
 		Preload("Category").
 		Preload("Pan").
+		Preload("Tags").
 		Order("updated_at DESC")
 
 	// 获取总数

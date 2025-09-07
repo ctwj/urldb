@@ -1,5 +1,5 @@
   <template>
-  <div v-if="!systemConfig.maintenance_mode" class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col">
+  <div v-if="!systemConfig.maintenance_mode" class="min-h-screen bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-slate-100 flex flex-col">
     <!-- 全局加载状态 -->
     <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
@@ -17,7 +17,7 @@
     <div class="flex-1 p-3 sm:p-5">
       <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
-      <div class="header-container bg-slate-800 dark:bg-gray-800 text-white dark:text-gray-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
+      <div class="header-container bg-slate-800 dark:bg-slate-800 text-white dark:text-slate-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4 flex items-center justify-center gap-3">
           <img 
             v-if="systemConfig?.site_logo" 
@@ -113,20 +113,20 @@
       </div>
 
       <!-- 资源列表 -->
-      <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div class="overflow-x-auto bg-white dark:bg-slate-800 rounded-lg shadow-lg shadow-slate-900/10 dark:shadow-slate-900/50">
         <table class="w-full min-w-full">
           <thead>
-            <tr class="bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100">
+            <tr class="bg-slate-800 dark:bg-slate-700 text-white dark:text-slate-100">
               <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">
                 <div class="flex items-center">
-                  <i class="fas fa-cloud mr-1 text-gray-300"></i> 文件名
+                  <i class="fas fa-cloud mr-1 text-gray-300 dark:text-slate-300"></i> 文件名
                 </div>
               </th>
               <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-24">链接</th>
               <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-32">更新时间</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-200">
+          <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
             <tr v-if="safeLoading" class="text-center py-8">
               <td colspan="1" class="text-gray-500 dark:text-gray-400 sm:hidden">
                 <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
@@ -136,7 +136,7 @@
               </td>
             </tr>
             <tr v-else-if="safeResources.length === 0" class="text-center py-12">
-              <td colspan="3" class="text-gray-500 dark:text-gray-400">
+              <td colspan="3" class="text-gray-500 dark:text-slate-500">
                 <div class="flex flex-col items-center justify-center space-y-4">
                   <img 
                     src="/assets/svg/empty.svg" 
@@ -157,7 +157,7 @@
             <tr 
               v-for="(resource, index) in safeResources" 
               :key="resource.id"
-              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-900 bg-pink-50/30 dark:bg-pink-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800'"
+              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-500/10 bg-pink-50/30 dark:bg-pink-500/5' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50'"
               :data-index="index"
             >
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm">
@@ -165,23 +165,40 @@
                   <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(resource.pan_id || 0)"></span>
                   <div class="flex-1 min-w-0">
                     <div class="break-words font-medium" v-html="resource.title_highlight || resource.title"></div>
+                    <!-- 显示标签 -->
+                    <div v-if="resource.tags && resource.tags.length > 0" class="mt-1 flex flex-wrap gap-1">
+                      <template v-for="(tag, index) in resource.tags" :key="tag.id">
+                        <span
+                          class="resource-tag inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-100 border dark:border-blue-400/30"
+                          :title="tag.name"
+                        >
+                          <i class="fas fa-tag mr-1 dark:text-blue-200"></i>
+                          <span>{{ tag.name || '未知标签' }}</span>
+                        </span>
+                      </template>
+                    </div>
                     <!-- 显示描述 -->
                     <div v-if="resource.description_highlight || resource.description" class="text-xs text-gray-600 dark:text-slate-400 mt-1 break-words line-clamp-2" v-html="resource.description_highlight || resource.description">
                     </div>
                   </div>
                 </div>
                 <div class="sm:hidden mt-1 space-y-1">
-                  <!-- 移动端显示更新时间 -->
-                  <div class="text-xs text-gray-500" :title="resource.updated_at">
-                    <span v-html="formatRelativeTime(resource.updated_at)"></span>
+                  <!-- 移动端时间和链接按钮一行显示 -->
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 min-w-0">
+                      <div class="text-xs text-gray-500 dark:text-slate-400 truncate" :title="resource.updated_at">
+                        <span v-html="formatRelativeTime(resource.updated_at)"></span>
+                      </div>
+                    </div>
+                    <div class="flex-1 flex justify-end">
+                      <button
+                        class="mobile-link-btn flex items-center gap-1 text-xs"
+                        @click="toggleLink(resource)"
+                      >
+                        <i class="fas fa-eye"></i> 显示链接
+                      </button>
+                    </div>
                   </div>
-                  <!-- 移动端显示链接按钮 -->
-                  <button 
-                    class="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 show-link-btn" 
-                    @click="toggleLink(resource)"
-                  >
-                    <i class="fas fa-eye"></i> 显示链接
-                  </button>
                 </div>
               </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell w-32">
@@ -644,5 +661,63 @@ table td {
 /* 确保flex容器不会溢出 */
 .min-w-0 {
   min-width: 0;
+}
+
+/* 标签样式优化 */
+.resource-tag {
+  transition: all 0.2s ease;
+}
+
+.resource-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 移动端按钮专用样式 */
+.mobile-link-btn {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1.2;
+  transition: all 0.3s ease;
+  min-height: 28px;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-link-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.mobile-link-btn:hover::before {
+  left: 100%;
+}
+
+.mobile-link-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+.mobile-link-btn:active {
+  background: linear-gradient(135deg, #1d4ed8 0%, #172554 100%);
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.mobile-link-btn:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.6);
 }
 </style> 
