@@ -9,6 +9,15 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+// 最近热门电影 https://movie.douban.com/explore
+// api: https://m.douban.com/rexxar/api/v2/subject/recent_hot/movie?start=0&limit=20
+
+// 最近热门剧集 https://movie.douban.com/tv/
+// api: https://m.douban.com/rexxar/api/v2/subject/recent_hot/tv?start=20&limit=20
+
+// 最近热门综艺
+// api: https://m.douban.com/rexxar/api/v2/subject/recent_hot/tv?limit=50&category=show&type=show
+
 // DoubanService 豆瓣服务
 type DoubanService struct {
 	baseURL string
@@ -107,8 +116,7 @@ func NewDoubanService() *DoubanService {
 	// 初始化剧集榜单配置
 	tvCategories := map[string]map[string]map[string]string{
 		"最近热门剧集": {
-			// "综合":  {"category": "tv", "type": "tv"},
-			"国产剧": {"category": "tv", "type": "tv_domestic"},
+			// "国产剧": {"category": "tv", "type": "tv_domestic"},
 			"欧美剧": {"category": "tv", "type": "tv_american"},
 			"日剧":  {"category": "tv", "type": "tv_japanese"},
 			"韩剧":  {"category": "tv", "type": "tv_korean"},

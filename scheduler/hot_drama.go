@@ -128,7 +128,7 @@ func (h *HotDramaScheduler) processMovieData() []*entity.HotDrama {
 	var movieDramas []*entity.HotDrama
 
 	// 使用GetTypePage方法获取电影数据
-	movieResult, err := h.doubanService.GetTypePage("热门", "全部")
+	movieResult, err := h.doubanService.GetTypePage("movie_top250", "全部")
 	if err != nil {
 		utils.Error(fmt.Sprintf("获取电影榜单失败: %v", err))
 		return movieDramas
