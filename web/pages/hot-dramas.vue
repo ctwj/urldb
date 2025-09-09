@@ -47,6 +47,7 @@
           </button>
         </div>
 
+
         <!-- 加载状态 -->
         <div v-if="loading" class="flex justify-center items-center py-12">
           <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -54,73 +55,37 @@
 
         <!-- 热播剧列表 -->
         <div v-else-if="filteredDramas.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          <div
-            v-for="drama in filteredDramas"
+          <a
+            v-for="(drama, index) in filteredDramas"
             :key="drama.id"
             :data-item-id="drama.id"
-            class="group relative bg-white/10 dark:bg-gray-800/10 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-white/20 dark:border-gray-700/50 hover:scale-105"
+            :data-item-index="index"
+            :href="`/?search=${encodeURIComponent(drama.title)}`"
+            class="group relative bg-white/10 dark:bg-gray-800/10 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-white/20 dark:border-gray-700/50 hover:scale-105 cursor-pointer no-underline block"
           >
             <!-- 海报图片 -->
-            <div v-if="drama.poster_url" class="relative overflow-hidden">
-              <!-- 品牌Logo占位符 -->
-              <div
-                v-if="!visibleItems.has(drama.id)"
-                class="w-full h-52 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-700 dark:to-gray-800 flex flex-col items-center justify-center relative overflow-hidden"
-              >
-                <!-- 装饰性背景图形 -->
-                <div class="absolute inset-0 opacity-20">
-                  <svg viewBox="0 0 200 100" class="w-full h-full">
-                    <circle cx="30" cy="25" r="3" fill="currentColor"/>
-                    <circle cx="80" cy="40" r="2" fill="currentColor"/>
-                    <circle cx="150" cy="20" r="2" fill="currentColor"/>
-                    <circle cx="120" cy="60" r="2" fill="currentColor"/>
-                    <circle cx="50" cy="70" r="2" fill="currentColor"/>
-                  </svg>
-                </div>
-
-                <!-- 主要品牌元素 -->
-                <div class="flex flex-col items-center space-y-2 z-10">
-                  <!-- 电影院图标 -->
-                  <svg class="w-12 h-12 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M19 6c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v1l.669.775C6.537 8.347 7.605 9.334 9.5 9.781c.015 0 .03.003.045.003s.03-.003.045-.003c1.895-.447 2.963-1.434 3.331-1.506L13 7V6h6v1l.669.775C20.537 8.347 21.605 9.334 23.5 9.781c.015 0 .03.003.045.003s.03-.003.045-.003c1.895-.447 2.963-1.434 3.331-1.506L5 7V6H1c0 1.1.9 2 2 2v1l.669.775C4.537 8.347 5.605 9.334 7.5 9.781c.015 0 .03.003.045.003s.03-.003.045-.003c1.895-.447 2.963-1.434 3.331-1.506L13 7V18H7c-1.1 0-2 .9-2 2s.9 2 2 2h10c1.1 0 2-.9 2-2s-.9-2-2-2h-6V6z"/>
-                  </svg>
-
-                  <!-- 品牌文字 -->
-                  <div class="text-center">
-                    <div class="text-lg font-bold text-blue-600 dark:text-blue-400">热播剧榜单</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400 animate-pulse">精彩剧集等你发现</div>
-                  </div>
-
-                  <!-- 装饰线条 -->
-                  <div class="flex items-center space-x-2">
-                    <div class="w-8 h-px bg-blue-300 dark:bg-blue-600"></div>
-                    <div class="w-2 h-2 bg-blue-400 dark:bg-blue-500 rounded-full"></div>
-                    <div class="w-8 h-px bg-blue-300 dark:bg-blue-600"></div>
-                  </div>
-                </div>
-              </div>
-              <!-- 主图片（只有在可视区域时才加载） -->
+            <div v-if="drama.poster_url" class="relative overflow-hidden h-52">
+                <!-- 主图片（SSR数据立即显示，分页数据延迟加载） -->
               <img
-                v-if="visibleItems.has(drama.id)"
+                v-if="shouldShowImage(index, drama.id)"
                 :src="getPosterUrl(drama.poster_url)"
                 :alt="drama.title"
-                class="w-full h-52 object-cover transition-all duration-500 opacity-0"
-                @load="$event.target.style.opacity = '1'"
+                class="w-full h-full object-cover"
                 @error="handleImageError"
               />
-              <!-- 图片上的遮罩和信息（始终显示） -->
-              <div v-if="visibleItems.has(drama.id)" class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+              <!-- 图片上的遮罩和信息（只在图片显示后显示） -->
+              <div v-if="shouldShowImage(index, drama.id)" class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
 
               <!-- 新剧标签 -->
               <div
-                v-if="drama.is_new && visibleItems.has(drama.id)"
+                v-if="drama.is_new && shouldShowImage(index, drama.id)"
                 class="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg z-10"
               >
                 🔥 HOT
               </div>
 
               <!-- 评分显示 -->
-              <div v-if="visibleItems.has(drama.id)" class="absolute bottom-3 left-3 right-3 flex items-center justify-between z-20">
+              <div v-if="shouldShowImage(index, drama.id)" class="absolute bottom-3 left-3 right-3 flex items-center justify-between z-20">
                 <div class="bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg">
                   <span class="text-yellow-400 font-bold text-lg">{{ drama.rating }}</span>
                   <span class="text-white/80 text-sm ml-1">分</span>
@@ -168,51 +133,30 @@
                   </span>
                 </div>
               </div>
-
-              <!-- 数据来源和时间 -->
-              <!-- <div class="flex items-center justify-between text-xs pt-4 border-t border-gray-100 dark:border-gray-700/50">
-                <div class="flex items-center gap-2">
-                  <span class="text-gray-500 dark:text-gray-400">{{ drama.source }}</span>
-                  <div class="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-                  <span class="text-gray-400 dark:text-gray-500">{{ formatDate(drama.created_at) }}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-green-600 dark:text-green-400 font-medium">{{ drama.episodes_info || '更新中' }}</span>
-                  <div class="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-                  <a
-                    v-if="drama.douban_uri"
-                    :href="drama.douban_uri"
-                    target="_blank"
-                    class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200"
-                    @click.stop
-                  >
-                    View
-                  </a>
-                </div>
-              </div> -->
             </div>
-          </div>
+          </a>
         </div>
 
-        <!-- 空状态 -->
-        <div v-else class="text-center py-12">
-          <div class="flex flex-col items-center justify-center space-y-4">
-            <img 
-              src="/assets/svg/empty.svg" 
-              alt="暂无热播剧数据" 
-              class="!w-64 !h-64 sm:w-64 sm:h-64 opacity-60 dark:opacity-40"
-            />
-            <div class="text-center">
-              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">暂无热播剧数据</h3>
-              <p class="text-gray-500 dark:text-gray-400">请稍后再试或联系管理员</p>
-            </div>
-          </div>
+        <!-- 加载更多按钮 -->
+        <div v-if="filteredDramas.length > 0 && !loading && hasMore" class="mt-8 mb-4 flex justify-center">
+          <button
+            @click="loadMoreDramas"
+            :disabled="paginationLoading"
+            class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
+          >
+            <span v-if="paginationLoading" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+            <span>{{ paginationLoading ? '加载中...' : '加载更多' }}</span>
+          </button>
+        </div>
+
+        <div v-if="!hasMore && filteredDramas.length > 0" class="text-center py-6 text-gray-500">
+          <p>已经是全部数据了</p>
         </div>
       </div>
     </div>
 
-    <!-- 页脚 -->
-    <AppFooter />
+   <!-- 页脚 -->
+   <AppFooter />
   </div>
 </template>
 
@@ -222,17 +166,31 @@ definePageMeta({
   layout: 'default'
 })
 
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useHotDramaApi } from '~/composables/useApi'
 const hotDramaApi = useHotDramaApi()
+const { data: hotDramsaResponse, error } = await hotDramaApi.getHotDramas({
+  page: 1,
+  page_size: 20 
+})
+
 const { getPosterUrl } = hotDramaApi
 
-// 响应式数据
+// 设置响应式数据
+const dramas = ref(hotDramsaResponse.value?.items || [])
+const total = ref(hotDramsaResponse.value?.total || 0)
 const loading = ref(false)
-const dramas = ref([])
-const total = ref(0)
+const paginationLoading = ref(false)
+const hasMore = ref(true)
+const currentPage = ref(1)
+const pageSize = ref(20)
 const selectedCategory = ref('')
-const visibleItems = ref(new Set()) // 存储当前可视区域的项目ID
+const ssrLoadLength = ref(hotDramsaResponse.value?.items?.length || 0) // SSR加载的数据长度
+let observer = null
+const visibleItems = ref(new Set())
+
+// 处理错误
+if (error.value) {
+  // SSR错误已在服务器端处理
+}
 
 // 分类选项
 const categories = ref([
@@ -263,6 +221,14 @@ const filteredDramas = computed(() => {
   return dramas.value
 })
 
+// 检查图片是否应该显示（SSR数据立即显示，其他数据延迟加载）
+const shouldShowImage = (dramaIndex, dramaId) => {
+  if (dramaIndex < ssrLoadLength.value) {
+    return true
+  }
+  return visibleItems.value.has(dramaId)
+}
+
 const movieCount = computed(() => {
   return dramas.value.filter(drama => drama.category === '电影').length
 })
@@ -278,26 +244,91 @@ const averageRating = computed(() => {
   return (sum / validRatings.length).toFixed(1)
 })
 
-// 获取热播剧列表（获取所有数据）
+// 获取热播剧列表（重置分页）
 const fetchDramas = async () => {
   loading.value = true
   try {
+    // 解析分类参数，分割为category和sub_type
     const params = {
       page: 1,
-      page_size: 1000
+      page_size: pageSize.value
     }
-    const response = await hotDramaApi.getHotDramas(params)
+
+    if (selectedCategory.value) {
+      const [category, subType] = selectedCategory.value.split('-')
+      params.category = category
+      if (subType) {
+        params.sub_type = subType
+      }
+    }
+
+    // 使用客户端版本的API
+    const response = await hotDramaApi.getHotDramasClient(params)
+
     if (response && response.items) {
       dramas.value = response.items
       total.value = response.total || 0
+      currentPage.value = 1
+      hasMore.value = response.items.length === pageSize.value
+      ssrLoadLength.value = response.items.length
+      visibleItems.value.clear()
+      nextTick(() => {
+        initIntersectionObserver()
+      })
     } else {
       dramas.value = Array.isArray(response) ? response : []
       total.value = dramas.value.length
+      hasMore.value = false
+      ssrLoadLength.value = dramas.value.length
+      visibleItems.value.clear()
     }
   } catch (error) {
-    console.error('获取热播剧列表失败:', error)
+    dramas.value = []
+    total.value = 0
+    hasMore.value = false
   } finally {
     loading.value = false
+  }
+}
+
+// 加载更多数据（按钮方式）
+const loadMoreDramas = async () => {
+  if (paginationLoading.value || !hasMore.value) return
+
+  paginationLoading.value = true
+  try {
+    const nextPage = currentPage.value + 1
+    // 解析分类参数，分割为category和sub_type
+    const params = {
+      page: nextPage,
+      page_size: pageSize.value
+    }
+
+    if (selectedCategory.value) {
+      const [category, subType] = selectedCategory.value.split('-')
+      params.category = category
+      if (subType) {
+        params.sub_type = subType
+      }
+    }
+
+    const response = await hotDramaApi.getHotDramasClient(params)
+
+    if (response && response.items && response.items.length > 0) {
+      dramas.value = [...dramas.value, ...response.items]
+      currentPage.value = nextPage
+      hasMore.value = response.items.length === pageSize.value
+      nextTick(() => {
+        initIntersectionObserver()
+      })
+    } else {
+      hasMore.value = false
+    }
+  } catch (error) {
+    // 加载更多剧集失败
+    hasMore.value = false
+  } finally {
+    paginationLoading.value = false
   }
 }
 
@@ -317,9 +348,40 @@ const formatNumber = (num) => {
   return num.toString()
 }
 
+const initIntersectionObserver = () => {
+  if (observer) observer.disconnect()
+
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const itemId = entry.target.getAttribute('data-item-id')
+      const itemIndex = parseInt(entry.target.getAttribute('data-item-index'))
+
+      if (!itemId || !itemIndex) return
+      if (itemIndex >= ssrLoadLength.value && entry.isIntersecting && entry.intersectionRatio > 0.01) {
+        visibleItems.value.add(Number(itemId))
+        observer.unobserve(entry.target)
+      }
+    })
+  }, {
+    root: null,
+    rootMargin: '200px 0px 200px 0px',
+    threshold: [0.01, 0.1, 0.5]
+  })
+
+  // 只观察分页加载的数据
+  nextTick(() => {
+    const cards = document.querySelectorAll('[data-item-index]')
+    cards.forEach((card) => {
+      const itemIndex = parseInt(card.getAttribute('data-item-index'))
+      if (itemIndex >= ssrLoadLength.value) {
+        observer?.observe(card)
+      }
+    })
+  })
+}
+
 // 处理图片加载错误 - 显示占位图
 const handleImageError = (event) => {
-  console.log('图片加载失败:', event.target.src)
   // 设置占位图片
   event.target.src = 'data:image/svg+xml;base64,' + btoa(`
     <svg width="400" height="208" xmlns="http://www.w3.org/2000/svg">
@@ -330,55 +392,7 @@ const handleImageError = (event) => {
   event.target.style.background = '#374151'
 }
 
-// 处理图片加载成功
-const handleImageLoad = (event) => {
-  console.log('图片加载成功:', event.target.src)
-}
-
-// 监听分类变化
-watch(selectedCategory, () => {
-  visibleItems.value.clear() // 清空可见项目集合
-  fetchDramas()
-})
-
-// 页面加载时获取数据
-onMounted(() => {
-  console.log('热播剧页面加载')
-  fetchDramas()
-})
-
-// Intersection Observer 用于懒加载图片
-let observer = null
-const initIntersectionObserver = () => {
-  if (observer) observer.disconnect()
-
-  observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      const itemId = entry.target.getAttribute('data-item-id')
-      if (!itemId) return
-
-      if (entry.isIntersecting) {
-        // 元素进入视窗，添加到可见集合
-        visibleItems.value.add(Number(itemId))
-      } else {
-        // 元素离开视窗，如果需要可以移除
-        // visibleItems.value.delete(Number(itemId)) // 可选，如果想重复懒加载
-      }
-    })
-  }, {
-    rootMargin: '100px 0px 100px 0px', // 提前100px和延后100px
-    threshold: 0.1
-  })
-
-  // 观察所有卡片
-  nextTick(() => {
-    const cards = document.querySelectorAll('[data-item-id]')
-    cards.forEach(card => {
-      observer?.observe(card)
-    })
-  })
-}
-
+// 清理Intersection Observer
 const cleanupObserver = () => {
   if (observer) {
     observer.disconnect()
@@ -386,32 +400,26 @@ const cleanupObserver = () => {
   }
 }
 
-// 监听数据变化
-watch(dramas, (newDramas) => {
-  console.log('dramas数据变化:', newDramas?.length)
-  if (newDramas && newDramas.length > 0) {
-    console.log('第一条数据:', newDramas[0])
-    console.log('第一条数据的poster_url:', newDramas[0].poster_url)
+watch(selectedCategory, () => {
+  currentPage.value = 1
+  hasMore.value = true
+  fetchDramas()
+})
 
-    visibleItems.value.clear()
-
-    // 延迟一帧后初始化观察器
+onMounted(() => {
+  if (dramas.value.length === 0) {
+    fetchDramas()
+  } else {
     nextTick(() => {
       initIntersectionObserver()
     })
   }
-}, { deep: true })
-
-// 页面加载时获取数据
-onMounted(() => {
-  console.log('热播剧页面加载')
-  fetchDramas()
 })
 
-// 页面卸载时清理观察器
-onUnmounted(() => {
+onBeforeUnmount(() => {
   cleanupObserver()
 })
+
 </script>
 
 <style scoped>
