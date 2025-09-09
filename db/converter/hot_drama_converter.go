@@ -29,6 +29,7 @@ func HotDramaToResponse(drama *entity.HotDrama) *dto.HotDramaResponse {
 		PosterURL:    drama.PosterURL,
 		Category:     drama.Category,
 		SubType:      drama.SubType,
+		Rank:         drama.Rank,
 		Source:       drama.Source,
 		DoubanID:     drama.DoubanID,
 		DoubanURI:    drama.DoubanURI,
@@ -49,6 +50,7 @@ func RequestToHotDrama(req *dto.HotDramaRequest) *entity.HotDrama {
 		Actors:    req.Actors,
 		Category:  req.Category,
 		SubType:   req.SubType,
+		Rank:      req.Rank,
 		Source:    req.Source,
 		DoubanID:  req.DoubanID,
 	}

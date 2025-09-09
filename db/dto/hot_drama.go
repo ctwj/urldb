@@ -16,6 +16,7 @@ type HotDramaRequest struct {
 	PosterURL    string  `json:"poster_url"`
 	Category     string  `json:"category"`
 	SubType      string  `json:"sub_type"`
+	Rank         int     `json:"rank"`
 	Source       string  `json:"source"`
 	DoubanID     string  `json:"douban_id"`
 	DoubanURI    string  `json:"douban_uri"`
@@ -41,6 +42,7 @@ type HotDramaResponse struct {
 	PosterURL    string  `json:"poster_url"`
 	Category     string  `json:"category"`
 	SubType      string  `json:"sub_type"`
+	Rank         int     `json:"rank"`
 	Source       string  `json:"source"`
 	DoubanID     string  `json:"douban_id"`
 	DoubanURI    string  `json:"douban_uri"`

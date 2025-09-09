@@ -90,13 +90,26 @@ func (h *HotDramaScheduler) processHotDramaNames(dramaNames []string) {
 	// 收集所有数据
 	var allDramas []*entity.HotDrama
 
-	// 获取电影数据
-	movieDramas := h.processMovieData()
-	allDramas = append(allDramas, movieDramas...)
+	// 获取最近热门电影数据
+	recentMovieDramas := h.processRecentMovies()
+	allDramas = append(allDramas, recentMovieDramas...)
 
-	// 获取电视剧数据
-	tvDramas := h.processTvData()
-	allDramas = append(allDramas, tvDramas...)
+	// 获取最近热门剧集数据
+	recentTVDramas := h.processRecentTVs()
+	allDramas = append(allDramas, recentTVDramas...)
+
+	// 获取最近热门综艺数据
+	recentShowDramas := h.processRecentShows()
+	allDramas = append(allDramas, recentShowDramas...)
+
+	// 获取豆瓣电影Top250数据
+	top250Dramas := h.processTop250Movies()
+	allDramas = append(allDramas, top250Dramas...)
+
+	// 设置排名顺序（保持豆瓣返回的顺序）
+	for i, drama := range allDramas {
+		drama.Rank = i
+	}
 
 	// 清空数据库
 	utils.Info("准备清空数据库，当前共有 %d 条数据", len(allDramas))
@@ -121,111 +134,127 @@ func (h *HotDramaScheduler) processHotDramaNames(dramaNames []string) {
 	utils.Info("热播剧数据处理完成")
 }
 
-// processMovieData 处理电影数据
-func (h *HotDramaScheduler) processMovieData() []*entity.HotDrama {
-	utils.Info("开始处理电影数据...")
+// processRecentMovies 处理最近热门电影数据
+func (h *HotDramaScheduler) processRecentMovies() []*entity.HotDrama {
+	utils.Info("开始处理最近热门电影数据...")
 
-	var movieDramas []*entity.HotDrama
+	var recentMovies []*entity.HotDrama
 
-	// 使用GetTypePage方法获取电影数据
-	movieResult, err := h.doubanService.GetTypePage("movie_top250", "全部")
+	items, err := h.doubanService.GetRecentHotMovies()
 	if err != nil {
-		utils.Error(fmt.Sprintf("获取电影榜单失败: %v", err))
-		return movieDramas
+		utils.Error(fmt.Sprintf("获取最近热门电影失败: %v", err))
+		return recentMovies
 	}
 
-	if movieResult.Success && movieResult.Data != nil {
-		utils.Info("电影获取到 %d 个数据", len(movieResult.Data.Items))
+	utils.Info("最近热门电影获取到 %d 个数据", len(items))
 
-		for _, item := range movieResult.Data.Items {
-			drama := &entity.HotDrama{
-				Title:        item.Title,
-				CardSubtitle: item.CardSubtitle,
-				EpisodesInfo: item.EpisodesInfo,
-				IsNew:        item.IsNew,
-				Rating:       item.Rating.Value,
-				RatingCount:  item.Rating.Count,
-				Year:         item.Year,
-				Region:       item.Region,
-				Genres:       strings.Join(item.Genres, ", "),
-				Directors:    strings.Join(item.Directors, ", "),
-				Actors:       strings.Join(item.Actors, ", "),
-				PosterURL:    item.Pic.Normal,
-				Category:     "电影",
-				SubType:      "热门",
-				Source:       "douban",
-				DoubanID:     item.ID,
-				DoubanURI:    item.URI,
-			}
-
-			movieDramas = append(movieDramas, drama)
-			utils.Info("收集电影: %s (评分: %.1f, 年份: %s, 地区: %s)",
-				item.Title, item.Rating.Value, item.Year, item.Region)
-		}
-	} else {
-		utils.Warn("电影获取数据失败或为空")
+	for _, item := range items {
+		drama := h.convertDoubanItemToHotDrama(item, "电影", "热门")
+		recentMovies = append(recentMovies, drama)
+		utils.Info("收集最近热门电影: %s (评分: %.1f, 年份: %s, 地区: %s)",
+			item.Title, item.Rating.Value, item.Year, item.Region)
 	}
 
-	utils.Info("电影数据处理完成，共收集 %d 条数据", len(movieDramas))
-	return movieDramas
+	utils.Info("最近热门电影数据处理完成，共收集 %d 条数据", len(recentMovies))
+	return recentMovies
 }
 
-// processTvData 处理电视剧数据
-func (h *HotDramaScheduler) processTvData() []*entity.HotDrama {
-	utils.Info("开始处理电视剧数据...")
+// processRecentTVs 处理最近热门剧集数据
+func (h *HotDramaScheduler) processRecentTVs() []*entity.HotDrama {
+	utils.Info("开始处理最近热门剧集数据...")
 
-	var tvDramas []*entity.HotDrama
+	var recentTVs []*entity.HotDrama
 
-	// 获取所有tv类型
-	tvTypes := h.doubanService.GetAllTvTypes()
-	utils.Info("获取到 %d 个tv类型: %v", len(tvTypes), tvTypes)
-
-	// 遍历每个type，分别请求数据
-	for _, tvType := range tvTypes {
-		utils.Info("正在处理tv类型: %s", tvType)
-
-		// 使用GetTypePage方法请求数据
-		tvResult, err := h.doubanService.GetTypePage("tv", tvType)
-		if err != nil {
-			utils.Error(fmt.Sprintf("获取tv类型 %s 数据失败: %v", tvType, err))
-			continue
-		}
-
-		if tvResult.Success && tvResult.Data != nil {
-			utils.Info("tv类型 %s 获取到 %d 个数据", tvType, len(tvResult.Data.Items))
-
-			for _, item := range tvResult.Data.Items {
-				drama := &entity.HotDrama{
-					Title:        item.Title,
-					CardSubtitle: item.CardSubtitle,
-					EpisodesInfo: item.EpisodesInfo,
-					IsNew:        item.IsNew,
-					Rating:       item.Rating.Value,
-					RatingCount:  item.Rating.Count,
-					Year:         item.Year,
-					Region:       item.Region,
-					Genres:       strings.Join(item.Genres, ", "),
-					Directors:    strings.Join(item.Directors, ", "),
-					Actors:       strings.Join(item.Actors, ", "),
-					PosterURL:    item.Pic.Normal,
-					Category:     "电视剧",
-					SubType:      tvType, // 使用具体的tv类型
-					Source:       "douban",
-					DoubanID:     item.ID,
-					DoubanURI:    item.URI,
-				}
-
-				tvDramas = append(tvDramas, drama)
-				utils.Info("收集tv类型 %s: %s (评分: %.1f, 年份: %s, 地区: %s)",
-					tvType, item.Title, item.Rating.Value, item.Year, item.Region)
-			}
-		} else {
-			utils.Warn("tv类型 %s 获取数据失败或为空", tvType)
-		}
+	items, err := h.doubanService.GetRecentHotTVs()
+	if err != nil {
+		utils.Error(fmt.Sprintf("获取最近热门剧集失败: %v", err))
+		return recentTVs
 	}
 
-	utils.Info("电视剧数据处理完成，共收集 %d 条数据", len(tvDramas))
-	return tvDramas
+	utils.Info("最近热门剧集获取到 %d 个数据", len(items))
+
+	for _, item := range items {
+		drama := h.convertDoubanItemToHotDrama(item, "电视剧", "热门")
+		recentTVs = append(recentTVs, drama)
+		utils.Info("收集最近热门剧集: %s (评分: %.1f, 年份: %s, 地区: %s)",
+			item.Title, item.Rating.Value, item.Year, item.Region)
+	}
+
+	utils.Info("最近热门剧集数据处理完成，共收集 %d 条数据", len(recentTVs))
+	return recentTVs
+}
+
+// processRecentShows 处理最近热门综艺数据
+func (h *HotDramaScheduler) processRecentShows() []*entity.HotDrama {
+	utils.Info("开始处理最近热门综艺数据...")
+
+	var recentShows []*entity.HotDrama
+
+	items, err := h.doubanService.GetRecentHotShows()
+	if err != nil {
+		utils.Error(fmt.Sprintf("获取最近热门综艺失败: %v", err))
+		return recentShows
+	}
+
+	utils.Info("最近热门综艺获取到 %d 个数据", len(items))
+
+	for _, item := range items {
+		drama := h.convertDoubanItemToHotDrama(item, "综艺", "热门")
+		recentShows = append(recentShows, drama)
+		utils.Info("收集最近热门综艺: %s (评分: %.1f, 年份: %s, 地区: %s)",
+			item.Title, item.Rating.Value, item.Year, item.Region)
+	}
+
+	utils.Info("最近热门综艺数据处理完成，共收集 %d 条数据", len(recentShows))
+	return recentShows
+}
+
+// processTop250Movies 处理豆瓣电影Top250数据
+func (h *HotDramaScheduler) processTop250Movies() []*entity.HotDrama {
+	utils.Info("开始处理豆瓣电影Top250数据...")
+
+	var top250Movies []*entity.HotDrama
+
+	items, err := h.doubanService.GetTop250Movies()
+	if err != nil {
+		utils.Error(fmt.Sprintf("获取豆瓣电影Top250失败: %v", err))
+		return top250Movies
+	}
+
+	utils.Info("豆瓣电影Top250获取到 %d 个数据", len(items))
+
+	for _, item := range items {
+		drama := h.convertDoubanItemToHotDrama(item, "电影", "Top250")
+		top250Movies = append(top250Movies, drama)
+		utils.Info("收集豆瓣Top250电影: %s (评分: %.1f, 年份: %s, 地区: %s)",
+			item.Title, item.Rating.Value, item.Year, item.Region)
+	}
+
+	utils.Info("豆瓣电影Top250数据处理完成，共收集 %d 条数据", len(top250Movies))
+	return top250Movies
+}
+
+// convertDoubanItemToHotDrama 转换DoubanItem为HotDrama实体
+func (h *HotDramaScheduler) convertDoubanItemToHotDrama(item utils.DoubanItem, category, subType string) *entity.HotDrama {
+	return &entity.HotDrama{
+		Title:        item.Title,
+		CardSubtitle: item.CardSubtitle,
+		EpisodesInfo: item.EpisodesInfo,
+		IsNew:        item.IsNew,
+		Rating:       item.Rating.Value,
+		RatingCount:  item.Rating.Count,
+		Year:         item.Year,
+		Region:       item.Region,
+		Genres:       strings.Join(item.Genres, ", "),
+		Directors:    strings.Join(item.Directors, ", "),
+		Actors:       strings.Join(item.Actors, ", "),
+		PosterURL:    item.Pic.Normal,
+		Category:     category,
+		SubType:      subType,
+		Source:       "douban",
+		DoubanID:     item.ID,
+		DoubanURI:    item.URI,
+	}
 }
 
 // GetHotDramaNames 获取热播剧名称列表（公共方法）

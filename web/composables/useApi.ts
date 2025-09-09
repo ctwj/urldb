@@ -181,7 +181,13 @@ export const useHotDramaApi = () => {
   const updateHotDrama = (id: number, data: any) => useApiFetch(`/hot-dramas/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteHotDrama = (id: number) => useApiFetch(`/hot-dramas/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const fetchHotDramas = () => useApiFetch('/hot-dramas/fetch', { method: 'POST' }).then(parseApiResponse)
-  return { getHotDramas, createHotDrama, updateHotDrama, deleteHotDrama, fetchHotDramas }
+
+  const getPosterUrl = (posterUrl: string): string => {
+    if (!posterUrl) return ''
+    return `/api/hot-dramas/poster?url=${encodeURIComponent(posterUrl)}`
+  }
+
+  return { getHotDramas, createHotDrama, updateHotDrama, deleteHotDrama, fetchHotDramas, getPosterUrl }
 }
 
 export const useMonitorApi = () => {

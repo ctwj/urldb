@@ -27,6 +27,7 @@ type HotDrama struct {
 	// 分类信息
 	Category string `json:"category" gorm:"size:50"` // 分类（电影/电视剧）
 	SubType  string `json:"sub_type" gorm:"size:50"` // 子类型（华语/欧美/韩国/日本等）
+	Rank     int    `json:"rank" gorm:"default:0"`   // 排序（豆瓣返回顺序）
 
 	// 数据来源
 	Source    string `json:"source" gorm:"size:50;default:'douban'"` // 数据来源

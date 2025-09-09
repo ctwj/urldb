@@ -3,11 +3,15 @@ package utils
 import (
 	"encoding/json"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-resty/resty/v2"
 )
+
+// top250
+// api: https://m.douban.com/rexxar/api/v2/subject_collection/movie_top250/items?start=0&count=10&items_only=1&type_tag=&for_mobile=1
 
 // 最近热门电影 https://movie.douban.com/explore
 // api: https://m.douban.com/rexxar/api/v2/subject/recent_hot/movie?start=0&limit=20
@@ -113,229 +117,129 @@ func NewDoubanService() *DoubanService {
 	client.SetRetryWaitTime(1 * time.Second)
 	client.SetRetryMaxWaitTime(5 * time.Second)
 
-	// 初始化剧集榜单配置
-	tvCategories := map[string]map[string]map[string]string{
-		"最近热门剧集": {
-			// "国产剧": {"category": "tv", "type": "tv_domestic"},
-			"欧美剧": {"category": "tv", "type": "tv_american"},
-			"日剧":  {"category": "tv", "type": "tv_japanese"},
-			"韩剧":  {"category": "tv", "type": "tv_korean"},
-			"动画":  {"category": "tv", "type": "tv_animation"},
-			"纪录片": {"category": "tv", "type": "tv_documentary"},
-		},
-		"最近热门综艺": {
-			// "综合": {"category": "show", "type": "show"},
-			"国内": {"category": "show", "type": "show_domestic"},
-			"国外": {"category": "show", "type": "show_foreign"},
-		},
-	}
-
 	return &DoubanService{
-		baseURL:      "https://m.douban.com/rexxar/api/v2",
-		client:       client,
-		TvCategories: tvCategories,
+		baseURL: "https://m.douban.com/rexxar/api/v2",
+		client:  client,
 	}
 }
 
-// GetTypePage 获取指定类型的数据
-func (ds *DoubanService) GetTypePage(category, rankingType string) (*DoubanResult, error) {
-	// 构建请求参数
+// GetRecentHotMovies fetches recent hot movies
+func (ds *DoubanService) GetRecentHotMovies() ([]DoubanItem, error) {
+	url := "https://m.douban.com/rexxar/api/v2/subject/recent_hot/movie"
 	params := map[string]string{
-		"start":  "0",
-		"limit":  "50",
-		"os":     "window",
-		"_":      "0",
-		"loc_id": "108288",
+		"start": "0",
+		"limit": "20",
 	}
+	items := []DoubanItem{}
+	for {
+		pageItems, total, err := ds.fetchPage(url, params)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, pageItems...)
+		if len(items) >= total {
+			break
+		}
+		start := len(items)
+		params["start"] = strconv.Itoa(start)
+	}
+	return items, nil
+}
 
-	Debug("请求参数: %+v", params)
-	Debug("请求URL: %s/subject_collection/%s/items", ds.baseURL, rankingType)
+// GetRecentHotTVs fetches recent hot TV shows
+func (ds *DoubanService) GetRecentHotTVs() ([]DoubanItem, error) {
+	url := "https://m.douban.com/rexxar/api/v2/subject/recent_hot/tv"
+	params := map[string]string{
+		"start": "0",
+		"limit": "300",
+	}
+	items := []DoubanItem{}
+	for {
+		pageItems, total, err := ds.fetchPage(url, params)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, pageItems...)
+		if len(items) >= total {
+			break
+		}
+		start := len(items)
+		params["start"] = strconv.Itoa(start)
+	}
+	return items, nil
+}
 
+// GetRecentHotShows fetches recent hot shows
+func (ds *DoubanService) GetRecentHotShows() ([]DoubanItem, error) {
+	url := "https://m.douban.com/rexxar/api/v2/subject/recent_hot/tv"
+	params := map[string]string{
+		"limit":    "300",
+		"category": "show",
+		"type":     "show",
+		"start":    "0",
+	}
+	items := []DoubanItem{}
+	for {
+		pageItems, total, err := ds.fetchPage(url, params)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, pageItems...)
+		if len(items) >= total {
+			break
+		}
+		start := len(items)
+		params["start"] = strconv.Itoa(start)
+	}
+	return items, nil
+}
+
+// GetTop250Movies fetches top 250 movies
+func (ds *DoubanService) GetTop250Movies() ([]DoubanItem, error) {
+	url := "https://m.douban.com/rexxar/api/v2/subject_collection/movie_top250/items"
+	params := map[string]string{
+		"start":      "0",
+		"count":      "250",
+		"items_only": "1",
+		"type_tag":   "",
+		"for_mobile": "1",
+	}
+	items, _, err := ds.fetchPage(url, params)
+	return items, err
+}
+
+// fetchPage fetches a page of items from a given URL and parameters
+func (ds *DoubanService) fetchPage(url string, params map[string]string) ([]DoubanItem, int, error) {
 	var response *resty.Response
 	var err error
 
-	// 尝试调用豆瓣API
-	Debug("开始发送HTTP请求...")
 	response, err = ds.client.R().
 		SetQueryParams(params).
-		Get(ds.baseURL + "/subject_collection/" + rankingType + "/items")
+		Get(url)
 
 	if err != nil {
-		Error("=== 豆瓣API调用失败 ===")
-		Error("错误详情: %v", err)
-		return &DoubanResult{
-			Success: false,
-			Message: "API调用失败: " + err.Error(),
-		}, nil
+		return nil, 0, err
 	}
 
-	Debug("=== HTTP请求成功 ===")
-	Debug("响应状态码: %d", response.StatusCode())
-	Debug("响应体长度: %d bytes", len(response.Body()))
-
-	// 记录响应体的前500个字符用于调试
-	responseBody := string(response.Body())
-	Debug("响应体原始长度: %d 字符", len(responseBody))
-
-	if len(responseBody) > 500 {
-		Debug("响应体前500字符: %s...", responseBody[:500])
-	} else {
-		Debug("完整响应体: %s", responseBody)
-	}
-
-	// 检查响应体是否包含有效JSON
-	if len(responseBody) == 0 {
-		Warn("=== 响应体为空 ===")
-		return &DoubanResult{
-			Success: false,
-			Message: "响应体为空",
-		}, nil
-	}
-
-	// 尝试解析JSON
 	var apiResponse map[string]interface{}
 	if err := json.Unmarshal(response.Body(), &apiResponse); err != nil {
-		Error("=== 解析API响应失败 ===")
-		Error("JSON解析错误: %v", err)
-		Debug("响应体内容: %s", string(response.Body()))
-
-		// 尝试检查是否是HTML错误页面
-		if len(responseBody) > 100 && (strings.Contains(responseBody, "<html>") || strings.Contains(responseBody, "<!DOCTYPE")) {
-			Warn("检测到HTML响应，可能是错误页面")
-			return &DoubanResult{
-				Success: false,
-				Message: "返回HTML错误页面",
-			}, nil
-		}
-
-		return &DoubanResult{
-			Success: false,
-			Message: "解析API响应失败: " + err.Error(),
-		}, nil
+		return nil, 0, err
 	}
 
-	log.Printf("=== JSON解析成功 ===")
-	log.Printf("解析后的数据结构: %+v", apiResponse)
-
-	// 打印完整的API响应JSON
-	log.Printf("=== 完整API响应JSON ===")
-	if responseBytes, err := json.MarshalIndent(apiResponse, "", "  "); err == nil {
-		log.Printf("完整响应:\n%s", string(responseBytes))
-	} else {
-		log.Printf("序列化响应失败: %v", err)
-	}
-
-	// 处理豆瓣移动端API的响应格式
 	items := ds.extractItems(apiResponse)
-	categories := ds.extractCategories(apiResponse)
+	total := ds.extractTotal(apiResponse)
 
-	log.Printf("提取到的数据数量: %d", len(items))
-	log.Printf("提取到的分类数量: %d", len(categories))
+	return items, total, nil
+}
 
-	// 如果没有获取到真实数据，返回空结果
-	if len(items) == 0 {
-		log.Printf("=== API返回空数据 ===")
-		return &DoubanResult{
-			Success: true,
-			Data: &DoubanResponse{
-				Items:      []DoubanItem{},
-				Total:      0,
-				Categories: []DoubanCategory{},
-			},
-		}, nil
-	}
-
-	// 如果没有获取到categories，使用默认分类
-	if len(categories) == 0 {
-		log.Printf("=== 使用默认分类 ===")
-		categories = []DoubanCategory{
-			{Category: category, Selected: true, Type: rankingType, Title: rankingType},
-		}
-	}
-
-	// 根据请求的category和type更新selected状态
-	for i := range categories {
-		categories[i].Selected = categories[i].Category == category && categories[i].Type == rankingType
-	}
-
-	// 限制返回数量（最多50条）
-	limit := 50
-	if len(items) > limit {
-		log.Printf("限制返回数量从 %d 到 %d", len(items), limit)
-		items = items[:limit]
-	}
-
-	// 获取总数，优先使用API返回的total字段
-	total := len(items)
-	if totalData, ok := apiResponse["total"]; ok {
+// extractTotal extracts the total number of items from the API response
+func (ds *DoubanService) extractTotal(response map[string]interface{}) int {
+	if totalData, ok := response["total"]; ok {
 		if totalFloat, ok := totalData.(float64); ok {
-			total = int(totalFloat)
+			return int(totalFloat)
 		}
 	}
-
-	result := &DoubanResponse{
-		Items:      items,
-		Total:      total,
-		Categories: categories,
-		IsMockData: false,
-		MockReason: "",
-	}
-
-	log.Printf("=== 数据获取完成 ===")
-	log.Printf("最终返回数据数量: %d", len(items))
-
-	return &DoubanResult{
-		Success: true,
-		Data:    result,
-	}, nil
-}
-
-// GetTvByType 获取指定type的全部剧集数据
-func (ds *DoubanService) GetTvByType(tvType string) ([]map[string]interface{}, error) {
-	url := ds.baseURL + "/subject_collection/" + tvType + "/items"
-	params := map[string]string{
-		"start": "0",
-		"limit": "1000", // 假设不会超过1000条
-	}
-
-	resp, err := ds.client.R().
-		SetQueryParams(params).
-		Get(url)
-	if err != nil {
-		return nil, err
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(resp.Body(), &result); err != nil {
-		return nil, err
-	}
-
-	items, ok := result["subject_collection_items"].([]interface{})
-	if !ok {
-		return nil, nil // 没有数据
-	}
-
-	// 转换为[]map[string]interface{}
-	var out []map[string]interface{}
-	for _, item := range items {
-		if m, ok := item.(map[string]interface{}); ok {
-			out = append(out, m)
-		}
-	}
-	return out, nil
-}
-
-// GetAllTvTypes 获取所有tv类型（type列表）
-func (ds *DoubanService) GetAllTvTypes() []string {
-	types := []string{}
-	for _, sub := range ds.TvCategories {
-		for _, v := range sub {
-			if t, ok := v["type"]; ok {
-				types = append(types, t)
-			}
-		}
-	}
-	return types
+	return 0
 }
 
 // extractItems 从API响应中提取项目列表
@@ -412,17 +316,4 @@ func (ds *DoubanService) parseCardSubtitle(item *DoubanItem) {
 			item.Actors = strings.Fields(actorsStr)
 		}
 	}
-}
-
-// extractCategories 从API响应中提取分类列表
-func (ds *DoubanService) extractCategories(response map[string]interface{}) []DoubanCategory {
-	var categories []DoubanCategory
-
-	if categoriesData, ok := response["categories"]; ok {
-		if categoriesBytes, err := json.Marshal(categoriesData); err == nil {
-			json.Unmarshal(categoriesBytes, &categories)
-		}
-	}
-
-	return categories
 }

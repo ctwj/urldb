@@ -12,6 +12,7 @@ type HotDramaRepository interface {
 	FindByID(id uint) (*entity.HotDrama, error)
 	FindAll(page, pageSize int) ([]entity.HotDrama, int64, error)
 	FindByCategory(category string, page, pageSize int) ([]entity.HotDrama, int64, error)
+	FindByCategoryAndSubType(category, subType string, page, pageSize int) ([]entity.HotDrama, int64, error)
 	FindByDoubanID(doubanID string) (*entity.HotDrama, error)
 	Upsert(drama *entity.HotDrama) error
 	Delete(id uint) error
@@ -59,7 +60,7 @@ func (r *hotDramaRepository) FindAll(page, pageSize int) ([]entity.HotDrama, int
 	}
 
 	// 获取分页数据
-	err := r.db.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&dramas).Error
+	err := r.db.Order("rank ASC").Offset(offset).Limit(pageSize).Find(&dramas).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -80,7 +81,28 @@ func (r *hotDramaRepository) FindByCategory(category string, page, pageSize int)
 	}
 
 	// 获取分页数据
-	err := r.db.Where("category = ?", category).Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&dramas).Error
+	err := r.db.Where("category = ?", category).Order("rank ASC").Offset(offset).Limit(pageSize).Find(&dramas).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return dramas, total, nil
+}
+
+// FindByCategoryAndSubType 根据分类和子类型查找热播剧（分页）
+func (r *hotDramaRepository) FindByCategoryAndSubType(category, subType string, page, pageSize int) ([]entity.HotDrama, int64, error) {
+	var dramas []entity.HotDrama
+	var total int64
+
+	offset := (page - 1) * pageSize
+
+	// 获取总数
+	if err := r.db.Model(&entity.HotDrama{}).Where("category = ? AND sub_type = ?", category, subType).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 获取分页数据
+	err := r.db.Where("category = ? AND sub_type = ?", category, subType).Order("rank ASC").Offset(offset).Limit(pageSize).Find(&dramas).Error
 	if err != nil {
 		return nil, 0, err
 	}
