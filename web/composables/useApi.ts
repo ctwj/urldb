@@ -174,14 +174,48 @@ export const useSystemConfigApi = () => {
   const toggleAutoProcess = (enabled: boolean) => useApiFetch('/system/config/toggle-auto-process', { method: 'POST', body: { auto_process_ready_resources: enabled } }).then(parseApiResponse)
   return { getSystemConfig, updateSystemConfig, getConfigStatus, toggleAutoProcess }
 }
-
 export const useHotDramaApi = () => {
-  const getHotDramas = (params?: any) => useApiFetch('/hot-dramas', { params }).then(parseApiResponse)
+  // 为SSR优化版本，使用Nuxt3的useApiFetch
+  const getHotDramas = (params?: any) => {
+    return useAsyncData('hot-dramas', () => $fetch('/api/hot-dramas', {
+      params,
+      baseURL: process.server ? 'http://localhost:8080' : undefined,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    }).then(parseApiResponse), {
+      server: true, // 启用服务端渲染
+      default: () => ({
+        items: [],
+        total: 0
+      })
+    })
+  }
+
+  // 客户端交互的版本
+  const getHotDramasClient = (params?: any) => useApiFetch('/hot-dramas', { params }).then(parseApiResponse)
+
+  // 其他方法保持不变，但添加SSR支持
   const createHotDrama = (data: any) => useApiFetch('/hot-dramas', { method: 'POST', body: data }).then(parseApiResponse)
   const updateHotDrama = (id: number, data: any) => useApiFetch(`/hot-dramas/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteHotDrama = (id: number) => useApiFetch(`/hot-dramas/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const fetchHotDramas = () => useApiFetch('/hot-dramas/fetch', { method: 'POST' }).then(parseApiResponse)
-  return { getHotDramas, createHotDrama, updateHotDrama, deleteHotDrama, fetchHotDramas }
+
+
+  const getPosterUrl = (posterUrl: string): string => {
+    if (!posterUrl) return ''
+    return `/api/hot-dramas/poster?url=${encodeURIComponent(posterUrl)}`
+  }
+
+  return {
+    getHotDramas,
+    getHotDramasClient,
+    createHotDrama,
+    updateHotDrama,
+    deleteHotDrama,
+    fetchHotDramas,
+    getPosterUrl
+  }
 }
 
 export const useMonitorApi = () => {
