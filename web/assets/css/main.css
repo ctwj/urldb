@@ -35,7 +35,7 @@
   
   /* 搜索高亮样式 */
   mark {
-    @apply bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded font-medium;
+    @apply bg-yellow-200 text-yellow-900 rounded font-medium;
   }
   
   /* 暗色模式下的高亮样式 */

@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    # 可选：添加输入参数，用于测试不同的场景
+    inputs:
+      version-suffix:
+        description: 'Version suffix for testing (e.g., -test, -rc)'
+        required: false
+        default: '-test'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: Build Linux binary
+      run: |
+        chmod +x scripts/build.sh
+        ./scripts/build.sh build-linux
+
+    - name: Rename binary
+      run: mv main urldb-${{ github.ref_name }}-linux-amd64
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Build Frontend
+      run: |
+        cd web
+        npm install --frozen-lockfile
+        npm run build
+
+    - name: Create frontend archive
+      run: |
+        cd web
+        tar -czf ../frontend-${{ github.ref_name }}.tar.gz .output/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          urldb-${{ github.ref_name }}-linux-amd64
+          frontend-${{ github.ref_name }}.tar.gz
+        generate_release_notes: true
