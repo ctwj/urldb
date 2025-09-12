@@ -14,7 +14,7 @@
         <strong>20T扩容说明：</strong>建议 <span @click="showImageModal = true" style="color:red" class="cursor-pointer">蜂小推</span> quark 账号扩容。<span @click="drawActive = true" style="color:blue" class="cursor-pointer">【什么推荐蜂小推】</span><br>
           1. 20T扩容 只支持新号，等到蜂小推首次 6T 奖励 到账后进行扩容<br>
           2. 账号需要处于关闭状态， 开启状态可能会被用于，自动转存等任务，存咋影响<br>
-          3. <strong><n-text type="error">扩容完成后，并不直接获得容量</n-text>，账号将存储大量热门资源，<n-text type="error">需要手动推广</n-text></strong><br>
+          3. <strong><n-text style='font-size:16px' type="error">扩容完成后，并不直接获得容量</n-text>，账号将存储大量热门资源，<n-text  style='font-size:16px' type="error">需要手动推广</n-text></strong><br>
           4. 注意 推广获得20T容量，删除所有资源， 热门资源比较敏感，不建议，长期推广，仅用于扩容
         </span>
       </div>
@@ -78,6 +78,42 @@
       <div class="text-center">
         <img src="/assets/images/fxt.jpg" alt="蜂小推" class="max-w-full max-h-screen object-contain rounded-lg shadow-lg" />
       </div>
+    </n-modal>
+
+    <!-- 数据源选择弹窗 -->
+    <n-modal v-model:show="showDataSourceDialog" title="确认扩容操作" size="small" style="width: 600px; max-width: 90vw;">
+      <n-card title="数据源选择" size="small">
+        <div class="space-y-4">
+          <p class="text-gray-700">
+            确定要对账号 "<strong>{{ pendingAccount?.name }}</strong>" 进行扩容操作吗？
+          </p>
+
+          <n-radio-group v-model:value="selectedDataSource">
+            <n-space vertical>
+              <n-radio value="internal">
+                <span class="font-medium">系统内部数据源</span>
+                <div class="text-sm text-gray-500 mt-1">使用系统内置的数据源进行扩容</div>
+              </n-radio>
+              <n-radio value="third-party">
+                <span class="font-medium">第三方接口</span>
+                <div class="text-sm text-gray-500 mt-1">使用第三方API获取数据源</div>
+              </n-radio>
+            </n-space>
+          </n-radio-group>
+
+          <n-input
+            v-if="selectedDataSource === 'third-party'"
+            v-model:value="thirdPartyUrl"
+            placeholder="请输入第三方接口地址"
+            clearable
+          />
+
+          <div class="flex justify-end space-x-2 mt-4">
+            <n-button @click="showDataSourceDialog = false">取消</n-button>
+            <n-button type="primary" @click="confirmDataSourceSelection">确定扩容</n-button>
+          </div>
+        </div>
+      </n-card>
     </n-modal>
 
     <!-- 账号列表 -->
@@ -203,6 +239,10 @@ const expandingAccountId = ref(null)
 const drawActive = ref(false) // 侧边栏激活
 const qrCode = ref("https://app.fengtuiwl.com/#/pages/login/reg?p=22112503")
 const showImageModal = ref(false) // 图片模态框
+const showDataSourceDialog = ref(false) // 数据源选择弹窗
+const selectedDataSource = ref('internal') // internal or third-party
+const thirdPartyUrl = ref('https://so.252035.xyz/')
+const pendingAccount = ref<any>(null) // 待处理的账号
 
 // API实例
 const taskApi = useTaskApi()
@@ -295,48 +335,53 @@ const fetchExpansionTasks = async () => {
 
 // 处理扩容操作
 const handleExpansion = async (account) => {
-  const dialog = useDialog()
+  pendingAccount.value = account
+  showDataSourceDialog.value = true
+}
 
-  dialog.warning({
-    title: '确认扩容',
-    content: `确定要对账号 "${account.name}" 进行扩容操作吗？`,
-    positiveText: '确定',
-    negativeText: '取消',
-    draggable: true,
-    onPositiveClick: async () => {
-      expandingAccountId.value = account.id
-      try {
-        const response = await taskApi.createExpansionTask({
-          pan_account_id: account.id,
-          description: `对 ${account.name} 账号进行扩容操作`
-        })
+// 确认数据源选择
+const confirmDataSourceSelection = async () => {
+  if (!pendingAccount.value) return
 
-        // 启动任务
-        await taskApi.startTask(response.task_id)
+  showDataSourceDialog.value = false
+  expandingAccountId.value = pendingAccount.value.id
 
-        notification.success({
-          title: '成功',
-          content: '扩容任务已创建并启动',
-          duration: 3000
-        })
+  try {
+    const dataSource = selectedDataSource.value === 'internal'
+      ? { type: 'internal' }
+      : { type: 'third-party', url: thirdPartyUrl.value }
 
-        // 刷新数据
-        await Promise.all([
-          fetchExpansionAccounts(),
-          fetchExpansionTasks()
-        ])
-      } catch (error) {
-        console.error('创建扩容任务失败:', error)
-        notification.error({
-          title: '失败',
-          content: '创建扩容任务失败: ' + (error.message || '未知错误'),
-          duration: 3000
-        })
-      } finally {
-        expandingAccountId.value = null
-      }
-    }
-  })
+    const response = await taskApi.createExpansionTask({
+      pan_account_id: pendingAccount.value.id,
+      description: `对 ${pendingAccount.value.name} 账号进行扩容操作`,
+      dataSource
+    })
+
+    // 启动任务
+    await taskApi.startTask(response.task_id)
+
+    notification.success({
+      title: '成功',
+      content: '扩容任务已创建并启动',
+      duration: 3000
+    })
+
+    // 刷新数据
+    await Promise.all([
+      fetchExpansionAccounts(),
+      fetchExpansionTasks()
+    ])
+  } catch (error) {
+    console.error('创建扩容任务失败:', error)
+    notification.error({
+      title: '失败',
+      content: '创建扩容任务失败: ' + (error.message || '未知错误'),
+      duration: 3000
+    })
+  } finally {
+    expandingAccountId.value = null
+    pendingAccount.value = null
+  }
 }
 
 // 查看任务详情
