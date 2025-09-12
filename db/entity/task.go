@@ -23,6 +23,7 @@ type TaskType string
 
 const (
 	TaskTypeBatchTransfer TaskType = "batch_transfer" // 批量转存
+	TaskTypeExpansion     TaskType = "expansion"     // 账号扩容
 )
 
 // Task 任务表

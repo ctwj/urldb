@@ -13,6 +13,12 @@
           </template>
           添加账号
         </n-button>
+        <n-button @click="goToExpansionManagement" type="warning">
+          <template #icon>
+            <i class="fas fa-expand"></i>
+          </template>
+          账号扩容
+        </n-button>
         <n-button @click="refreshData" type="info">
           <template #icon>
             <i class="fas fa-refresh"></i>
@@ -621,6 +627,11 @@ const refreshData = () => {
 // 分页跳转
 const goToPage = (page) => {
   currentPage.value = page
+}
+
+// 跳转到扩容管理页面
+const goToExpansionManagement = () => {
+  router.push('/admin/accounts-expansion')
 }
 
 // 页面加载

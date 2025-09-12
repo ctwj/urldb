@@ -58,7 +58,7 @@ func (r *TaskRepositoryImpl) GetList(page, pageSize int, taskType, status string
 
 	// 添加过滤条件
 	if taskType != "" {
-		query = query.Where("task_type = ?", taskType)
+		query = query.Where("type = ?", taskType)
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)
