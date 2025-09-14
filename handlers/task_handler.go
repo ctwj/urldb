@@ -392,8 +392,9 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 // CreateExpansionTask 创建扩容任务
 func (h *TaskHandler) CreateExpansionTask(c *gin.Context) {
 	var req struct {
-		PanAccountID uint   `json:"pan_account_id" binding:"required"`
-		Description  string `json:"description"`
+		PanAccountID uint                   `json:"pan_account_id" binding:"required"`
+		Description  string                 `json:"description"`
+		DataSource   map[string]interface{} `json:"dataSource"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -420,9 +421,13 @@ func (h *TaskHandler) CreateExpansionTask(c *gin.Context) {
 		accountName = fmt.Sprintf("账号%d", cks.ID)
 	}
 
-	// 构建任务配置（存储账号ID）
+	// 构建任务配置（存储账号ID和数据源）
 	taskConfig := map[string]interface{}{
 		"pan_account_id": req.PanAccountID,
+	}
+	// 如果有数据源配置，添加到taskConfig中
+	if req.DataSource != nil && len(req.DataSource) > 0 {
+		taskConfig["data_source"] = req.DataSource
 	}
 	configJSON, _ := json.Marshal(taskConfig)
 
@@ -450,6 +455,10 @@ func (h *TaskHandler) CreateExpansionTask(c *gin.Context) {
 	// 创建任务项
 	expansionInput := task.ExpansionInput{
 		PanAccountID: req.PanAccountID,
+	}
+	// 如果有数据源配置，添加到输入数据中
+	if req.DataSource != nil && len(req.DataSource) > 0 {
+		expansionInput.DataSource = req.DataSource
 	}
 
 	inputJSON, _ := json.Marshal(expansionInput)

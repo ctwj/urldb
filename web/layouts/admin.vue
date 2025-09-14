@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+  <div class="min-h-screen max-h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
     <!-- 设置通用title -->
     <Head>
       <title>管理后台 - 老九网盘资源数据库</title>
@@ -129,9 +129,9 @@
     </header>
     
     <!-- 侧边栏和主内容区域 -->
-    <div class="flex">
+    <div class="flex main-content">
       <!-- 侧边栏 -->
-      <aside class="w-64 bg-white dark:bg-gray-800 shadow-sm border-r border-gray-200 dark:border-gray-700 min-h-screen">
+      <aside class="w-64 bg-white dark:bg-gray-800 shadow-sm border-r border-gray-200 dark:border-gray-700 h-full overflow-y-auto">
         <nav class="mt-8">
           <div class="px-4 space-y-6">
             <!-- 仪表盘 -->
@@ -273,7 +273,7 @@
       </aside>
       
       <!-- 主内容区域 -->
-      <main class="flex-1 p-8">
+      <main class="flex-1 p-4 h-full overflow-y-auto">
         <ClientOnly>
           <n-message-provider>
             <n-notification-provider>
@@ -304,9 +304,7 @@ const systemConfigStore = useSystemConfigStore()
 // 任务状态管理
 const taskStore = useTaskStore()
 
-// 初始化系统配置（管理员页面使用管理员API）
-// 在setup阶段初始化，确保数据可用
-await systemConfigStore.initConfig(false, true)
+systemConfigStore.initConfig(false, true).catch(console.error)
 
 // 版本信息
 const versionInfo = ref({
@@ -328,10 +326,18 @@ const fetchVersionInfo = async () => {
 // 初始化版本信息和任务状态管理
 onMounted(() => {
   fetchVersionInfo()
-  
+
   // 启动任务状态自动更新
   taskStore.startAutoUpdate()
-  console.log('Admin layout: 任务状态自动更新已启动')
+
+  // 确保在客户端配置被正确载入（防止SSR水合问题）
+  setTimeout(async () => {
+    try {
+      await systemConfigStore.initConfig(true, true) // 强制刷新，防止SSR水合问题
+    } catch (error) {
+      console.error('Admin layout: onMounted 配置刷新失败', error)
+    }
+  }, 100) // 延迟100ms，确保组件渲染完成
 })
 
 // 组件销毁时清理任务状态管理
@@ -344,9 +350,6 @@ onBeforeUnmount(() => {
 // 系统配置
 const systemConfig = computed(() => {
   const config = systemConfigStore.config || {}
-  console.log('顶部导航系统配置:', config)
-  console.log('自动处理状态:', config.auto_process_ready_resources)
-  console.log('自动转存状态:', config.auto_transfer_enabled)
   return config
 })
 
@@ -604,5 +607,8 @@ const navigateToTasks = () => {
 .fas {
   font-family: 'Font Awesome 6 Free';
   font-weight: 900;
+}
+.main-content {
+  height: calc(100vh - 85px);
 }
 </style> 

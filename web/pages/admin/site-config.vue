@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和保存按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">站点配置</h1>
         <p class="text-gray-600 dark:text-gray-400">管理网站基本信息和设置</p>
@@ -12,172 +12,174 @@
         </template>
         保存配置
       </n-button>
-    </div>
+    </template>
 
-        <!-- 配置表单 -->
-    <n-card>
-      <!-- 顶部Tabs -->
-      <n-tabs
-        v-model:value="activeTab"
-        type="line"
-        animated
-        class="mb-6"
-      >
-        <n-tab-pane name="basic" tab="基本信息">
-          
-          <n-form
-            ref="formRef"
-            :model="configForm"
-            :rules="rules"
-            label-placement="left"
-            label-width="auto"
-            require-mark-placement="right-hanging"
-          >
-            <div class="space-y-6">
-              <!-- 网站标题 -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">网站标题</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">网站的主要标识，显示在浏览器标签页和搜索结果中</span>
-                </div>
-                <n-input
-                  v-model:value="configForm.site_title"
-                  placeholder="请输入网站标题"
-                />
-              </div>
-
-              <!-- 网站描述 -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">网站描述</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">网站的简要介绍，用于SEO和社交媒体分享</span>
-                </div>
-                <n-input
-                  v-model:value="configForm.site_description"
-                  placeholder="请输入网站描述"
-                />
-              </div>
-
-              <!-- 关键词 -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">关键词</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">用于SEO优化，多个关键词用逗号分隔</span>
-                </div>
-                <n-input
-                  v-model:value="configForm.keywords"
-                  placeholder="请输入关键词，用逗号分隔"
-                />
-              </div>
-
-              <!-- 网站Logo -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">网站Logo</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">选择网站Logo图片，建议使用正方形图片</span>
-                </div>
-                <div class="flex items-center space-x-4">
-                  <div v-if="configForm.site_logo" class="flex-shrink-0">
-                    <n-image
-                      :src="getImageUrl(configForm.site_logo)"
-                      alt="网站Logo"
-                      width="80"
-                      height="80"
-                      object-fit="cover"
-                      class="rounded-lg border"
-                    />
-                  </div>
-                  <div class="flex-1">
-                    <n-button type="primary" @click="openLogoSelector">
-                      <template #icon>
-                        <i class="fas fa-image"></i>
-                      </template>
-                      {{ configForm.site_logo ? '更换Logo' : '选择Logo' }}
-                    </n-button>
-                    <n-button v-if="configForm.site_logo" @click="clearLogo" class="ml-2">
-                      <template #icon>
-                        <i class="fas fa-times"></i>
-                      </template>
-                      清除
-                    </n-button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 版权信息 -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">版权信息</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">网站底部的版权声明信息</span>
-                </div>
-                <n-input
-                  v-model:value="configForm.copyright"
-                  placeholder="请输入版权信息"
-                />
-              </div>
-            </div>
-          </n-form>
-        </n-tab-pane>
-
-
-
-        <n-tab-pane name="security" tab="安全设置">
-          
-          <n-form
-            ref="formRef"
-            :model="configForm"
-            :rules="rules"
-            label-placement="left"
-            label-width="auto"
-            require-mark-placement="right-hanging"
-          >
-            <div class="space-y-6">
-              <!-- 维护模式 -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">维护模式</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">开启后网站将显示维护页面，暂停用户访问</span>
-                </div>
-                <n-switch v-model:value="configForm.maintenance_mode" />
-              </div>
-
-              <!-- 违禁词 -->
-              <div class="space-y-2">
-                <div class="flex items-center justify-between">
+    <!-- 内容区 - 配置表单 -->
+    <template #content>
+      <div class="config-content h-full">
+        <!-- 顶部Tabs -->
+        <n-tabs
+          v-model:value="activeTab"
+          type="line"
+          animated
+        >
+          <n-tab-pane name="basic" tab="基本信息">
+            <div class="tab-content-container">
+              <n-form
+                ref="formRef"
+                :model="configForm"
+                :rules="rules"
+                label-placement="left"
+                label-width="auto"
+                require-mark-placement="right-hanging"
+              >
+                <div class="space-y-6">
+                <!-- 网站标题 -->
+                <div class="space-y-2">
                   <div class="flex items-center space-x-2">
-                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">违禁词</label>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">包含这些词汇的资源将被过滤，多个词汇用逗号分隔</span>
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">网站标题</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">网站的主要标识，显示在浏览器标签页和搜索结果中</span>
                   </div>
-                  <a 
-                    href="https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/db/forbidden.txt" 
-                    target="_blank" 
-                    class="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
-                  >
-                    开源违禁词
-                  </a>
+                  <n-input
+                    v-model:value="configForm.site_title"
+                    placeholder="请输入网站标题"
+                  />
                 </div>
-                <n-input
-                  v-model:value="configForm.forbidden_words"
-                  placeholder="请输入违禁词，用逗号分隔"
-                  type="textarea"
-                  :rows="4"
-                />
-              </div>
 
-              <!-- 开启注册 -->
-              <div class="space-y-2">
-                <div class="flex items-center space-x-2">
-                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">开启注册</label>
-                  <span class="text-xs text-gray-500 dark:text-gray-400">开启后用户才能注册新账号，关闭后注册页面将显示"当前系统已关闭注册功能"</span>
+                <!-- 网站描述 -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">网站描述</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">网站的简要介绍，用于SEO和社交媒体分享</span>
+                  </div>
+                  <n-input
+                    v-model:value="configForm.site_description"
+                    placeholder="请输入网站描述"
+                  />
                 </div>
-                <n-switch v-model:value="configForm.enable_register" />
+
+                <!-- 关键词 -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">关键词</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">用于SEO优化，多个关键词用逗号分隔</span>
+                  </div>
+                  <n-input
+                    v-model:value="configForm.keywords"
+                    placeholder="请输入关键词，用逗号分隔"
+                  />
+                </div>
+
+                <!-- 网站Logo -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">网站Logo</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">选择网站Logo图片，建议使用正方形图片</span>
+                  </div>
+                  <div class="flex items-center space-x-4">
+                    <div v-if="configForm.site_logo" class="flex-shrink-0">
+                      <n-image
+                        :src="getImageUrl(configForm.site_logo)"
+                        alt="网站Logo"
+                        width="80"
+                        height="80"
+                        object-fit="cover"
+                        class="rounded-lg border"
+                      />
+                    </div>
+                    <div class="flex-1">
+                      <n-button type="primary" @click="openLogoSelector">
+                        <template #icon>
+                          <i class="fas fa-image"></i>
+                        </template>
+                        {{ configForm.site_logo ? '更换Logo' : '选择Logo' }}
+                      </n-button>
+                      <n-button v-if="configForm.site_logo" @click="clearLogo" class="ml-2">
+                        <template #icon>
+                          <i class="fas fa-times"></i>
+                        </template>
+                        清除
+                      </n-button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 版权信息 -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">版权信息</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">网站底部的版权声明信息</span>
+                  </div>
+                  <n-input
+                    v-model:value="configForm.copyright"
+                    placeholder="请输入版权信息"
+                  />
+                </div>
               </div>
+              </n-form>
             </div>
-          </n-form>
-        </n-tab-pane>
-      </n-tabs>
-    </n-card>
+          </n-tab-pane>
 
+          <n-tab-pane name="security" tab="安全设置">
+
+            <div class="tab-content-container">
+              <n-form
+                ref="formRef"
+                :model="configForm"
+                :rules="rules"
+                label-placement="left"
+                label-width="auto"
+                require-mark-placement="right-hanging"
+              >
+                <div class="space-y-6">
+                <!-- 维护模式 -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">维护模式</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">开启后网站将显示维护页面，暂停用户访问</span>
+                  </div>
+                  <n-switch v-model:value="configForm.maintenance_mode" />
+                </div>
+
+                <!-- 违禁词 -->
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                      <label class="text-base font-semibold text-gray-800 dark:text-gray-200">违禁词</label>
+                      <span class="text-xs text-gray-500 dark:text-gray-400">包含这些词汇的资源将被过滤，多个词汇用逗号分隔</span>
+                    </div>
+                    <a
+                      href="https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/db/forbidden.txt"
+                      target="_blank"
+                      class="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                    >
+                      开源违禁词
+                    </a>
+                  </div>
+                  <n-input
+                    v-model:value="configForm.forbidden_words"
+                    placeholder="请输入违禁词，用逗号分隔"
+                    type="textarea"
+                    :rows="4"
+                  />
+                </div>
+
+                <!-- 开启注册 -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">开启注册</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">开启后用户才能注册新账号，关闭后注册页面将显示"当前系统已关闭注册功能"</span>
+                  </div>
+                  <n-switch v-model:value="configForm.enable_register" />
+                </div>
+              </div>
+              </n-form>
+            </div>
+          </n-tab-pane>
+        </n-tabs>
+      </div>
+    </template>
+</AdminPageLayout>
     <!-- Logo选择模态框 -->
     <n-modal v-model:show="showLogoSelector" preset="card" title="选择Logo图片" style="width: 90vw; max-width: 1200px; max-height: 80vh;">
       <div class="space-y-4">
@@ -271,7 +273,6 @@
         </n-space>
       </template>
     </n-modal>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -584,7 +585,31 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 自定义样式 */
+/* 站点配置页面样式 */
+
+.config-content {
+  padding: 8px;
+  background-color: var(--color-white, #ffffff);
+}
+
+.dark .config-content {
+  background-color: var(--color-dark-bg, #1f2937);
+}
+
+/* 配置标签容器 - 支持滚动 */
+.config-tabs-container {
+  height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+/* tab内容容器 - 个别内容滚动 */
+.tab-content-container {
+  height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+
 .file-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -611,11 +636,9 @@ onMounted(() => {
   border-radius: 4px;
 }
 
-
-
 .pagination-wrapper {
   display: flex;
   justify-content: center;
   margin-top: 1rem;
 }
-</style> 
+</style>

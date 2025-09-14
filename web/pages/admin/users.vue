@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和操作按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">用户管理</h1>
         <p class="text-gray-600 dark:text-gray-400">管理系统中的用户账户</p>
@@ -20,21 +20,25 @@
           刷新
         </n-button>
       </div>
-    </div>
+    </template>
 
-    <!-- 提示信息 -->
-    <n-alert title="用户管理功能，可以创建、编辑、删除用户，以及修改用户密码" type="info" />
+    <!-- 通知区域 -->
+    <template #notice-section>
+      <n-alert title="用户管理功能，可以创建、编辑、删除用户，以及修改用户密码" type="info" />
+    </template>
 
-    <!-- 用户列表 -->
-    <n-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">用户列表</span>
-          <span class="text-sm text-gray-500">共 {{ total }} 个用户</span>
-        </div>
-      </template>
+    <!-- 内容区header -->
+    <template #content-header>
+      <div class="flex items-center justify-between">
+        <span class="text-lg font-semibold">用户列表</span>
+        <span class="text-sm text-gray-500">共 {{ total }} 个用户</span>
+      </div>
+    </template>
 
-      <div v-if="loading" class="flex items-center justify-center py-8">
+    <!-- 内容区 - 用户列表 -->
+    <template #content>
+
+        <div v-if="loading" class="flex items-center justify-center py-8">
         <n-spin size="large" />
       </div>
 
@@ -53,20 +57,38 @@
         </n-button>
       </div>
 
-      <div v-else>
+      <div v-else class="h-full">
         <n-data-table
           :columns="columns"
           :data="users"
-          :pagination="pagination"
           :bordered="false"
           :single-line="false"
           :loading="loading"
           @update:page="handlePageChange"
         />
       </div>
-    </n-card>
+    </template>
 
-    <!-- 创建/编辑用户模态框 -->
+  
+    <!-- 内容区footer - 分页组件 -->
+    <template #content-footer>
+      <div class="p-4">
+        <div class="flex justify-center">
+          <n-pagination
+            v-model:page="currentPage"
+            v-model:page-size="pageSize"
+            :item-count="total"
+            :page-sizes="[100, 200, 500, 1000]"
+            show-size-picker
+            @update:page="fetchData"
+            @update:page-size="(size) => { pageSize = size; currentPage = 1; fetchData() }"
+          />
+        </div>
+      </div>
+    </template>
+  </AdminPageLayout>
+
+  <!-- 创建/编辑用户模态框 -->
     <n-modal v-model:show="showModal" preset="card" :title="showEditModal ? '编辑用户' : '创建用户'" style="width: 500px">
       <div v-if="showEditModal && editingUser?.username === 'admin'" class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
         <p class="text-sm text-yellow-800">
@@ -138,7 +160,7 @@
       </template>
     </n-modal>
 
-    <!-- 修改密码模态框 -->
+      <!-- 修改密码模态框 -->
     <n-modal v-model:show="showChangePasswordModal" preset="card" title="修改密码" style="width: 400px">
       <n-form
         ref="passwordFormRef"
@@ -176,10 +198,11 @@
         </div>
       </template>
     </n-modal>
-  </div>
 </template>
 
 <script setup lang="ts">
+import AdminPageLayout from '~/components/AdminPageLayout.vue'
+
 // 设置页面布局
 definePageMeta({
   layout: 'admin'
@@ -594,4 +617,13 @@ const showModal = computed({
 
 <style scoped>
 /* 自定义样式 */
-</style> 
+
+.config-content {
+  padding: 1rem;
+  background-color: var(--color-white, #ffffff);
+}
+
+.dark .config-content {
+  background-color: var(--color-dark-bg, #1f2937);
+}
+</style>

@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和保存按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">功能配置</h1>
         <p class="text-gray-600 dark:text-gray-400">管理系统功能开关和参数设置</p>
@@ -12,10 +12,11 @@
         </template>
         保存配置
       </n-button>
-    </div>
+    </template>
 
-    <!-- 配置表单 -->
-    <n-card>
+    <!-- 内容区 - 配置表单 -->
+    <template #content>
+      <div class="config-content h-full">
       <!-- 顶部Tabs -->
       <n-tabs
         v-model:value="activeTab"
@@ -24,15 +25,15 @@
         class="mb-6"
       >
         <n-tab-pane name="resource" tab="资源处理">
-          
-          <n-form
-            ref="formRef"
-            :model="configForm"
-            :rules="rules"
-            label-placement="left"
-            label-width="auto"
-            require-mark-placement="right-hanging"
-          >
+          <div class="tab-content-container">
+            <n-form
+              ref="formRef"
+              :model="configForm"
+              :rules="rules"
+              label-placement="left"
+              label-width="auto"
+              require-mark-placement="right-hanging"
+            >
             <div class="space-y-8">
               <!-- 自动处理配置组 -->
               <div class="space-y-4">
@@ -166,19 +167,20 @@
                 </div>
               </div>
             </div>
-          </n-form>
+            </n-form>
+          </div>
         </n-tab-pane>
 
         <n-tab-pane name="transfer" tab="转存配置">
-          
-          <n-form
-            ref="formRef"
-            :model="configForm"
-            :rules="rules"
-            label-placement="left"
-            label-width="auto"
-            require-mark-placement="right-hanging"
-          >
+          <div class="tab-content-container">
+            <n-form
+              ref="formRef"
+              :model="configForm"
+              :rules="rules"
+              label-placement="left"
+              label-width="auto"
+              require-mark-placement="right-hanging"
+            >
             <div class="space-y-6">
               <!-- 自动转存 -->
               <div class="space-y-2">
@@ -243,19 +245,20 @@
                 />
               </div>
             </div>
-          </n-form>
+            </n-form>
+          </div>
         </n-tab-pane>
 
         <n-tab-pane name="drama" tab="热播剧">
-          
-          <n-form
-            ref="formRef"
-            :model="configForm"
-            :rules="rules"
-            label-placement="left"
-            label-width="auto"
-            require-mark-placement="right-hanging"
-          >
+          <div class="tab-content-container">
+            <n-form
+              ref="formRef"
+              :model="configForm"
+              :rules="rules"
+              label-placement="left"
+              label-width="auto"
+              require-mark-placement="right-hanging"
+            >
             <div class="space-y-6">
               <!-- 热播剧自动获取 -->
               <div class="space-y-2">
@@ -266,17 +269,20 @@
                 <n-switch v-model:value="configForm.hot_drama_auto_fetch" />
               </div>
             </div>
-          </n-form>
+            </n-form>
+          </div>
         </n-tab-pane>
-      </n-tabs>
-    </n-card>
-  </div>
+        </n-tabs>
+      </div>
+    </template>
+  </AdminPageLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useNotification } from 'naive-ui'
 import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
+import AdminPageLayout from '~/components/AdminPageLayout.vue'
 
 // 设置页面布局
 definePageMeta({
@@ -537,4 +543,20 @@ onMounted(() => {
 
 <style scoped>
 /* 自定义样式 */
-</style> 
+
+.config-content {
+  padding: 8px;
+  background-color: var(--color-white, #ffffff);
+}
+
+.dark .config-content {
+  background-color: var(--color-dark-bg, #1f2937);
+}
+
+/* tab内容容器 - 个别内容滚动 */
+.tab-content-container {
+  height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+</style>

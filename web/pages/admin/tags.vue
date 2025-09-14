@@ -1,32 +1,21 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">标签管理</h1>
         <p class="text-gray-600 dark:text-gray-400">管理系统中的资源标签</p>
       </div>
       <div class="flex space-x-3">
-        <n-button type="primary" @click="showAddModal = true">
-          <template #icon>
-            <i class="fas fa-plus"></i>
-          </template>
-          添加标签
-        </n-button>
-        <n-button @click="refreshData">
-          <template #icon>
-            <i class="fas fa-refresh"></i>
-          </template>
-          刷新
-        </n-button>
       </div>
-    </div>
+    </template>
 
-    <!-- 提示信息 -->
-    <n-alert title="提交的数据中，如果包含标签，数据添加成功，会自动添加标签" type="info" />
+    <!-- 提示信息区域 -->
+    <template #notice-section>
+      <n-alert title="提交的数据中，如果包含标签，数据添加成功，会自动添加标签" type="info" />
+    </template>
 
-    <!-- 搜索和操作 -->
-    <n-card>
+    <!-- 过滤栏 - 搜索和操作 -->
+    <template #filter-bar>
       <div class="flex justify-between items-center">
         <div class="flex gap-2">
           <n-button @click="showAddModal = true" type="success">
@@ -38,9 +27,9 @@
         </div>
         <div class="flex gap-2">
           <div class="relative">
-            <n-input 
-              v-model:value="searchQuery" 
-              @input="debounceSearch" 
+            <n-input
+              v-model:value="searchQuery"
+              @input="debounceSearch"
               type="text"
               placeholder="搜索标签名称..."
               clearable
@@ -58,21 +47,24 @@
           </n-button>
         </div>
       </div>
-    </n-card>
+    </template>
 
-    <!-- 标签列表 -->
-    <n-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">标签列表</span>
-          <span class="text-sm text-gray-500">共 {{ total }} 个标签</span>
-        </div>
-      </template>
+    <!-- 内容区header - 标签列表标题 -->
+    <!-- <template #content-header>
+      <div class="flex items-center justify-between">
+        <span class="text-lg font-semibold">标签列表</span>
+        <span class="text-sm text-gray-500">共 {{ total }} 个标签</span>
+      </div>
+    </template> -->
 
-      <div v-if="loading" class="flex items-center justify-center py-8">
+    <!-- 内容区 - 标签数据 -->
+    <template #content>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="flex h-full items-center justify-center py-8">
         <n-spin size="large" />
       </div>
 
+      <!-- 空状态 -->
       <div v-else-if="tags.length === 0" class="text-center py-8">
         <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
           <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
@@ -87,21 +79,40 @@
           添加标签
         </n-button>
       </div>
-
-      <div v-else>
+      <!-- 数据表格 - 自适应高度 -->
+      <div v-else class="flex flex-col h-full overflow-auto">
         <n-data-table
-          :columns="columns"
-          :data="tags"
-          :pagination="pagination"
-          :bordered="false"
-          :single-line="false"
-          :loading="loading"
-          @update:page="handlePageChange"
-        />
+            :columns="columns"
+            :data="tags"
+            :pagination="false"
+            :bordered="false"
+            :single-line="false"
+            :loading="loading"
+            :scroll-x="800"
+            class="h-full"
+          />
       </div>
-    </n-card>
+    </template>
 
-    <!-- 添加/编辑标签模态框 -->
+    <!-- 内容区footer - 分页组件 -->
+    <template #content-footer>
+      <div class="p-4">
+        <div class="flex justify-center">
+          <n-pagination
+            v-model:page="currentPage"
+            v-model:page-size="pageSize"
+            :item-count="total"
+            :page-sizes="[100, 200, 500, 1000]"
+            show-size-picker
+            @update:page="fetchData"
+            @update:page-size="(size) => { pageSize = size; currentPage = 1; fetchData() }"
+          />
+        </div>
+      </div>
+    </template>
+
+ </AdminPageLayout>
+     <!-- 添加/编辑标签模态框 -->
     <n-modal v-model:show="showAddModal" preset="card" :title="editingTag ? '编辑标签' : '添加标签'" style="width: 500px">
       <n-form
         ref="formRef"
@@ -146,7 +157,6 @@
         </div>
       </template>
     </n-modal>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -291,23 +301,7 @@ const columns = [
   }
 ]
 
-// 分页配置
-const pagination = computed(() => ({
-  page: currentPage.value,
-  pageSize: pageSize.value,
-  itemCount: total.value,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50, 100],
-  onChange: (page: number) => {
-    currentPage.value = page
-    fetchData()
-  },
-  onUpdatePageSize: (size: number) => {
-    pageSize.value = size
-    currentPage.value = 1
-    fetchData()
-  }
-}))
+// 分页配置已经被移到模板中处理
 
 // 获取数据
 const fetchData = async () => {

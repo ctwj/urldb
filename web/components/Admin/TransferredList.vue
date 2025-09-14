@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-4">
+  <div class="flex flex-col gap-2 h-full">
     <!-- 搜索和筛选 -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="flex-0 grid grid-cols-1 md:grid-cols-4 gap-4">
       <n-input
         v-model:value="searchQuery"
         placeholder="搜索已转存资源..."
@@ -34,28 +34,111 @@
     </div>
 
     <!-- 调试信息 -->
-    <div class="text-sm text-gray-500 mb-2">
+    <div class="flex-0 text-sm text-gray-500">
       数据数量: {{ resources.length }}, 总数: {{ total }}, 加载状态: {{ loading }}
     </div>
 
-    <!-- 数据表格 -->
-    <n-data-table
-      :columns="columns"
-      :data="resources"
-      :loading="loading"
-      :pagination="pagination"
-      :remote="true"
-      @update:page="handlePageChange"
-      @update:page-size="handlePageSizeChange"
-      :row-key="(row: any) => row.id"
-      virtual-scroll
-      max-height="500"
-    />
+    <!-- 资源列表 -->
+    <div class="flex-1 h-1">
+      <div v-if="loading" class="flex items-center justify-center py-8">
+        <n-spin size="large" />
+      </div>
+
+      <div v-else-if="resources.length === 0" class="text-center py-8">
+        <i class="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
+        <p class="text-gray-500">暂无已转存的资源</p>
+      </div>
+
+      <div v-else class="h-full">
+        <!-- 虚拟列表 -->
+        <n-virtual-list
+          :items="resources"
+          :item-size="120"
+          class="h-full"
+        >
+          <template #default="{ item }">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+              <div class="flex items-start space-x-4">
+                <!-- 资源信息 -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center space-x-2 mb-2">
+                    <!-- ID -->
+                    <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">
+                      ID: {{ item.id }}
+                    </span>
+
+                    <!-- 标题 -->
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white line-clamp-1 flex-1">
+                      {{ item.title || '未命名资源' }}
+                    </h3>
+                  </div>
+
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-3">
+                    <!-- 分类 -->
+                    <div class="flex items-center">
+                      <i class="fas fa-folder mr-1 text-gray-400"></i>
+                      <span class="text-gray-600 dark:text-gray-400">分类:</span>
+                      <span class="ml-2">{{ item.category_name || '未分类' }}</span>
+                    </div>
+
+                    <!-- 转存时间 -->
+                    <div class="flex items-center">
+                      <i class="fas fa-calendar mr-1 text-gray-400"></i>
+                      <span class="text-gray-600 dark:text-gray-400">转存时间:</span>
+                      <span class="ml-2">{{ formatDate(item.updated_at) }}</span>
+                    </div>
+
+                    <!-- 浏览数 -->
+                    <div class="flex items-center">
+                      <i class="fas fa-eye mr-1 text-gray-400"></i>
+                      <span class="text-gray-600 dark:text-gray-400">浏览数:</span>
+                      <span class="ml-2">{{ item.view_count || 0 }}</span>
+                    </div>
+                  </div>
+
+                  <!-- 转存链接 -->
+                  <div class="mt-3">
+                    <div class="flex items-start space-x-2">
+                      <span class="text-xs text-gray-400">转存链接:</span>
+                      <a
+                        v-if="item.save_url"
+                        :href="item.save_url"
+                        target="_blank"
+                        class="text-xs text-green-500 hover:text-green-700 break-all"
+                      >
+                        {{ item.save_url.length > 60 ? item.save_url.substring(0, 60) + '...' : item.save_url }}
+                      </a>
+                      <span v-else class="text-xs text-gray-500">暂无转存链接</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </n-virtual-list>
+      </div>
+    </div>
+
+    <!-- 分页 -->
+    <div class="flex-0">
+      <div class="flex justify-center">
+        <n-pagination
+          v-model:page="currentPage"
+          v-model:page-size="pageSize"
+          :item-count="total"
+          :page-sizes="[10000, 20000, 50000, 100000]"
+          show-size-picker
+          show-quick-jumper
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, h } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useResourceApi, usePanApi } from '~/composables/useApi'
 import { useMessage } from 'naive-ui'
 
@@ -81,78 +164,17 @@ const panApi = usePanApi()
 // 获取平台数据
 const { data: platformsData } = await useAsyncData('transferredPlatforms', () => panApi.getPans())
 
-// 平台选项
-const platformOptions = computed(() => {
-  const data = platformsData.value as any
-  const platforms = data?.data || data || []
-  return platforms.map((platform: any) => ({
-    label: platform.remark || platform.name,
-    value: platform.id
-  }))
-})
-
 // 获取平台名称
 const getPlatformName = (platformId: number) => {
   const platform = (platformsData.value as any)?.data?.find((plat: any) => plat.id === platformId)
   return platform?.remark || platform?.name || '未知平台'
 }
 
-// 分页配置
-const pagination = reactive({
-  page: 1,
-  pageSize: 10000,
-  itemCount: 0,
-  pageSizes: [10000, 20000, 50000, 100000],
-  showSizePicker: true,
-  showQuickJumper: true,
-  prefix: ({ itemCount }: any) => `共 ${itemCount} 条`
-})
-
-// 表格列配置
-const columns: any[] = [
-  {
-    title: 'ID',
-    key: 'id',
-    width: 60,
-    fixed: 'left' as const
-  },
-  {
-    title: '标题',
-    key: 'title',
-    width: 200,
-    ellipsis: {
-      tooltip: true
-    }
-  },
-  {
-    title: '分类',
-    key: 'category_name',
-    width: 80
-  },
-  {
-    title: '转存链接',
-    key: 'save_url',
-    width: 200,
-    ellipsis: {
-      tooltip: true
-    },
-    render: (row: any) => {
-      return h('a', {
-        href: row.save_url,
-        target: '_blank',
-        class: 'text-green-500 hover:text-green-700'
-      }, row.save_url.length > 30 ? row.save_url.substring(0, 30) + '...' : row.save_url)
-    }
-  },
-  {
-    title: '转存时间',
-    key: 'updated_at',
-    width: 130,
-    render: (row: any) => {
-      return new Date(row.updated_at).toLocaleDateString()
-    }
-  }
-]
+// 格式化日期
+const formatDate = (dateString: string) => {
+  if (!dateString) return '未知时间'
+  return new Date(dateString).toLocaleDateString()
+}
 
 // 获取已转存资源
 const fetchTransferredResources = async () => {
@@ -183,24 +205,20 @@ const fetchTransferredResources = async () => {
         console.log('使用嵌套data格式，数量:', result.data.data.length)
         resources.value = result.data.data
         total.value = result.data.total || 0
-        pagination.itemCount = result.data.total || 0
       } else {
         // 处理直接的data结构：{data: [...], total: ...}
         console.log('使用直接data格式，数量:', result.data.length)
         resources.value = result.data
         total.value = result.total || 0
-        pagination.itemCount = result.total || 0
       }
     } else if (Array.isArray(result)) {
       console.log('使用数组格式，数量:', result.length)
       resources.value = result
       total.value = result.length
-      pagination.itemCount = result.length
     } else {
       console.log('未知格式，设置空数组')
       resources.value = []
       total.value = 0
-      pagination.itemCount = 0
     }
     
     console.log('最终 resources.value:', resources.value)
@@ -223,22 +241,18 @@ const fetchTransferredResources = async () => {
 // 搜索处理
 const handleSearch = () => {
   currentPage.value = 1
-  pagination.page = 1
   fetchTransferredResources()
 }
 
 // 分页处理
 const handlePageChange = (page: number) => {
   currentPage.value = page
-  pagination.page = page
   fetchTransferredResources()
 }
 
 const handlePageSizeChange = (size: number) => {
   pageSize.value = size
-  pagination.pageSize = size
   currentPage.value = 1
-  pagination.page = 1
   fetchTransferredResources()
 }
 
@@ -247,3 +261,12 @@ onMounted(() => {
   fetchTransferredResources()
 })
 </script>
+
+<style scoped>
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>

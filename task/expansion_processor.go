@@ -29,7 +29,8 @@ func (ep *ExpansionProcessor) GetTaskType() string {
 
 // ExpansionInput 扩容任务输入数据结构
 type ExpansionInput struct {
-	PanAccountID uint `json:"pan_account_id"`
+	PanAccountID uint                   `json:"pan_account_id"`
+	DataSource   map[string]interface{} `json:"data_source,omitempty"`
 }
 
 // ExpansionOutput 扩容任务输出数据结构
@@ -93,8 +94,8 @@ func (ep *ExpansionProcessor) Process(ctx context.Context, taskID uint, item *en
 		return err
 	}
 
-	// 执行扩容操作（这里留空，直接返回成功）
-	if err := ep.performExpansion(ctx, input.PanAccountID); err != nil {
+	// 执行扩容操作（传入数据源）
+	if err := ep.performExpansion(ctx, input.PanAccountID, input.DataSource); err != nil {
 		output := ExpansionOutput{
 			Success: false,
 			Message: "扩容失败",
@@ -177,11 +178,11 @@ func (ep *ExpansionProcessor) checkAccountType(panAccountID uint) error {
 }
 
 // performExpansion 执行扩容操作
-func (ep *ExpansionProcessor) performExpansion(ctx context.Context, panAccountID uint) error {
+func (ep *ExpansionProcessor) performExpansion(ctx context.Context, panAccountID uint, dataSource map[string]interface{}) error {
 	// 扩容逻辑暂时留空，直接返回成功
 	// TODO: 实现具体的扩容逻辑
 
-	utils.Info("执行扩容操作，账号ID: %d", panAccountID)
+	utils.Info("执行扩容操作，账号ID: %d, 数据源: %v", panAccountID, dataSource)
 
 	// 模拟扩容操作延迟
 	// time.Sleep(2 * time.Second)

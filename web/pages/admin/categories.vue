@@ -1,32 +1,22 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">分类管理</h1>
         <p class="text-gray-600 dark:text-gray-400">管理系统中的资源分类</p>
       </div>
       <div class="flex space-x-3">
-        <n-button type="primary" @click="showAddModal = true">
-          <template #icon>
-            <i class="fas fa-plus"></i>
-          </template>
-          添加分类
-        </n-button>
-        <n-button @click="refreshData">
-          <template #icon>
-            <i class="fas fa-refresh"></i>
-          </template>
-          刷新
-        </n-button>
       </div>
-    </div>
+    </template>
 
-    <!-- 提示信息 -->
-    <n-alert title="分类用于对资源进行分类管理，可以关联多个标签" type="info" />
+    <!-- 提示信息区域 -->
+    <template #notice-section>
+      <n-alert title="分类用于对资源进行分类管理，可以关联多个标签" type="info" />
+    </template>
 
-    <!-- 搜索和操作 -->
-    <n-card>
+    <!-- 过滤栏 - 搜索和操作 -->
+    <template #filter-bar>
       <div class="flex justify-between items-center">
         <div class="flex gap-2">
           <n-button @click="showAddModal = true" type="success">
@@ -38,9 +28,9 @@
         </div>
         <div class="flex gap-2">
           <div class="relative">
-            <n-input 
-              v-model:value="searchQuery" 
-              @input="debounceSearch" 
+            <n-input
+              v-model:value="searchQuery"
+              @input="debounceSearch"
               type="text"
               placeholder="搜索分类名称..."
               clearable
@@ -58,21 +48,24 @@
           </n-button>
         </div>
       </div>
-    </n-card>
+    </template>
 
-    <!-- 分类列表 -->
-    <n-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">分类列表</span>
-          <span class="text-sm text-gray-500">共 {{ total }} 个分类</span>
-        </div>
-      </template>
+    <!-- 内容区header - 分类列表标题 -->
+    <!-- <template #content-header>
+      <div class="flex items-center justify-between">
+        <span class="text-lg font-semibold">分类列表</span>
+        <span class="text-sm text-gray-500">共 {{ total }} 个分类</span>
+      </div>
+    </template> -->
 
-      <div v-if="loading" class="flex items-center justify-center py-8">
+    <!-- 内容区 - 分类数据 -->
+    <template #content>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="flex h-full items-center justify-center py-8">
         <n-spin size="large" />
       </div>
 
+      <!-- 空状态 -->
       <div v-else-if="categories.length === 0" class="text-center py-8">
         <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
           <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
@@ -88,20 +81,38 @@
         </n-button>
       </div>
 
-      <div v-else>
-        <n-data-table
-          :columns="columns"
-          :data="categories"
-          :pagination="pagination"
-          :bordered="false"
-          :single-line="false"
-          :loading="loading"
-          @update:page="handlePageChange"
-        />
-      </div>
-    </n-card>
+      <!-- 数据表格 -->
+      <div v-else class="flex flex-col h-full min-h-[600px]">
+        <!-- 数据表格容器，自适应填充剩余高度 -->
+        <div class="flex-1 overflow-hidden">
+          <n-data-table
+            :columns="columns"
+            :data="categories"
+            :pagination="false"
+            :bordered="false"
+            :single-line="false"
+            :loading="loading"
+            :scroll-x="800"
+            class="h-full"
+          />
+        </div>
 
-    <!-- 添加/编辑分类模态框 -->
+        <!-- 分页组件外部显示 -->
+        <div class="mt-4 flex justify-center border-t pt-4">
+          <n-pagination
+            v-model:page="currentPage"
+            v-model:page-size="pageSize"
+            :item-count="total"
+            :page-sizes="[10, 20, 50, 100]"
+            show-size-picker
+            @update:page="handlePageChange"
+            @update:page-size="(size) => { pageSize = size; currentPage = 1; fetchData() }"
+          />
+        </div>
+      </div>
+    </template>
+  </AdminPageLayout>
+      <!-- 添加/编辑分类模态框 -->
     <n-modal v-model:show="showAddModal" preset="card" :title="editingCategory ? '编辑分类' : '添加分类'" style="width: 500px">
       <n-form
         ref="formRef"
@@ -147,7 +158,6 @@
         </div>
       </template>
     </n-modal>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -288,23 +298,7 @@ const columns = [
   }
 ]
 
-// 分页配置
-const pagination = computed(() => ({
-  page: currentPage.value,
-  pageSize: pageSize.value,
-  itemCount: total.value,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50, 100],
-  onChange: (page: number) => {
-    currentPage.value = page
-    fetchData()
-  },
-  onUpdatePageSize: (size: number) => {
-    pageSize.value = size
-    currentPage.value = 1
-    fetchData()
-  }
-}))
+// 分页配置已经移到模板中外部显示
 
 // 获取数据
 const fetchData = async () => {

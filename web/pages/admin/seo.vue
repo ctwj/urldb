@@ -1,14 +1,21 @@
 <template>
-  <div class="p-6">
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">SEO管理</h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-2">搜索引擎优化管理</p>
-    </div>
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题 -->
+    <template #page-header>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">SEO管理</h1>
+        <p class="text-gray-600 dark:text-gray-400">搜索引擎优化管理</p>
+      </div>
+    </template>
 
-    <!-- Tab导航 -->
-    <n-tabs v-model:value="activeTab" type="line" animated>
-      <n-tab-pane name="site-submit" tab="站点提交">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <!-- 内容区 -->
+    <template #content>
+      <div class="config-content h-full">
+        <!-- Tab导航 -->
+        <n-tabs v-model:value="activeTab" type="line" animated>
+        <n-tab-pane name="site-submit" tab="站点提交">
+          <div class="tab-content-container">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div class="mb-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">站点提交（待开发）</h3>
             <p class="text-gray-600 dark:text-gray-400">向各大搜索引擎提交站点信息</p>
@@ -181,94 +188,101 @@
             </div>
           </div>
         </div>
-      </n-tab-pane>
+    </div>
+  </n-tab-pane>
 
-      <n-tab-pane name="link-building" tab="外链建设">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div class="mb-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">外链建设（待开发）</h3>
-            <p class="text-gray-600 dark:text-gray-400">管理和监控外部链接建设情况</p>
-          </div>
+  <n-tab-pane name="link-building" tab="外链建设">
+    <div class="tab-content-container">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="mb-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">外链建设（待开发）</h3>
+          <p class="text-gray-600 dark:text-gray-400">管理和监控外部链接建设情况</p>
+        </div>
 
-          <!-- 外链统计 -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <div class="flex items-center">
-                <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                  <i class="fas fa-link text-blue-600 dark:text-blue-400"></i>
-                </div>
-                <div class="ml-3">
-                  <p class="text-sm text-gray-600 dark:text-gray-400">总外链数</p>
-                  <p class="text-xl font-bold text-gray-900 dark:text-white">{{ linkStats.total }}</p>
-                </div>
+        <!-- 外链统计 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+            <div class="flex items-center">
+              <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <i class="fas fa-link text-blue-600 dark:text-blue-400"></i>
               </div>
-            </div>
-
-            <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-              <div class="flex items-center">
-                <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                  <i class="fas fa-check text-green-600 dark:text-green-400"></i>
-                </div>
-                <div class="ml-3">
-                  <p class="text-sm text-gray-600 dark:text-gray-400">有效外链</p>
-                  <p class="text-xl font-bold text-gray-900 dark:text-white">{{ linkStats.valid }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-              <div class="flex items-center">
-                <div class="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                  <i class="fas fa-clock text-yellow-600 dark:text-yellow-400"></i>
-                </div>
-                <div class="ml-3">
-                  <p class="text-sm text-gray-600 dark:text-gray-400">待审核</p>
-                  <p class="text-xl font-bold text-gray-900 dark:text-white">{{ linkStats.pending }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-              <div class="flex items-center">
-                <div class="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                  <i class="fas fa-times text-red-600 dark:text-red-400"></i>
-                </div>
-                <div class="ml-3">
-                  <p class="text-sm text-gray-600 dark:text-gray-400">失效外链</p>
-                  <p class="text-xl font-bold text-gray-900 dark:text-white">{{ linkStats.invalid }}</p>
-                </div>
+              <div class="ml-3">
+                <p class="text-sm text-gray-600 dark:text-gray-400">总外链数</p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">{{ linkStats.total }}</p>
               </div>
             </div>
           </div>
 
-          <!-- 外链列表 -->
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <h4 class="text-lg font-medium text-gray-900 dark:text-white">外链列表</h4>
-              <n-button type="primary" @click="addNewLink">
-                <template #icon>
-                  <i class="fas fa-plus"></i>
-                </template>
-                添加外链
-              </n-button>
+          <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+            <div class="flex items-center">
+              <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                <i class="fas fa-check text-green-600 dark:text-green-400"></i>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-gray-600 dark:text-gray-400">有效外链</p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">{{ linkStats.valid }}</p>
+              </div>
             </div>
+          </div>
 
-            <n-data-table
-              :columns="linkColumns"
-              :data="linkList"
-              :pagination="linkPagination"
-              :loading="linkLoading"
-              :bordered="false"
-              striped
-            />
+          <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+            <div class="flex items-center">
+              <div class="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                <i class="fas fa-clock text-yellow-600 dark:text-yellow-400"></i>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-gray-600 dark:text-gray-400">待审核</p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">{{ linkStats.pending }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+            <div class="flex items-center">
+              <div class="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+                <i class="fas fa-times text-red-600 dark:text-red-400"></i>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-gray-600 dark:text-gray-400">失效外链</p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">{{ linkStats.invalid }}</p>
+              </div>
+            </div>
           </div>
         </div>
-      </n-tab-pane>
-    </n-tabs>
-  </div>
+
+        <!-- 外链列表 -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-lg font-medium text-gray-900 dark:text-white">外链列表</h4>
+            <n-button type="primary" @click="addNewLink">
+              <template #icon>
+                <i class="fas fa-plus"></i>
+              </template>
+              添加外链
+            </n-button>
+          </div>
+
+          <n-data-table
+            :columns="linkColumns"
+            :data="linkList"
+            :pagination="linkPagination"
+            :loading="linkLoading"
+            :bordered="false"
+            striped
+          />
+        </div>
+      </div>
+    </div>
+  </n-tab-pane>
+      </n-tabs>
+    </div>
+  </template>
+</AdminPageLayout>
 </template>
 
 <script setup lang="ts">
+import AdminPageLayout from '~/components/AdminPageLayout.vue'
+
 // SEO管理页面
 definePageMeta({
   layout: 'admin'
@@ -493,4 +507,23 @@ const deleteLink = (row: any) => {
 onMounted(() => {
   loadLinkList()
 })
-</script> 
+</script>
+
+<style scoped>
+/* SEO管理页面样式 */
+
+.config-content {
+  padding: 8px;
+  background-color: var(--color-white, #ffffff);
+}
+
+.dark .config-content {
+  background-color: var(--color-dark-bg, #1f2937);
+}
+
+.tab-content-container {
+  height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+</style>

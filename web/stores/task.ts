@@ -65,7 +65,7 @@ export const useTaskStore = defineStore('task', () => {
   // 获取任务统计信息
   const fetchTaskStats = async () => {
     try {
-      const response = await taskApi.getTasks({status: 'running'}) as any
+      const response = await taskApi.getTasks() as any
       // console.log('原始任务API响应:', response)
       
       // 处理API响应格式

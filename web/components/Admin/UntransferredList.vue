@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-4">
+  <div class="h-full flex flex-col gap-2">
     <!-- 搜索和筛选 -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div class="flex-0 grid grid-cols-1 md:grid-cols-5 gap-4">
       <n-input
         v-model:value="searchQuery"
         placeholder="搜索未转存资源..."
@@ -41,47 +41,45 @@
     </div>
 
     <!-- 批量操作 -->
-    <n-card>
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-4">
-          <div class="flex items-center space-x-2">
-            <n-checkbox 
-              :checked="isAllSelected"
-              @update:checked="toggleSelectAll"
-              :indeterminate="isIndeterminate"
-            />
-            <span class="text-sm text-gray-600 dark:text-gray-400">全选</span>
-          </div>
-          <span class="text-sm text-gray-500">
-            共 {{ total }} 个资源，已选择 {{ selectedResources.length }} 个
-          </span>
+    <div class="flex-0 flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <n-checkbox 
+            :checked="isAllSelected"
+            @update:checked="toggleSelectAll"
+            :indeterminate="isIndeterminate"
+          />
+          <span class="text-sm text-gray-600 dark:text-gray-400">全选</span>
         </div>
-        
-        <div class="flex space-x-2">
-          <n-button 
-            type="primary"
-            :disabled="selectedResources.length === 0"
-            :loading="batchTransferring"
-            @click="handleBatchTransfer"
-          >
-            <template #icon>
-              <i class="fas fa-exchange-alt"></i>
-            </template>
-            批量转存 ({{ selectedResources.length }})
-          </n-button>
-          
-          <n-button @click="refreshData">
-            <template #icon>
-              <i class="fas fa-refresh"></i>
-            </template>
-            刷新
-          </n-button>
-        </div>
+        <span class="text-sm text-gray-500">
+          共 {{ total }} 个资源，已选择 {{ selectedResources.length }} 个
+        </span>
       </div>
-    </n-card>
+      
+      <div class="flex space-x-2">
+        <n-button 
+          type="primary"
+          :disabled="selectedResources.length === 0"
+          :loading="batchTransferring"
+          @click="handleBatchTransfer"
+        >
+          <template #icon>
+            <i class="fas fa-exchange-alt"></i>
+          </template>
+          批量转存 ({{ selectedResources.length }})
+        </n-button>
+        
+        <n-button @click="refreshData">
+          <template #icon>
+            <i class="fas fa-refresh"></i>
+          </template>
+          刷新
+        </n-button>
+      </div>
+    </div>
 
     <!-- 资源列表 -->
-    <n-card>
+    <div class="flex-1 h-1">
       <div v-if="loading" class="flex items-center justify-center py-8">
         <n-spin size="large" />
       </div>
@@ -91,13 +89,12 @@
         <p class="text-gray-500">暂无未转存的夸克资源</p>
       </div>
 
-      <div v-else>
+      <div v-else class="h-full">
         <!-- 虚拟列表 -->
         <n-virtual-list
           :items="resources"
           :item-size="120"
-          style="max-height: 500px"
-          container-style="height: 500px;"
+          class="h-full"
         >
           <template #default="{ item }">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -167,22 +164,23 @@
             </div>
           </template>
         </n-virtual-list>
-
-        <!-- 分页 -->
-        <div class="mt-4 flex justify-center">
-          <n-pagination
-            v-model:page="currentPage"
-            v-model:page-size="pageSize"
-            :item-count="total"
-            :page-sizes="[10000, 20000, 50000, 100000]"
-            show-size-picker
-            show-quick-jumper
-            @update:page="handlePageChange"
-            @update:page-size="handlePageSizeChange"
-          />
-        </div>
       </div>
-    </n-card>
+      
+    </div>
+    <div class="flex-0">
+      <div class="flex justify-center">
+        <n-pagination
+          v-model:page="currentPage"
+          v-model:page-size="pageSize"
+          :item-count="total"
+          :page-sizes="[10000, 20000, 50000, 100000]"
+          show-size-picker
+          show-quick-jumper
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </div>
 
     <!-- 网盘账号选择模态框 -->
     <n-modal v-model:show="showAccountSelectionModal" preset="card" title="选择网盘账号" style="width: 600px">
