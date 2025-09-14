@@ -1,112 +1,110 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 h-full">
 
     <!-- 输入区域 -->
-    <n-card title="批量转存资源列表">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- 左侧：资源输入 -->
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              资源内容 <span class="text-red-500">*</span>
-            </label>
-            <n-input
-              v-model:value="resourceText"
-              type="textarea"
-              placeholder="请输入资源内容，格式：标题和URL为一组..."
-              :autosize="{ minRows: 10, maxRows: 15 }"
-              show-count
-              :maxlength="100000"
-            />
-          </div>
-        </div>
-
-        <!-- 右侧：配置选项 -->
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              默认分类
-            </label>
-            <CategorySelector
-              v-model="selectedCategory"
-              placeholder="选择分类"
-              clearable
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              标签
-            </label>
-            <TagSelector
-              v-model="selectedTags"
-              placeholder="选择标签"
-              multiple
-              clearable
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              网盘账号 <span class="text-red-500">*</span>
-            </label>
-            <n-select
-              v-model:value="selectedAccounts"
-              :options="accountOptions"
-              placeholder="选择网盘账号"
-              multiple
-              filterable
-              :loading="accountsLoading"
-              @update:value="handleAccountChange"
-            >
-              <template #option="{ option: accountOption }">
-                <div class="flex items-center justify-between w-full">
-                  <div class="flex items-center space-x-2">
-                    <span class="text-sm">{{ accountOption.label }}</span>
-                    <n-tag v-if="accountOption.is_valid" type="success" size="small">有效</n-tag>
-                    <n-tag v-else type="error" size="small">无效</n-tag>
-                  </div>
-                  <div class="text-xs text-gray-500">
-                    {{ formatSpace(accountOption.left_space) }}
-                  </div>
-                </div>
-              </template>
-            </n-select>
-            <div class="text-xs text-gray-500 mt-1">
-              请选择要使用的网盘账号，系统将使用选中的账号进行转存操作
-            </div>
-          </div>
-
-          <!-- 操作按钮 -->
-          <div class="space-y-3 pt-4">
-            <n-button 
-              type="primary" 
-              block 
-              size="large"
-              :loading="processing"
-              :disabled="!resourceText.trim() || !selectedAccounts.length || processing"
-              @click="handleBatchTransfer"
-            >
-              <template #icon>
-                <i class="fas fa-upload"></i>
-              </template>
-              开始批量转存
-            </n-button>
-            
-            <n-button 
-              block 
-              @click="clearInput"
-              :disabled="processing"
-            >
-              <template #icon>
-                <i class="fas fa-trash"></i>
-              </template>
-              清空内容
-            </n-button>
-          </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- 左侧：资源输入 -->
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            资源内容 <span class="text-red-500">*</span>
+          </label>
+          <n-input
+            v-model:value="resourceText"
+            type="textarea"
+            placeholder="请输入资源内容，格式：标题和URL为一组..."
+            :autosize="{ minRows: 10, maxRows: 15 }"
+            show-count
+            :maxlength="100000"
+          />
         </div>
       </div>
-    </n-card>
+
+      <!-- 右侧：配置选项 -->
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            默认分类
+          </label>
+          <CategorySelector
+            v-model="selectedCategory"
+            placeholder="选择分类"
+            clearable
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            标签
+          </label>
+          <TagSelector
+            v-model="selectedTags"
+            placeholder="选择标签"
+            multiple
+            clearable
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            网盘账号 <span class="text-red-500">*</span>
+          </label>
+          <n-select
+            v-model:value="selectedAccounts"
+            :options="accountOptions"
+            placeholder="选择网盘账号"
+            multiple
+            filterable
+            :loading="accountsLoading"
+            @update:value="handleAccountChange"
+          >
+            <template #option="scope">
+              <div class="flex items-center justify-between w-full" v-if="scope && scope.option">
+                <div class="flex items-center space-x-2">
+                  <span class="text-sm">{{ scope.option.label || '未知账号' }}</span>
+                  <n-tag v-if="scope.option.is_valid" type="success" size="small">有效</n-tag>
+                  <n-tag v-else type="error" size="small">无效</n-tag>
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ formatSpace(scope.option.left_space || 0) }}
+                </div>
+              </div>
+            </template>
+          </n-select>
+          <div class="text-xs text-gray-500 mt-1">
+            请选择要使用的网盘账号，系统将使用选中的账号进行转存操作
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="space-y-3 pt-4">
+          <n-button 
+            type="primary" 
+            block 
+            size="large"
+            :loading="processing"
+            :disabled="!resourceText.trim() || !selectedAccounts.length || processing"
+            @click="handleBatchTransfer"
+          >
+            <template #icon>
+              <i class="fas fa-upload"></i>
+            </template>
+            开始批量转存
+          </n-button>
+          
+          <n-button 
+            block 
+            @click="clearInput"
+            :disabled="processing"
+          >
+            <template #icon>
+              <i class="fas fa-trash"></i>
+            </template>
+            清空内容
+          </n-button>
+        </div>
+      </div>
+    </div>
 
     <!-- 处理结果 -->
     <n-card v-if="results.length > 0" title="转存结果">
@@ -202,15 +200,15 @@ const invalidUrls = computed(() => {
 })
 
 const successCount = computed(() => {
-  return results.value.filter((r: any) => r.status === 'success').length
+  return results.value ? results.value.filter((r: any) => r && r.status === 'success').length : 0
 })
 
 const failedCount = computed(() => {
-  return results.value.filter((r: any) => r.status === 'failed').length
+  return results.value ? results.value.filter((r: any) => r && r.status === 'failed').length : 0
 })
 
 const processingCount = computed(() => {
-  return results.value.filter((r: any) => r.status === 'processing').length
+  return results.value ? results.value.filter((r: any) => r && r.status === 'processing').length : 0
 })
 
 // 结果表格列
@@ -243,9 +241,10 @@ const resultColumns = [
         pending: { color: 'warning', text: '等待中', icon: 'fas fa-clock' }
       }
       const status = statusMap[row.status as keyof typeof statusMap] || statusMap.failed
-      return h('n-tag', { type: status.color }, {
-        icon: () => h('i', { class: status.icon }),
-        default: () => status.text
+      const safeStatus = status || statusMap.failed
+      return h('n-tag', { type: safeStatus.color }, {
+        icon: () => h('i', { class: safeStatus.icon }),
+        default: () => safeStatus.text
       })
     }
   },
@@ -264,7 +263,7 @@ const resultColumns = [
       tooltip: true
     },
     render: (row: any) => {
-      if (row.saveUrl) {
+      if (row && row.saveUrl) {
         return h('a', {
           href: row.saveUrl,
           target: '_blank',
@@ -354,7 +353,11 @@ const handleBatchTransfer = async () => {
     // 第三步：创建任务
     const taskResponse = await taskApi.createBatchTransferTask(taskData) as any
     console.log('任务创建响应:', taskResponse)
-    
+
+    if (!taskResponse || !taskResponse.task_id) {
+      throw new Error('创建任务失败：响应数据无效')
+    }
+
     currentTaskId.value = taskResponse.task_id
     
     // 第四步：启动任务
@@ -523,14 +526,17 @@ const getAccountOptions = async () => {
     const response = await cksApi.getCks() as any
     const accounts = Array.isArray(response) ? response : []
     
-    accountOptions.value = accounts.map((account: any) => ({
-      label: `${account.username || '未知用户'} (${account.pan?.name || '未知平台'})`,
-      value: account.id,
-      is_valid: account.is_valid,
-      left_space: account.left_space,
-      username: account.username,
-      pan_name: account.pan?.name || '未知平台'
-    }))
+    accountOptions.value = accounts.map((account: any) => {
+      if (!account) return null
+      return {
+        label: `${account.username || '未知用户'} (${account.pan?.name || '未知平台'})`,
+        value: account.id,
+        is_valid: account.is_valid || false,
+        left_space: account.left_space || 0,
+        username: account.username || '未知用户',
+        pan_name: account.pan?.name || '未知平台'
+      }
+    }).filter(option => option !== null) as any[]
   } catch (error) {
     console.error('获取网盘账号选项失败:', error)
     message.error('获取网盘账号失败')

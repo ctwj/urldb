@@ -1,13 +1,13 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">待处理资源</h1>
         <p class="text-gray-600 dark:text-gray-400">管理待处理的资源</p>
       </div>
       <div class="flex space-x-3">
-        <n-button @click="navigateTo('/admin/failed-resources')" type="error">
+        <n-button  @click="navigateTo('/admin/failed-resources')" type="tertiary">
           <template #icon>
             <i class="fas fa-exclamation-triangle"></i>
           </template>
@@ -19,98 +19,48 @@
           </template>
           刷新
         </n-button>
-      </div>
-    </div>
-
-    <!-- 自动处理配置状态 -->
-    <n-card>
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <div class="flex items-center space-x-2">
-            <i class="fas fa-cog text-gray-600 dark:text-gray-400"></i>
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">自动处理配置：</span>
-          </div>
-          <div class="flex items-center space-x-2">
-            <div 
-              :class="[
-                'w-3 h-3 rounded-full',
-                systemConfig?.auto_process_ready_resources 
-                  ? 'bg-green-500 animate-pulse' 
-                  : 'bg-red-500'
-              ]"
-            ></div>
-            <span 
-              :class="[
-                'text-sm font-medium',
-                systemConfig?.auto_process_ready_resources 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : 'text-red-600 dark:text-red-400'
-              ]"
-            >
-              {{ systemConfig?.auto_process_ready_resources ? '已开启' : '已关闭' }}
-            </span>
-          </div>
-        </div>
-        <div class="flex items-center space-x-3">
-          <div class="text-xs text-gray-500 dark:text-gray-400">
-            <i class="fas fa-info-circle mr-1"></i>
-            {{ systemConfig?.auto_process_ready_resources 
-              ? '系统会自动处理待处理资源并入库' 
-              : '需要手动处理待处理资源' 
-            }}
-          </div>
-          <!-- <n-button 
-            @click="refreshConfig"
-            :disabled="updatingConfig"
-            size="small"
-            type="tertiary"
-            title="刷新配置"
-          >
-            <template #icon>
-              <i class="fas fa-sync-alt"></i>
-            </template>
-          </n-button> -->
-          <n-button 
+        <n-button
             @click="toggleAutoProcess"
             :disabled="updatingConfig"
             :type="systemConfig?.auto_process_ready_resources ? 'error' : 'success'"
-            size="small"
           >
             <template #icon>
               <i v-if="updatingConfig" class="fas fa-spinner fa-spin"></i>
               <i v-else :class="systemConfig?.auto_process_ready_resources ? 'fas fa-pause' : 'fas fa-play'"></i>
             </template>
-            {{ systemConfig?.auto_process_ready_resources ? '关闭' : '开启' }}
+            {{ systemConfig?.auto_process_ready_resources ? '关闭自动处理' : '开启自动处理' }}
+          </n-button>
+      </div>
+    </template>
+
+    <!-- 内容区header - 资源列表头部 -->
+    <template #content-header>
+      <div class="flex items-center justify-between">
+        <span class="text-lg font-semibold">待处理资源列表</span>
+        <div class="flex items-center space-x-4">
+          <span class="text-sm text-gray-500">共 {{ totalCount }} 个待处理资源</span>
+          <n-button
+            @click="clearAll"
+            type="error"
+            size="small"
+          >
+            <template #icon>
+              <i class="fas fa-trash"></i>
+            </template>
+            清空全部
           </n-button>
         </div>
       </div>
-    </n-card>
+    </template>
 
-    <!-- 资源列表 -->
-    <n-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">待处理资源列表</span>
-          <div class="flex items-center space-x-4">
-            <span class="text-sm text-gray-500">共 {{ totalCount }} 个待处理资源</span>
-            <n-button 
-              @click="clearAll" 
-              type="error"
-              size="small"
-            >
-              <template #icon>
-                <i class="fas fa-trash"></i>
-              </template>
-              清空全部
-            </n-button>
-          </div>
-        </div>
-      </template>
-
+    <!-- 内容区content - 资源列表 -->
+    <template #content>
+      <!-- 加载状态 -->
       <div v-if="loading" class="flex items-center justify-center py-8">
         <n-spin size="large" />
       </div>
 
+      <!-- 空状态 -->
       <div v-else-if="readyResources.length === 0" class="text-center py-8">
         <i class="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
         <p class="text-gray-500">暂无待处理资源</p>
@@ -125,6 +75,7 @@
         </div>
       </div>
 
+      <!-- 数据表格 -->
       <div v-else>
         <n-data-table
           :columns="columns"
@@ -136,8 +87,8 @@
           @update:page="handlePageChange"
         />
       </div>
-    </n-card>
-  </div>
+    </template>
+  </AdminPageLayout>
 </template>
 
 <script setup lang="ts">

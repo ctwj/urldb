@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和保存按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">开发配置</h1>
         <p class="text-gray-600 dark:text-gray-400">管理API和开发相关配置</p>
@@ -12,11 +12,11 @@
         </template>
         保存配置
       </n-button>
-    </div>
+    </template>
 
-    <!-- 配置表单 -->
-    <n-card>
-      <div class="space-y-6">
+    <!-- 内容区 - 配置表单 -->
+    <template #content>
+      <div class="config-content h-full">
         <!-- API Token -->
         <div>
           <n-form-item label="公开API访问令牌" path="api_token">
@@ -71,12 +71,13 @@
           </n-button>
         </div>
       </div>
-    </n-card>
-  </div>
+    </template>
+  </AdminPageLayout>
 </template>
 
 <script setup lang="ts">
 import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
+import AdminPageLayout from '~/components/AdminPageLayout.vue'
 
 // 设置页面布局
 definePageMeta({
@@ -332,4 +333,13 @@ onMounted(() => {
 
 <style scoped>
 /* 自定义样式 */
-</style> 
+
+.config-content {
+  padding: 1rem;
+  background-color: var(--color-white, #ffffff);
+}
+
+.dark .config-content {
+  background-color: var(--color-dark-bg, #1f2937);
+}
+</style>

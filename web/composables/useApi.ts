@@ -244,6 +244,8 @@ export const usePublicSystemConfigApi = () => {
 // 任务管理API
 export const useTaskApi = () => {
   const createBatchTransferTask = (data: any) => useApiFetch('/tasks/transfer', { method: 'POST', body: data }).then(parseApiResponse)
+  const createExpansionTask = (data: any) => useApiFetch('/tasks/expansion', { method: 'POST', body: data }).then(parseApiResponse)
+  const getExpansionAccounts = () => useApiFetch('/tasks/expansion/accounts').then(parseApiResponse)
   const getTasks = (params?: any) => useApiFetch('/tasks', { params }).then(parseApiResponse)
   const getTaskStatus = (id: number) => useApiFetch(`/tasks/${id}`).then(parseApiResponse)
   const startTask = (id: number) => useApiFetch(`/tasks/${id}/start`, { method: 'POST' }).then(parseApiResponse)
@@ -251,7 +253,7 @@ export const useTaskApi = () => {
   const pauseTask = (id: number) => useApiFetch(`/tasks/${id}/pause`, { method: 'POST' }).then(parseApiResponse)
   const deleteTask = (id: number) => useApiFetch(`/tasks/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const getTaskItems = (id: number, params?: any) => useApiFetch(`/tasks/${id}/items`, { params }).then(parseApiResponse)
-  return { createBatchTransferTask, getTasks, getTaskStatus, startTask, stopTask, pauseTask, deleteTask, getTaskItems }
+  return { createBatchTransferTask, createExpansionTask, getExpansionAccounts, getTasks, getTaskStatus, startTask, stopTask, pauseTask, deleteTask, getTaskItems }
 }
 
 // 日志函数：只在开发环境打印

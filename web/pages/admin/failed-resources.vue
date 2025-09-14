@@ -1,36 +1,36 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout :is-sub-page="true">
+    <!-- 页面头部 - 标题和按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">失败资源列表</h1>
         <p class="text-gray-600 dark:text-gray-400">显示处理失败的资源，包含错误信息</p>
       </div>
       <div class="flex space-x-3">
-                 <n-button 
-           @click="retryAllFailed" 
-           :disabled="selectedResources.length === 0 || isProcessing"
-           :type="selectedResources.length > 0 && !isProcessing ? 'success' : 'default'"
-           :loading="isProcessing"
-         >
-           <template #icon>
-             <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
-             <i v-else class="fas fa-redo"></i>
-           </template>
-           {{ isProcessing ? '处理中...' : `重新放入待处理池 (${selectedResources.length})` }}
-         </n-button>
-         <n-button 
-           @click="clearAllErrors" 
-           :disabled="selectedResources.length === 0 || isProcessing"
-           :type="selectedResources.length > 0 && !isProcessing ? 'warning' : 'default'"
-           :loading="isProcessing"
-         >
-           <template #icon>
-             <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
-             <i v-else class="fas fa-trash"></i>
-           </template>
-           {{ isProcessing ? '处理中...' : `删除失败资源 (${selectedResources.length})` }}
-         </n-button>
+        <n-button
+          @click="retryAllFailed"
+          :disabled="selectedResources.length === 0 || isProcessing"
+          :type="selectedResources.length > 0 && !isProcessing ? 'success' : 'default'"
+          :loading="isProcessing"
+        >
+          <template #icon>
+            <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-redo"></i>
+          </template>
+          {{ isProcessing ? '处理中...' : `重新放入待处理池 (${selectedResources.length})` }}
+        </n-button>
+        <n-button
+          @click="clearAllErrors"
+          :disabled="selectedResources.length === 0 || isProcessing"
+          :type="selectedResources.length > 0 && !isProcessing ? 'warning' : 'default'"
+          :loading="isProcessing"
+        >
+          <template #icon>
+            <i v-if="isProcessing" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-trash"></i>
+          </template>
+          {{ isProcessing ? '处理中...' : `删除失败资源 (${selectedResources.length})` }}
+        </n-button>
         <n-button @click="refreshData" type="info">
           <template #icon>
             <i class="fas fa-refresh"></i>
@@ -38,189 +38,194 @@
           刷新
         </n-button>
       </div>
-    </div>
+    </template>
 
-         <!-- 搜索和筛选 -->
-     <n-card>
-       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-         
-         <n-select
-           v-model:value="errorFilter"
-           placeholder="选择状态"
-           :options="statusOptions"
-           clearable
-         />
-         
-                 <n-button type="primary" @click="handleSearch" class="w-full md:w-auto md:min-w-[100px]">
-          <template #icon>
-            <i class="fas fa-search"></i>
+    <!-- 过滤栏 - 搜索和筛选 -->
+    <template #filter-bar>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div class="flex flex-col md:flex-row gap-4">
+          <n-select
+            v-model:value="errorFilter"
+            placeholder="选择状态"
+            :options="statusOptions"
+            clearable
+          />
+          <n-button type="primary" @click="handleSearch" class="w-full md:w-auto md:min-w-[100px]">
+            <template #icon>
+              <i class="fas fa-search"></i>
+            </template>
+            搜索
+          </n-button>
+        </div>
+      </div>
+    </template>
+
+    <!-- 内容区header - 失败资源列表头部 -->
+    <template #content-header>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span class="text-lg font-semibold">失败资源列表</span>
+          <n-checkbox
+            :checked="isAllSelected"
+            :indeterminate="isIndeterminate"
+            @update:checked="toggleSelectAll"
+          >
+            全选
+          </n-checkbox>
+        </div>
+
+        <div class="text-sm text-gray-500">
+          <span>共 {{ totalCount }} 个资源，已选择 {{ selectedResources.length }} 个</span>
+        </div>
+      </div>
+    </template>
+
+    <!-- 内容区content - 失败资源列表 -->
+    <template #content>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="flex items-center justify-center py-12">
+        <n-spin size="large">
+          <template #description>
+            <span class="text-gray-500">加载中...</span>
           </template>
-          搜索
-        </n-button>
-       </div>
-     </n-card>
+        </n-spin>
+      </div>
 
-         <!-- 失败资源列表 -->
-     <n-card>
-       <template #header>
-         <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <span class="text-lg font-semibold">失败资源列表</span>
-                <n-checkbox
-                    :checked="isAllSelected"
-                    :indeterminate="isIndeterminate"
-                    @update:checked="toggleSelectAll"
-                >
-                    全选
-                </n-checkbox>
-            </div>
-           
-           <div class="text-sm text-gray-500">
-             <span class="text-sm text-gray-500">共 {{ totalCount }} 个资源，已选择 {{ selectedResources.length }} 个</span>
-           </div>
-         </div>
-       </template>
+      <!-- 虚拟列表 -->
+      <div v-else-if="failedResources.length > 0">
+        <n-virtual-list
+          :items="failedResources"
+          :item-size="120"
+          :item-resizable="true"
+          style="max-height: 600px"
+        >
+          <template #default="{ item }">
+            <div class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <div class="flex items-center justify-between">
+                <!-- 左侧信息 -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center space-x-4">
+                    <!-- 复选框 -->
+                    <n-checkbox
+                      :checked="selectedResources.includes(item.id)"
+                      @update:checked="(checked) => {
+                        if (checked) {
+                          selectedResources.push(item.id)
+                        } else {
+                          const index = selectedResources.indexOf(item.id)
+                          if (index > -1) {
+                            selectedResources.splice(index, 1)
+                          }
+                        }
+                      }"
+                    />
 
-       <!-- 加载状态 -->
-       <div v-if="loading" class="flex items-center justify-center py-12">
-         <n-spin size="large">
-           <template #description>
-             <span class="text-gray-500">加载中...</span>
-           </template>
-         </n-spin>
-       </div>
+                    <!-- ID -->
+                    <div class="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
+                      #{{ item.id }}
+                    </div>
 
-       <!-- 虚拟列表 -->
-       <n-virtual-list
-         v-if="!loading"
-         :items="failedResources"
-         :item-size="80"
-         :item-resizable="true"
-         style="max-height: 400px"
-         container-style="height: 600px;"
-       >
-         <template #default="{ item }">
-           <div class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                        <div class="flex items-center justify-between">
-             <!-- 左侧信息 -->
-             <div class="flex-1 min-w-0">
-               <div class="flex items-center space-x-4">
-                 <!-- 复选框 -->
-                 <n-checkbox
-                   :checked="selectedResources.includes(item.id)"
-                   @update:checked="(checked) => {
-                     if (checked) {
-                       selectedResources.push(item.id)
-                     } else {
-                       const index = selectedResources.indexOf(item.id)
-                       if (index > -1) {
-                         selectedResources.splice(index, 1)
-                       }
-                     }
-                   }"
-                 />
-                 
-                 <!-- ID -->
-                 <div class="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
-                   #{{ item.id }}
-                 </div>
-                   
-                   <!-- 标题 -->
-                   <div class="flex-1 min-w-0">
-                     <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1" :title="item.title || '未设置'">
-                       {{ item.title || '未设置' }}
-                     </h3>
-                   </div>
-                 </div>
-                 
-                 <!-- 错误信息 -->
-                 <div class="mt-2 flex items-center space-x-2">
+                    <!-- 标题 -->
+                    <div class="flex-1 min-w-0">
+                      <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1" :title="item.title || '未设置'">
+                        {{ item.title || '未设置' }}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <!-- 错误信息 -->
+                  <div class="mt-2 flex items-center space-x-2">
                     <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-1" :title="item.url">
-                       <a 
-                         :href="checkUrlSafety(item.url)" 
-                         target="_blank" 
-                         rel="noopener noreferrer"
-                         class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
-                       >
-                         {{ item.url }}
-                       </a>
-                     </p>
-                   <n-tag type="error" size="small" :title="item.error_msg">
-                     {{ truncateError(item.error_msg) }}
-                   </n-tag>
-                 </div>
-                 
-                 <!-- 底部信息 -->
-                 <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                   <span>创建时间: {{ formatTime(item.create_time) }}</span>
-                   <span>IP: {{ item.ip || '-' }}</span>
-                 </div>
-               </div>
-               
-               <!-- 右侧操作按钮 -->
-               <div class="flex items-center space-x-2 ml-4">
-                 <n-button 
-                   size="small" 
-                   type="success"
-                   @click="retryResource(item.id)"
-                   title="重试此资源"
-                 >
-                   <template #icon>
-                     <i class="fas fa-redo"></i>
-                   </template>
-                 </n-button>
-                 <n-button 
-                   size="small" 
-                   type="warning"
-                   @click="clearError(item.id)"
-                   title="清除错误信息"
-                 >
-                   <template #icon>
-                     <i class="fas fa-broom"></i>
-                   </template>
-                 </n-button>
-                 <n-button 
-                   size="small" 
-                   type="error"
-                   @click="deleteResource(item.id)"
-                   title="删除此资源"
-                 >
-                   <template #icon>
-                     <i class="fas fa-trash"></i>
-                   </template>
-                 </n-button>
-               </div>
-             </div>
-           </div>
-         </template>
-       </n-virtual-list>
+                      <a
+                        :href="checkUrlSafety(item.url)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
+                      >
+                        {{ item.url }}
+                      </a>
+                    </p>
+                    <n-tag type="error" size="small" :title="item.error_msg">
+                      {{ truncateError(item.error_msg) }}
+                    </n-tag>
+                  </div>
 
-       <!-- 空状态 -->
-       <div v-if="!loading && failedResources.length === 0" class="flex flex-col items-center justify-center py-12">
-         <n-empty description="暂无失败资源">
-           <template #icon>
-             <i class="fas fa-check-circle text-4xl text-green-500"></i>
-           </template>
-           <template #extra>
-             <span class="text-sm text-gray-500">所有资源处理成功</span>
-           </template>
-         </n-empty>
-       </div>
+                  <!-- 底部信息 -->
+                  <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span>创建时间: {{ formatTime(item.create_time) }}</span>
+                    <span>IP: {{ item.ip || '-' }}</span>
+                  </div>
+                </div>
 
-       <!-- 分页 -->
-       <div class="mt-6 flex justify-center">
-         <n-pagination
-           v-model:page="currentPage"
-           v-model:page-size="pageSize"
-           :item-count="totalCount"
-           :page-sizes="[100, 200, 500, 1000]"
-           show-size-picker
-           @update:page="fetchData"
-           @update:page-size="(size) => { pageSize = size; currentPage = 1; fetchData() }"
-         />
-       </div>
-     </n-card>
-  </div>
+                <!-- 右侧操作按钮 -->
+                <div class="flex items-center space-x-2 ml-4">
+                  <n-button
+                    size="small"
+                    type="success"
+                    @click="retryResource(item.id)"
+                    title="重试此资源"
+                  >
+                    <template #icon>
+                      <i class="fas fa-redo"></i>
+                    </template>
+                  </n-button>
+                  <n-button
+                    size="small"
+                    type="warning"
+                    @click="clearError(item.id)"
+                    title="清除错误信息"
+                  >
+                    <template #icon>
+                      <i class="fas fa-broom"></i>
+                    </template>
+                  </n-button>
+                  <n-button
+                    size="small"
+                    type="error"
+                    @click="deleteResource(item.id)"
+                    title="删除此资源"
+                  >
+                    <template #icon>
+                      <i class="fas fa-trash"></i>
+                    </template>
+                  </n-button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </n-virtual-list>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else class="flex flex-col items-center justify-center py-12">
+        <n-empty description="暂无失败资源">
+          <template #icon>
+            <i class="fas fa-check-circle text-4xl text-green-500"></i>
+          </template>
+          <template #extra>
+            <span class="text-sm text-gray-500">所有资源处理成功</span>
+          </template>
+        </n-empty>
+      </div>
+    </template>
+
+    <!-- 内容区footer - 分页组件 -->
+    <template #content-footer>
+      <div class="p-4">
+        <div class="flex justify-center">
+          <n-pagination
+            v-model:page="currentPage"
+            v-model:page-size="pageSize"
+            :item-count="totalCount"
+            :page-sizes="[100, 200, 500, 1000]"
+            show-size-picker
+            @update:page="fetchData"
+            @update:page-size="(size) => { pageSize = size; currentPage = 1; fetchData() }"
+          />
+        </div>
+      </div>
+    </template>
+  </AdminPageLayout>
 </template>
 
 <script setup lang="ts">

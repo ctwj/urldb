@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">资源管理</h1>
         <p class="text-gray-600 dark:text-gray-400">管理系统中的所有资源</p>
@@ -26,93 +26,97 @@
           刷新
         </n-button>
       </div>
-    </div>
+    </template>
 
-    <!-- 搜索和筛选 -->
-    <n-card>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <n-input
-          v-model:value="searchQuery"
-          placeholder="搜索资源..."
-          @keyup.enter="handleSearch"
-          clearable
-        >
-          <template #prefix>
-            <i class="fas fa-search"></i>
-          </template>
-        </n-input>
-        
-        <n-select
-          v-model:value="selectedCategory"
-          placeholder="选择分类"
-          :options="categoryOptions"
-          clearable
-        />
-        
-        <n-select
-          v-model:value="selectedPlatform"
-          placeholder="选择平台"
-          :options="platformOptions"
-          clearable
-        />
-        
-        <n-button type="primary" @click="handleSearch" class="w-20">
-          <template #icon>
-            <i class="fas fa-search"></i>
-          </template>
-          搜索
-        </n-button>
-      </div>
-    </n-card>
+    <!-- 过滤栏 - 搜索和筛选 -->
+    <template #filter-bar>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <n-input
+            v-model:value="searchQuery"
+            placeholder="搜索资源..."
+            @keyup.enter="handleSearch"
+            clearable
+          >
+            <template #prefix>
+              <i class="fas fa-search"></i>
+            </template>
+          </n-input>
 
-    <!-- 资源列表 -->
-    <n-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-4">
-            <span class="text-lg font-semibold">资源列表</span>
-            <div class="flex items-center space-x-2">
-              <n-checkbox 
-                :checked="isAllSelected"
-                @update:checked="toggleSelectAll"
-                :indeterminate="isIndeterminate"
-              />
-              <span class="text-sm text-gray-500">全选</span>
-            </div>
-          </div>
-          <span class="text-sm text-gray-500">共 {{ total }} 个资源，已选择 {{ selectedResources.length }} 个</span>
+          <n-select
+            v-model:value="selectedCategory"
+            placeholder="选择分类"
+            :options="categoryOptions"
+            clearable
+          />
+
+          <n-select
+            v-model:value="selectedPlatform"
+            placeholder="选择平台"
+            :options="platformOptions"
+            clearable
+          />
+
+          <n-button type="primary" @click="handleSearch" class="w-20">
+            <template #icon>
+              <i class="fas fa-search"></i>
+            </template>
+            搜索
+          </n-button>
         </div>
-      </template>
+      </div>
+    </template>
 
-      <div v-if="loading" class="flex items-center justify-center py-8">
+    <!-- 内容区header - 资源列表头部 -->
+    <template #content-header>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <span class="text-lg font-semibold">资源列表</span>
+          <div class="flex items-center space-x-2">
+            <n-checkbox
+              :checked="isAllSelected"
+              @update:checked="toggleSelectAll"
+              :indeterminate="isIndeterminate"
+            />
+            <span class="text-sm text-gray-500 dark:text-gray-400">全选</span>
+          </div>
+        </div>
+        <span class="text-sm text-gray-500 dark:text-gray-400">共 {{ total }} 个资源，已选择 {{ selectedResources.length }} 个</span>
+      </div>
+    </template>
+
+    <!-- 内容区content - 资源列表 -->
+    <template #content>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="flex items-center justify-center py-12">
         <n-spin size="large" />
       </div>
 
-      <div v-else-if="resources.length === 0" class="text-center py-8">
+      <!-- 空状态 -->
+      <div v-else-if="resources.length === 0" class="flex flex-col items-center justify-center py-12">
         <i class="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
-        <p class="text-gray-500">暂无资源数据</p>
+        <p class="text-gray-500 dark:text-gray-400">暂无资源数据</p>
       </div>
 
-      <div v-else>
-        <!-- 虚拟列表 -->
+      <!-- 虚拟列表容器 -->
+      <div v-else class="flex-1 h-full overflow-hidden">
         <n-virtual-list
           :items="resources"
           :item-size="100"
-          style="max-height: 400px"
-          container-style="height: 600px;"
+          class="h-full"
         >
           <template #default="{ item: resource }">
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mb-4">
               <div class="flex items-start justify-between">
                 <div class="flex-1">
                   <div class="flex items-center space-x-2 mb-2">
-                    <n-checkbox 
-                      :value="resource.id" 
+                    <n-checkbox
+                      :value="resource.id"
                       :checked="selectedResources.includes(resource.id)"
                       @update:checked="(checked) => toggleResourceSelection(resource.id, checked)"
                     />
-                    <span class="text-sm text-gray-500">{{ resource.id }}</span>
-                    
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ resource.id }}</span>
+
                     <span v-if="resource.pan_id" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded flex-shrink-0">
                       {{ getPlatformName(resource.pan_id) }}
                     </span>
@@ -122,14 +126,14 @@
                     <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded flex-shrink-0">
                       {{ getCategoryName(resource.category_id) }}
                     </span>
-                    
+
                   </div>
-                  
+
                   <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
                     {{ resource.description }}
                   </p>
-                  
-                  <div class="flex items-center space-x-4 text-sm text-gray-500">
+
+                  <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                     <span>
                       <i class="fas fa-link mr-1"></i>
                       {{ resource.url }}
@@ -150,9 +154,9 @@
 
                   <div v-if="resource.tags && resource.tags.length > 0" class="mt-2">
                     <div class="flex flex-wrap gap-1">
-                      <span 
-                        v-for="tag in resource.tags" 
-                        :key="tag.id" 
+                      <span
+                        v-for="tag in resource.tags"
+                        :key="tag.id"
                         class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
                       >
                         {{ tag.name }}
@@ -160,7 +164,7 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <div class="flex items-center space-x-2 ml-4">
                   <!-- <n-button size="small" type="primary" @click="editResource(resource)">
                     <template #icon>
@@ -179,9 +183,13 @@
             </div>
           </template>
         </n-virtual-list>
+      </div>
+    </template>
 
-        <!-- 分页 -->
-        <div class="mt-6">
+    <!-- 内容区footer - 分页组件 -->
+    <template #content-footer>
+      <div class="p-4">
+        <div class="flex justify-center">
           <n-pagination
             v-model:page="currentPage"
             v-model:page-size="pageSize"
@@ -193,104 +201,107 @@
           />
         </div>
       </div>
-    </n-card>
+    </template>
+  </AdminPageLayout>
 
-    <!-- 批量操作模态框 -->
-    <n-modal v-model:show="showBatchModal" preset="card" title="批量操作" style="width: 600px">
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <span class="font-medium">已选择 {{ selectedResources.length }} 个资源</span>
-            <p class="text-sm text-gray-500 mt-1">
-              {{ isAllSelected ? '已全选当前页面' : isIndeterminate ? '部分选中' : '未选择' }}
-            </p>
-          </div>
-          <n-button size="small" @click="clearSelection">清空选择</n-button>
+  <!-- 模态框 - 在AdminPageLayout外部 -->
+  <!-- 批量操作模态框 -->
+  <n-modal v-model:show="showBatchModal" preset="card" title="批量操作" style="width: 600px">
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="font-medium">已选择 {{ selectedResources.length }} 个资源</span>
+          <p class="text-sm text-gray-500 mt-1">
+            {{ isAllSelected ? '已全选当前页面' : isIndeterminate ? '部分选中' : '未选择' }}
+          </p>
         </div>
-        
-        <div class="grid grid-cols-2 gap-4">
-          <n-button type="error" @click="batchDelete" :disabled="selectedResources.length === 0">
-            <template #icon>
-              <i class="fas fa-trash"></i>
-            </template>
-            批量删除
-          </n-button>
-          <n-button type="warning" @click="batchUpdate" :disabled="selectedResources.length === 0">
-            <template #icon>
-              <i class="fas fa-edit"></i>
-            </template>
-            批量更新
-          </n-button>
-        </div>
+        <n-button size="small" @click="clearSelection">清空选择</n-button>
       </div>
-    </n-modal>
 
-    <!-- 编辑资源模态框 -->
-    <n-modal v-model:show="showEditModal" preset="card" title="编辑资源" style="width: 600px">
-      <n-form
-        ref="editFormRef"
-        :model="editForm"
-        :rules="editRules"
-        label-placement="left"
-        label-width="auto"
-        require-mark-placement="right-hanging"
-      >
-        <n-form-item label="标题" path="title">
-          <n-input v-model:value="editForm.title" placeholder="请输入资源标题" />
-        </n-form-item>
+      <div class="grid grid-cols-2 gap-4">
+        <n-button type="error" @click="batchDelete" :disabled="selectedResources.length === 0">
+          <template #icon>
+            <i class="fas fa-trash"></i>
+          </template>
+          批量删除
+        </n-button>
+        <n-button type="warning" @click="batchUpdate" :disabled="selectedResources.length === 0">
+          <template #icon>
+            <i class="fas fa-edit"></i>
+          </template>
+          批量更新
+        </n-button>
+      </div>
+    </div>
+  </n-modal>
 
-        <n-form-item label="描述" path="description">
-          <n-input
-            v-model:value="editForm.description"
-            type="textarea"
-            placeholder="请输入资源描述"
-            :rows="3"
-          />
-        </n-form-item>
+  <!-- 编辑资源模态框 -->
+  <n-modal v-model:show="showEditModal" preset="card" title="编辑资源" style="width: 600px">
+    <n-form
+      ref="editFormRef"
+      :model="editForm"
+      :rules="editRules"
+      label-placement="left"
+      label-width="auto"
+      require-mark-placement="right-hanging"
+    >
+      <n-form-item label="标题" path="title">
+        <n-input v-model:value="editForm.title" placeholder="请输入资源标题" />
+      </n-form-item>
 
-        <n-form-item label="URL" path="url">
-          <n-input v-model:value="editForm.url" placeholder="请输入资源链接" />
-        </n-form-item>
+      <n-form-item label="描述" path="description">
+        <n-input
+          v-model:value="editForm.description"
+          type="textarea"
+          placeholder="请输入资源描述"
+          :rows="3"
+        />
+      </n-form-item>
 
-        <n-form-item label="分类" path="category_id">
-          <n-select
-            v-model:value="editForm.category_id"
-            :options="categoryOptions"
-            placeholder="请选择分类"
-            clearable
-          />
-        </n-form-item>
+      <n-form-item label="URL" path="url">
+        <n-input v-model:value="editForm.url" placeholder="请输入资源链接" />
+      </n-form-item>
 
-        <n-form-item label="平台" path="pan_id">
-          <n-select
-            v-model:value="editForm.pan_id"
-            :options="platformOptions"
-            placeholder="请选择平台"
-            clearable
-          />
-        </n-form-item>
+      <n-form-item label="分类" path="category_id">
+        <n-select
+          v-model:value="editForm.category_id"
+          :options="categoryOptions"
+          placeholder="请选择分类"
+          clearable
+        />
+      </n-form-item>
 
-        <n-form-item label="标签" path="tag_ids">
-          <n-select
-            v-model:value="editForm.tag_ids"
-            :options="tagOptions"
-            placeholder="请选择标签"
-            multiple
-            clearable
-          />
-        </n-form-item>
-      </n-form>
+      <n-form-item label="平台" path="pan_id">
+        <n-select
+          v-model:value="editForm.pan_id"
+          :options="platformOptions"
+          placeholder="请选择平台"
+          clearable
+        />
+      </n-form-item>
 
-      <template #footer>
-        <div class="flex justify-end space-x-3">
-          <n-button @click="showEditModal = false">取消</n-button>
-          <n-button type="primary" @click="handleEditSubmit" :loading="editing">
-            保存
-          </n-button>
-        </div>
-      </template>
-    </n-modal>
-  </div>
+      <n-form-item label="标签" path="tag_ids">
+        <n-select
+          v-model:value="editForm.tag_ids"
+          :options="tagOptions"
+          placeholder="请选择标签"
+          multiple
+          clearable
+        />
+      </n-form-item>
+    </n-form>
+
+    <template #footer>
+      <div class="flex justify-end space-x-3">
+        <n-button @click="showEditModal = false">取消</n-button>
+        <n-button type="primary" @click="handleEditSubmit" :loading="editing">
+          保存
+        </n-button>
+      </div>
+    </template>
+  </n-modal>
+ 
+
 </template>
 
 <script setup lang="ts">

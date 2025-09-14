@@ -92,6 +92,10 @@ func main() {
 	transferProcessor := task.NewTransferProcessor(repoManager)
 	taskManager.RegisterProcessor(transferProcessor)
 
+	// 注册扩容任务处理器
+	expansionProcessor := task.NewExpansionProcessor(repoManager)
+	taskManager.RegisterProcessor(expansionProcessor)
+
 	// 初始化Meilisearch管理器
 	meilisearchManager := services.NewMeilisearchManager(repoManager)
 	if err := meilisearchManager.Initialize(); err != nil {
@@ -285,6 +289,8 @@ func main() {
 
 		// 任务管理路由
 		api.POST("/tasks/transfer", middleware.AuthMiddleware(), middleware.AdminMiddleware(), taskHandler.CreateBatchTransferTask)
+		api.POST("/tasks/expansion", middleware.AuthMiddleware(), middleware.AdminMiddleware(), taskHandler.CreateExpansionTask)
+		api.GET("/tasks/expansion/accounts", middleware.AuthMiddleware(), middleware.AdminMiddleware(), taskHandler.GetExpansionAccounts)
 		api.GET("/tasks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), taskHandler.GetTasks)
 		api.GET("/tasks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), taskHandler.GetTaskStatus)
 		api.POST("/tasks/:id/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), taskHandler.StartTask)

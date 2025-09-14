@@ -78,6 +78,7 @@
 import { ref, onMounted, computed, h } from 'vue'
 import { NButton } from 'naive-ui'
 import { useTaskStore } from '~/stores/task'
+import { useTaskApi } from '~/composables/useApi'
 import { useMessage, useDialog } from 'naive-ui'
 
 // 任务状态管理
@@ -107,7 +108,8 @@ const statusOptions = [
 
 // 类型选项
 const typeOptions = [
-  { label: '转存任务', value: 'transfer' }
+  { label: '转存任务', value: 'transfer' },
+  { label: '扩容任务', value: 'expansion' }
 ]
 
 // 分页配置
@@ -158,15 +160,16 @@ const taskColumns = [
   },
   {
     title: '类型',
-    key: 'task_type',
+    key: 'type',
     width: 80,
     minWidth: 80,
     maxWidth: 80,
     render: (row: any) => {
       const typeMap: Record<string, { text: string; color: string }> = {
-        transfer: { text: '转存', color: 'blue' }
+        transfer: { text: '转存', color: 'blue' },
+        expansion: { text: '扩容', color: 'orange' }
       }
-      const type = typeMap[row.task_type] || { text: row.task_type, color: 'gray' }
+      const type = typeMap[row.type] || { text: row.type, color: 'gray' }
       return h('n-tag', { type: type.color, size: 'small' }, { default: () => type.text })
     }
   },
@@ -347,7 +350,6 @@ const getRowClassName = (row: any) => {
 const fetchTasks = async () => {
   loading.value = true
   try {
-    const { useTaskApi } = await import('~/composables/useApi')
     const taskApi = useTaskApi()
     
     const params: any = {
@@ -360,13 +362,13 @@ const fetchTasks = async () => {
       params.status = statusFilter.value
     }
     if (typeFilter.value) {
-      params.task_type = typeFilter.value
+      params.taskType = typeFilter.value
     }
     
     const response = await taskApi.getTasks(params) as any
     
-    if (response && response.items) {
-      tasks.value = response.items
+    if (response && response.page) {
+      tasks.value = response.tasks || []
       total.value = response.total || 0
     }
   } catch (error) {
@@ -391,7 +393,7 @@ const onTypeFilterChange = () => {
 // 刷新任务列表
 const refreshTasks = async () => {
   // 强制刷新任务状态和列表
-  await taskStore.fetchTaskStats()
+  // await taskStore.fetchTaskStats()
   await fetchTasks()
 }
 

@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">文件管理</h1>
         <p class="text-gray-600 dark:text-gray-400">管理系统中的上传文件</p>
@@ -20,13 +20,15 @@
           刷新
         </n-button>
       </div>
-    </div>
+    </template>
 
-    <!-- 提示信息 -->
-    <n-alert title="支持图片格式文件，最大文件大小5MB" type="info" />
+    <!-- 提示信息区域 -->
+    <template #notice-section>
+      <n-alert title="支持图片格式文件，最大文件大小5MB" type="info" />
+    </template>
 
-    <!-- 搜索和筛选 -->
-    <n-card>
+    <!-- 过滤栏 - 搜索功能 -->
+    <template #filter-bar>
       <div class="flex gap-4">
         <n-input
           v-model:value="searchKeyword"
@@ -39,7 +41,7 @@
             <i class="fas fa-search"></i>
           </template>
         </n-input>
-        
+
         <n-button type="primary" @click="handleSearch" class="w-20">
           <template #icon>
             <i class="fas fa-search"></i>
@@ -47,21 +49,24 @@
           搜索
         </n-button>
       </div>
-    </n-card>
+    </template>
 
-    <!-- 文件列表 -->
-    <n-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">文件列表</span>
-          <span class="text-sm text-gray-500">共 {{ total }} 个文件</span>
-        </div>
-      </template>
+    <!-- 内容区header - 文件列表标题 -->
+    <!-- <template #content-header>
+      <div class="flex items-center justify-between">
+        <span class="text-lg font-semibold">文件列表</span>
+        <span class="text-sm text-gray-500">共 {{ total }} 个文件</span>
+      </div>
+    </template> -->
 
-      <div v-if="loading" class="flex items-center justify-center py-8">
+    <!-- 内容区 - 文件列表 -->
+    <template #content>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="flex h-full items-center justify-center py-8">
         <n-spin size="large" />
       </div>
 
+      <!-- 空状态 -->
       <div v-else-if="fileList.length === 0" class="text-center py-8">
         <i class="fas fa-file-upload text-4xl text-gray-400 mb-4"></i>
         <p class="text-gray-500">暂无文件数据</p>
@@ -73,99 +78,106 @@
         </n-button>
       </div>
 
-      <div v-else>
-        <!-- 图片预览区域 -->
-        <div class="image-preview-container">
-          <n-image-group>
-            <div class="image-grid">
-              <div 
-                v-for="file in fileList" 
-                :key="file.id" 
-                class="image-item"
-                :class="{ 'is-image': isImageFile(file) }"
-              >
-                                 <!-- 图片文件显示预览 -->
-                 <div v-if="isImageFile(file)" class="file-item cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-3 transition-colors border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600">
-                   <div class="image-preview relative">
-                     <n-image
-                       :src="getImageUrl(file.access_url)"
-                       :alt="file.original_name"
-                       :lazy="false"
-                       object-fit="cover"
-                       class="preview-image rounded"
-                       @error="handleImageError"
-                       @load="handleImageLoad"
-                     />
-                     <div class="delete-button">
-                       <n-button 
-                         size="small" 
-                         type="error" 
-                         circle
-                         @click="confirmDelete(file)"
-                       >
-                         <template #icon>
-                           <i class="fas fa-trash"></i>
-                         </template>
-                       </n-button>
-                     </div>
-                   </div>
-                   <div class="image-info mt-2">
-                     <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                       {{ file.original_name }}
-                     </div>
-                     <div class="file-size text-xs text-gray-500 dark:text-gray-400">
-                       {{ formatFileSize(file.file_size) }}
-                     </div>
-                   </div>
-                 </div>
-                
-                                 <!-- 非图片文件显示图标 -->
-                 <div v-else class="file-item cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-3 transition-colors border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 relative">
-                   <div class="file-icon">
-                     <i :class="getFileIconClass(file.file_type)"></i>
-                   </div>
-                   <div class="file-info">
-                     <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                       {{ file.original_name }}
-                     </div>
-                     <div class="file-size text-xs text-gray-500 dark:text-gray-400">
-                       {{ formatFileSize(file.file_size) }}
-                     </div>
-                   </div>
-                   <div class="delete-button">
-                     <n-button 
-                       size="small" 
-                       type="error" 
-                       circle
-                       @click="confirmDelete(file)"
-                     >
-                       <template #icon>
-                         <i class="fas fa-trash"></i>
-                       </template>
-                     </n-button>
-                   </div>
-                 </div>
+      <!-- 文件网格和分页容器 -->
+      <div v-else class="flex flex-col h-full">
+        <!-- 文件网格区域 - 自适应高度 -->
+        <div class="flex-1 overflow-auto">
+          <div class="file-list-container">
+            <n-image-group>
+              <div class="image-grid">
+                <div
+                  v-for="file in fileList"
+                  :key="file.id"
+                  class="image-item"
+                  :class="{ 'is-image': isImageFile(file) }"
+                >
+                  <!-- 图片文件显示预览 -->
+                  <div v-if="isImageFile(file)" class="file-item cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-3 transition-colors border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600">
+                    <div class="image-preview relative">
+                      <n-image
+                        :src="getImageUrl(file.access_url)"
+                        :alt="file.original_name"
+                        :lazy="false"
+                        object-fit="cover"
+                        class="preview-image rounded"
+                        @error="handleImageError"
+                        @load="handleImageLoad"
+                      />
+                      <div class="delete-button">
+                        <n-button
+                          size="small"
+                          type="error"
+                          circle
+                          @click="confirmDelete(file)"
+                        >
+                          <template #icon>
+                            <i class="fas fa-trash"></i>
+                          </template>
+                        </n-button>
+                      </div>
+                    </div>
+                    <div class="image-info mt-2">
+                      <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {{ file.original_name }}
+                      </div>
+                      <div class="file-size text-xs text-gray-500 dark:text-gray-400">
+                        {{ formatFileSize(file.file_size) }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 非图片文件显示图标 -->
+                  <div v-else class="file-item cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-3 transition-colors border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 relative">
+                    <div class="file-icon">
+                      <i :class="getFileIconClass(file.file_type)"></i>
+                    </div>
+                    <div class="file-info">
+                      <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {{ file.original_name }}
+                      </div>
+                      <div class="file-size text-xs text-gray-500 dark:text-gray-400">
+                        {{ formatFileSize(file.file_size) }}
+                      </div>
+                    </div>
+                    <div class="delete-button">
+                      <n-button
+                        size="small"
+                        type="error"
+                        circle
+                        @click="confirmDelete(file)"
+                      >
+                        <template #icon>
+                          <i class="fas fa-trash"></i>
+                        </template>
+                      </n-button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </n-image-group>
-          
-          <!-- 分页 -->
-          <div class="pagination-wrapper">
-            <n-pagination
-              v-model:page="pagination.page"
-              v-model:page-size="pagination.pageSize"
-              :page-count="Math.ceil(pagination.total / pagination.pageSize)"
-              :page-sizes="pagination.pageSizes"
-              show-size-picker
-              @update:page="handlePageChange"
-              @update:page-size="handlePageSizeChange"
-            />
+            </n-image-group>
           </div>
         </div>
       </div>
-    </n-card>
+    </template>
 
-    <!-- 上传模态框 -->
+    <!-- 内容区footer - 分页组件 -->
+    <template #content-footer>
+      <div class="p-4">
+        <div class="flex justify-center">
+          <n-pagination
+            v-model:page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :item-count="pagination.total"
+            :page-sizes="[100, 200, 500, 1000]"
+            show-size-picker
+            @update:page="handlePageChange"
+            @update:page-size="handlePageSizeChange"
+          />
+        </div>
+      </div>
+    </template>
+</AdminPageLayout>
+<!-- 上传模态框 -->
     <n-modal v-model:show="showUploadModal" preset="card" title="上传文件" style="width: 800px" @update:show="handleModalClose">
       <FileUpload ref="fileUploadRef" :key="uploadModalKey" />
       <template #footer>
@@ -191,7 +203,6 @@
         </n-space>
       </template>
     </n-modal>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -479,12 +490,22 @@ onMounted(() => {
 <style scoped>
 /* 文件管理页面样式 */
 
+.file-list-container {
+  /* 容器样式，将替换原来的n-card背景 */
+  padding: 1rem;
+  background-color: var(--color-white, #ffffff);
+}
+
+/* 暗色主题支持 */
+.dark .file-list-container {
+  background-color: var(--color-dark-bg, #1f2937);
+}
 
 .image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
-  max-height: 400px;
+  height: 100%;
   overflow-y: auto;
 }
 
@@ -568,27 +589,26 @@ onMounted(() => {
 }
 
 .pagination-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
+  /* 由于分页已移到外部，这里的样式不再需要 */
+  /* 分页现在直接使用 AdminPageLayout 的 content-footer */
 }
 
-/* 滚动条样式 */
-.image-preview-container::-webkit-scrollbar {
+/* 滚动条样式 - 更新为新的容器类名 */
+.image-grid::-webkit-scrollbar {
   width: 6px;
 }
 
-.image-preview-container::-webkit-scrollbar-track {
+.image-grid::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
 }
 
-.image-preview-container::-webkit-scrollbar-thumb {
+.image-grid::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 3px;
 }
 
-.image-preview-container::-webkit-scrollbar-thumb:hover {
+.image-grid::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 </style> 

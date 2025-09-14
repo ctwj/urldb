@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -385,5 +386,160 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 
 	SuccessResponse(c, gin.H{
 		"message": "任务删除成功",
+	})
+}
+
+// CreateExpansionTask 创建扩容任务
+func (h *TaskHandler) CreateExpansionTask(c *gin.Context) {
+	var req struct {
+		PanAccountID uint                   `json:"pan_account_id" binding:"required"`
+		Description  string                 `json:"description"`
+		DataSource   map[string]interface{} `json:"dataSource"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	utils.Debug("创建扩容任务: 账号ID %d", req.PanAccountID)
+
+	// 获取账号信息，用于构建任务标题
+	cks, err := h.repoMgr.CksRepository.FindByID(req.PanAccountID)
+	if err != nil {
+		utils.Error("获取账号信息失败: %v", err)
+		ErrorResponse(c, "获取账号信息失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 构建账号名称
+	accountName := cks.Username
+	if accountName == "" {
+		accountName = cks.Remark
+	}
+	if accountName == "" {
+		accountName = fmt.Sprintf("账号%d", cks.ID)
+	}
+
+	// 构建任务配置（存储账号ID和数据源）
+	taskConfig := map[string]interface{}{
+		"pan_account_id": req.PanAccountID,
+	}
+	// 如果有数据源配置，添加到taskConfig中
+	if req.DataSource != nil && len(req.DataSource) > 0 {
+		taskConfig["data_source"] = req.DataSource
+	}
+	configJSON, _ := json.Marshal(taskConfig)
+
+	// 创建任务标题，包含账号名称
+	taskTitle := fmt.Sprintf("账号扩容 - %s", accountName)
+
+	// 创建任务
+	newTask := &entity.Task{
+		Title:       taskTitle,
+		Description: req.Description,
+		Type:        "expansion",
+		Status:      "pending",
+		TotalItems:  1, // 扩容任务只有一个项目
+		Config:      string(configJSON),
+		CreatedAt:   utils.GetCurrentTime(),
+		UpdatedAt:   utils.GetCurrentTime(),
+	}
+
+	if err := h.repoMgr.TaskRepository.Create(newTask); err != nil {
+		utils.Error("创建扩容任务失败: %v", err)
+		ErrorResponse(c, "创建任务失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 创建任务项
+	expansionInput := task.ExpansionInput{
+		PanAccountID: req.PanAccountID,
+	}
+	// 如果有数据源配置，添加到输入数据中
+	if req.DataSource != nil && len(req.DataSource) > 0 {
+		expansionInput.DataSource = req.DataSource
+	}
+
+	inputJSON, _ := json.Marshal(expansionInput)
+
+	taskItem := &entity.TaskItem{
+		TaskID:    newTask.ID,
+		Status:    "pending",
+		InputData: string(inputJSON),
+		CreatedAt: utils.GetCurrentTime(),
+		UpdatedAt: utils.GetCurrentTime(),
+	}
+
+	err = h.repoMgr.TaskItemRepository.Create(taskItem)
+	if err != nil {
+		utils.Error("创建扩容任务项失败: %v", err)
+		// 继续处理，不返回错误
+	}
+
+	utils.Debug("扩容任务创建完成: %d", newTask.ID)
+
+	SuccessResponse(c, gin.H{
+		"task_id":     newTask.ID,
+		"total_items": 1,
+		"message":     "扩容任务创建成功",
+	})
+}
+
+// GetExpansionAccounts 获取支持扩容的账号列表
+func (h *TaskHandler) GetExpansionAccounts(c *gin.Context) {
+	// 获取所有有效的账号
+	cksList, err := h.repoMgr.CksRepository.FindByIsValid(false)
+	if err != nil {
+		utils.Error("获取账号列表失败: %v", err)
+		ErrorResponse(c, "获取账号列表失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 过滤出 quark 账号
+	var expansionAccounts []gin.H
+	tasks, _, _ := h.repoMgr.TaskRepository.GetList(1, 1000, "expansion", "completed")
+	for _, ck := range cksList {
+		if ck.ServiceType == "quark" {
+			// 使用 Username 作为账号名称，如果为空则使用 Remark
+			accountName := ck.Username
+			if accountName == "" {
+				accountName = ck.Remark
+			}
+			if accountName == "" {
+				accountName = "账号 " + fmt.Sprintf("%d", ck.ID)
+			}
+
+			// 检查是否已经扩容过
+			expanded := false
+			for _, task := range tasks {
+				if task.Config != "" {
+					var taskConfig map[string]interface{}
+					if err := json.Unmarshal([]byte(task.Config), &taskConfig); err == nil {
+						if configAccountID, ok := taskConfig["pan_account_id"].(float64); ok {
+							if uint(configAccountID) == ck.ID {
+								expanded = true
+								break
+							}
+						}
+					}
+				}
+			}
+
+			expansionAccounts = append(expansionAccounts, gin.H{
+				"id":           ck.ID,
+				"name":         accountName,
+				"service_type": ck.ServiceType,
+				"expanded":     expanded,
+				"created_at":   ck.CreatedAt,
+				"updated_at":   ck.UpdatedAt,
+			})
+		}
+	}
+
+	SuccessResponse(c, gin.H{
+		"accounts": expansionAccounts,
+		"total":    len(expansionAccounts),
+		"message":  "获取支持扩容账号列表成功",
 	})
 }

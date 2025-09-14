@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout>
+    <!-- 页面头部 - 标题和按钮 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">账号管理</h1>
         <p class="text-gray-600 dark:text-gray-400">管理平台账号信息</p>
@@ -13,6 +13,12 @@
           </template>
           添加账号
         </n-button>
+        <n-button @click="goToExpansionManagement" type="warning">
+          <template #icon>
+            <i class="fas fa-expand"></i>
+          </template>
+          账号扩容
+        </n-button>
         <n-button @click="refreshData" type="info">
           <template #icon>
             <i class="fas fa-refresh"></i>
@@ -20,41 +26,43 @@
           刷新
         </n-button>
       </div>
-    </div>
+    </template>
 
-    <!-- 搜索和筛选 -->
-    <n-card>
-      <div class="flex flex-col md:flex-row gap-4">
-        <n-input v-model:value="searchQuery" placeholder="搜索账号..." clearable class="flex-1">
-          <template #prefix>
-            <i class="fas fa-search"></i>
-          </template>
-        </n-input>
+    <!-- 过滤栏 - 搜索和筛选 -->
+    <template #filter-bar>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div class="flex flex-col md:flex-row gap-4">
+          <n-input v-model:value="searchQuery" placeholder="搜索账号..." clearable class="flex-1">
+            <template #prefix>
+              <i class="fas fa-search"></i>
+            </template>
+          </n-input>
 
-        <n-select v-model:value="platform" placeholder="选择平台" :options="platformOptions" clearable
-          @update:value="onPlatformChange" class="w-full md:w-48" />
+          <n-select v-model:value="platform" placeholder="选择平台" :options="platformOptions" clearable
+            @update:value="onPlatformChange" class="w-full md:w-48" />
 
-        <n-button type="primary" @click="handleSearch" class="w-full md:w-auto md:min-w-[100px]">
-          <template #icon>
-            <i class="fas fa-search"></i>
-          </template>
-          搜索
-        </n-button>
-      </div>
-    </n-card>
-
-    <!-- 账号列表 -->
-    <n-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <span class="text-lg font-semibold">账号列表</span>
-          <div class="text-sm text-gray-500">
-            共 {{ filteredCksList.length }} 个账号
-          </div>
+          <n-button type="primary" @click="handleSearch" class="w-full md:w-auto md:min-w-[100px]">
+            <template #icon>
+              <i class="fas fa-search"></i>
+            </template>
+            搜索
+          </n-button>
         </div>
-      </template>
+      </div>
+    </template>
 
-      <!-- 加载状态 -->
+    <!-- 内容区header - 账号列表头部 -->
+    <template #content-header>
+      <div class="flex items-center justify-between">
+        <span class="text-lg font-semibold text-gray-900 dark:text-white">账号列表</span>
+        <div class="text-sm text-gray-500 dark:text-gray-400">
+          共 {{ filteredCksList.length }} 个账号
+        </div>
+      </div>
+    </template>
+
+    <!-- 内容区content - 账号列表表格 -->
+    <template #content>
       <div v-if="loading" class="flex items-center justify-center py-12">
         <n-spin size="large">
           <template #description>
@@ -63,7 +71,6 @@
         </n-spin>
       </div>
 
-      <!-- 空状态 -->
       <div v-else-if="filteredCksList.length === 0" class="flex flex-col items-center justify-center py-12">
         <n-empty description="暂无账号">
           <template #icon>
@@ -80,9 +87,9 @@
         </n-empty>
       </div>
 
-      <!-- 账号列表 -->
-      <div v-else>
-        <n-virtual-list :items="filteredCksList" :item-size="100" style="max-height: 500px">
+      <!-- 账号列表和分页 -->
+      <div v-else class="flex flex-col flex-1 h-full overflow-hidden">
+        <n-virtual-list :items="filteredCksList" :item-size="100" class="h-full">
           <template #default="{ item }">
             <div
               class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
@@ -117,13 +124,13 @@
                     <n-tag :type="item.is_valid ? 'success' : 'error'" size="small">
                       {{ item.is_valid ? '有效' : '无效' }}
                     </n-tag>
-                    <span class="text-xs text-gray-500">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
                       总空间: {{ formatFileSize(item.space) }}
                     </span>
-                    <span class="text-xs text-gray-500">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
                       已使用: {{ formatFileSize(Math.max(0, item.used_space || (item.space - item.left_space))) }}
                     </span>
-                    <span class="text-xs text-gray-500">
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
                       剩余: {{ formatFileSize(Math.max(0, item.left_space)) }}
                     </span>
                   </div>
@@ -165,15 +172,19 @@
           </template>
         </n-virtual-list>
       </div>
-    </n-card>
+    </template>
 
-    <!-- 分页 -->
-    <div class="flex justify-center">
-      <n-pagination v-model:page="currentPage" v-model:page-size="itemsPerPage" :item-count="filteredCksList.length"
-        :page-sizes="[10, 20, 50, 100]" show-size-picker @update:page="goToPage"
-        @update:page-size="(size) => { itemsPerPage = size; currentPage = 1; }" />
-    </div>
-  </div>
+    <!-- 内容区footer - 分页组件 -->
+    <template #content-footer>
+      <div class="p-4">
+        <div class="flex justify-center">
+          <n-pagination v-model:page="currentPage" v-model:page-size="itemsPerPage" :item-count="filteredCksList.length"
+            :page-sizes="[10, 20, 50, 100]" show-size-picker @update:page="goToPage"
+            @update:page-size="(size) => { itemsPerPage = size; currentPage = 1; }" />
+        </div>
+      </div>
+    </template>
+  </AdminPageLayout>
 
   <!-- 创建/编辑账号模态框 -->
   <n-modal :show="showCreateModal || showEditModal" preset="card" title="账号管理" style="width: 500px"
@@ -621,6 +632,11 @@ const refreshData = () => {
 // 分页跳转
 const goToPage = (page) => {
   currentPage.value = page
+}
+
+// 跳转到扩容管理页面
+const goToExpansionManagement = () => {
+  router.push('/admin/accounts-expansion')
 }
 
 // 页面加载
