@@ -1,71 +1,62 @@
 <template>
-  <div class="space-y-6">
-    <!-- 页面标题 -->
-    <div class="flex items-center justify-between">
+  <AdminPageLayout :is-sub-page="true">
+    <!-- 页面头部 - 标题 -->
+    <template #page-header>
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">添加资源</h1>
         <p class="text-gray-600 dark:text-gray-400">添加新的资源到系统</p>
       </div>
-      <n-button @click="navigateTo('/admin/resources')">
-        <template #icon>
-          <i class="fas fa-arrow-left"></i>
-        </template>
-        返回资源管理
-      </n-button>
-    </div>
+      <div></div>
+    </template>
 
-    <!-- 主要内容 -->
-    <n-card>
-      <!-- Tab 切换 -->
-      <div class="border-b border-gray-200 dark:border-gray-700">
-        <div class="flex">
-          <button
-            v-for="tab in tabs"
-            :key="tab.value"
-            :class="[
-              'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-              mode === tab.value 
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            ]"
-            @click="mode = tab.value"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+    <!-- 内容区 -->
+    <template #content>
+      <div class="resource-content h-full">
+        <n-tabs
+          v-model:value="activeTab"
+          type="line"
+          animated
+          class="mb-6"
+        >
+          <n-tab-pane name="batch" tab="批量添加">
+            <div class="tab-content-container">
+              <div class="space-y-8">
+                <AdminBatchAddResource
+                  @success="handleSuccess"
+                  @error="handleError"
+                  @cancel="handleCancel"
+                />
+              </div>
+            </div>
+          </n-tab-pane>
+
+        <n-tab-pane name="singal" tab="单个添加">
+          <div class="tab-content-container">
+            <AdminSingleAddResource
+              @success="handleSuccess"
+              @error="handleError"
+              @cancel="handleCancel"
+            />
+          </div>
+        </n-tab-pane>
+
+        </n-tabs>
       </div>
-
-      <!-- 内容区域 -->
-      <div class="p-6">
-        <!-- 批量添加 -->
-        <AdminBatchAddResource 
-          v-if="mode === 'batch'"
-          @success="handleSuccess"
-          @error="handleError"
-          @cancel="handleCancel"
-        />
-
-        <!-- 单个添加 -->
-        <AdminSingleAddResource 
-          v-else-if="mode === 'single'"
-          @success="handleSuccess"
-          @error="handleError"
-          @cancel="handleCancel"
-        />
-      </div>
-    </n-card>
-  </div>
+    </template>
+  </AdminPageLayout>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+import AdminPageLayout from '~/components/AdminPageLayout.vue'
+
 // 设置页面布局
 definePageMeta({
   layout: 'admin'
 })
 
-import { ref } from 'vue'
 // 根据 Nuxt 3 组件规则，位于 components/Admin/ 的组件会自动以 Admin 前缀导入
-
+const activeTab = ref('batch')
 const tabs = [
   { label: '批量添加', value: 'batch' },
   { label: '单个添加', value: 'single' },
@@ -96,5 +87,19 @@ const handleCancel = () => {
 </script>
 
 <style scoped>
-/* 自定义样式 */
-</style> 
+/* 添加资源页面样式 */
+
+.resource-content {
+  padding: 8px;
+  background-color: var(--color-white, #ffffff);
+}
+
+.dark .resource-content {
+  background-color: var(--color-dark-bg, #1f2937);
+}
+.tab-content-container {
+  height: calc(100vh - 240px);
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+</style>
