@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
 
+	pan "github.com/ctwj/urldb/common"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
@@ -179,13 +182,289 @@ func (ep *ExpansionProcessor) checkAccountType(panAccountID uint) error {
 
 // performExpansion 执行扩容操作
 func (ep *ExpansionProcessor) performExpansion(ctx context.Context, panAccountID uint, dataSource map[string]interface{}) error {
-	// 扩容逻辑暂时留空，直接返回成功
-	// TODO: 实现具体的扩容逻辑
-
 	utils.Info("执行扩容操作，账号ID: %d, 数据源: %v", panAccountID, dataSource)
 
-	// 模拟扩容操作延迟
-	// time.Sleep(2 * time.Second)
+	// 获取账号信息
+	account, err := ep.repoMgr.CksRepository.FindByID(panAccountID)
+	if err != nil {
+		return fmt.Errorf("获取账号信息失败: %v", err)
+	}
 
+	// 创建网盘服务工厂
+	factory := pan.NewPanFactory()
+	service, err := factory.CreatePanServiceByType(pan.Quark, &pan.PanConfig{
+		URL:         "",
+		ExpiredType: 0,
+		IsType:      0,
+		Cookie:      account.Ck,
+	})
+	if err != nil {
+		return fmt.Errorf("创建网盘服务失败: %v", err)
+	}
+	service.SetCKSRepository(ep.repoMgr.CksRepository, *account)
+
+	// 定义扩容分类列表（按优先级排序）
+	categories := []string{
+		"情色", "喜剧", "动作", "科幻", "动画", "悬疑", "犯罪", "惊悚",
+		"冒险", "恐怖", "战争", "传记", "剧情", "爱情", "家庭", "儿童",
+		"音乐", "历史", "奇幻", "歌舞", "武侠", "灾难", "西部", "古装", "运动",
+	}
+
+	// 获取数据源类型
+	dataSourceType := "internal"
+	var thirdPartyURL string
+	if dataSource != nil {
+		if dsType, ok := dataSource["type"].(string); ok {
+			dataSourceType = dsType
+			if dsType == "third-party" {
+				if url, ok := dataSource["url"].(string); ok {
+					thirdPartyURL = url
+				}
+			}
+		}
+	}
+
+	utils.Info("使用数据源类型: %s", dataSourceType)
+
+	totalTransferred := 0
+	totalFailed := 0
+
+	// 逐个处理分类
+	for _, category := range categories {
+		utils.Info("开始处理分类: %s", category)
+
+		// 获取该分类的资源
+		resources, err := ep.getResourcesForCategory(category, dataSourceType, thirdPartyURL)
+		if err != nil {
+			utils.Error("获取分类 %s 的资源失败: %v", category, err)
+			continue
+		}
+
+		if len(resources) == 0 {
+			utils.Info("分类 %s 没有可用资源，跳过", category)
+			continue
+		}
+
+		utils.Info("分类 %s 获取到 %d 个资源", category, len(resources))
+
+		// 转存该分类的资源（限制每个分类最多转存20个）
+		maxPerCategory := 20
+		transferredCount := 0
+
+		for _, resource := range resources {
+			if transferredCount >= maxPerCategory {
+				break
+			}
+
+			// 检查是否还有存储空间
+			hasSpace, err := ep.checkStorageSpace(service, &account.Ck)
+			if err != nil {
+				utils.Error("检查存储空间失败: %v", err)
+				return fmt.Errorf("检查存储空间失败: %v", err)
+			}
+
+			if !hasSpace {
+				utils.Info("存储空间不足，停止扩容")
+				return fmt.Errorf("存储空间不足，无法继续扩容")
+			}
+
+			// 执行转存
+			saveURL, err := ep.transferResource(ctx, service, resource)
+			if err != nil {
+				utils.Error("转存资源失败: %s, 错误: %v", resource.Title, err)
+				totalFailed++
+				continue
+			}
+
+			// 记录转存成功的资源
+			err = ep.recordTransferredResource(resource, account.ID, saveURL)
+			if err != nil {
+				utils.Error("记录转存资源失败: %v", err)
+				// 不影响扩容过程，继续处理
+			}
+
+			totalTransferred++
+			transferredCount++
+			utils.Info("成功转存资源: %s -> %s", resource.Title, saveURL)
+
+			// 每转存5个资源检查一次存储空间
+			if totalTransferred%5 == 0 {
+				utils.Info("已转存 %d 个资源，检查存储空间", totalTransferred)
+			}
+		}
+
+		utils.Info("分类 %s 处理完成，转存 %d 个资源", category, transferredCount)
+	}
+
+	utils.Info("扩容完成，总共转存: %d 个资源，失败: %d 个资源", totalTransferred, totalFailed)
+	return nil
+}
+
+// getResourcesForCategory 获取指定分类的资源
+func (ep *ExpansionProcessor) getResourcesForCategory(category, dataSourceType, thirdPartyURL string) ([]*entity.HotDrama, error) {
+	if dataSourceType == "third-party" && thirdPartyURL != "" {
+		// 从第三方API获取资源
+		return ep.getResourcesFromThirdPartyAPI(category, thirdPartyURL)
+	}
+
+	// 从内部数据库获取资源
+	return ep.getResourcesFromInternalDB(category)
+}
+
+// getResourcesFromInternalDB 从内部数据库获取资源
+func (ep *ExpansionProcessor) getResourcesFromInternalDB(category string) ([]*entity.HotDrama, error) {
+	// 获取该分类下sub_type为"排行"的资源
+	dramas, _, err := ep.repoMgr.HotDramaRepository.FindByCategoryAndSubType(category, "排行", 1, 20)
+	if err != nil {
+		return nil, fmt.Errorf("获取分类 %s 的资源失败: %v", category, err)
+	}
+
+	// 如果没有找到"排行"类型的资源，尝试获取该分类下的所有资源
+	if len(dramas) == 0 {
+		dramas, _, err = ep.repoMgr.HotDramaRepository.FindByCategory(category, 1, 20)
+		if err != nil {
+			return nil, fmt.Errorf("获取分类 %s 的资源失败: %v", category, err)
+		}
+	}
+
+	// 转换为指针数组
+	result := make([]*entity.HotDrama, len(dramas))
+	for i := range dramas {
+		result[i] = &dramas[i]
+	}
+
+	return result, nil
+}
+
+// getResourcesFromThirdPartyAPI 从第三方API获取资源
+func (ep *ExpansionProcessor) getResourcesFromThirdPartyAPI(category, apiURL string) ([]*entity.HotDrama, error) {
+	// 构建API请求URL，添加分类参数
+	requestURL := fmt.Sprintf("%s?category=%s&limit=20", apiURL, category)
+
+	// 发送HTTP请求
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(requestURL)
+	if err != nil {
+		return nil, fmt.Errorf("请求第三方API失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("第三方API返回错误状态码: %d", resp.StatusCode)
+	}
+
+	// 解析响应数据（假设API返回JSON格式的资源列表）
+	var apiResponse struct {
+		Data []*entity.HotDrama `json:"data"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&apiResponse)
+	if err != nil {
+		return nil, fmt.Errorf("解析第三方API响应失败: %v", err)
+	}
+
+	return apiResponse.Data, nil
+}
+
+// checkStorageSpace 检查存储空间是否足够
+func (ep *ExpansionProcessor) checkStorageSpace(service pan.PanService, ck *string) (bool, error) {
+	userInfo, err := service.GetUserInfo(ck)
+	if err != nil {
+		utils.Error("获取用户信息失败: %v", err)
+		// 如果无法获取用户信息，假设还有空间继续
+		return true, nil
+	}
+
+	// 检查是否还有足够的空间（保留至少10GB空间）
+	const reservedSpaceGB = 100
+	reservedSpaceBytes := int64(reservedSpaceGB * 1024 * 1024 * 1024)
+
+	if userInfo.TotalSpace-userInfo.UsedSpace <= reservedSpaceBytes {
+		utils.Info("存储空间不足，已使用: %d bytes，总容量: %d bytes",
+			userInfo.UsedSpace, userInfo.TotalSpace)
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// transferResource 执行单个资源的转存
+func (ep *ExpansionProcessor) transferResource(ctx context.Context, service pan.PanService, drama *entity.HotDrama) (string, error) {
+	// 如果没有URL，跳过转存
+	if drama.PosterURL == "" {
+		return "", fmt.Errorf("资源 %s 没有有效的URL", drama.Title)
+	}
+
+	// 提取分享ID
+	shareID, _ := pan.ExtractShareId(drama.PosterURL)
+	if shareID == "" {
+		return "", fmt.Errorf("无法从URL %s 提取分享ID", drama.PosterURL)
+	}
+
+	// 执行转存
+	result, err := service.Transfer(shareID)
+	if err != nil {
+		return "", fmt.Errorf("转存失败: %v", err)
+	}
+
+	if result == nil || !result.Success {
+		errorMsg := "转存失败"
+		if result != nil {
+			errorMsg = result.Message
+		}
+		return "", fmt.Errorf("转存失败: %s", errorMsg)
+	}
+
+	// 提取转存链接
+	var saveURL string
+	if result.Data != nil {
+		if data, ok := result.Data.(map[string]interface{}); ok {
+			if v, ok := data["shareUrl"]; ok {
+				saveURL, _ = v.(string)
+			}
+		}
+	}
+	if saveURL == "" {
+		saveURL = result.ShareURL
+	}
+
+	if saveURL == "" {
+		return "", fmt.Errorf("转存成功但未获取到分享链接")
+	}
+
+	return saveURL, nil
+}
+
+// recordTransferredResource 记录转存成功的资源
+func (ep *ExpansionProcessor) recordTransferredResource(drama *entity.HotDrama, accountID uint, saveURL string) error {
+	// 获取夸克网盘的平台ID
+	panIDInt, err := ep.repoMgr.PanRepository.FindIdByServiceType("quark")
+	if err != nil {
+		utils.Error("获取夸克网盘平台ID失败: %v", err)
+		return err
+	}
+
+	// 转换为uint
+	panID := uint(panIDInt)
+
+	// 创建资源记录
+	resource := &entity.Resource{
+		Title:     drama.Title,
+		URL:       drama.PosterURL,
+		SaveURL:   saveURL,
+		PanID:     &panID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		IsValid:   true,
+		IsPublic:  false, // 扩容资源默认不公开
+	}
+
+	// 保存到数据库
+	err = ep.repoMgr.ResourceRepository.Create(resource)
+	if err != nil {
+		return fmt.Errorf("保存资源记录失败: %v", err)
+	}
+
+	utils.Info("成功记录转存资源: %s (ID: %d)", drama.Title, resource.ID)
 	return nil
 }
