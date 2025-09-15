@@ -169,6 +169,25 @@ func (ds *DoubanService) GetRecentHotTVs() ([]DoubanItem, error) {
 	return items, nil
 }
 
+// GetRank fetches recent rank info
+func (ds *DoubanService) GetRank(url string) ([]DoubanItem, error) {
+	params := map[string]string{
+		// "start":      "0",
+		// "count":      "20",
+		// "updated_at": "",
+		// "items_only": "",
+		// "type_tag":   "",
+		// "for_mobile": "1",
+	}
+	items := []DoubanItem{}
+	pageItems, _, err := ds.fetchPage(url, params)
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, pageItems...)
+	return items, nil
+}
+
 // GetRecentHotShows fetches recent hot shows
 func (ds *DoubanService) GetRecentHotShows() ([]DoubanItem, error) {
 	url := "https://m.douban.com/rexxar/api/v2/subject/recent_hot/tv"

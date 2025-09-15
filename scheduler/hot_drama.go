@@ -106,6 +106,10 @@ func (h *HotDramaScheduler) processHotDramaNames(dramaNames []string) {
 	top250Dramas := h.processTop250Movies()
 	allDramas = append(allDramas, top250Dramas...)
 
+	// 获取豆瓣各类别排行数据
+	randDramas := h.processSubTypeRank()
+	allDramas = append(allDramas, randDramas...)
+
 	// 设置排名顺序（保持豆瓣返回的顺序）
 	for i, drama := range allDramas {
 		drama.Rank = i
@@ -232,6 +236,80 @@ func (h *HotDramaScheduler) processTop250Movies() []*entity.HotDrama {
 
 	utils.Info("豆瓣电影Top250数据处理完成，共收集 %d 条数据", len(top250Movies))
 	return top250Movies
+}
+
+// processSubTypeRank 处理子类别排名数据
+func (h *HotDramaScheduler) processSubTypeRank() []*entity.HotDrama {
+	utils.Info("开始处理子类别排名数据...")
+
+	// 定义子类别配置
+	subTypeConfigs := []struct {
+		category string
+		subType  string
+		url      string
+	}{
+		{"喜剧", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECAYN54KI/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"剧情", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_27/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"爱情", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECSAOJFTA/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"动作", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECBUOLQGY/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"科幻", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECZYOJPLI/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"动画", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/EC3UOBDQY/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"悬疑", "机器热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECPQOJP5Q/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"犯罪", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECLAN6LHQ/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"惊悚", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECBUOL2DA/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"冒险", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECDYOE7WY/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"家庭", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_41/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"儿童", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_42/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"音乐", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_39/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"历史", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_44/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"奇幻", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_48/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"恐怖", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECV4N4FBI/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"战争", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/EC6MOCTVQ/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"传记", "近期热门", "https://m.douban.com/rexxar/api/v2/subject_collection/EC3EOHEYY/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"歌舞", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_40/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"武侠", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_50/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"情色", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_37/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"灾难", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/natural_disasters/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"西部", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_47/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"古装", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/film_genre_51/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+		{"运动", "热门", "https://m.douban.com/rexxar/api/v2/subject_collection/ECCEPGM4Y/items?start=0&count=20&updated_at=&items_only=1&type_tag=&for_mobile=1"},
+	}
+
+	var allDramas []*entity.HotDrama
+
+	// 遍历每个子类别
+	for _, config := range subTypeConfigs {
+		utils.Info("处理子类别: %s (%s)", config.category, "排行")
+
+		items, err := h.doubanService.GetRank(config.url)
+		if err != nil {
+			utils.Error(fmt.Sprintf("获取%s-%s数据失败: %v", config.category, "排行", err))
+			continue
+		}
+
+		utils.Info("子类别%s-%s获取到%d个数据", config.category, "排行", len(items))
+
+		// 转换每个item
+		for _, item := range items {
+			drama := h.convertDoubanItemToHotDrama(item, config.category, "排行")
+			allDramas = append(allDramas, drama)
+			utils.Info("收集子类别%s-%s: %s (评分: %.1f, 年份: %s, 地区: %s)",
+				config.category, config.subType, item.Title, item.Rating.Value, item.Year, item.Region)
+		}
+	}
+
+	// 根据DoubanID去重
+	seen := make(map[string]bool)
+	uniqueDramas := make([]*entity.HotDrama, 0)
+	for _, drama := range allDramas {
+		if !seen[drama.DoubanID] {
+			seen[drama.DoubanID] = true
+			uniqueDramas = append(uniqueDramas, drama)
+		}
+	}
+
+	utils.Info("子类别排名数据处理完成，去重后共收集%d条数据", len(uniqueDramas))
+	return uniqueDramas
 }
 
 // convertDoubanItemToHotDrama 转换DoubanItem为HotDrama实体
