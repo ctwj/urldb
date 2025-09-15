@@ -1,0 +1,258 @@
+package handlers
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/ctwj/urldb/db/converter"
+	"github.com/ctwj/urldb/db/dto"
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
+	"github.com/ctwj/urldb/services"
+
+	"github.com/gin-gonic/gin"
+)
+
+// TelegramHandler Telegram 处理器
+type TelegramHandler struct {
+	telegramChannelRepo repo.TelegramChannelRepository
+	systemConfigRepo    repo.SystemConfigRepository
+	telegramBotService  services.TelegramBotService
+}
+
+// NewTelegramHandler 创建 Telegram 处理器
+func NewTelegramHandler(
+	telegramChannelRepo repo.TelegramChannelRepository,
+	systemConfigRepo repo.SystemConfigRepository,
+	telegramBotService services.TelegramBotService,
+) *TelegramHandler {
+	return &TelegramHandler{
+		telegramChannelRepo: telegramChannelRepo,
+		systemConfigRepo:    systemConfigRepo,
+		telegramBotService:  telegramBotService,
+	}
+}
+
+// GetBotConfig 获取机器人配置
+func (h *TelegramHandler) GetBotConfig(c *gin.Context) {
+	configs, err := h.systemConfigRepo.GetOrCreateDefault()
+	if err != nil {
+		ErrorResponse(c, "获取配置失败", http.StatusInternalServerError)
+		return
+	}
+
+	botConfig := converter.SystemConfigToTelegramBotConfig(configs)
+	SuccessResponse(c, botConfig)
+}
+
+// UpdateBotConfig 更新机器人配置
+func (h *TelegramHandler) UpdateBotConfig(c *gin.Context) {
+	var req dto.TelegramBotConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
+		return
+	}
+
+	// 转换为系统配置实体
+	configs := converter.TelegramBotConfigRequestToSystemConfigs(req)
+
+	// 保存配置
+	if len(configs) > 0 {
+		err := h.systemConfigRepo.UpsertConfigs(configs)
+		if err != nil {
+			ErrorResponse(c, "保存配置失败", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// 重新加载配置缓存
+	if err := h.systemConfigRepo.SafeRefreshConfigCache(); err != nil {
+		ErrorResponse(c, "刷新配置缓存失败", http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: 这里应该启动或停止 Telegram bot 服务
+	// if req.BotEnabled != nil && *req.BotEnabled {
+	//     go h.telegramBotService.Start()
+	// } else {
+	//     go h.telegramBotService.Stop()
+	// }
+
+	// 返回成功
+	SuccessResponse(c, map[string]interface{}{
+		"success": true,
+		"message": "配置更新成功",
+	})
+}
+
+// ValidateApiKey 校验 API Key
+func (h *TelegramHandler) ValidateApiKey(c *gin.Context) {
+	var req dto.ValidateTelegramApiKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
+		return
+	}
+
+	valid, botInfo, err := h.telegramBotService.ValidateApiKey(req.ApiKey)
+	if err != nil {
+		ErrorResponse(c, "校验失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := dto.ValidateTelegramApiKeyResponse{
+		Valid:   valid,
+		BotInfo: botInfo,
+	}
+
+	if !valid {
+		response.Error = "无效的 API Key"
+	}
+
+	SuccessResponse(c, response)
+}
+
+// GetChannels 获取频道列表
+func (h *TelegramHandler) GetChannels(c *gin.Context) {
+	channels, err := h.telegramChannelRepo.FindAll()
+	if err != nil {
+		ErrorResponse(c, "获取频道列表失败", http.StatusInternalServerError)
+		return
+	}
+
+	channelResponses := converter.TelegramChannelsToResponse(channels)
+	SuccessResponse(c, channelResponses)
+}
+
+// CreateChannel 创建频道
+func (h *TelegramHandler) CreateChannel(c *gin.Context) {
+	var req dto.TelegramChannelRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
+		return
+	}
+
+	// 检查频道是否已存在
+	existing, err := h.telegramChannelRepo.FindByChatID(req.ChatID)
+	if err == nil && existing != nil {
+		ErrorResponse(c, "该频道/群组已注册", http.StatusBadRequest)
+		return
+	}
+
+	// 获取当前用户信息作为注册者
+	username := getCurrentUsername(c) // 需要实现获取用户信息的方法
+
+	channel := converter.RequestToTelegramChannel(req, username)
+
+	if err := h.telegramChannelRepo.Create(&channel); err != nil {
+		ErrorResponse(c, "创建频道失败", http.StatusInternalServerError)
+		return
+	}
+
+	response := converter.TelegramChannelToResponse(channel)
+	SuccessResponse(c, response)
+}
+
+// UpdateChannel 更新频道
+func (h *TelegramHandler) UpdateChannel(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	var req dto.TelegramChannelRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
+		return
+	}
+
+	// 查找现有频道
+	channel, err := h.telegramChannelRepo.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "频道不存在", http.StatusNotFound)
+		return
+	}
+
+	// 更新频道信息
+	channel.ChatName = req.ChatName
+	channel.ChatType = req.ChatType
+	channel.PushEnabled = req.PushEnabled
+	channel.PushFrequency = req.PushFrequency
+	channel.ContentCategories = req.ContentCategories
+	channel.ContentTags = req.ContentTags
+	channel.IsActive = req.IsActive
+
+	if err := h.telegramChannelRepo.Update(channel); err != nil {
+		ErrorResponse(c, "更新频道失败", http.StatusInternalServerError)
+		return
+	}
+
+	response := converter.TelegramChannelToResponse(*channel)
+	SuccessResponse(c, response)
+}
+
+// DeleteChannel 删除频道
+func (h *TelegramHandler) DeleteChannel(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	// 检查频道是否存在
+	channel, err := h.telegramChannelRepo.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "频道不存在", http.StatusNotFound)
+		return
+	}
+
+	// 删除频道
+	if err := h.telegramChannelRepo.Delete(uint(id)); err != nil {
+		ErrorResponse(c, "删除频道失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"success": true,
+		"message": "频道 " + channel.ChatName + " 已成功移除",
+	})
+}
+
+// RegisterChannelByCommand 通过命令注册频道（供内部调用）
+func (h *TelegramHandler) RegisterChannelByCommand(chatID int64, chatName, chatType string) error {
+	// 检查是否已注册
+	existing, err := h.telegramChannelRepo.FindByChatID(chatID)
+	if err == nil && existing != nil {
+		// 已存在，返回成功
+		return nil
+	}
+
+	// 创建新的频道记录
+	channel := entity.TelegramChannel{
+		ChatID:        chatID,
+		ChatName:      chatName,
+		ChatType:      chatType,
+		PushEnabled:   true,
+		PushFrequency: 24, // 默认24小时
+		IsActive:      true,
+		RegisteredBy:  "bot_command",
+	}
+
+	return h.telegramChannelRepo.Create(&channel)
+}
+
+// HandleWebhook 处理 Telegram Webhook
+func (h *TelegramHandler) HandleWebhook(c *gin.Context) {
+	// 将消息交给 bot 服务处理
+	// 这里可以根据需要添加身份验证
+	h.telegramBotService.HandleWebhookUpdate(c)
+}
+
+// getCurrentUsername 获取当前用户名（临时实现）
+func getCurrentUsername(c *gin.Context) string {
+	// 这里应该从中间件中获取用户信息
+	// 暂时返回默认值
+	return "admin"
+}
