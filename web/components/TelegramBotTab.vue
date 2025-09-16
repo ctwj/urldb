@@ -1,6 +1,6 @@
 <template>
-  <div class="tab-content-container h-full overflow-y-auto">
-    <div class="space-y-8 h-full">
+  <div class="tab-content-container h-full flex flex-col overflow-hidden">
+    <div class="space-y-8 h-1 flex-1 overflow-auto">
       <!-- 机器人基本配置 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center mb-6">
@@ -60,17 +60,6 @@
                   机器人：@{{ apiKeyValidationResult.bot_info.username }} ({{ apiKeyValidationResult.bot_info.first_name }})
                 </span>
               </div>
-            </div>
-
-            <div class="flex justify-end">
-              <n-button
-                type="primary"
-                :loading="savingBotConfig"
-                :disabled="!hasBotConfigChanges"
-                @click="saveBotConfig"
-              >
-                保存配置
-              </n-button>
             </div>
           </div>
         </div>
@@ -249,6 +238,22 @@
         </div>
       </div>
     </div>
+    <div class="flex justify-end p-2">
+       <n-button @click="showLogDrawer = true">
+         <template #icon>
+           <i class="fas fa-list-alt"></i>
+         </template>
+         日志
+       </n-button>
+       <n-button
+         type="primary"
+         :loading="savingBotConfig"
+         :disabled="!hasBotConfigChanges"
+         @click="saveBotConfig"
+       >
+         保存配置
+       </n-button>
+     </div>
   </div>
 
   <!-- 注册频道对话框 -->
@@ -299,10 +304,91 @@
       </div>
     </div>
   </n-modal>
+
+  <!-- Telegram 日志抽屉 -->
+  <n-drawer
+    v-model:show="showLogDrawer"
+    title="Telegram 机器人日志"
+    width="80%"
+    placement="right"
+  >
+    <n-drawer-content>
+      <div class="space-y-4">
+        <!-- 日志控制栏 -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-4">
+            <span class="text-sm text-gray-600 dark:text-gray-400">时间范围:</span>
+            <n-select
+              v-model:value="logHours"
+              :options="[
+                { label: '1小时', value: 1 },
+                { label: '6小时', value: 6 },
+                { label: '24小时', value: 24 },
+                { label: '72小时', value: 72 }
+              ]"
+              size="small"
+              style="width: 100px"
+              @update:value="refreshLogs"
+            />
+          </div>
+          <div class="flex items-center space-x-2">
+            <n-button size="small" @click="refreshLogs" :loading="loadingLogs">
+              <template #icon>
+                <i class="fas fa-sync-alt"></i>
+              </template>
+              刷新
+            </n-button>
+          </div>
+        </div>
+
+        <!-- 日志列表 -->
+        <div class="space-y-2 max-h-96 overflow-y-auto">
+          <div v-if="telegramLogs.length === 0 && !loadingLogs" class="text-center py-8">
+            <i class="fas fa-list-alt text-4xl text-gray-400 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">暂无日志</h3>
+            <p class="text-gray-500 dark:text-gray-400">机器人运行日志将显示在这里</p>
+          </div>
+
+          <div v-else-if="loadingLogs" class="text-center py-8">
+            <n-spin size="large" />
+            <p class="text-gray-500 dark:text-gray-400 mt-4">加载日志中...</p>
+          </div>
+
+          <div v-for="log in telegramLogs" :key="`${log.timestamp}-${Math.random()}`"
+               class="flex items-start space-x-3 p-3 rounded-lg border"
+               :class="getLogItemClass(log.level)">
+            <div class="flex-shrink-0">
+              <i :class="getLogIcon(log.level)" class="text-lg"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center space-x-2 mb-1">
+                <span class="text-xs font-medium" :class="getLogLevelClass(log.level)">
+                  {{ log.level.toUpperCase() }}
+                </span>
+                <span class="text-xs text-gray-400">{{ formatTimestamp(log.timestamp) }}</span>
+                <n-tag v-if="log.category" size="small" :type="getCategoryTagType(log.category)">
+                  {{ getCategoryLabel(log.category) }}
+                </n-tag>
+              </div>
+              <p class="text-sm text-gray-900 dark:text-white break-words">{{ log.message }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 日志统计 -->
+        <div class="flex justify-between items-center text-sm text-gray-600 dark:text-gray-400">
+          <span>显示 {{ telegramLogs.length }} 条日志</span>
+          <span v-if="telegramLogs.length > 0">
+            加载于 {{ formatTimestamp(new Date().toISOString()) }}
+          </span>
+        </div>
+      </div>
+    </n-drawer-content>
+  </n-drawer>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useNotification, useDialog } from 'naive-ui'
 import { useTelegramApi } from '~/composables/useApi'
 
@@ -322,8 +408,12 @@ const savingBotConfig = ref(false)
 const apiKeyValidationResult = ref<any>(null)
 const hasBotConfigChanges = ref(false)
 const showRegisterChannelDialog = ref(false)
+const showLogDrawer = ref(false)
 const refreshingChannels = ref(false)
 const testingConnection = ref(false)
+const telegramLogs = ref<any[]>([])
+const loadingLogs = ref(false)
+const logHours = ref(24)
 
 // 使用统一的Telegram API
 const telegramApi = useTelegramApi()
@@ -424,21 +514,24 @@ const saveBotConfig = async () => {
 
   // 先校验key 是否有效
   try {
-    const data = await telegramApi.validateApiKey({
-      api_key: telegramBotConfig.value.bot_api_key
-    }) as any
+    if (telegramBotConfig.value.bot_enabled) {
+      const data = await telegramApi.validateApiKey({
+        api_key: telegramBotConfig.value.bot_api_key
+      }) as any
 
-    console.log('API Key 校验结果:', data)
-    if (data) {
-      apiKeyValidationResult.value = data
-      if (!data.valid) {
-        notification.error({
-          content: data.error,
-          duration: 3000
-        })
-        return
+      console.log('API Key 校验结果:', data)
+      if (data) {
+        apiKeyValidationResult.value = data
+        if (!data.valid) {
+          notification.error({
+            content: data.error,
+            duration: 3000
+          })
+          return
+        }
       }
     }
+
   } catch (error: any) {
     apiKeyValidationResult.value = {
       valid: false,
@@ -450,7 +543,6 @@ const saveBotConfig = async () => {
     })
     return
   }
-
 
   try {
     const configRequest: any = {}
@@ -623,6 +715,102 @@ const testBotConnection = async () => {
   }
 }
 
+// 获取 Telegram 日志
+const fetchTelegramLogs = async () => {
+  loadingLogs.value = true
+  try {
+    const data = await telegramApi.getLogs({
+      hours: logHours.value,
+      limit: 100
+    }) as any
+    if (data && data.logs) {
+      telegramLogs.value = data.logs
+    }
+  } catch (error: any) {
+    console.error('获取 Telegram 日志失败:', error)
+    notification.error({
+      content: '获取日志失败：' + (error?.message || '请稍后重试'),
+      duration: 3000
+    })
+  } finally {
+    loadingLogs.value = false
+  }
+}
+
+// 刷新日志
+const refreshLogs = async () => {
+  await fetchTelegramLogs()
+  notification.success({
+    content: '日志已刷新',
+    duration: 2000
+  })
+}
+
+// 获取日志图标
+const getLogIcon = (level: string) => {
+  switch (level.toLowerCase()) {
+    case 'info': return 'fas fa-info-circle text-blue-500'
+    case 'warn': return 'fas fa-exclamation-triangle text-yellow-500'
+    case 'error': return 'fas fa-times-circle text-red-500'
+    case 'fatal': return 'fas fa-skull-crossbones text-red-700'
+    default: return 'fas fa-circle text-gray-400'
+  }
+}
+
+// 格式化时间戳
+const formatTimestamp = (timestamp: string) => {
+  return new Date(timestamp).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+// 获取日志项样式类
+const getLogItemClass = (level: string) => {
+  switch (level.toLowerCase()) {
+    case 'error': return 'border-red-200 bg-red-50 dark:bg-red-900/10'
+    case 'warn': return 'border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10'
+    case 'info': return 'border-blue-200 bg-blue-50 dark:bg-blue-900/10'
+    default: return 'border-gray-200 bg-gray-50 dark:bg-gray-900/10'
+  }
+}
+
+// 获取日志级别样式类
+const getLogLevelClass = (level: string) => {
+  switch (level.toLowerCase()) {
+    case 'error': return 'text-red-600 dark:text-red-400'
+    case 'warn': return 'text-yellow-600 dark:text-yellow-400'
+    case 'info': return 'text-blue-600 dark:text-blue-400'
+    default: return 'text-gray-600 dark:text-gray-400'
+  }
+}
+
+// 获取分类标签类型
+const getCategoryTagType = (category: string): "success" | "error" | "warning" | "default" | "primary" | "info" => {
+  switch (category?.toLowerCase()) {
+    case 'push': return 'success'
+    case 'message': return 'info'
+    case 'channel': return 'warning'
+    case 'service': return 'default'
+    default: return 'default'
+  }
+}
+
+// 获取类别标签文字
+const getCategoryLabel = (category: string): string => {
+  switch (category?.toLowerCase()) {
+    case 'push': return '推送'
+    case 'message': return '消息'
+    case 'channel': return '频道'
+    case 'service': return '服务'
+    default: return category || '通用'
+  }
+}
+
 const notification = useNotification()
 const dialog = useDialog()
 
@@ -631,6 +819,13 @@ onMounted(async () => {
   await fetchTelegramConfig()
   await fetchTelegramChannels()
   console.log('Telegram 机器人标签已加载')
+})
+
+// 监听日志抽屉打开状态，打开时获取日志
+watch(showLogDrawer, async (newValue) => {
+  if (newValue && telegramBotConfig.value.bot_enabled) {
+    await refreshLogs()
+  }
 })
 </script>
 

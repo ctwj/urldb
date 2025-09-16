@@ -66,7 +66,7 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 		return fmt.Errorf("加载配置失败: %v", err)
 	}
 
-	utils.Info("从数据库加载到 %d 个配置项", len(configs))
+	utils.Info("[TELEGRAM] 从数据库加载到 %d 个配置项", len(configs))
 
 	// 初始化默认值
 	s.config.Enabled = false
@@ -80,32 +80,32 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 		switch config.Key {
 		case entity.ConfigKeyTelegramBotEnabled:
 			s.config.Enabled = config.Value == "true"
-			utils.Info("加载配置 %s = %s (Enabled: %v)", config.Key, config.Value, s.config.Enabled)
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (Enabled: %v)", config.Key, config.Value, s.config.Enabled)
 		case entity.ConfigKeyTelegramBotApiKey:
 			s.config.ApiKey = config.Value
-			utils.Info("加载配置 %s = [HIDDEN]", config.Key)
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = [HIDDEN]", config.Key)
 		case entity.ConfigKeyTelegramAutoReplyEnabled:
 			s.config.AutoReplyEnabled = config.Value == "true"
-			utils.Info("加载配置 %s = %s (AutoReplyEnabled: %v)", config.Key, config.Value, s.config.AutoReplyEnabled)
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (AutoReplyEnabled: %v)", config.Key, config.Value, s.config.AutoReplyEnabled)
 		case entity.ConfigKeyTelegramAutoReplyTemplate:
 			if config.Value != "" {
 				s.config.AutoReplyTemplate = config.Value
 			}
-			utils.Info("加载配置 %s = %s", config.Key, config.Value)
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, config.Value)
 		case entity.ConfigKeyTelegramAutoDeleteEnabled:
 			s.config.AutoDeleteEnabled = config.Value == "true"
-			utils.Info("加载配置 %s = %s (AutoDeleteEnabled: %v)", config.Key, config.Value, s.config.AutoDeleteEnabled)
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (AutoDeleteEnabled: %v)", config.Key, config.Value, s.config.AutoDeleteEnabled)
 		case entity.ConfigKeyTelegramAutoDeleteInterval:
 			if config.Value != "" {
 				fmt.Sscanf(config.Value, "%d", &s.config.AutoDeleteInterval)
 			}
-			utils.Info("加载配置 %s = %s (AutoDeleteInterval: %d)", config.Key, config.Value, s.config.AutoDeleteInterval)
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (AutoDeleteInterval: %d)", config.Key, config.Value, s.config.AutoDeleteInterval)
 		default:
 			utils.Debug("未知配置: %s = %s", config.Key, config.Value)
 		}
 	}
 
-	utils.Info("Telegram Bot 配置加载完成: Enabled=%v, AutoReplyEnabled=%v, ApiKey长度=%d",
+	utils.Info("[TELEGRAM:SERVICE] Telegram Bot 配置加载完成: Enabled=%v, AutoReplyEnabled=%v, ApiKey长度=%d",
 		s.config.Enabled, s.config.AutoReplyEnabled, len(s.config.ApiKey))
 	return nil
 }
@@ -113,7 +113,7 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 // Start 启动机器人服务
 func (s *TelegramBotServiceImpl) Start() error {
 	if s.isRunning {
-		utils.Info("Telegram Bot 服务已经在运行中")
+		utils.Info("[TELEGRAM:SERVICE] Telegram Bot 服务已经在运行中")
 		return nil
 	}
 
@@ -123,7 +123,7 @@ func (s *TelegramBotServiceImpl) Start() error {
 	}
 
 	if !s.config.Enabled || s.config.ApiKey == "" {
-		utils.Info("Telegram Bot 未启用或 API Key 未配置")
+		utils.Info("[TELEGRAM:SERVICE] Telegram Bot 未启用或 API Key 未配置")
 		return nil
 	}
 
@@ -136,14 +136,14 @@ func (s *TelegramBotServiceImpl) Start() error {
 	s.bot = bot
 	s.isRunning = true
 
-	utils.Info("Telegram Bot (@%s) 已启动", s.GetBotUsername())
+	utils.Info("[TELEGRAM:SERVICE] Telegram Bot (@%s) 已启动", s.GetBotUsername())
 
 	// 启动推送调度器
 	s.startContentPusher()
 
 	// 设置 webhook（在实际部署时配置）
 	if err := s.setupWebhook(); err != nil {
-		utils.Error("设置 Webhook 失败: %v", err)
+		utils.Error("[TELEGRAM:SERVICE] 设置 Webhook 失败: %v", err)
 	}
 
 	// 启动消息处理循环（长轮询模式）
@@ -164,7 +164,7 @@ func (s *TelegramBotServiceImpl) Stop() error {
 		s.cronScheduler.Stop()
 	}
 
-	utils.Info("Telegram Bot 服务已停止")
+	utils.Info("[TELEGRAM:SERVICE] Telegram Bot 服务已停止")
 	return nil
 }
 
@@ -199,31 +199,31 @@ func (s *TelegramBotServiceImpl) ValidateApiKey(apiKey string) (bool, map[string
 func (s *TelegramBotServiceImpl) setupWebhook() error {
 	// 在生产环境中，这里会设置 webhook URL
 	// 暂时使用长轮询模式，不设置 webhook
-	utils.Info("使用长轮询模式处理消息")
+	utils.Info("[TELEGRAM:SERVICE] 使用长轮询模式处理消息")
 	return nil
 }
 
 // messageLoop 消息处理循环（长轮询模式）
 func (s *TelegramBotServiceImpl) messageLoop() {
-	utils.Info("开始监听 Telegram 消息更新...")
+	utils.Info("[TELEGRAM:MESSAGE] 开始监听 Telegram 消息更新...")
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
 	updates := s.bot.GetUpdatesChan(u)
 
-	utils.Info("消息监听循环已启动，等待消息...")
+	utils.Info("[TELEGRAM:MESSAGE] 消息监听循环已启动，等待消息...")
 
 	for update := range updates {
 		if update.Message != nil {
-			utils.Info("接收到新消息更新")
+			utils.Info("[TELEGRAM:MESSAGE] 接收到新消息更新")
 			s.handleMessage(update.Message)
 		} else {
-			utils.Debug("接收到其他类型更新: %v", update)
+			utils.Debug("[TELEGRAM:MESSAGE] 接收到其他类型更新: %v", update)
 		}
 	}
 
-	utils.Info("消息监听循环已结束")
+	utils.Info("[TELEGRAM:MESSAGE] 消息监听循环已结束")
 }
 
 // handleMessage 处理接收到的消息
@@ -231,7 +231,7 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 	chatID := message.Chat.ID
 	text := strings.TrimSpace(message.Text)
 
-	utils.Info("收到消息: ChatID=%d, Text='%s', User=%s", chatID, text, message.From.UserName)
+	utils.Info("[TELEGRAM:MESSAGE] 收到消息: ChatID=%d, Text='%s', User=%s", chatID, text, message.From.UserName)
 
 	if text == "" {
 		return
@@ -239,31 +239,31 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 
 	// 处理 /register 命令
 	if strings.ToLower(text) == "/register" {
-		utils.Info("处理 /register 命令 from ChatID=%d", chatID)
+		utils.Info("[TELEGRAM:MESSAGE] 处理 /register 命令 from ChatID=%d", chatID)
 		s.handleRegisterCommand(message)
 		return
 	}
 
 	// 处理 /start 命令
 	if strings.ToLower(text) == "/start" {
-		utils.Info("处理 /start 命令 from ChatID=%d", chatID)
+		utils.Info("[TELEGRAM:MESSAGE] 处理 /start 命令 from ChatID=%d", chatID)
 		s.handleStartCommand(message)
 		return
 	}
 
 	// 处理普通文本消息（搜索请求）
 	if len(text) > 0 && !strings.HasPrefix(text, "/") {
-		utils.Info("处理搜索请求 from ChatID=%d: %s", chatID, text)
+		utils.Info("[TELEGRAM:MESSAGE] 处理搜索请求 from ChatID=%d: %s", chatID, text)
 		s.handleSearchRequest(message)
 		return
 	}
 
 	// 默认自动回复
 	if s.config.AutoReplyEnabled {
-		utils.Info("发送自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
+		utils.Info("[TELEGRAM:MESSAGE] 发送自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
 		s.sendReply(message, s.config.AutoReplyTemplate)
 	} else {
-		utils.Info("跳过自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
+		utils.Info("[TELEGRAM:MESSAGE] 跳过自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
 	}
 }
 
@@ -339,7 +339,7 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message) 
 
 // sendReply 发送回复消息
 func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text string) {
-	utils.Info("尝试发送回复消息到 ChatID=%d: %s", message.Chat.ID, text)
+	utils.Info("[TELEGRAM:MESSAGE] 尝试发送回复消息到 ChatID=%d: %s", message.Chat.ID, text)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = "Markdown"
@@ -347,11 +347,11 @@ func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text strin
 
 	sentMsg, err := s.bot.Send(msg)
 	if err != nil {
-		utils.Error("发送消息失败: %v", err)
+		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败: %v", err)
 		return
 	}
 
-	utils.Info("消息发送成功 to ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
+	utils.Info("[TELEGRAM:MESSAGE:SUCCESS] 消息发送成功 to ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
 
 	// 如果启用了自动删除，启动删除定时器
 	if s.config.AutoDeleteEnabled && s.config.AutoDeleteInterval > 0 {
@@ -362,7 +362,7 @@ func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text strin
 			}
 			_, err := s.bot.Request(deleteConfig)
 			if err != nil {
-				utils.Error("删除消息失败: %v", err)
+				utils.Error("[TELEGRAM:MESSAGE:ERROR] 删除消息失败: %v", err)
 			}
 		})
 	}
@@ -376,7 +376,7 @@ func (s *TelegramBotServiceImpl) startContentPusher() {
 	})
 
 	s.cronScheduler.Start()
-	utils.Info("内容推送调度器已启动")
+	utils.Info("[TELEGRAM:PUSH] 内容推送调度器已启动")
 }
 
 // pushContentToChannels 推送内容到频道
@@ -384,16 +384,16 @@ func (s *TelegramBotServiceImpl) pushContentToChannels() {
 	// 获取需要推送的频道
 	channels, err := s.channelRepo.FindDueForPush()
 	if err != nil {
-		utils.Error("获取推送频道失败: %v", err)
+		utils.Error("[TELEGRAM:PUSH:ERROR] 获取推送频道失败: %v", err)
 		return
 	}
 
 	if len(channels) == 0 {
-		utils.Debug("没有需要推送的频道")
+		utils.Debug("[TELEGRAM:PUSH] 没有需要推送的频道")
 		return
 	}
 
-	utils.Info("开始推送内容到 %d 个频道", len(channels))
+	utils.Info("[TELEGRAM:PUSH] 开始推送内容到 %d 个频道", len(channels))
 
 	for _, channel := range channels {
 		go s.pushToChannel(channel)
@@ -402,11 +402,12 @@ func (s *TelegramBotServiceImpl) pushContentToChannels() {
 
 // pushToChannel 推送内容到一个频道
 func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
-	// 这里实现推送逻辑
+	utils.Info("[TELEGRAM:PUSH] 开始推送到频道: %s (ID: %d)", channel.ChatName, channel.ChatID)
+
 	// 1. 根据频道设置过滤资源
 	resources := s.findResourcesForChannel(channel)
 	if len(resources) == 0 {
-		utils.Debug("频道 %s 没有可推送的内容", channel.ChatName)
+		utils.Info("[TELEGRAM:PUSH] 频道 %s 没有可推送的内容", channel.ChatName)
 		return
 	}
 
@@ -416,18 +417,18 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 	// 3. 发送消息
 	err := s.SendMessage(channel.ChatID, message)
 	if err != nil {
-		utils.Error("推送失败到频道 %s (%d): %v", channel.ChatName, channel.ChatID, err)
-		// 可以考虑将频道标记为非活跃或记录错误
+		utils.Error("[TELEGRAM:PUSH:ERROR] 推送失败到频道 %s (%d): %v", channel.ChatName, channel.ChatID, err)
 		return
 	}
 
 	// 4. 更新最后推送时间
 	err = s.channelRepo.UpdateLastPushAt(channel.ID, time.Now())
 	if err != nil {
-		utils.Error("更新推送时间失败: %v", err)
+		utils.Error("[TELEGRAM:PUSH:ERROR] 更新推送时间失败: %v", err)
+		return
 	}
 
-	utils.Info("成功推送内容到频道: %s", channel.ChatName)
+	utils.Info("[TELEGRAM:PUSH:SUCCESS] 成功推送内容到频道: %s (%d 条资源)", channel.ChatName, len(resources))
 }
 
 // findResourcesForChannel 查找适合频道的资源

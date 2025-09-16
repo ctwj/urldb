@@ -275,6 +275,9 @@ export const useTelegramApi = () => {
   const createChannel = (data: any) => useApiFetch('/telegram/channels', { method: 'POST', body: data }).then(parseApiResponse)
   const updateChannel = (id: number, data: any) => useApiFetch(`/telegram/channels/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteChannel = (id: number) => useApiFetch(`/telegram/channels/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const getLogs = (params?: any) => useApiFetch('/telegram/logs', { params }).then(parseApiResponse)
+  const getLogStats = (params?: any) => useApiFetch('/telegram/logs/stats', { params }).then(parseApiResponse)
+  const clearLogs = (params?: any) => useApiFetch('/telegram/logs/clear', { method: 'POST', body: params }).then(parseApiResponse)
   return {
     getBotConfig,
     updateBotConfig,
@@ -285,7 +288,10 @@ export const useTelegramApi = () => {
     getChannels,
     createChannel,
     updateChannel,
-    deleteChannel
+    deleteChannel,
+    getLogs,
+    getLogStats,
+    clearLogs
   }
 }
 

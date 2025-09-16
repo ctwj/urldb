@@ -353,6 +353,9 @@ func main() {
 		api.PUT("/telegram/channels/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.UpdateChannel)
 		api.DELETE("/telegram/channels/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.DeleteChannel)
 		api.POST("/telegram/webhook", telegramHandler.HandleWebhook)
+		api.GET("/telegram/logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetTelegramLogs)
+		api.GET("/telegram/logs/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetTelegramLogStats)
+		api.POST("/telegram/logs/clear", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.ClearTelegramLogs)
 	}
 
 	// 静态文件服务

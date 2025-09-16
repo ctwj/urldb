@@ -1,14 +1,17 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/services"
+	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -300,6 +303,85 @@ func (h *TelegramHandler) ReloadBotConfig(c *gin.Context) {
 		"success": true,
 		"message": "请重启服务器以重新加载配置",
 		"note":    "当前版本需要重启服务器才能重新加载机器人配置",
+	})
+}
+
+// GetTelegramLogs 获取Telegram相关的日志
+func (h *TelegramHandler) GetTelegramLogs(c *gin.Context) {
+	// 解析查询参数
+	hoursStr := c.DefaultQuery("hours", "24")
+	limitStr := c.DefaultQuery("limit", "100")
+
+	hours, err := strconv.Atoi(hoursStr)
+	if err != nil || hours <= 0 || hours > 720 { // 最多30天
+		hours = 24
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+
+	// 计算时间范围
+	endTime := time.Now()
+	startTime := endTime.Add(-time.Duration(hours) * time.Hour)
+
+	// 获取日志
+	logs, err := utils.GetTelegramLogs(&startTime, &endTime, limit)
+	if err != nil {
+		ErrorResponse(c, "获取日志失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"logs":  logs,
+		"count": len(logs),
+		"hours": hours,
+		"limit": limit,
+		"start": startTime.Format("2006-01-02 15:04:05"),
+		"end":   endTime.Format("2006-01-02 15:04:05"),
+	})
+}
+
+// GetTelegramLogStats 获取Telegram日志统计信息
+func (h *TelegramHandler) GetTelegramLogStats(c *gin.Context) {
+	hoursStr := c.DefaultQuery("hours", "24")
+
+	hours, err := strconv.Atoi(hoursStr)
+	if err != nil || hours <= 0 || hours > 720 {
+		hours = 24
+	}
+
+	stats, err := utils.GetTelegramLogStats(hours)
+	if err != nil {
+		ErrorResponse(c, "获取统计信息失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"stats": stats,
+		"hours": hours,
+	})
+}
+
+// ClearTelegramLogs 清理旧的Telegram日志
+func (h *TelegramHandler) ClearTelegramLogs(c *gin.Context) {
+	daysStr := c.DefaultQuery("days", "30")
+
+	days, err := strconv.Atoi(daysStr)
+	if err != nil || days <= 0 || days > 365 {
+		days = 30
+	}
+
+	err = utils.ClearOldTelegramLogs(days)
+	if err != nil {
+		ErrorResponse(c, "清理日志失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"message": fmt.Sprintf("已清理 %d 天前的日志文件", days),
+		"days":    days,
 	})
 }
 
