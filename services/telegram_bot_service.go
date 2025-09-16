@@ -66,9 +66,12 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 		return fmt.Errorf("加载配置失败: %v", err)
 	}
 
+	utils.Info("从数据库加载到 %d 个配置项", len(configs))
+
+	// 初始化默认值
 	s.config.Enabled = false
 	s.config.ApiKey = ""
-	s.config.AutoReplyEnabled = true
+	s.config.AutoReplyEnabled = false // 默认禁用自动回复
 	s.config.AutoReplyTemplate = "您好！我可以帮您搜索网盘资源，请输入您要搜索的内容。"
 	s.config.AutoDeleteEnabled = false
 	s.config.AutoDeleteInterval = 60
@@ -77,24 +80,33 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 		switch config.Key {
 		case entity.ConfigKeyTelegramBotEnabled:
 			s.config.Enabled = config.Value == "true"
+			utils.Info("加载配置 %s = %s (Enabled: %v)", config.Key, config.Value, s.config.Enabled)
 		case entity.ConfigKeyTelegramBotApiKey:
 			s.config.ApiKey = config.Value
+			utils.Info("加载配置 %s = [HIDDEN]", config.Key)
 		case entity.ConfigKeyTelegramAutoReplyEnabled:
 			s.config.AutoReplyEnabled = config.Value == "true"
+			utils.Info("加载配置 %s = %s (AutoReplyEnabled: %v)", config.Key, config.Value, s.config.AutoReplyEnabled)
 		case entity.ConfigKeyTelegramAutoReplyTemplate:
 			if config.Value != "" {
 				s.config.AutoReplyTemplate = config.Value
 			}
+			utils.Info("加载配置 %s = %s", config.Key, config.Value)
 		case entity.ConfigKeyTelegramAutoDeleteEnabled:
 			s.config.AutoDeleteEnabled = config.Value == "true"
+			utils.Info("加载配置 %s = %s (AutoDeleteEnabled: %v)", config.Key, config.Value, s.config.AutoDeleteEnabled)
 		case entity.ConfigKeyTelegramAutoDeleteInterval:
 			if config.Value != "" {
 				fmt.Sscanf(config.Value, "%d", &s.config.AutoDeleteInterval)
 			}
+			utils.Info("加载配置 %s = %s (AutoDeleteInterval: %d)", config.Key, config.Value, s.config.AutoDeleteInterval)
+		default:
+			utils.Debug("未知配置: %s = %s", config.Key, config.Value)
 		}
 	}
 
-	utils.Info("Telegram Bot 配置已加载: Enabled=%v", s.config.Enabled)
+	utils.Info("Telegram Bot 配置加载完成: Enabled=%v, AutoReplyEnabled=%v, ApiKey长度=%d",
+		s.config.Enabled, s.config.AutoReplyEnabled, len(s.config.ApiKey))
 	return nil
 }
 
@@ -193,16 +205,25 @@ func (s *TelegramBotServiceImpl) setupWebhook() error {
 
 // messageLoop 消息处理循环（长轮询模式）
 func (s *TelegramBotServiceImpl) messageLoop() {
+	utils.Info("开始监听 Telegram 消息更新...")
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
 	updates := s.bot.GetUpdatesChan(u)
 
+	utils.Info("消息监听循环已启动，等待消息...")
+
 	for update := range updates {
 		if update.Message != nil {
+			utils.Info("接收到新消息更新")
 			s.handleMessage(update.Message)
+		} else {
+			utils.Debug("接收到其他类型更新: %v", update)
 		}
 	}
+
+	utils.Info("消息监听循环已结束")
 }
 
 // handleMessage 处理接收到的消息
@@ -218,25 +239,31 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 
 	// 处理 /register 命令
 	if strings.ToLower(text) == "/register" {
+		utils.Info("处理 /register 命令 from ChatID=%d", chatID)
 		s.handleRegisterCommand(message)
 		return
 	}
 
 	// 处理 /start 命令
 	if strings.ToLower(text) == "/start" {
+		utils.Info("处理 /start 命令 from ChatID=%d", chatID)
 		s.handleStartCommand(message)
 		return
 	}
 
 	// 处理普通文本消息（搜索请求）
 	if len(text) > 0 && !strings.HasPrefix(text, "/") {
+		utils.Info("处理搜索请求 from ChatID=%d: %s", chatID, text)
 		s.handleSearchRequest(message)
 		return
 	}
 
 	// 默认自动回复
 	if s.config.AutoReplyEnabled {
+		utils.Info("发送自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
 		s.sendReply(message, s.config.AutoReplyTemplate)
+	} else {
+		utils.Info("跳过自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
 	}
 }
 
@@ -312,6 +339,8 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message) 
 
 // sendReply 发送回复消息
 func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text string) {
+	utils.Info("尝试发送回复消息到 ChatID=%d: %s", message.Chat.ID, text)
+
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = "Markdown"
 	msg.ReplyToMessageID = message.MessageID
@@ -321,6 +350,8 @@ func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text strin
 		utils.Error("发送消息失败: %v", err)
 		return
 	}
+
+	utils.Info("消息发送成功 to ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
 
 	// 如果启用了自动删除，启动删除定时器
 	if s.config.AutoDeleteEnabled && s.config.AutoDeleteInterval > 0 {

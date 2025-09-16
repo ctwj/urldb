@@ -263,6 +263,32 @@ function log(...args: any[]) {
   }
 }
 
+// Telegram Bot管理API
+export const useTelegramApi = () => {
+  const getBotConfig = () => useApiFetch('/telegram/bot-config').then(parseApiResponse)
+  const updateBotConfig = (data: any) => useApiFetch('/telegram/bot-config', { method: 'PUT', body: data }).then(parseApiResponse)
+  const validateApiKey = (data: any) => useApiFetch('/telegram/validate-api-key', { method: 'POST', body: data }).then(parseApiResponse)
+  const getBotStatus = () => useApiFetch('/telegram/bot-status').then(parseApiResponse)
+  const reloadBotConfig = () => useApiFetch('/telegram/reload-config', { method: 'POST' }).then(parseApiResponse)
+  const testBotMessage = (data: any) => useApiFetch('/telegram/test-message', { method: 'POST', body: data }).then(parseApiResponse)
+  const getChannels = () => useApiFetch('/telegram/channels').then(parseApiResponse)
+  const createChannel = (data: any) => useApiFetch('/telegram/channels', { method: 'POST', body: data }).then(parseApiResponse)
+  const updateChannel = (id: number, data: any) => useApiFetch(`/telegram/channels/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteChannel = (id: number) => useApiFetch(`/telegram/channels/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  return {
+    getBotConfig,
+    updateBotConfig,
+    validateApiKey,
+    getBotStatus,
+    reloadBotConfig,
+    testBotMessage,
+    getChannels,
+    createChannel,
+    updateChannel,
+    deleteChannel
+  }
+}
+
 // Meilisearch管理API
 export const useMeilisearchApi = () => {
   const getStatus = () => useApiFetch('/meilisearch/status').then(parseApiResponse)
@@ -277,18 +303,18 @@ export const useMeilisearchApi = () => {
   const updateIndexSettings = () => useApiFetch('/meilisearch/update-settings', { method: 'POST' }).then(parseApiResponse)
   const getSyncProgress = () => useApiFetch('/meilisearch/sync-progress').then(parseApiResponse)
   const debugGetAllDocuments = () => useApiFetch('/meilisearch/debug/documents').then(parseApiResponse)
-  return { 
-    getStatus, 
+  return {
+    getStatus,
     getUnsyncedCount,
     getUnsyncedResources,
     getSyncedResources,
     getAllResources,
     testConnection,
-    syncAllResources, 
-    stopSync, 
+    syncAllResources,
+    stopSync,
     clearIndex,
     updateIndexSettings,
     getSyncProgress,
     debugGetAllDocuments
   }
-} 
+}

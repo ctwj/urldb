@@ -250,6 +250,59 @@ func (h *TelegramHandler) HandleWebhook(c *gin.Context) {
 	h.telegramBotService.HandleWebhookUpdate(c)
 }
 
+// GetBotStatus 获取机器人状态
+func (h *TelegramHandler) GetBotStatus(c *gin.Context) {
+	// 这里可以返回机器人运行状态、最后活动时间等信息
+	// 暂时返回基本状态信息
+
+	botUsername := h.telegramBotService.GetBotUsername()
+
+	status := map[string]interface{}{
+		"bot_username":    botUsername,
+		"service_running": botUsername != "",
+		"webhook_mode":    false, // 当前使用长轮询模式
+		"polling_mode":    true,
+	}
+
+	SuccessResponse(c, status)
+}
+
+// TestBotMessage 测试机器人消息发送
+func (h *TelegramHandler) TestBotMessage(c *gin.Context) {
+	var req struct {
+		ChatID int64  `json:"chat_id" binding:"required"`
+		Text   string `json:"text" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
+		return
+	}
+
+	err := h.telegramBotService.SendMessage(req.ChatID, req.Text)
+	if err != nil {
+		ErrorResponse(c, "发送消息失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"success": true,
+		"message": "测试消息已发送",
+	})
+}
+
+// ReloadBotConfig 重新加载机器人配置
+func (h *TelegramHandler) ReloadBotConfig(c *gin.Context) {
+	// 这里可以实现重新加载配置的逻辑
+	// 目前通过重启服务来实现配置重新加载
+
+	SuccessResponse(c, map[string]interface{}{
+		"success": true,
+		"message": "请重启服务器以重新加载配置",
+		"note":    "当前版本需要重启服务器才能重新加载机器人配置",
+	})
+}
+
 // getCurrentUsername 获取当前用户名（临时实现）
 func getCurrentUsername(c *gin.Context) string {
 	// 这里应该从中间件中获取用户信息
