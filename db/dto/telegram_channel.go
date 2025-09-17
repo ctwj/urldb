@@ -9,6 +9,8 @@ type TelegramChannelRequest struct {
 	ChatType          string `json:"chat_type" binding:"required"` // channel 或 group
 	PushEnabled       bool   `json:"push_enabled"`
 	PushFrequency     int    `json:"push_frequency"`
+	PushStartTime     string `json:"push_start_time"`
+	PushEndTime       string `json:"push_end_time"`
 	ContentCategories string `json:"content_categories"`
 	ContentTags       string `json:"content_tags"`
 	IsActive          bool   `json:"is_active"`
@@ -22,6 +24,8 @@ type TelegramChannelResponse struct {
 	ChatType          string     `json:"chat_type"`
 	PushEnabled       bool       `json:"push_enabled"`
 	PushFrequency     int        `json:"push_frequency"`
+	PushStartTime     string     `json:"push_start_time"`
+	PushEndTime       string     `json:"push_end_time"`
 	ContentCategories string     `json:"content_categories"`
 	ContentTags       string     `json:"content_tags"`
 	IsActive          bool       `json:"is_active"`

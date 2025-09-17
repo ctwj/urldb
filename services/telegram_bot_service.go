@@ -2,12 +2,15 @@ package services
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
+	"golang.org/x/net/proxy"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/robfig/cron/v3"
@@ -16,6 +19,9 @@ import (
 type TelegramBotService interface {
 	Start() error
 	Stop() error
+	IsRunning() bool
+	ReloadConfig() error
+	GetRuntimeStatus() map[string]interface{}
 	ValidateApiKey(apiKey string) (bool, map[string]interface{}, error)
 	GetBotUsername() string
 	SendMessage(chatID int64, text string) error
@@ -42,6 +48,12 @@ type TelegramBotConfig struct {
 	AutoReplyTemplate  string
 	AutoDeleteEnabled  bool
 	AutoDeleteInterval int // 分钟
+	ProxyEnabled       bool
+	ProxyType          string // http, https, socks5
+	ProxyHost          string
+	ProxyPort          int
+	ProxyUsername      string
+	ProxyPassword      string
 }
 
 func NewTelegramBotService(
@@ -75,6 +87,13 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 	s.config.AutoReplyTemplate = "您好！我可以帮您搜索网盘资源，请输入您要搜索的内容。"
 	s.config.AutoDeleteEnabled = false
 	s.config.AutoDeleteInterval = 60
+	// 初始化代理默认值
+	s.config.ProxyEnabled = false
+	s.config.ProxyType = "http"
+	s.config.ProxyHost = ""
+	s.config.ProxyPort = 8080
+	s.config.ProxyUsername = ""
+	s.config.ProxyPassword = ""
 
 	for _, config := range configs {
 		switch config.Key {
@@ -100,6 +119,26 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 				fmt.Sscanf(config.Value, "%d", &s.config.AutoDeleteInterval)
 			}
 			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (AutoDeleteInterval: %d)", config.Key, config.Value, s.config.AutoDeleteInterval)
+		case "telegram_proxy_enabled":
+			s.config.ProxyEnabled = config.Value == "true"
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyEnabled: %v)", config.Key, config.Value, s.config.ProxyEnabled)
+		case "telegram_proxy_type":
+			s.config.ProxyType = config.Value
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyType: %s)", config.Key, config.Value, s.config.ProxyType)
+		case "telegram_proxy_host":
+			s.config.ProxyHost = config.Value
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
+		case "telegram_proxy_port":
+			if config.Value != "" {
+				fmt.Sscanf(config.Value, "%d", &s.config.ProxyPort)
+			}
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyPort: %d)", config.Key, config.Value, s.config.ProxyPort)
+		case "telegram_proxy_username":
+			s.config.ProxyUsername = config.Value
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
+		case "telegram_proxy_password":
+			s.config.ProxyPassword = config.Value
+			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
 		default:
 			utils.Debug("未知配置: %s = %s", config.Key, config.Value)
 		}
@@ -128,9 +167,71 @@ func (s *TelegramBotServiceImpl) Start() error {
 	}
 
 	// 创建 Bot 实例
-	bot, err := tgbotapi.NewBotAPI(s.config.ApiKey)
-	if err != nil {
-		return fmt.Errorf("创建 Telegram Bot 失败: %v", err)
+	var bot *tgbotapi.BotAPI
+
+	if s.config.ProxyEnabled && s.config.ProxyHost != "" {
+		// 配置代理
+		utils.Info("[TELEGRAM:PROXY] 配置代理: %s://%s:%d", s.config.ProxyType, s.config.ProxyHost, s.config.ProxyPort)
+
+		var httpClient *http.Client
+
+		if s.config.ProxyType == "socks5" {
+			// SOCKS5 代理配置
+			var auth *proxy.Auth
+			if s.config.ProxyUsername != "" {
+				auth = &proxy.Auth{
+					User:     s.config.ProxyUsername,
+					Password: s.config.ProxyPassword,
+				}
+			}
+
+			dialer, proxyErr := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%d", s.config.ProxyHost, s.config.ProxyPort), auth, proxy.Direct)
+			if proxyErr != nil {
+				return fmt.Errorf("创建 SOCKS5 代理失败: %v", proxyErr)
+			}
+
+			httpClient = &http.Client{
+				Transport: &http.Transport{
+					Dial: dialer.Dial,
+				},
+				Timeout: 30 * time.Second,
+			}
+		} else {
+			// HTTP/HTTPS 代理配置
+			proxyURL := &url.URL{
+				Scheme: s.config.ProxyType,
+				Host:   fmt.Sprintf("%s:%d", s.config.ProxyHost, s.config.ProxyPort),
+				User:   nil,
+			}
+
+			if s.config.ProxyUsername != "" {
+				proxyURL.User = url.UserPassword(s.config.ProxyUsername, s.config.ProxyPassword)
+			}
+
+			httpClient = &http.Client{
+				Transport: &http.Transport{
+					Proxy: http.ProxyURL(proxyURL),
+				},
+				Timeout: 30 * time.Second,
+			}
+		}
+
+		botInstance, botErr := tgbotapi.NewBotAPIWithClient(s.config.ApiKey, tgbotapi.APIEndpoint, httpClient)
+		if botErr != nil {
+			return fmt.Errorf("创建 Telegram Bot (代理模式) 失败: %v", botErr)
+		}
+		bot = botInstance
+
+		utils.Info("[TELEGRAM:PROXY] Telegram Bot 已配置代理连接")
+	} else {
+		// 直接连接（无代理）
+		var err error
+		bot, err = tgbotapi.NewBotAPI(s.config.ApiKey)
+		if err != nil {
+			return fmt.Errorf("创建 Telegram Bot 失败: %v", err)
+		}
+
+		utils.Info("[TELEGRAM:PROXY] Telegram Bot 使用直连模式")
 	}
 
 	s.bot = bot
@@ -168,13 +269,104 @@ func (s *TelegramBotServiceImpl) Stop() error {
 	return nil
 }
 
+// IsRunning 检查机器人服务是否正在运行
+func (s *TelegramBotServiceImpl) IsRunning() bool {
+	return s.isRunning && s.bot != nil
+}
+
+// ReloadConfig 重新加载机器人配置
+func (s *TelegramBotServiceImpl) ReloadConfig() error {
+	utils.Info("[TELEGRAM:SERVICE] 开始重新加载配置...")
+
+	// 重新加载配置
+	if err := s.loadConfig(); err != nil {
+		utils.Error("[TELEGRAM:SERVICE] 重新加载配置失败: %v", err)
+		return fmt.Errorf("重新加载配置失败: %v", err)
+	}
+
+	utils.Info("[TELEGRAM:SERVICE] 配置重新加载完成: Enabled=%v, AutoReplyEnabled=%v",
+		s.config.Enabled, s.config.AutoReplyEnabled)
+	return nil
+}
+
+// GetRuntimeStatus 获取机器人运行时状态
+func (s *TelegramBotServiceImpl) GetRuntimeStatus() map[string]interface{} {
+	status := map[string]interface{}{
+		"is_running":      s.IsRunning(),
+		"bot_initialized": s.bot != nil,
+		"config_loaded":   s.config != nil,
+		"cron_running":    s.cronScheduler != nil,
+		"username":        "",
+		"uptime":          0,
+	}
+
+	if s.bot != nil {
+		status["username"] = s.GetBotUsername()
+	}
+
+	return status
+}
+
 // ValidateApiKey 验证 API Key
 func (s *TelegramBotServiceImpl) ValidateApiKey(apiKey string) (bool, map[string]interface{}, error) {
 	if apiKey == "" {
 		return false, nil, fmt.Errorf("API Key 不能为空")
 	}
 
-	bot, err := tgbotapi.NewBotAPI(apiKey)
+	var bot *tgbotapi.BotAPI
+	var err error
+
+	// 如果启用了代理，使用代理验证
+	if s.config.ProxyEnabled && s.config.ProxyHost != "" {
+		var httpClient *http.Client
+
+		if s.config.ProxyType == "socks5" {
+			var auth *proxy.Auth
+			if s.config.ProxyUsername != "" {
+				auth = &proxy.Auth{
+					User:     s.config.ProxyUsername,
+					Password: s.config.ProxyPassword,
+				}
+			}
+
+			dialer, proxyErr := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%d", s.config.ProxyHost, s.config.ProxyPort), auth, proxy.Direct)
+			if proxyErr != nil {
+				// 如果代理失败，回退到直连
+				utils.Warn("[TELEGRAM:PROXY] SOCKS5 代理验证失败，回退到直连: %v", proxyErr)
+				bot, err = tgbotapi.NewBotAPI(apiKey)
+			} else {
+				httpClient = &http.Client{
+					Transport: &http.Transport{
+						Dial: dialer.Dial,
+					},
+					Timeout: 10 * time.Second,
+				}
+				bot, err = tgbotapi.NewBotAPIWithClient(apiKey, tgbotapi.APIEndpoint, httpClient)
+			}
+		} else {
+			proxyURL := &url.URL{
+				Scheme: s.config.ProxyType,
+				Host:   fmt.Sprintf("%s:%d", s.config.ProxyHost, s.config.ProxyPort),
+				User:   nil,
+			}
+
+			if s.config.ProxyUsername != "" {
+				proxyURL.User = url.UserPassword(s.config.ProxyUsername, s.config.ProxyPassword)
+			}
+
+			httpClient = &http.Client{
+				Transport: &http.Transport{
+					Proxy: http.ProxyURL(proxyURL),
+				},
+				Timeout: 10 * time.Second,
+			}
+			bot, err = tgbotapi.NewBotAPIWithClient(apiKey, tgbotapi.APIEndpoint, httpClient)
+		}
+	} else {
+		// 直连验证
+		bot, err = tgbotapi.NewBotAPI(apiKey)
+	}
+
 	if err != nil {
 		return false, nil, fmt.Errorf("无效的 API Key: %v", err)
 	}
@@ -323,17 +515,50 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message) 
 		return
 	}
 
-	// 这里使用简单的资源搜索，实际项目中需要完善搜索逻辑
-	// resources, err := s.resourceRepo.Search(query, nil, 0, 10)
-	// 暂时模拟一个搜索结果
-	results := []string{
-		fmt.Sprintf("🔍 搜索关键词: %s", query),
-		"暂无相关资源，请尝试其他关键词。",
-		"",
-		fmt.Sprintf("💡 提示：如需精确搜索，请使用更具体的关键词。"),
+	utils.Info("[TELEGRAM:SEARCH] 处理搜索请求: %s", query)
+
+	// 使用资源仓库进行搜索
+	resources, total, err := s.resourceRepo.Search(query, nil, 1, 5) // 限制为5个结果
+	if err != nil {
+		utils.Error("[TELEGRAM:SEARCH] 搜索失败: %v", err)
+		s.sendReply(message, "搜索服务暂时不可用，请稍后重试")
+		return
 	}
 
-	resultText := strings.Join(results, "\n")
+	if total == 0 {
+		response := fmt.Sprintf("🔍 *搜索结果*\n\n关键词: `%s`\n\n❌ 未找到相关资源\n\n💡 建议:\n• 尝试使用更通用的关键词\n• 检查拼写是否正确\n• 减少关键词数量", query)
+		s.sendReply(message, response)
+		return
+	}
+
+	// 构建搜索结果消息
+	resultText := fmt.Sprintf("🔍 *搜索结果*\n\n关键词: `%s`\n总共找到: %d 个资源\n\n", query, total)
+
+	// 显示前5个结果
+	for i, resource := range resources {
+		if i >= 5 {
+			break
+		}
+
+		title := resource.Title
+		if len(title) > 50 {
+			title = title[:47] + "..."
+		}
+
+		description := resource.Description
+		if len(description) > 100 {
+			description = description[:97] + "..."
+		}
+
+		resultText += fmt.Sprintf("%d. *%s*\n%s\n\n", i+1, title, description)
+	}
+
+	// 如果有更多结果，添加提示
+	if total > 5 {
+		resultText += fmt.Sprintf("... 还有 %d 个结果\n\n", total-5)
+		resultText += "💡 如需查看更多结果，请访问网站搜索"
+	}
+
 	s.sendReply(message, resultText)
 }
 

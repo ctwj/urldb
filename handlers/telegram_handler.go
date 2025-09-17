@@ -74,12 +74,11 @@ func (h *TelegramHandler) UpdateBotConfig(c *gin.Context) {
 		return
 	}
 
-	// TODO: 这里应该启动或停止 Telegram bot 服务
-	// if req.BotEnabled != nil && *req.BotEnabled {
-	//     go h.telegramBotService.Start()
-	// } else {
-	//     go h.telegramBotService.Stop()
-	// }
+	// 重新加载机器人服务配置
+	if err := h.telegramBotService.ReloadConfig(); err != nil {
+		ErrorResponse(c, "重新加载机器人配置失败", http.StatusInternalServerError)
+		return
+	}
 
 	// 返回成功
 	SuccessResponse(c, map[string]interface{}{
@@ -182,6 +181,8 @@ func (h *TelegramHandler) UpdateChannel(c *gin.Context) {
 	channel.ChatType = req.ChatType
 	channel.PushEnabled = req.PushEnabled
 	channel.PushFrequency = req.PushFrequency
+	channel.PushStartTime = req.PushStartTime
+	channel.PushEndTime = req.PushEndTime
 	channel.ContentCategories = req.ContentCategories
 	channel.ContentTags = req.ContentTags
 	channel.IsActive = req.IsActive
@@ -255,16 +256,48 @@ func (h *TelegramHandler) HandleWebhook(c *gin.Context) {
 
 // GetBotStatus 获取机器人状态
 func (h *TelegramHandler) GetBotStatus(c *gin.Context) {
-	// 这里可以返回机器人运行状态、最后活动时间等信息
-	// 暂时返回基本状态信息
+	// 获取机器人运行时状态
+	runtimeStatus := h.telegramBotService.GetRuntimeStatus()
 
-	botUsername := h.telegramBotService.GetBotUsername()
+	// 获取配置状态
+	configs, err := h.systemConfigRepo.GetOrCreateDefault()
+	if err != nil {
+		ErrorResponse(c, "获取配置失败", http.StatusInternalServerError)
+		return
+	}
 
+	// 解析配置状态
+	configStatus := map[string]interface{}{
+		"enabled":            false,
+		"auto_reply_enabled": false,
+		"api_key_configured": false,
+	}
+
+	for _, config := range configs {
+		switch config.Key {
+		case "telegram_bot_enabled":
+			configStatus["enabled"] = config.Value == "true"
+		case "telegram_auto_reply_enabled":
+			configStatus["auto_reply_enabled"] = config.Value == "true"
+		case "telegram_bot_api_key":
+			configStatus["api_key_configured"] = config.Value != ""
+		}
+	}
+
+	// 合并状态信息
 	status := map[string]interface{}{
-		"bot_username":    botUsername,
-		"service_running": botUsername != "",
-		"webhook_mode":    false, // 当前使用长轮询模式
-		"polling_mode":    true,
+		"config":         configStatus,
+		"runtime":        runtimeStatus,
+		"overall_status": runtimeStatus["is_running"].(bool),
+		"status_text": func() string {
+			if runtimeStatus["is_running"].(bool) {
+				return "运行中"
+			} else if configStatus["enabled"].(bool) {
+				return "已启用但未运行"
+			} else {
+				return "已停止"
+			}
+		}(),
 	}
 
 	SuccessResponse(c, status)
@@ -304,6 +337,35 @@ func (h *TelegramHandler) ReloadBotConfig(c *gin.Context) {
 		"message": "请重启服务器以重新加载配置",
 		"note":    "当前版本需要重启服务器才能重新加载机器人配置",
 	})
+}
+
+// DebugBotConnection 调试机器人连接
+func (h *TelegramHandler) DebugBotConnection(c *gin.Context) {
+	// 获取机器人状态信息用于调试
+	botUsername := h.telegramBotService.GetBotUsername()
+
+	debugInfo := map[string]interface{}{
+		"bot_username":      botUsername,
+		"is_running":        botUsername != "",
+		"timestamp":         "2024-01-01T12:00:00Z", // 当前时间
+		"debugging_enabled": true,
+		"expected_logs": []string{
+			"[TELEGRAM:SERVICE] Telegram Bot (@username) 已启动",
+			"[TELEGRAM:MESSAGE] 开始监听 Telegram 消息更新...",
+			"[TELEGRAM:MESSAGE] 消息监听循环已启动，等待消息...",
+			"[TELEGRAM:MESSAGE] 收到消息: ChatID=xxx, Text='/register'",
+			"[TELEGRAM:MESSAGE] 处理 /register 命令 from ChatID=xxx",
+		},
+		"troubleshooting_steps": []string{
+			"1. 检查服务器日志中是否有 TELEGRAM 相关日志",
+			"2. 确认机器人已添加到群组并设为管理员",
+			"3. 验证 API Key 是否正确",
+			"4. 检查自动回复是否已启用",
+			"5. 重启服务器重新加载配置",
+		},
+	}
+
+	SuccessResponse(c, debugInfo)
 }
 
 // GetTelegramLogs 获取Telegram相关的日志

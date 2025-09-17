@@ -13,14 +13,36 @@
         <div class="space-y-4">
           <!-- 机器人启用开关 -->
           <div class="flex items-center justify-between">
-            <div>
+            <div class="flex-1">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">启用 Telegram 机器人</label>
               <p class="text-xs text-gray-500 dark:text-gray-400">开启后机器人将开始工作</p>
             </div>
-            <n-switch
-              v-model:value="telegramBotConfig.bot_enabled"
-              @update:value="handleBotConfigChange"
-            />
+            <div class="flex items-center space-x-3">
+              <n-switch
+                v-model:value="telegramBotConfig.bot_enabled"
+                @update:value="handleBotConfigChange"
+              />
+              <!-- 运行状态指示器 -->
+              <div v-if="botStatus" class="flex items-center space-x-2">
+                <n-tag
+                  :type="botStatus.overall_status ? 'success' : (telegramBotConfig.bot_enabled ? 'warning' : 'default')"
+                  size="small"
+                  class="min-w-16 text-center"
+                >
+                  {{ botStatus.status_text }}
+                </n-tag>
+                <n-button
+                  size="small"
+                  @click="refreshBotStatus"
+                  :loading="statusRefreshing"
+                  circle
+                >
+                  <template #icon>
+                    <i class="fas fa-sync-alt"></i>
+                  </template>
+                </n-button>
+              </div>
+            </div>
           </div>
 
           <!-- API Key 配置 -->
@@ -83,12 +105,13 @@
             </div>
             <n-switch
               v-model:value="telegramBotConfig.auto_reply_enabled"
+              :disabled="telegramBotConfig.bot_enabled"
               @update:value="handleBotConfigChange"
             />
           </div>
 
           <!-- 回复模板 -->
-          <div v-if="telegramBotConfig.auto_reply_enabled">
+          <div v-if="telegramBotConfig.auto_reply_enabled || telegramBotConfig.bot_enabled">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">回复模板</label>
             <n-input
               v-model:value="telegramBotConfig.auto_reply_template"
@@ -124,6 +147,107 @@
         </div>
       </div>
 
+      <!-- 代理配置 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="flex items-center mb-6">
+          <div class="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center mr-3">
+            <span class="text-sm font-bold">3</span>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">代理配置</h3>
+        </div>
+
+        <div class="space-y-4">
+          <!-- 启用代理 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">启用代理</label>
+              <p class="text-xs text-gray-500 dark:text-gray-400">通过代理服务器连接 Telegram API</p>
+            </div>
+            <n-switch
+              v-model:value="telegramBotConfig.proxy_enabled"
+              @update:value="handleBotConfigChange"
+            />
+          </div>
+
+          <!-- 代理设置 -->
+          <div v-if="telegramBotConfig.proxy_enabled" class="space-y-4">
+            <!-- 代理类型 -->
+            <div>
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">代理类型</label>
+              <n-select
+                v-model:value="telegramBotConfig.proxy_type"
+                :options="[
+                  { label: 'HTTP', value: 'http' },
+                  { label: 'HTTPS', value: 'https' },
+                  { label: 'SOCKS5', value: 'socks5' }
+                ]"
+                placeholder="选择代理类型"
+                @update:value="handleBotConfigChange"
+              />
+            </div>
+
+            <!-- 代理主机和端口 -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">代理主机</label>
+                <n-input
+                  v-model:value="telegramBotConfig.proxy_host"
+                  placeholder="例如: 127.0.0.1 或 proxy.example.com"
+                  @input="handleBotConfigChange"
+                />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">代理端口</label>
+                <n-input-number
+                  v-model:value="telegramBotConfig.proxy_port"
+                  :min="1"
+                  :max="65535"
+                  placeholder="例如: 8080"
+                  @update:value="handleBotConfigChange"
+                />
+              </div>
+            </div>
+
+            <!-- 代理认证 -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">用户名 (可选)</label>
+                <n-input
+                  v-model:value="telegramBotConfig.proxy_username"
+                  placeholder="代理用户名"
+                  @input="handleBotConfigChange"
+                />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">密码 (可选)</label>
+                <n-input
+                  v-model:value="telegramBotConfig.proxy_password"
+                  type="password"
+                  placeholder="代理密码"
+                  @input="handleBotConfigChange"
+                />
+              </div>
+            </div>
+
+            <!-- 代理状态提示 -->
+            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+              <div class="flex items-start space-x-3">
+                <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 mt-1"></i>
+                <div>
+                  <h4 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">代理配置说明</h4>
+                  <ul class="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <li>• HTTP/HTTPS 代理支持基本的认证</li>
+                    <li>• SOCKS5 代理支持用户名/密码认证</li>
+                    <li>• 配置完成后需要重启机器人服务</li>
+                    <li>• 确保代理服务器稳定可靠</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 频道和群组管理 -->
       <div v-if="telegramBotConfig.bot_enabled" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center justify-between mb-6">
@@ -146,15 +270,6 @@
                 <i class="fas fa-sync-alt"></i>
               </template>
               刷新
-            </n-button>
-            <n-button
-              @click="testBotConnection"
-              :loading="testingConnection"
-            >
-              <template #icon>
-                <i class="fas fa-robot"></i>
-              </template>
-              测试连接
             </n-button>
             <n-button
               type="primary"
@@ -238,7 +353,24 @@
         </div>
       </div>
     </div>
-    <div class="flex justify-end p-2">
+    <div class="flex justify-end p-2 gap-2">
+      <n-button
+        @click="testBotConnection"
+        :loading="testingConnection"
+      >
+        <template #icon>
+          <i class="fas fa-robot"></i>
+        </template>
+        测试连接
+      </n-button>
+      <n-button
+        @click="debugBotConnection"
+      >
+        <template #icon>
+          <i class="fas fa-bug"></i>
+        </template>
+        调试
+      </n-button>
        <n-button @click="showLogDrawer = true">
          <template #icon>
            <i class="fas fa-list-alt"></i>
@@ -261,9 +393,9 @@
     v-model:show="showRegisterChannelDialog"
     preset="card"
     title="注册频道/群组"
-    size="huge"
     :bordered="false"
     :segmented="false"
+    :style="{ width: '800px' }"
   >
     <div class="space-y-6">
       <div class="text-sm text-gray-600 dark:text-gray-400">
@@ -305,6 +437,148 @@
     </div>
   </n-modal>
 
+  <!-- 编辑频道对话框 -->
+  <n-modal
+    v-model:show="showEditChannelDialog"
+    preset="card"
+    :title="`编辑频道 - ${editingChannel?.chat_name || ''}`"
+    size="large"
+    :bordered="false"
+    :segmented="false"
+  >
+    <div v-if="editingChannel" class="space-y-6">
+      <!-- 频道基本信息 -->
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">频道信息</h4>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="text-gray-600 dark:text-gray-400">频道名称:</span>
+            <span class="ml-2 text-gray-900 dark:text-white">{{ editingChannel.chat_name }}</span>
+          </div>
+          <div>
+            <span class="text-gray-600 dark:text-gray-400">频道ID:</span>
+            <span class="ml-2 text-gray-900 dark:text-white">{{ editingChannel.chat_id }}</span>
+          </div>
+          <div>
+            <span class="text-gray-600 dark:text-gray-400">类型:</span>
+            <span class="ml-2 text-gray-900 dark:text-white">{{ editingChannel.chat_type === 'channel' ? '频道' : '群组' }}</span>
+          </div>
+          <div>
+            <span class="text-gray-600 dark:text-gray-400">状态:</span>
+            <n-tag :type="editingChannel.is_active ? 'success' : 'warning'" size="small" class="ml-2">
+              {{ editingChannel.is_active ? '活跃' : '非活跃' }}
+            </n-tag>
+          </div>
+        </div>
+      </div>
+
+      <!-- 推送设置 -->
+      <div class="space-y-4">
+        <h4 class="text-base font-medium text-gray-900 dark:text-white">推送设置</h4>
+
+        <!-- 启用推送 -->
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">启用推送</label>
+            <p class="text-xs text-gray-500 dark:text-gray-400">是否向此频道推送内容</p>
+          </div>
+          <n-switch
+            v-model:value="editingChannel.push_enabled"
+          />
+        </div>
+
+        <!-- 推送频率 -->
+        <div v-if="editingChannel.push_enabled">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">推送频率</label>
+          <n-select
+            v-model:value="editingChannel.push_frequency"
+            :options="[
+              { label: '每5分钟', value: 0.0833 },
+              { label: '每10分钟', value: 0.1667 },
+              { label: '每15分钟', value: 0.25 },
+              { label: '每30分钟', value: 0.5 },
+              { label: '每小时', value: 1 },
+              { label: '每2小时', value: 2 },
+              { label: '每3小时', value: 3 },
+              { label: '每6小时', value: 6 },
+              { label: '每12小时', value: 12 },
+              { label: '每天', value: 24 },
+              { label: '每2天', value: 48 },
+              { label: '每周', value: 168 }
+            ]"
+            placeholder="选择推送频率"
+          />
+        </div>
+
+        <!-- 推送时间段 -->
+        <div v-if="editingChannel.push_enabled">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">推送时间段</label>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs text-gray-600 dark:text-gray-400">开始时间</label>
+              <n-time-picker
+                v-model:value="editingChannel.push_start_time"
+                format="HH:mm"
+                placeholder="选择开始时间"
+                clearable
+              />
+            </div>
+            <div>
+              <label class="text-xs text-gray-600 dark:text-gray-400">结束时间</label>
+              <n-time-picker
+                v-model:value="editingChannel.push_end_time"
+                format="HH:mm"
+                placeholder="选择结束时间"
+                clearable
+              />
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            留空表示全天推送，不设置时间限制
+          </p>
+        </div>
+
+        <!-- 内容分类 -->
+        <div v-if="editingChannel.push_enabled">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">内容分类</label>
+          <n-input
+            v-model:value="editingChannel.content_categories"
+            placeholder="输入内容分类，多个用逗号分隔 (如: 电影,电视剧,动漫)"
+            type="textarea"
+            :rows="2"
+          />
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">留空表示推送所有分类的内容</p>
+        </div>
+
+        <!-- 标签过滤 -->
+        <div v-if="editingChannel.push_enabled">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">标签过滤</label>
+          <n-input
+            v-model:value="editingChannel.content_tags"
+            placeholder="输入标签关键词，多个用逗号分隔 (如: 高清,1080p,蓝光)"
+            type="textarea"
+            :rows="2"
+          />
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">留空表示推送所有标签的内容</p>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+        <n-button @click="showEditChannelDialog = false">
+          取消
+        </n-button>
+        <n-button
+          type="primary"
+          :loading="savingChannel"
+          @click="saveChannelSettings"
+        >
+          保存设置
+        </n-button>
+      </div>
+    </div>
+  </n-modal>
+
   <!-- Telegram 日志抽屉 -->
   <n-drawer
     v-model:show="showLogDrawer"
@@ -313,9 +587,9 @@
     placement="right"
   >
     <n-drawer-content>
-      <div class="space-y-4">
+      <div class="space-y-4 h-full overflow-y-auto flex flex-col">
         <!-- 日志控制栏 -->
-        <div class="flex items-center justify-between">
+        <div class="flex-0 flex items-center justify-between">
           <div class="flex items-center space-x-4">
             <span class="text-sm text-gray-600 dark:text-gray-400">时间范围:</span>
             <n-select
@@ -342,7 +616,7 @@
         </div>
 
         <!-- 日志列表 -->
-        <div class="space-y-2 max-h-96 overflow-y-auto">
+        <div class="h-1 flex-1 space-y-2 overflow-y-auto">
           <div v-if="telegramLogs.length === 0 && !loadingLogs" class="text-center py-8">
             <i class="fas fa-list-alt text-4xl text-gray-400 mb-4"></i>
             <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">暂无日志</h3>
@@ -376,7 +650,7 @@
         </div>
 
         <!-- 日志统计 -->
-        <div class="flex justify-between items-center text-sm text-gray-600 dark:text-gray-400">
+        <div class="flex-0 flex justify-between items-center text-sm text-gray-600 dark:text-gray-400">
           <span>显示 {{ telegramLogs.length }} 条日志</span>
           <span v-if="telegramLogs.length > 0">
             加载于 {{ formatTimestamp(new Date().toISOString()) }}
@@ -400,6 +674,12 @@ const telegramBotConfig = ref<any>({
   auto_reply_template: '您好！我可以帮您搜索网盘资源，请输入您要搜索的内容。',
   auto_delete_enabled: false,
   auto_delete_interval: 60,
+  proxy_enabled: false,
+  proxy_type: 'http',
+  proxy_host: '',
+  proxy_port: 8080,
+  proxy_username: '',
+  proxy_password: '',
 })
 
 const telegramChannels = ref<any[]>([])
@@ -408,12 +688,19 @@ const savingBotConfig = ref(false)
 const apiKeyValidationResult = ref<any>(null)
 const hasBotConfigChanges = ref(false)
 const showRegisterChannelDialog = ref(false)
+const showEditChannelDialog = ref(false)
 const showLogDrawer = ref(false)
 const refreshingChannels = ref(false)
 const testingConnection = ref(false)
 const telegramLogs = ref<any[]>([])
 const loadingLogs = ref(false)
 const logHours = ref(24)
+const editingChannel = ref<any>(null)
+const savingChannel = ref(false)
+
+// 机器人状态相关变量
+const botStatus = ref<any>(null)
+const statusRefreshing = ref(false)
 
 // 使用统一的Telegram API
 const telegramApi = useTelegramApi()
@@ -423,6 +710,10 @@ const fetchTelegramConfig = async () => {
   try {
     const data = await telegramApi.getBotConfig() as any
     if (data) {
+      // 确保当机器人启用时，自动回复始终为true
+      if (data.bot_enabled) {
+        data.auto_reply_enabled = true
+      }
       telegramBotConfig.value = { ...data }
     }
   } catch (error) {
@@ -434,9 +725,12 @@ const fetchTelegramConfig = async () => {
 const fetchTelegramChannels = async () => {
   try {
     const data = await telegramApi.getChannels() as any[]
-    if (data) {
-      telegramChannels.value = data
+    if (data !== undefined && data !== null) {
+      telegramChannels.value = Array.isArray(data) ? data : []
+    } else {
+      telegramChannels.value = []
     }
+    console.log('频道列表已更新:', telegramChannels.value.length, '个频道')
   } catch (error: any) {
     console.error('获取频道列表失败:', error)
     // 如果是表不存在的错误，给出更友好的提示
@@ -460,6 +754,10 @@ const fetchTelegramChannels = async () => {
 
 // 处理机器人配置变更
 const handleBotConfigChange = () => {
+  // 当机器人启用时，自动回复必须为true
+  if (telegramBotConfig.value.bot_enabled) {
+    telegramBotConfig.value.auto_reply_enabled = true
+  }
   hasBotConfigChanges.value = true
 }
 
@@ -550,17 +848,24 @@ const saveBotConfig = async () => {
       const config = telegramBotConfig.value as any
       configRequest.bot_enabled = config.bot_enabled
       configRequest.bot_api_key = config.bot_api_key
-      configRequest.auto_reply_enabled = config.auto_reply_enabled
+      // 当机器人启用时，自动回复必须为true
+      configRequest.auto_reply_enabled = config.bot_enabled ? true : config.auto_reply_enabled
       configRequest.auto_reply_template = config.auto_reply_template
       configRequest.auto_delete_enabled = config.auto_delete_enabled
       configRequest.auto_delete_interval = config.auto_delete_interval
+      configRequest.proxy_enabled = config.proxy_enabled
+      configRequest.proxy_type = config.proxy_type
+      configRequest.proxy_host = config.proxy_host
+      configRequest.proxy_port = config.proxy_port
+      configRequest.proxy_username = config.proxy_username
+      configRequest.proxy_password = config.proxy_password
     }
 
     await telegramApi.updateBotConfig(configRequest)
 
     notification.success({
-      content: '配置保存成功',
-      duration: 2000
+      content: '配置保存成功，机器人服务已重新加载配置',
+      duration: 3000
     })
     hasBotConfigChanges.value = false
     // 重新获取配置以确保同步
@@ -577,8 +882,8 @@ const saveBotConfig = async () => {
 
 // 编辑频道
 const editChannel = (channel: any) => {
-  // TODO: 实现编辑频道功能
-  console.log('编辑频道:', channel)
+  editingChannel.value = { ...channel }
+  showEditChannelDialog.value = true
 }
 
 // 注销频道（带确认）
@@ -611,6 +916,9 @@ const performUnregisterChannel = async (channel: any) => {
       content: `频道 "${channel.chat_name}" 已成功注销`,
       duration: 3000
     })
+
+    // 添加短暂延迟确保数据库事务完成
+    await new Promise(resolve => setTimeout(resolve, 500))
 
     // 重新获取频道列表，更新UI
     await fetchTelegramChannels()
@@ -694,14 +1002,20 @@ const testBotConnection = async () => {
   testingConnection.value = true
   try {
     const data = await telegramApi.getBotStatus() as any
-    if (data && data.service_running) {
+    if (data && data.overall_status) {
       notification.success({
-        content: `机器人连接正常！用户名：@${data.bot_username}`,
+        content: `机器人连接正常！用户名：@${data.runtime?.username || '未知'}`,
         duration: 3000
       })
     } else {
+      let warningMessage = '机器人服务未运行或未配置'
+      if (data?.config?.enabled) {
+        warningMessage = '机器人已启用但未运行，请检查 API Key 配置'
+      } else if (!data?.config?.api_key_configured) {
+        warningMessage = 'API Key 未配置，请先配置有效的 API Key'
+      }
       notification.warning({
-        content: '机器人服务未运行或未配置',
+        content: warningMessage,
         duration: 3000
       })
     }
@@ -814,10 +1128,115 @@ const getCategoryLabel = (category: string): string => {
 const notification = useNotification()
 const dialog = useDialog()
 
+// 保存频道设置
+const saveChannelSettings = async () => {
+  if (!editingChannel.value) return
+
+  savingChannel.value = true
+  try {
+    const updateData = {
+      chat_name: editingChannel.value.chat_name,
+      chat_type: editingChannel.value.chat_type,
+      push_enabled: editingChannel.value.push_enabled,
+      push_frequency: editingChannel.value.push_frequency,
+      content_categories: editingChannel.value.content_categories,
+      content_tags: editingChannel.value.content_tags,
+      is_active: editingChannel.value.is_active,
+      push_start_time: editingChannel.value.push_start_time,
+      push_end_time: editingChannel.value.push_end_time
+    }
+
+    await telegramApi.updateChannel(editingChannel.value.id, updateData)
+
+    notification.success({
+      content: `频道 "${editingChannel.value.chat_name}" 设置已更新`,
+      duration: 3000
+    })
+
+    // 关闭对话框
+    showEditChannelDialog.value = false
+
+    // 刷新频道列表
+    await fetchTelegramChannels()
+
+  } catch (error: any) {
+    notification.error({
+      content: `保存频道设置失败: ${error?.message || '请稍后重试'}`,
+      duration: 3000
+    })
+  } finally {
+    savingChannel.value = false
+  }
+}
+
+// 刷新机器人状态
+const refreshBotStatus = async () => {
+  statusRefreshing.value = true
+  try {
+    const data = await telegramApi.getBotStatus() as any
+    botStatus.value = data
+    notification.success({
+      content: '机器人状态已刷新',
+      duration: 2000
+    })
+  } catch (error: any) {
+    notification.error({
+      content: '刷新状态失败：' + (error?.message || '请稍后重试'),
+      duration: 3000
+    })
+  } finally {
+    statusRefreshing.value = false
+  }
+}
+
+// 调试机器人连接
+const debugBotConnection = async () => {
+  try {
+    const data = await telegramApi.getBotStatus() as any
+
+    let message = `🔍 **Telegram 机器人调试信息**\n\n`
+    message += `🤖 机器人状态: ${data.runtime?.is_running ? '✅ 运行中' : '❌ 未运行'}\n`
+    message += `👤 用户名: @${data.runtime?.username || '未知'}\n`
+    message += `⚡ 工作模式: 长轮询\n\n`
+
+    message += `📋 **故障排查步骤:**\n`
+    message += `1. 检查服务器控制台是否有 [TELEGRAM] 日志\n`
+    message += `2. 确认机器人已添加到群组并设为管理员\n`
+    message += `3. 验证 API Key 配置是否正确\n`
+    message += `4. 确认自动回复功能已启用\n`
+    message += `5. 重启服务器重新加载配置\n\n`
+
+    message += `🔧 **预期日志输出:**\n`
+    message += `• [TELEGRAM:SERVICE] Telegram Bot (@用户名) 已启动\n`
+    message += `• [TELEGRAM:MESSAGE] 收到消息: ChatID=xxx, Text='/register'\n`
+    message += `• [TELEGRAM:MESSAGE] 处理 /register 命令 from ChatID=xxx\n`
+    message += `• [TELEGRAM:MESSAGE:SUCCESS] 消息发送成功\n\n`
+
+    message += `💡 **如果没有日志输出:**\n`
+    message += `• 服务器可能未正确启动机器人服务\n`
+    message += `• API Key 可能有误\n`
+    message += `• 数据库配置可能有问题`
+
+    notification.info({
+      title: '🤖 机器人连接调试',
+      content: message,
+      duration: 15000,
+      keepAliveOnHover: true
+    })
+  } catch (error: any) {
+    notification.error({
+      title: '🔧 调试失败',
+      content: `无法获取机器人状态: ${error?.message || '网络错误或服务未运行'}`,
+      duration: 5000
+    })
+  }
+}
+
 // 页面加载时获取配置
 onMounted(async () => {
   await fetchTelegramConfig()
   await fetchTelegramChannels()
+  await refreshBotStatus() // 初始化机器人状态
   console.log('Telegram 机器人标签已加载')
 })
 

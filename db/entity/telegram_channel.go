@@ -18,6 +18,8 @@ type TelegramChannel struct {
 	// 推送配置
 	PushEnabled       bool   `json:"push_enabled" gorm:"default:true;comment:是否启用推送"`
 	PushFrequency     int    `json:"push_frequency" gorm:"default:24;comment:推送频率（小时）"`
+	PushStartTime     string `json:"push_start_time" gorm:"size:10;comment:推送开始时间，格式HH:mm"`
+	PushEndTime       string `json:"push_end_time" gorm:"size:10;comment:推送结束时间，格式HH:mm"`
 	ContentCategories string `json:"content_categories" gorm:"type:text;comment:推送的内容分类，用逗号分隔"`
 	ContentTags       string `json:"content_tags" gorm:"type:text;comment:推送的标签，用逗号分隔"`
 

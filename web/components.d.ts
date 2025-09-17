@@ -51,6 +51,7 @@ declare module 'vue' {
     NTag: typeof import('naive-ui')['NTag']
     NText: typeof import('naive-ui')['NText']
     NThing: typeof import('naive-ui')['NThing']
+    NTimePicker: typeof import('naive-ui')['NTimePicker']
     NUpload: typeof import('naive-ui')['NUpload']
     NUploadDragger: typeof import('naive-ui')['NUploadDragger']
     NVirtualList: typeof import('naive-ui')['NVirtualList']

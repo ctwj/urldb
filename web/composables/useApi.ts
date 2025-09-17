@@ -269,6 +269,7 @@ export const useTelegramApi = () => {
   const updateBotConfig = (data: any) => useApiFetch('/telegram/bot-config', { method: 'PUT', body: data }).then(parseApiResponse)
   const validateApiKey = (data: any) => useApiFetch('/telegram/validate-api-key', { method: 'POST', body: data }).then(parseApiResponse)
   const getBotStatus = () => useApiFetch('/telegram/bot-status').then(parseApiResponse)
+  const debugBotConnection = () => useApiFetch('/telegram/debug-connection').then(parseApiResponse)
   const reloadBotConfig = () => useApiFetch('/telegram/reload-config', { method: 'POST' }).then(parseApiResponse)
   const testBotMessage = (data: any) => useApiFetch('/telegram/test-message', { method: 'POST', body: data }).then(parseApiResponse)
   const getChannels = () => useApiFetch('/telegram/channels').then(parseApiResponse)
@@ -283,6 +284,7 @@ export const useTelegramApi = () => {
     updateBotConfig,
     validateApiKey,
     getBotStatus,
+    debugBotConnection,
     reloadBotConfig,
     testBotMessage,
     getChannels,

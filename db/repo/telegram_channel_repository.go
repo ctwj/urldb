@@ -88,7 +88,29 @@ func (r *TelegramChannelRepositoryImpl) UpdateLastPushAt(id uint, lastPushAt tim
 func (r *TelegramChannelRepositoryImpl) FindDueForPush() ([]entity.TelegramChannel, error) {
 	var channels []entity.TelegramChannel
 	// 查找活跃、启用推送的频道，且距离上次推送已超过推送频率小时的记录
-	err := r.db.Where("is_active = ? AND push_enabled = ? AND (last_push_at IS NULL OR last_push_at < DATE_SUB(NOW(), INTERVAL push_frequency HOUR))",
-		true, true).Find(&channels).Error
-	return channels, err
+
+	// 先获取所有活跃且启用推送的频道
+	err := r.db.Where("is_active = ? AND push_enabled = ?", true, true).Find(&channels).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 在内存中过滤出需要推送的频道（更可靠的跨数据库方案）
+	var dueChannels []entity.TelegramChannel
+	now := time.Now()
+
+	for _, channel := range channels {
+		// 如果从未推送过，或者距离上次推送已超过推送频率小时
+		if channel.LastPushAt == nil {
+			dueChannels = append(dueChannels, channel)
+		} else {
+			// 计算下次推送时间：上次推送时间 + 推送频率小时
+			nextPushTime := channel.LastPushAt.Add(time.Duration(channel.PushFrequency) * time.Hour)
+			if now.After(nextPushTime) {
+				dueChannels = append(dueChannels, channel)
+			}
+		}
+	}
+
+	return dueChannels, nil
 }
