@@ -23,6 +23,7 @@ type TelegramBotService interface {
 	ReloadConfig() error
 	GetRuntimeStatus() map[string]interface{}
 	ValidateApiKey(apiKey string) (bool, map[string]interface{}, error)
+	ValidateApiKeyWithProxy(apiKey string, proxyEnabled bool, proxyType, proxyHost string, proxyPort int, proxyUsername, proxyPassword string) (bool, map[string]interface{}, error)
 	GetBotUsername() string
 	SendMessage(chatID int64, text string) error
 	DeleteMessage(chatID int64, messageID int) error
@@ -369,6 +370,90 @@ func (s *TelegramBotServiceImpl) ValidateApiKey(apiKey string) (bool, map[string
 
 	if err != nil {
 		return false, nil, fmt.Errorf("无效的 API Key: %v", err)
+	}
+
+	// 获取机器人信息
+	botInfo, err := bot.GetMe()
+	if err != nil {
+		return false, nil, fmt.Errorf("获取机器人信息失败: %v", err)
+	}
+
+	botData := map[string]interface{}{
+		"id":         botInfo.ID,
+		"username":   strings.TrimPrefix(botInfo.UserName, "@"),
+		"first_name": botInfo.FirstName,
+		"last_name":  botInfo.LastName,
+	}
+
+	return true, botData, nil
+}
+
+// ValidateApiKeyWithProxy 使用代理配置验证 API Key
+func (s *TelegramBotServiceImpl) ValidateApiKeyWithProxy(apiKey string, proxyEnabled bool, proxyType, proxyHost string, proxyPort int, proxyUsername, proxyPassword string) (bool, map[string]interface{}, error) {
+	if apiKey == "" {
+		return false, nil, fmt.Errorf("API Key 不能为空")
+	}
+
+	var bot *tgbotapi.BotAPI
+	var err error
+
+	// 使用提供的代理配置进行校验
+	if proxyEnabled && proxyHost != "" {
+		var httpClient *http.Client
+
+		if proxyType == "socks5" {
+			var auth *proxy.Auth
+			if proxyUsername != "" {
+				auth = &proxy.Auth{
+					User:     proxyUsername,
+					Password: proxyPassword,
+				}
+			}
+
+			dialer, proxyErr := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%d", proxyHost, proxyPort), auth, proxy.Direct)
+			if proxyErr != nil {
+				return false, nil, fmt.Errorf("创建 SOCKS5 代理失败: %v", proxyErr)
+			}
+
+			httpClient = &http.Client{
+				Transport: &http.Transport{
+					Dial: dialer.Dial,
+				},
+				Timeout: 10 * time.Second,
+			}
+		} else {
+			proxyURL := &url.URL{
+				Scheme: proxyType,
+				Host:   fmt.Sprintf("%s:%d", proxyHost, proxyPort),
+				User:   nil,
+			}
+
+			if proxyUsername != "" {
+				proxyURL.User = url.UserPassword(proxyUsername, proxyPassword)
+			}
+
+			httpClient = &http.Client{
+				Transport: &http.Transport{
+					Proxy: http.ProxyURL(proxyURL),
+				},
+				Timeout: 10 * time.Second,
+			}
+		}
+
+		bot, err = tgbotapi.NewBotAPIWithClient(apiKey, tgbotapi.APIEndpoint, httpClient)
+		if err != nil {
+			return false, nil, fmt.Errorf("创建 Telegram Bot (代理校验) 失败: %v", err)
+		}
+
+		utils.Info("[TELEGRAM:VALIDATE] 使用代理配置校验 API Key")
+	} else {
+		// 直连校验
+		bot, err = tgbotapi.NewBotAPI(apiKey)
+		if err != nil {
+			return false, nil, fmt.Errorf("无效的 API Key: %v", err)
+		}
+
+		utils.Info("[TELEGRAM:VALIDATE] 使用直连模式校验 API Key")
 	}
 
 	// 获取机器人信息

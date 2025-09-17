@@ -56,7 +56,13 @@ type TelegramBotConfigResponse struct {
 
 // ValidateTelegramApiKeyRequest 验证 Telegram API Key 请求
 type ValidateTelegramApiKeyRequest struct {
-	ApiKey string `json:"api_key" binding:"required"`
+	ApiKey        string `json:"api_key" binding:"required"`
+	ProxyEnabled  bool   `json:"proxy_enabled"`
+	ProxyType     string `json:"proxy_type"`
+	ProxyHost     string `json:"proxy_host"`
+	ProxyPort     int    `json:"proxy_port"`
+	ProxyUsername string `json:"proxy_username"`
+	ProxyPassword string `json:"proxy_password"`
 }
 
 // ValidateTelegramApiKeyResponse 验证 Telegram API Key 响应

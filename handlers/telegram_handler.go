@@ -95,22 +95,53 @@ func (h *TelegramHandler) ValidateApiKey(c *gin.Context) {
 		return
 	}
 
-	valid, botInfo, err := h.telegramBotService.ValidateApiKey(req.ApiKey)
-	if err != nil {
-		ErrorResponse(c, "校验失败: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// 如果请求中包含代理配置，临时更新服务配置进行校验
+	if req.ProxyEnabled {
+		// 这里只是为了校验，我们不应该修改全局配置
+		// 传递代理配置给服务进行校验
+		valid, botInfo, err := h.telegramBotService.ValidateApiKeyWithProxy(
+			req.ApiKey,
+			req.ProxyEnabled,
+			req.ProxyType,
+			req.ProxyHost,
+			req.ProxyPort,
+			req.ProxyUsername,
+			req.ProxyPassword,
+		)
+		if err != nil {
+			ErrorResponse(c, "校验失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	response := dto.ValidateTelegramApiKeyResponse{
-		Valid:   valid,
-		BotInfo: botInfo,
-	}
+		response := dto.ValidateTelegramApiKeyResponse{
+			Valid:   valid,
+			BotInfo: botInfo,
+		}
 
-	if !valid {
-		response.Error = "无效的 API Key"
-	}
+		if !valid {
+			response.Error = "无效的 API Key"
+		}
 
-	SuccessResponse(c, response)
+		SuccessResponse(c, response)
+	} else {
+		// 使用默认配置校验
+		valid, botInfo, err := h.telegramBotService.ValidateApiKey(req.ApiKey)
+		if err != nil {
+			ErrorResponse(c, "校验失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := dto.ValidateTelegramApiKeyResponse{
+			Valid:   valid,
+			BotInfo: botInfo,
+		}
+
+		if !valid {
+			response.Error = "无效的 API Key"
+		}
+
+		SuccessResponse(c, response)
+	}
 }
 
 // GetChannels 获取频道列表

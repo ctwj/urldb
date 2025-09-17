@@ -4,9 +4,6 @@
       <!-- 机器人基本配置 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center mb-6">
-          <div class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center mr-3">
-            <span class="text-sm font-bold">1</span>
-          </div>
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">机器人配置</h3>
         </div>
 
@@ -18,11 +15,6 @@
               <p class="text-xs text-gray-500 dark:text-gray-400">开启后机器人将开始工作</p>
             </div>
             <div class="flex items-center space-x-3">
-              <n-switch
-                v-model:value="telegramBotConfig.bot_enabled"
-                @update:value="handleBotConfigChange"
-              />
-              <!-- 运行状态指示器 -->
               <div v-if="botStatus" class="flex items-center space-x-2">
                 <n-tag
                   :type="botStatus.overall_status ? 'success' : (telegramBotConfig.bot_enabled ? 'warning' : 'default')"
@@ -31,6 +23,19 @@
                 >
                   {{ botStatus.status_text }}
                 </n-tag>
+                <!-- 当机器人已启用但未运行时，显示启动按钮 -->
+                <n-button
+                  v-if="telegramBotConfig.bot_enabled && !botStatus.overall_status"
+                  size="small"
+                  type="primary"
+                  @click="startBotService"
+                  :loading="startingBot"
+                >
+                  <template #icon>
+                    <i class="fas fa-play"></i>
+                  </template>
+                  启动
+                </n-button>
                 <n-button
                   size="small"
                   @click="refreshBotStatus"
@@ -41,122 +46,14 @@
                     <i class="fas fa-sync-alt"></i>
                   </template>
                 </n-button>
-              </div>
-            </div>
-          </div>
-
-          <!-- API Key 配置 -->
-          <div v-if="telegramBotConfig.bot_enabled" class="space-y-3">
-            <div>
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Bot API Key</label>
-              <div class="flex space-x-3">
-                <n-input
-                  v-model:value="telegramBotConfig.bot_api_key"
-                  placeholder="请输入 Telegram Bot API Key"
-                  type="password"
-                  show-password-on="click"
-                  class="flex-1"
-                  @input="handleBotConfigChange"
+                <n-switch
+                  v-model:value="telegramBotConfig.bot_enabled"
+                  @update:value="handleBotConfigChange"
                 />
-                <n-button
-                  type="primary"
-                  :loading="validatingApiKey"
-                  @click="validateApiKey"
-                >
-                  校验
-                </n-button>
-              </div>
-              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                从 @BotFather 获取 API Key
-              </p>
-            </div>
-
-            <!-- 校验结果 -->
-            <div v-if="apiKeyValidationResult" class="p-3 rounded-md"
-                 :class="apiKeyValidationResult.valid ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'">
-              <div class="flex items-center">
-                <i :class="apiKeyValidationResult.valid ? 'fas fa-check-circle' : 'fas fa-times-circle'"
-                   class="mr-2"></i>
-                <span>{{  apiKeyValidationResult.valid ? '' : 'Fail' }}</span>
-                <span v-if="apiKeyValidationResult.valid && apiKeyValidationResult.bot_info" class="mt-2 text-xs">
-                  机器人：@{{ apiKeyValidationResult.bot_info.username }} ({{ apiKeyValidationResult.bot_info.first_name }})
-                </span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 自动回复配置 -->
-      <div v-if="telegramBotConfig.bot_enabled" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div class="flex items-center mb-6">
-          <div class="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center mr-3">
-            <span class="text-sm font-bold">2</span>
-          </div>
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">自动回复设置</h3>
-        </div>
-
-        <div class="space-y-4">
-          <!-- 自动回复开关 -->
-          <div class="flex items-center justify-between">
-            <div>
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">启用自动回复</label>
-              <p class="text-xs text-gray-500 dark:text-gray-400">收到消息时自动回复帮助信息</p>
-            </div>
-            <n-switch
-              v-model:value="telegramBotConfig.auto_reply_enabled"
-              :disabled="telegramBotConfig.bot_enabled"
-              @update:value="handleBotConfigChange"
-            />
-          </div>
-
-          <!-- 回复模板 -->
-          <div v-if="telegramBotConfig.auto_reply_enabled || telegramBotConfig.bot_enabled">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">回复模板</label>
-            <n-input
-              v-model:value="telegramBotConfig.auto_reply_template"
-              type="textarea"
-              placeholder="请输入自动回复内容"
-              :rows="3"
-              @input="handleBotConfigChange"
-            />
-          </div>
-
-          <!-- 自动删除开关 -->
-          <div class="flex items-center justify-between">
-            <div>
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">自动删除回复</label>
-              <p class="text-xs text-gray-500 dark:text-gray-400">定时删除机器人发送的回复消息</p>
-            </div>
-            <n-switch
-              v-model:value="telegramBotConfig.auto_delete_enabled"
-              @update:value="handleBotConfigChange"
-            />
-          </div>
-
-          <!-- 删除间隔 -->
-          <div v-if="telegramBotConfig.auto_delete_enabled">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">删除间隔（分钟）</label>
-            <n-input-number
-              v-model:value="telegramBotConfig.auto_delete_interval"
-              :min="1"
-              :max="1440"
-              @update:value="handleBotConfigChange"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- 代理配置 -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <div class="flex items-center mb-6">
-          <div class="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center mr-3">
-            <span class="text-sm font-bold">3</span>
-          </div>
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">代理配置</h3>
-        </div>
-
-        <div class="space-y-4">
           <!-- 启用代理 -->
           <div class="flex items-center justify-between">
             <div>
@@ -245,6 +142,103 @@
               </div>
             </div>
           </div>
+
+          <!-- API Key 配置 -->
+          <div v-if="telegramBotConfig.bot_enabled" class="space-y-3">
+            <div>
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Bot API Key</label>
+              <div class="flex space-x-3">
+                <n-input
+                  v-model:value="telegramBotConfig.bot_api_key"
+                  placeholder="请输入 Telegram Bot API Key"
+                  type="password"
+                  show-password-on="click"
+                  class="flex-1"
+                  @input="handleBotConfigChange"
+                />
+                <n-button
+                  type="primary"
+                  :loading="validatingApiKey"
+                  @click="validateApiKey"
+                >
+                  校验
+                </n-button>
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                从 @BotFather 获取 API Key
+              </p>
+            </div>
+
+            <!-- 校验结果 -->
+            <div v-if="apiKeyValidationResult" class="p-3 rounded-md"
+                 :class="apiKeyValidationResult.valid ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'">
+              <div class="flex items-center">
+                <i :class="apiKeyValidationResult.valid ? 'fas fa-check-circle' : 'fas fa-times-circle'"
+                   class="mr-2"></i>
+                <span>{{  apiKeyValidationResult.valid ? '' : 'Fail' }}</span>
+                <span v-if="apiKeyValidationResult.valid && apiKeyValidationResult.bot_info" class="mt-2 text-xs">
+                  机器人：@{{ apiKeyValidationResult.bot_info.username }} ({{ apiKeyValidationResult.bot_info.first_name }})
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 自动回复配置 -->
+      <div v-if="telegramBotConfig.bot_enabled" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="flex items-center mb-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">自动回复设置</h3>
+        </div>
+
+        <div class="space-y-4">
+          <!-- 自动回复开关 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">启用自动回复</label>
+              <p class="text-xs text-gray-500 dark:text-gray-400">收到消息时自动回复帮助信息</p>
+            </div>
+            <n-switch
+              v-model:value="telegramBotConfig.auto_reply_enabled"
+              :disabled="telegramBotConfig.bot_enabled"
+              @update:value="handleBotConfigChange"
+            />
+          </div>
+
+          <!-- 回复模板 -->
+          <div v-if="telegramBotConfig.auto_reply_enabled || telegramBotConfig.bot_enabled">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">回复模板</label>
+            <n-input
+              v-model:value="telegramBotConfig.auto_reply_template"
+              type="textarea"
+              placeholder="请输入自动回复内容"
+              :rows="3"
+              @input="handleBotConfigChange"
+            />
+          </div>
+
+          <!-- 自动删除开关 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">自动删除回复</label>
+              <p class="text-xs text-gray-500 dark:text-gray-400">定时删除机器人发送的回复消息</p>
+            </div>
+            <n-switch
+              v-model:value="telegramBotConfig.auto_delete_enabled"
+              @update:value="handleBotConfigChange"
+            />
+          </div>
+
+          <!-- 删除间隔 -->
+          <div v-if="telegramBotConfig.auto_delete_enabled">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">删除间隔（分钟）</label>
+            <n-input-number
+              v-model:value="telegramBotConfig.auto_delete_interval"
+              :min="1"
+              :max="1440"
+              @update:value="handleBotConfigChange"
+            />
+          </div>
         </div>
       </div>
 
@@ -252,9 +246,6 @@
       <div v-if="telegramBotConfig.bot_enabled" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center justify-between mb-6">
           <div class="flex items-center">
-            <div class="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center mr-3">
-              <span class="text-sm font-bold">3</span>
-            </div>
             <div>
               <h3 class="text-lg font-semibold text-gray-900 dark:text-white">频道和群组管理</h3>
               <p class="text-sm text-gray-600 dark:text-gray-400">管理推送对象的频道和群组</p>
@@ -701,6 +692,7 @@ const savingChannel = ref(false)
 // 机器人状态相关变量
 const botStatus = ref<any>(null)
 const statusRefreshing = ref(false)
+const startingBot = ref(false)
 
 // 使用统一的Telegram API
 const telegramApi = useTelegramApi()
@@ -773,16 +765,34 @@ const validateApiKey = async () => {
 
   validatingApiKey.value = true
   try {
-    const data = await telegramApi.validateApiKey({
+    // 构建校验请求，包含代理配置
+    const validateRequest: any = {
       api_key: telegramBotConfig.value.bot_api_key
-    }) as any
+    }
+
+    // 如果启用了代理，包含代理配置
+    if (telegramBotConfig.value.proxy_enabled) {
+      validateRequest.proxy_enabled = telegramBotConfig.value.proxy_enabled
+      validateRequest.proxy_type = telegramBotConfig.value.proxy_type
+      validateRequest.proxy_host = telegramBotConfig.value.proxy_host
+      validateRequest.proxy_port = telegramBotConfig.value.proxy_port
+      validateRequest.proxy_username = telegramBotConfig.value.proxy_username
+      validateRequest.proxy_password = telegramBotConfig.value.proxy_password
+    }
+
+    const data = await telegramApi.validateApiKey(validateRequest) as any
 
     console.log('API Key 校验结果:', data)
     if (data) {
       apiKeyValidationResult.value = data
       if (data.valid) {
+        // 显示校验成功的提示，如果使用了代理则特别说明
+        let successMessage = 'API Key 校验成功'
+        if (telegramBotConfig.value.proxy_enabled) {
+          successMessage += ' (通过代理)'
+        }
         notification.success({
-          content: 'API Key 校验成功',
+          content: successMessage,
           duration: 2000
         })
       } else {
@@ -1166,6 +1176,31 @@ const saveChannelSettings = async () => {
     })
   } finally {
     savingChannel.value = false
+  }
+}
+
+// 启动机器人服务
+const startBotService = async () => {
+  startingBot.value = true
+  try {
+    // 重新保存配置以启动机器人
+    await saveBotConfig()
+
+    // 等待一秒后刷新状态
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    await refreshBotStatus()
+
+    notification.success({
+      content: '机器人服务启动中，请稍后刷新状态查看',
+      duration: 3000
+    })
+  } catch (error: any) {
+    notification.error({
+      content: '启动机器人服务失败：' + (error?.message || '请稍后重试'),
+      duration: 3000
+    })
+  } finally {
+    startingBot.value = false
   }
 }
 
