@@ -42,6 +42,12 @@ type TelegramBotConfigRequest struct {
 	AutoReplyTemplate  *string `json:"auto_reply_template"`
 	AutoDeleteEnabled  *bool   `json:"auto_delete_enabled"`
 	AutoDeleteInterval *int    `json:"auto_delete_interval"`
+	ProxyEnabled       *bool   `json:"proxy_enabled"`
+	ProxyType          *string `json:"proxy_type"`
+	ProxyHost          *string `json:"proxy_host"`
+	ProxyPort          *int    `json:"proxy_port"`
+	ProxyUsername      *string `json:"proxy_username"`
+	ProxyPassword      *string `json:"proxy_password"`
 }
 
 // TelegramBotConfigResponse Telegram 机器人配置响应
@@ -52,6 +58,12 @@ type TelegramBotConfigResponse struct {
 	AutoReplyTemplate  string `json:"auto_reply_template"`
 	AutoDeleteEnabled  bool   `json:"auto_delete_enabled"`
 	AutoDeleteInterval int    `json:"auto_delete_interval"`
+	ProxyEnabled       bool   `json:"proxy_enabled"`
+	ProxyType          string `json:"proxy_type"`
+	ProxyHost          string `json:"proxy_host"`
+	ProxyPort          int    `json:"proxy_port"`
+	ProxyUsername      string `json:"proxy_username"`
+	ProxyPassword      string `json:"proxy_password"`
 }
 
 // ValidateTelegramApiKeyRequest 验证 Telegram API Key 请求

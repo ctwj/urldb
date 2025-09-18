@@ -120,24 +120,24 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 				fmt.Sscanf(config.Value, "%d", &s.config.AutoDeleteInterval)
 			}
 			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (AutoDeleteInterval: %d)", config.Key, config.Value, s.config.AutoDeleteInterval)
-		case "telegram_proxy_enabled":
+		case entity.ConfigKeyTelegramProxyEnabled:
 			s.config.ProxyEnabled = config.Value == "true"
 			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyEnabled: %v)", config.Key, config.Value, s.config.ProxyEnabled)
-		case "telegram_proxy_type":
+		case entity.ConfigKeyTelegramProxyType:
 			s.config.ProxyType = config.Value
 			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyType: %s)", config.Key, config.Value, s.config.ProxyType)
-		case "telegram_proxy_host":
+		case entity.ConfigKeyTelegramProxyHost:
 			s.config.ProxyHost = config.Value
 			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
-		case "telegram_proxy_port":
+		case entity.ConfigKeyTelegramProxyPort:
 			if config.Value != "" {
 				fmt.Sscanf(config.Value, "%d", &s.config.ProxyPort)
 			}
 			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyPort: %d)", config.Key, config.Value, s.config.ProxyPort)
-		case "telegram_proxy_username":
+		case entity.ConfigKeyTelegramProxyUsername:
 			s.config.ProxyUsername = config.Value
 			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
-		case "telegram_proxy_password":
+		case entity.ConfigKeyTelegramProxyPassword:
 			s.config.ProxyPassword = config.Value
 			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
 		default:
@@ -442,6 +442,7 @@ func (s *TelegramBotServiceImpl) ValidateApiKeyWithProxy(apiKey string, proxyEna
 
 		bot, err = tgbotapi.NewBotAPIWithClient(apiKey, tgbotapi.APIEndpoint, httpClient)
 		if err != nil {
+			utils.Error(fmt.Sprintf("[TELEGRAM:VALIDATE] 创建 Telegram Bot (代理校验) 失败 $v", err))
 			return false, nil, fmt.Errorf("创建 Telegram Bot (代理校验) 失败: %v", err)
 		}
 
@@ -450,6 +451,7 @@ func (s *TelegramBotServiceImpl) ValidateApiKeyWithProxy(apiKey string, proxyEna
 		// 直连校验
 		bot, err = tgbotapi.NewBotAPI(apiKey)
 		if err != nil {
+			utils.Error(fmt.Sprintf("[TELEGRAM:VALIDATE] 创建 Telegram Bot 失败 $v", err))
 			return false, nil, fmt.Errorf("无效的 API Key: %v", err)
 		}
 
@@ -612,6 +614,7 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message) 
 
 	if total == 0 {
 		response := fmt.Sprintf("🔍 *搜索结果*\n\n关键词: `%s`\n\n❌ 未找到相关资源\n\n💡 建议:\n• 尝试使用更通用的关键词\n• 检查拼写是否正确\n• 减少关键词数量", query)
+		// 没有找到资源，不使用资源自动删除
 		s.sendReply(message, response)
 		return
 	}
@@ -625,12 +628,13 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message) 
 			break
 		}
 
-		title := resource.Title
+		// 清理资源标题和描述，确保UTF-8编码
+		title := s.cleanResourceText(resource.Title)
 		if len(title) > 50 {
 			title = title[:47] + "..."
 		}
 
-		description := resource.Description
+		description := s.cleanResourceText(resource.Description)
 		if len(description) > 100 {
 			description = description[:97] + "..."
 		}
@@ -644,27 +648,60 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message) 
 		resultText += "💡 如需查看更多结果，请访问网站搜索"
 	}
 
-	s.sendReply(message, resultText)
+	// 使用包含资源的自动删除功能
+	s.sendReplyWithResourceAutoDelete(message, resultText, len(resources))
 }
 
 // sendReply 发送回复消息
 func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text string) {
-	utils.Info("[TELEGRAM:MESSAGE] 尝试发送回复消息到 ChatID=%d: %s", message.Chat.ID, text)
+	s.sendReplyWithAutoDelete(message, text, s.config.AutoDeleteEnabled)
+}
+
+// sendReplyWithAutoDelete 发送回复消息，支持指定是否自动删除
+func (s *TelegramBotServiceImpl) sendReplyWithAutoDelete(message *tgbotapi.Message, text string, autoDelete bool) {
+	// 清理消息文本，确保UTF-8编码
+	originalText := text
+	text = s.cleanMessageText(text)
+	utils.Info("[TELEGRAM:MESSAGE] 尝试发送回复消息到 ChatID=%d, 原始长度=%d, 清理后长度=%d", message.Chat.ID, len(originalText), len(text))
+
+	// 检查清理后的文本是否有效
+	if len(text) == 0 {
+		utils.Error("[TELEGRAM:MESSAGE:ERROR] 清理后消息为空，无法发送")
+		return
+	}
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = "Markdown"
 	msg.ReplyToMessageID = message.MessageID
 
+	utils.Debug("[TELEGRAM:MESSAGE] 发送Markdown版本消息: %s", text[:min(100, len(text))])
+
 	sentMsg, err := s.bot.Send(msg)
 	if err != nil {
-		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败: %v", err)
-		return
+		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送Markdown消息失败: %v", err)
+		// 如果是UTF-8编码错误或Markdown错误，尝试发送纯文本版本
+		if strings.Contains(err.Error(), "UTF-8") || strings.Contains(err.Error(), "Bad Request") || strings.Contains(err.Error(), "strings must be encoded") {
+			utils.Info("[TELEGRAM:MESSAGE] 尝试发送纯文本版本...")
+			plainText := s.cleanMessageTextForPlain(originalText)
+			utils.Debug("[TELEGRAM:MESSAGE] 发送纯文本版本消息: %s", plainText[:min(100, len(plainText))])
+
+			msg.ParseMode = ""
+			msg.Text = plainText
+			sentMsg, err = s.bot.Send(msg)
+			if err != nil {
+				utils.Error("[TELEGRAM:MESSAGE:ERROR] 纯文本发送也失败: %v", err)
+				return
+			}
+		} else {
+			return
+		}
 	}
 
 	utils.Info("[TELEGRAM:MESSAGE:SUCCESS] 消息发送成功 to ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
 
 	// 如果启用了自动删除，启动删除定时器
-	if s.config.AutoDeleteEnabled && s.config.AutoDeleteInterval > 0 {
+	if autoDelete && s.config.AutoDeleteInterval > 0 {
+		utils.Info("[TELEGRAM:MESSAGE] 设置自动删除定时器: %d 分钟后删除消息", s.config.AutoDeleteInterval)
 		time.AfterFunc(time.Duration(s.config.AutoDeleteInterval)*time.Minute, func() {
 			deleteConfig := tgbotapi.DeleteMessageConfig{
 				ChatID:    sentMsg.Chat.ID,
@@ -673,9 +710,147 @@ func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text strin
 			_, err := s.bot.Request(deleteConfig)
 			if err != nil {
 				utils.Error("[TELEGRAM:MESSAGE:ERROR] 删除消息失败: %v", err)
+			} else {
+				utils.Info("[TELEGRAM:MESSAGE] 消息已自动删除: ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
 			}
 		})
 	}
+}
+
+// 辅助函数：返回两个数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// cleanMessageText 清理消息文本，确保UTF-8编码和Markdown格式兼容
+func (s *TelegramBotServiceImpl) cleanMessageText(text string) string {
+	if text == "" {
+		return text
+	}
+
+	// 记录原始消息用于调试
+	utils.Debug("[TELEGRAM:CLEAN] 原始消息长度: %d", len(text))
+
+	// 清理Markdown特殊字符
+	text = strings.ReplaceAll(text, "\\", "\\\\") // 转义反斜杠
+	text = strings.ReplaceAll(text, "*", "\\*")   // 转义星号
+	text = strings.ReplaceAll(text, "_", "\\_")   // 转义下划线
+	text = strings.ReplaceAll(text, "`", "\\`")   // 转义反引号
+	text = strings.ReplaceAll(text, "[", "\\[")   // 转义方括号
+	text = strings.ReplaceAll(text, "]", "\\]")   // 转义方括号
+
+	// 移除可能的控制字符
+	text = strings.Map(func(r rune) rune {
+		if r < 32 && r != 9 && r != 10 && r != 13 { // 保留tab、换行、回车
+			return -1 // 删除控制字符
+		}
+		return r
+	}, text)
+
+	// 限制消息长度（Telegram单条消息最大4096字符）
+	if len(text) > 4000 {
+		text = text[:4000] + "..."
+		utils.Debug("[TELEGRAM:CLEAN] 消息已截断，长于4000字符")
+	}
+
+	utils.Debug("[TELEGRAM:CLEAN] 清理后消息长度: %d", len(text))
+	return text
+}
+
+// cleanMessageTextForPlain 清理消息文本为纯文本格式
+func (s *TelegramBotServiceImpl) cleanMessageTextForPlain(text string) string {
+	if text == "" {
+		return "空消息"
+	}
+
+	utils.Debug("[TELEGRAM:CLEAN:PLAIN] 原始纯文本消息长度: %d", len(text))
+
+	// 移除Markdown格式字符
+	text = strings.ReplaceAll(text, "*", "")  // 移除粗体
+	text = strings.ReplaceAll(text, "_", "")  // 移除斜体
+	text = strings.ReplaceAll(text, "`", "")  // 移除代码
+	text = strings.ReplaceAll(text, "[", "(") // 替换链接开始
+	text = strings.ReplaceAll(text, "]", ")") // 替换链接结束
+	text = strings.ReplaceAll(text, "\\", "") // 移除转义符
+
+	// 移除可能的控制字符
+	text = strings.Map(func(r rune) rune {
+		if r < 32 && r != 9 && r != 10 && r != 13 { // 保留tab、换行、回车
+			return -1 // 删除控制字符
+		}
+		return r
+	}, text)
+
+	// 如果清理后消息为空，返回默认消息
+	if strings.TrimSpace(text) == "" {
+		text = "消息内容无法显示"
+	}
+
+	// 限制消息长度
+	if len(text) > 4000 {
+		text = text[:4000] + "..."
+		utils.Debug("[TELEGRAM:CLEAN:PLAIN] 纯文本消息已截断，长于4000字符")
+	}
+
+	utils.Debug("[TELEGRAM:CLEAN:PLAIN] 清理后纯文本消息长度: %d", len(text))
+	return text
+}
+
+// cleanResourceText 清理从数据库读取的资源文本
+func (s *TelegramBotServiceImpl) cleanResourceText(text string) string {
+	if text == "" {
+		return text
+	}
+
+	// 记录原始文本用于调试（只记录前50字符避免日志过长）
+	debugText := text
+	if len(text) > 50 {
+		debugText = text[:47] + "..."
+	}
+	utils.Debug("[TELEGRAM:CLEAN:RESOURCE] 原始资源文本: %s", debugText)
+
+	// 移除可能的控制字符，但保留中文字符
+	text = strings.Map(func(r rune) rune {
+		if r < 32 && r != 9 && r != 10 && r != 13 { // 保留tab、换行、回车
+			return -1 // 删除控制字符
+		}
+		// 注意：不再移除超出BMP的字符，因为中文字符可能需要这些码点
+		return r
+	}, text)
+
+	// 移除零宽度字符和其他不可见字符，但保留中文字符
+	text = strings.ReplaceAll(text, "\u200B", "") // 零宽度空格
+	text = strings.ReplaceAll(text, "\u200C", "") // 零宽度非连接符
+	text = strings.ReplaceAll(text, "\u200D", "") // 零宽度连接符
+	text = strings.ReplaceAll(text, "\uFEFF", "") // 字节顺序标记
+
+	// 移除其他可能的垃圾字符，但非常保守
+	text = strings.ReplaceAll(text, "\u0000", "") // 空字符
+	text = strings.ReplaceAll(text, "\uFFFD", "") // 替换字符
+
+	// 如果清理后为空，返回默认文本
+	if strings.TrimSpace(text) == "" {
+		text = "无标题"
+	}
+
+	utils.Debug("[TELEGRAM:CLEAN:RESOURCE] 清理后资源文本长度: %d", len(text))
+	return text
+}
+
+// sendReplyWithResourceAutoDelete 发送包含资源的回复消息，自动添加删除提醒
+func (s *TelegramBotServiceImpl) sendReplyWithResourceAutoDelete(message *tgbotapi.Message, text string, resourceCount int) {
+	// 如果启用了自动删除且有资源，在消息中添加删除提醒
+	if s.config.AutoDeleteEnabled && s.config.AutoDeleteInterval > 0 && resourceCount > 0 {
+		deleteNotice := fmt.Sprintf("\n\n⏰ *此消息将在 %d 分钟后自动删除*", s.config.AutoDeleteInterval)
+		text += deleteNotice
+		utils.Info("[TELEGRAM:MESSAGE] 添加删除提醒到包含资源的回复消息")
+	}
+
+	// 使用资源消息的特殊删除逻辑
+	s.sendReplyWithAutoDelete(message, text, s.config.AutoDeleteEnabled && resourceCount > 0)
 }
 
 // startContentPusher 启动内容推送器
@@ -724,7 +899,7 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 	// 2. 构建推送消息
 	message := s.buildPushMessage(channel, resources)
 
-	// 3. 发送消息
+	// 3. 发送消息（推送消息不自动删除）
 	err := s.SendMessage(channel.ChatID, message)
 	if err != nil {
 		utils.Error("[TELEGRAM:PUSH:ERROR] 推送失败到频道 %s (%d): %v", channel.ChatName, channel.ChatID, err)
@@ -779,9 +954,22 @@ func (s *TelegramBotServiceImpl) SendMessage(chatID int64, text string) error {
 		return fmt.Errorf("Bot 未初始化")
 	}
 
+	// 清理消息文本，确保UTF-8编码
+	text = s.cleanMessageText(text)
+
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "Markdown"
+
 	_, err := s.bot.Send(msg)
+	if err != nil {
+		// 如果是UTF-8编码错误或Markdown错误，尝试发送纯文本版本
+		if strings.Contains(err.Error(), "UTF-8") || strings.Contains(err.Error(), "Bad Request") {
+			utils.Info("[TELEGRAM:PUSH] 尝试发送纯文本版本...")
+			msg.ParseMode = ""
+			msg.Text = s.cleanMessageTextForPlain(text)
+			_, err = s.bot.Send(msg)
+		}
+	}
 	return err
 }
 

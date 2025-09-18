@@ -2,10 +2,12 @@ package converter
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 )
 
 // TelegramChannelToResponse 将TelegramChannel实体转换为响应DTO
@@ -63,6 +65,12 @@ func TelegramBotConfigToResponse(
 	autoReplyTemplate string,
 	autoDeleteEnabled bool,
 	autoDeleteInterval int,
+	proxyEnabled bool,
+	proxyType string,
+	proxyHost string,
+	proxyPort int,
+	proxyUsername string,
+	proxyPassword string,
 ) dto.TelegramBotConfigResponse {
 	return dto.TelegramBotConfigResponse{
 		BotEnabled:         botEnabled,
@@ -71,6 +79,12 @@ func TelegramBotConfigToResponse(
 		AutoReplyTemplate:  autoReplyTemplate,
 		AutoDeleteEnabled:  autoDeleteEnabled,
 		AutoDeleteInterval: autoDeleteInterval,
+		ProxyEnabled:       proxyEnabled,
+		ProxyType:          proxyType,
+		ProxyHost:          proxyHost,
+		ProxyPort:          proxyPort,
+		ProxyUsername:      proxyUsername,
+		ProxyPassword:      proxyPassword,
 	}
 }
 
@@ -82,6 +96,12 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 	autoReplyTemplate := "您好！我可以帮您搜索网盘资源，请输入您要搜索的内容。"
 	autoDeleteEnabled := false
 	autoDeleteInterval := 60
+	proxyEnabled := false
+	proxyType := "http"
+	proxyHost := ""
+	proxyPort := 8080
+	proxyUsername := ""
+	proxyPassword := ""
 
 	for _, config := range configs {
 		switch config.Key {
@@ -103,6 +123,23 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 					autoDeleteInterval = val
 				}
 			}
+		case entity.ConfigKeyTelegramProxyEnabled:
+			proxyEnabled = config.Value == "true"
+		case entity.ConfigKeyTelegramProxyType:
+			proxyType = config.Value
+		case entity.ConfigKeyTelegramProxyHost:
+			proxyHost = config.Value
+		case entity.ConfigKeyTelegramProxyPort:
+			if config.Value != "" {
+				var val int
+				if _, err := fmt.Sscanf(config.Value, "%d", &val); err == nil {
+					proxyPort = val
+				}
+			}
+		case entity.ConfigKeyTelegramProxyUsername:
+			proxyUsername = config.Value
+		case entity.ConfigKeyTelegramProxyPassword:
+			proxyPassword = config.Value
 		}
 	}
 
@@ -113,12 +150,21 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 		autoReplyTemplate,
 		autoDeleteEnabled,
 		autoDeleteInterval,
+		proxyEnabled,
+		proxyType,
+		proxyHost,
+		proxyPort,
+		proxyUsername,
+		proxyPassword,
 	)
 }
 
 // TelegramBotConfigRequestToSystemConfigs 将Telegram bot配置请求转换为系统配置实体列表
 func TelegramBotConfigRequestToSystemConfigs(req dto.TelegramBotConfigRequest) []entity.SystemConfig {
 	configs := []entity.SystemConfig{}
+
+	// 添加调试日志
+	utils.Debug("[TELEGRAM:CONVERTER] 转换请求: %+v", req)
 
 	if req.BotEnabled != nil {
 		configs = append(configs, entity.SystemConfig{
@@ -166,6 +212,65 @@ func TelegramBotConfigRequestToSystemConfigs(req dto.TelegramBotConfigRequest) [
 			Value: intToString(*req.AutoDeleteInterval),
 			Type:  entity.ConfigTypeInt,
 		})
+	}
+
+	if req.ProxyEnabled != nil {
+		utils.Debug("[TELEGRAM:CONVERTER] 添加代理启用配置: %v", *req.ProxyEnabled)
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramProxyEnabled,
+			Value: boolToString(*req.ProxyEnabled),
+			Type:  entity.ConfigTypeBool,
+		})
+	}
+
+	if req.ProxyType != nil {
+		utils.Debug("[TELEGRAM:CONVERTER] 添加代理类型配置: %s", *req.ProxyType)
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramProxyType,
+			Value: *req.ProxyType,
+			Type:  entity.ConfigTypeString,
+		})
+	}
+
+	if req.ProxyHost != nil {
+		utils.Debug("[TELEGRAM:CONVERTER] 添加代理主机配置: %s", *req.ProxyHost)
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramProxyHost,
+			Value: *req.ProxyHost,
+			Type:  entity.ConfigTypeString,
+		})
+	}
+
+	if req.ProxyPort != nil {
+		utils.Debug("[TELEGRAM:CONVERTER] 添加代理端口配置: %d", *req.ProxyPort)
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramProxyPort,
+			Value: intToString(*req.ProxyPort),
+			Type:  entity.ConfigTypeInt,
+		})
+	}
+
+	if req.ProxyUsername != nil {
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramProxyUsername,
+			Value: *req.ProxyUsername,
+			Type:  entity.ConfigTypeString,
+		})
+	}
+
+	if req.ProxyPassword != nil {
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramProxyPassword,
+			Value: *req.ProxyPassword,
+			Type:  entity.ConfigTypeString,
+		})
+	}
+
+	utils.Debug("[TELEGRAM:CONVERTER] 转换完成，共生成 %d 个配置项", len(configs))
+	for i, config := range configs {
+		if strings.Contains(config.Key, "proxy") {
+			utils.Debug("[TELEGRAM:CONVERTER] 配置项 %d: %s = %s", i+1, config.Key, config.Value)
+		}
 	}
 
 	return configs

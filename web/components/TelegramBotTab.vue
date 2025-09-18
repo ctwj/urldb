@@ -823,10 +823,18 @@ const saveBotConfig = async () => {
   // 先校验key 是否有效
   try {
     if (telegramBotConfig.value.bot_enabled) {
-      const data = await telegramApi.validateApiKey({
+      const validateRequest: any = {
         api_key: telegramBotConfig.value.bot_api_key
-      }) as any
-
+      }
+      if (telegramBotConfig.value.proxy_enabled) {
+        validateRequest.proxy_enabled = telegramBotConfig.value.proxy_enabled
+        validateRequest.proxy_type = telegramBotConfig.value.proxy_type
+        validateRequest.proxy_host = telegramBotConfig.value.proxy_host
+        validateRequest.proxy_port = telegramBotConfig.value.proxy_port
+        validateRequest.proxy_username = telegramBotConfig.value.proxy_username
+        validateRequest.proxy_password = telegramBotConfig.value.proxy_password
+      }
+      const data = await telegramApi.validateApiKey(validateRequest) as any
       console.log('API Key 校验结果:', data)
       if (data) {
         apiKeyValidationResult.value = data
@@ -849,6 +857,7 @@ const saveBotConfig = async () => {
       content: 'API Key 校验失败',
       duration: 2000
     })
+    savingBotConfig.value = false
     return
   }
 
