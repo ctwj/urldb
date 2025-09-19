@@ -200,7 +200,7 @@ func (h *TelegramHandler) UpdateChannel(c *gin.Context) {
 		return
 	}
 
-	var req dto.TelegramChannelRequest
+	var req dto.TelegramChannelUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
 		return
@@ -210,6 +210,12 @@ func (h *TelegramHandler) UpdateChannel(c *gin.Context) {
 	channel, err := h.telegramChannelRepo.FindByID(uint(id))
 	if err != nil {
 		ErrorResponse(c, "频道不存在", http.StatusNotFound)
+		return
+	}
+
+	// 如果前端传递了ChatID，验证它是否与现有频道匹配
+	if req.ChatID != 0 && req.ChatID != channel.ChatID {
+		ErrorResponse(c, "ChatID不匹配，无法更新此频道", http.StatusBadRequest)
 		return
 	}
 
@@ -276,7 +282,7 @@ func (h *TelegramHandler) RegisterChannelByCommand(chatID int64, chatName, chatT
 		ChatName:      chatName,
 		ChatType:      chatType,
 		PushEnabled:   true,
-		PushFrequency: 24, // 默认24小时
+		PushFrequency: 5, // 默认5分钟
 		IsActive:      true,
 		RegisteredBy:  "bot_command",
 	}

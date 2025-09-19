@@ -43,8 +43,8 @@ func GetTelegramLogs(startTime *time.Time, endTime *time.Time, limit int) ([]Tel
 	var allEntries []TelegramLogEntry
 
 	// 编译Telegram相关的正则表达式
-	telegramRegex := regexp.MustCompile(`(?i)(telegram|bot|推送|消息|频道|群组|\[.*telegram.*\])`)
-	messageRegex := regexp.MustCompile(`\[(\w+)\]\s+(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\s+(.*)`)
+	telegramRegex := regexp.MustCompile(`(?i)(\[TELEGRAM.*?\])`)
+	messageRegex := regexp.MustCompile(`\[(\w+)\]\s+(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[.*?\]\s+(.*)`)
 
 	for _, file := range files {
 		entries, err := parseTelegramLogsFromFile(file, telegramRegex, messageRegex, startTime, endTime)
@@ -119,10 +119,10 @@ func parseTelegramLogsFromFile(filePath string, telegramRegex, messageRegex *reg
 
 // parseLogLine 解析单行日志
 func parseLogLine(line string, messageRegex *regexp.Regexp) (TelegramLogEntry, error) {
-	// 匹配日志格式: [LEVEL] 2006/01/02 15:04:05 message
+	// 匹配日志格式: [LEVEL] 2006/01/02 15:04:05 [file:line] message
 	matches := messageRegex.FindStringSubmatch(line)
 	if len(matches) < 4 {
-		return TelegramLogEntry{}, fmt.Errorf("无法解析日志行")
+		return TelegramLogEntry{}, fmt.Errorf("无法解析日志行: %s", line)
 	}
 
 	level := matches[1]

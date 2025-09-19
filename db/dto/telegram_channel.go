@@ -2,9 +2,23 @@ package dto
 
 import "time"
 
-// TelegramChannelRequest 创建/更新 Telegram 频道/群组请求
+// TelegramChannelRequest 创建 Telegram 频道/群组请求
 type TelegramChannelRequest struct {
 	ChatID            int64  `json:"chat_id" binding:"required"`
+	ChatName          string `json:"chat_name" binding:"required"`
+	ChatType          string `json:"chat_type" binding:"required"` // channel 或 group
+	PushEnabled       bool   `json:"push_enabled"`
+	PushFrequency     int    `json:"push_frequency"`
+	PushStartTime     string `json:"push_start_time"`
+	PushEndTime       string `json:"push_end_time"`
+	ContentCategories string `json:"content_categories"`
+	ContentTags       string `json:"content_tags"`
+	IsActive          bool   `json:"is_active"`
+}
+
+// TelegramChannelUpdateRequest 更新 Telegram 频道/群组请求（ChatID可选）
+type TelegramChannelUpdateRequest struct {
+	ChatID            int64  `json:"chat_id"` // 可选，用于验证
 	ChatName          string `json:"chat_name" binding:"required"`
 	ChatType          string `json:"chat_type" binding:"required"` // channel 或 group
 	PushEnabled       bool   `json:"push_enabled"`

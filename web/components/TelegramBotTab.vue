@@ -311,7 +311,7 @@
             <div v-if="channel.push_enabled" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
               <div>
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">推送频率</label>
-                <p class="text-sm text-gray-600 dark:text-gray-400">{{ channel.push_frequency }} 小时</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ channel.push_frequency }} 分钟</p>
               </div>
               <div>
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">内容分类</label>
@@ -484,18 +484,19 @@
           <n-select
             v-model:value="editingChannel.push_frequency"
             :options="[
-              { label: '每5分钟', value: 0.0833 },
-              { label: '每10分钟', value: 0.1667 },
-              { label: '每15分钟', value: 0.25 },
-              { label: '每30分钟', value: 0.5 },
-              { label: '每小时', value: 1 },
-              { label: '每2小时', value: 2 },
-              { label: '每3小时', value: 3 },
-              { label: '每6小时', value: 6 },
-              { label: '每12小时', value: 12 },
-              { label: '每天', value: 24 },
-              { label: '每2天', value: 48 },
-              { label: '每周', value: 168 }
+              { label: '每5分钟', value: 5 },
+              { label: '每10分钟', value: 10 },
+              { label: '每15分钟', value: 15 },
+              { label: '每30分钟', value: 30 },
+              { label: '每45分钟', value: 45 },
+              { label: '每小时', value: 60 },
+              { label: '每2小时', value: 120 },
+              { label: '每3小时', value: 180 },
+              { label: '每6小时', value: 360 },
+              { label: '每12小时', value: 720 },
+              { label: '每天', value: 1440 },
+              { label: '每2天', value: 2880 },
+              { label: '每周', value: 10080 }
             ]"
             placeholder="选择推送频率"
           />
@@ -512,6 +513,8 @@
                 format="HH:mm"
                 placeholder="选择开始时间"
                 clearable
+                :value-format="'HH:mm'"
+                :actions="['clear', 'confirm']"
               />
             </div>
             <div>
@@ -521,6 +524,8 @@
                 format="HH:mm"
                 placeholder="选择结束时间"
                 clearable
+                :value-format="'HH:mm'"
+                :actions="['clear', 'confirm']"
               />
             </div>
           </div>
@@ -901,7 +906,41 @@ const saveBotConfig = async () => {
 
 // 编辑频道
 const editChannel = (channel: any) => {
-  editingChannel.value = { ...channel }
+  // 复制频道数据并处理时间字段
+  const channelCopy = { ...channel }
+
+  // 处理时间字段，确保时间选择器可以正确显示
+  try {
+    // 处理开始时间
+    if (channelCopy.push_start_time) {
+      if (isValidTimeString(channelCopy.push_start_time)) {
+        // 确保格式正确，转换为标准格式
+        channelCopy.push_start_time = normalizeTimeString(channelCopy.push_start_time)
+      } else {
+        channelCopy.push_start_time = null
+      }
+    } else {
+      channelCopy.push_start_time = null
+    }
+
+    // 处理结束时间
+    if (channelCopy.push_end_time) {
+      if (isValidTimeString(channelCopy.push_end_time)) {
+        // 确保格式正确，转换为标准格式
+        channelCopy.push_end_time = normalizeTimeString(channelCopy.push_end_time)
+      } else {
+        channelCopy.push_end_time = null
+      }
+    } else {
+      channelCopy.push_end_time = null
+    }
+  } catch (error) {
+    console.warn('处理频道时间字段时出错:', error)
+    channelCopy.push_start_time = null
+    channelCopy.push_end_time = null
+  }
+
+  editingChannel.value = channelCopy
   showEditChannelDialog.value = true
 }
 
@@ -1147,13 +1186,47 @@ const getCategoryLabel = (category: string): string => {
 const notification = useNotification()
 const dialog = useDialog()
 
+// 检查时间字符串是否有效
+const isValidTimeString = (timeStr: string): boolean => {
+  if (!timeStr || typeof timeStr !== 'string') {
+    return false
+  }
+
+  // 检查 HH:mm 格式
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/
+  if (!timeRegex.test(timeStr)) {
+    return false
+  }
+
+  return true
+}
+
+// 规范化时间字符串
+const normalizeTimeString = (timeStr: string): string => {
+  if (!timeStr || typeof timeStr !== 'string') {
+    return timeStr
+  }
+
+  // 确保 HH:mm 格式，补齐前导零
+  const parts = timeStr.split(':')
+  if (parts.length === 2) {
+    const hours = parts[0].padStart(2, '0')
+    const minutes = parts[1].padStart(2, '0')
+    return `${hours}:${minutes}`
+  }
+
+  return timeStr
+}
+
 // 保存频道设置
 const saveChannelSettings = async () => {
   if (!editingChannel.value) return
 
   savingChannel.value = true
   try {
+    // 处理时间字段，确保保存为字符串格式
     const updateData = {
+      chat_id: editingChannel.value.chat_id,
       chat_name: editingChannel.value.chat_name,
       chat_type: editingChannel.value.chat_type,
       push_enabled: editingChannel.value.push_enabled,
@@ -1161,8 +1234,8 @@ const saveChannelSettings = async () => {
       content_categories: editingChannel.value.content_categories,
       content_tags: editingChannel.value.content_tags,
       is_active: editingChannel.value.is_active,
-      push_start_time: editingChannel.value.push_start_time,
-      push_end_time: editingChannel.value.push_end_time
+      push_start_time: formatTimeForSave(editingChannel.value.push_start_time),
+      push_end_time: formatTimeForSave(editingChannel.value.push_end_time)
     }
 
     await telegramApi.updateChannel(editingChannel.value.id, updateData)
@@ -1186,6 +1259,27 @@ const saveChannelSettings = async () => {
   } finally {
     savingChannel.value = false
   }
+}
+
+// 格式化时间字段以便保存
+const formatTimeForSave = (timeValue: any): string | null => {
+  if (!timeValue) {
+    return null
+  }
+
+  // 如果已经是字符串格式，直接返回
+  if (typeof timeValue === 'string') {
+    return timeValue
+  }
+
+  // 如果是 Date 对象，格式化为 HH:mm
+  if (timeValue instanceof Date) {
+    const hours = timeValue.getHours().toString().padStart(2, '0')
+    const minutes = timeValue.getMinutes().toString().padStart(2, '0')
+    return `${hours}:${minutes}`
+  }
+
+  return null
 }
 
 // 启动机器人服务

@@ -104,8 +104,8 @@ func (r *TelegramChannelRepositoryImpl) FindDueForPush() ([]entity.TelegramChann
 		if channel.LastPushAt == nil {
 			dueChannels = append(dueChannels, channel)
 		} else {
-			// 计算下次推送时间：上次推送时间 + 推送频率小时
-			nextPushTime := channel.LastPushAt.Add(time.Duration(channel.PushFrequency) * time.Hour)
+			// 计算下次推送时间：上次推送时间 + 推送频率分钟
+			nextPushTime := channel.LastPushAt.Add(time.Duration(channel.PushFrequency) * time.Minute)
 			if now.After(nextPushTime) {
 				dueChannels = append(dueChannels, channel)
 			}

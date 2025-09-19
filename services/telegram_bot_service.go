@@ -1,9 +1,11 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -516,8 +518,8 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	// 处理 /register 命令
-	if strings.ToLower(text) == "/register" {
+	// 处理 /register 命令（包括参数）
+	if strings.HasPrefix(strings.ToLower(text), "/register") {
 		utils.Info("[TELEGRAM:MESSAGE] 处理 /register 命令 from ChatID=%d", chatID)
 		s.handleRegisterCommand(message)
 		return
@@ -537,10 +539,19 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	// 默认自动回复
+	// 默认自动回复（只对正常消息，不对转发消息）
 	if s.config.AutoReplyEnabled {
-		utils.Info("[TELEGRAM:MESSAGE] 发送自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
-		s.sendReply(message, s.config.AutoReplyTemplate)
+		// 检查是否是转发消息
+		isForward := message.ForwardFrom != nil ||
+			message.ForwardFromChat != nil ||
+			message.ForwardDate != 0
+
+		if isForward {
+			utils.Info("[TELEGRAM:MESSAGE] 跳过自动回复，转发消息 from ChatID=%d", chatID)
+		} else {
+			utils.Info("[TELEGRAM:MESSAGE] 发送自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
+			s.sendReply(message, s.config.AutoReplyTemplate)
+		}
 	} else {
 		utils.Info("[TELEGRAM:MESSAGE] 跳过自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
 	}
@@ -549,43 +560,103 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 // handleRegisterCommand 处理注册命令
 func (s *TelegramBotServiceImpl) handleRegisterCommand(message *tgbotapi.Message) {
 	chatID := message.Chat.ID
-	chatTitle := message.Chat.Title
-	if chatTitle == "" {
-		// 如果没有标题，使用用户名作为名称
-		if message.Chat.UserName != "" {
-			chatTitle = message.Chat.UserName
-		} else {
-			chatTitle = fmt.Sprintf("Chat_%d", chatID)
+	text := strings.TrimSpace(message.Text)
+
+	// 检查是否是群组
+	isGroup := message.Chat.IsGroup() || message.Chat.IsSuperGroup()
+
+	if isGroup {
+		// 群组中需要管理员权限
+		if !s.isUserAdministrator(message.Chat.ID, message.From.ID) {
+			errorMsg := "❌ *权限不足*\n\n只有群组管理员才能注册此群组用于推送。\n\n请联系管理员执行注册命令。"
+			s.sendReply(message, errorMsg)
+			return
 		}
-	}
 
-	chatType := "private"
-	if message.Chat.IsChannel() {
-		chatType = "channel"
-	} else if message.Chat.IsGroup() || message.Chat.IsSuperGroup() {
-		chatType = "group"
-	}
+		// 注册群组
+		chatTitle := message.Chat.Title
+		if chatTitle == "" {
+			chatTitle = fmt.Sprintf("Group_%d", chatID)
+		}
 
-	err := s.RegisterChannel(chatID, chatTitle, chatType)
-	if err != nil {
-		errorMsg := fmt.Sprintf("注册失败: %v", err)
-		s.sendReply(message, errorMsg)
+		err := s.RegisterChannel(chatID, chatTitle, "group")
+		if err != nil {
+			errorMsg := fmt.Sprintf("❌ 注册失败: %v", err)
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		successMsg := fmt.Sprintf("✅ *群组注册成功！*\n\n群组: %s\n类型: 群组\n\n现在可以向此群组推送资源内容了。", chatTitle)
+		s.sendReply(message, successMsg)
 		return
 	}
 
-	successMsg := fmt.Sprintf("✅ 注册成功！\n\n频道/群组: %s\n类型: %s\n\n现在可以向此频道推送资源内容了。", chatTitle, chatType)
-	s.sendReply(message, successMsg)
+	// 私聊处理
+	parts := strings.Fields(text)
+
+	if len(parts) == 1 {
+		// 没有参数，注册私聊
+		chatTitle := message.Chat.UserName
+		if chatTitle == "" {
+			chatTitle = fmt.Sprintf("Private_%d", message.From.ID)
+		}
+
+		err := s.RegisterChannel(chatID, chatTitle, "private")
+		if err != nil {
+			errorMsg := fmt.Sprintf("❌ 注册失败: %v", err)
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		successMsg := fmt.Sprintf("✅ *私聊注册成功！*\n\n聊天: %s\n类型: 私聊\n\n现在可以向此私聊推送资源内容了。", chatTitle)
+		s.sendReply(message, successMsg)
+	} else if parts[1] == "help" || parts[1] == "-h" {
+		// 显示注册帮助
+		helpMsg := `🤖 *私聊注册帮助*
+
+*注册私聊:*
+/register - 注册当前私聊用于推送
+
+*注册频道:*
+支持两种格式：
+• /register <频道ID> - 如: /register -1001234567890
+• /register @用户名 - 如: /register @xypan
+
+*获取频道ID的方法:*
+1. 将机器人添加到频道并设为管理员
+2. 向频道发送消息，查看机器人收到的消息
+3. 频道ID通常是负数，如 -1001234567890
+
+*获取频道用户名的其他方法:*
+• 频道链接: https://t.me/用户名
+• 频道设置中的用户名
+• @用户名 格式
+
+*示例:*
+/register -1001234567890
+/register @xypan
+
+*注意:*
+• 频道ID必须是纯数字（包括负号）
+• 用户名格式必须以 @ 开头
+• 机器人必须是频道的管理员才能注册`
+		s.sendReply(message, helpMsg)
+	} else {
+		// 有参数，尝试注册频道
+		channelIDStr := strings.TrimSpace(parts[1])
+		s.handleChannelRegistration(message, channelIDStr)
+	}
 }
 
 // handleStartCommand 处理开始命令
 func (s *TelegramBotServiceImpl) handleStartCommand(message *tgbotapi.Message) {
-	welcomeMsg := `🤖 欢迎使用网盘资源机器人！
+	welcomeMsg := `🤖 欢迎使用老九网盘资源机器人！
 
-我会帮您搜索网盘资源。使用方法：
-• 直接发送关键词搜索资源
-• 发送 /register 注册当前频道用于推送
-
-享受使用吧！`
+• 发送 搜索 + 关键词 进行资源搜索
+• 发送 /register 注册当前频道或群组，用于主动推送资源
+• 私聊中使用 /register help 获取注册帮助
+• 发送 /start 获取帮助信息
+`
 
 	if s.config.AutoReplyEnabled && s.config.AutoReplyTemplate != "" {
 		welcomeMsg += "\n\n" + s.config.AutoReplyTemplate
@@ -855,8 +926,8 @@ func (s *TelegramBotServiceImpl) sendReplyWithResourceAutoDelete(message *tgbota
 
 // startContentPusher 启动内容推送器
 func (s *TelegramBotServiceImpl) startContentPusher() {
-	// 每小时检查一次需要推送的频道
-	s.cronScheduler.AddFunc("@every 1h", func() {
+	// 每分钟检查一次需要推送的频道
+	s.cronScheduler.AddFunc("@every 1m", func() {
 		s.pushContentToChannels()
 	})
 
@@ -935,7 +1006,7 @@ func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel
 		message += "*详细资源列表请查看网站*"
 	}
 
-	message += fmt.Sprintf("\n\n⏰ 下次推送: %d 小时后", channel.PushFrequency)
+	message += fmt.Sprintf("\n\n⏰ 下次推送: %d 分钟后", channel.PushFrequency)
 
 	return message
 }
@@ -996,7 +1067,7 @@ func (s *TelegramBotServiceImpl) RegisterChannel(chatID int64, chatName, chatTyp
 		ChatName:          chatName,
 		ChatType:          chatType,
 		PushEnabled:       true,
-		PushFrequency:     24, // 默认24小时
+		PushFrequency:     5, // 默认5分钟
 		IsActive:          true,
 		RegisteredBy:      "bot_command",
 		RegisteredAt:      time.Now(),
@@ -1011,6 +1082,210 @@ func (s *TelegramBotServiceImpl) RegisterChannel(chatID int64, chatName, chatTyp
 func (s *TelegramBotServiceImpl) IsChannelRegistered(chatID int64) bool {
 	channel, err := s.channelRepo.FindByChatID(chatID)
 	return err == nil && channel != nil
+}
+
+// isUserAdministrator 检查用户是否为群组管理员
+func (s *TelegramBotServiceImpl) isUserAdministrator(chatID int64, userID int64) bool {
+	if s.bot == nil {
+		return false
+	}
+
+	// 获取用户在群组中的信息
+	memberConfig := tgbotapi.GetChatMemberConfig{
+		ChatConfigWithUser: tgbotapi.ChatConfigWithUser{
+			ChatID: chatID,
+			UserID: userID,
+		},
+	}
+
+	member, err := s.bot.GetChatMember(memberConfig)
+	if err != nil {
+		utils.Error("[TELEGRAM:ADMIN] 获取用户群组成员信息失败: %v", err)
+		return false
+	}
+
+	// 检查用户是否为管理员或创建者
+	userStatus := string(member.Status)
+	return userStatus == "administrator" || userStatus == "creator"
+}
+
+// handleChannelRegistration 处理频道注册（支持频道ID和用户名）
+func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Message, channelParam string) {
+	channelParam = strings.TrimSpace(channelParam)
+
+	var chat tgbotapi.Chat
+	var err error
+	var identifier string
+
+	// 判断是频道ID还是用户名格式
+	if strings.HasPrefix(channelParam, "@") {
+		// 用户名格式：@username
+		username := strings.TrimPrefix(channelParam, "@")
+		if username == "" {
+			errorMsg := "❌ *用户名格式错误*\n\n用户名不能为空，如 @mychannel"
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		// 尝试通过用户名获取频道信息
+		// 手动构造请求URL并发送
+		apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/getChat", s.config.ApiKey)
+		data := url.Values{}
+		data.Set("chat_id", "@"+username)
+
+		client := &http.Client{Timeout: 10 * time.Second}
+
+		// 如果有代理，配置代理
+		if s.config.ProxyEnabled && s.config.ProxyHost != "" {
+			var proxyClient *http.Client
+			if s.config.ProxyType == "socks5" {
+				// SOCKS5代理配置
+				auth := &proxy.Auth{}
+				if s.config.ProxyUsername != "" {
+					auth.User = s.config.ProxyUsername
+					auth.Password = s.config.ProxyPassword
+				}
+				dialer, proxyErr := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%d", s.config.ProxyHost, s.config.ProxyPort), auth, proxy.Direct)
+				if proxyErr != nil {
+					errorMsg := fmt.Sprintf("❌ *代理配置错误*\n\n无法连接到代理服务器: %v", proxyErr)
+					s.sendReply(message, errorMsg)
+					return
+				}
+				proxyClient = &http.Client{
+					Transport: &http.Transport{
+						Dial: dialer.Dial,
+					},
+					Timeout: 10 * time.Second,
+				}
+			} else {
+				// HTTP/HTTPS代理配置
+				proxyURL := &url.URL{
+					Scheme: s.config.ProxyType,
+					Host:   fmt.Sprintf("%s:%d", s.config.ProxyHost, s.config.ProxyPort),
+				}
+				if s.config.ProxyUsername != "" {
+					proxyURL.User = url.UserPassword(s.config.ProxyUsername, s.config.ProxyPassword)
+				}
+				proxyClient = &http.Client{
+					Transport: &http.Transport{
+						Proxy: http.ProxyURL(proxyURL),
+					},
+					Timeout: 10 * time.Second,
+				}
+			}
+			client = proxyClient
+		}
+
+		resp, httpErr := client.PostForm(apiURL, data)
+		if httpErr != nil {
+			errorMsg := fmt.Sprintf("❌ *无法访问频道*\n\n请确保:\n• 机器人已被添加到频道 @%s\n• 机器人已被设为频道管理员\n• 用户名正确\n\n错误详情: %v", username, httpErr)
+			s.sendReply(message, errorMsg)
+			return
+		}
+		defer resp.Body.Close()
+
+		// 解析响应
+		var apiResponse struct {
+			OK     bool `json:"ok"`
+			Result struct {
+				ID       int64  `json:"id"`
+				Title    string `json:"title"`
+				Username string `json:"username"`
+				Type     string `json:"type"`
+			} `json:"result"`
+			Description string `json:"description"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
+			errorMsg := "❌ *解析服务器响应失败*\n\n请稍后重试"
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		if !apiResponse.OK {
+			errorMsg := fmt.Sprintf("❌ *获取频道信息失败*\n\n错误: %s", apiResponse.Description)
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		// 检查是否是频道
+		if apiResponse.Result.Type != "channel" {
+			errorMsg := "❌ *这不是一个频道*\n\n请提供有效的频道用户名。"
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		// 构造Chat对象
+		chat = tgbotapi.Chat{
+			ID:       apiResponse.Result.ID,
+			Title:    apiResponse.Result.Title,
+			UserName: apiResponse.Result.Username,
+			Type:     apiResponse.Result.Type,
+		}
+
+		identifier = fmt.Sprintf("@%s", username)
+
+	} else if strings.HasPrefix(channelParam, "-") && len(channelParam) > 10 {
+		// 频道ID格式：-1001234567890
+		channelID, parseErr := strconv.ParseInt(channelParam, 10, 64)
+		if parseErr != nil {
+			errorMsg := fmt.Sprintf("❌ *频道ID格式错误*\n\n频道ID必须是数字，如 -1001234567890\n\n您输入的: %s", channelParam)
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		// 通过频道ID获取频道信息
+		chat, err = s.bot.GetChat(tgbotapi.ChatInfoConfig{
+			ChatConfig: tgbotapi.ChatConfig{
+				ChatID: channelID,
+			},
+		})
+
+		if err != nil {
+			errorMsg := fmt.Sprintf("❌ *无法访问频道*\n\n请确保:\n• 机器人已被添加到频道\n• 机器人已被设为频道管理员\n• 频道ID正确\n\n错误详情: %v", err)
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		// 检查是否已经是频道
+		if !chat.IsChannel() {
+			errorMsg := "❌ *这不是一个频道*\n\n请提供有效的频道ID。"
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		identifier = fmt.Sprintf("ID: %d", chat.ID)
+
+	} else {
+		// 无效格式
+		errorMsg := fmt.Sprintf("❌ *格式错误*\n\n支持的格式:\n• 频道ID: -1001234567890\n• 用户名: @mychannel\n\n您输入的: %s", channelParam)
+		s.sendReply(message, errorMsg)
+		return
+	}
+
+	// 注册频道
+	channel := entity.TelegramChannel{
+		ChatID:            chat.ID,
+		ChatName:          chat.Title,
+		ChatType:          "channel",
+		PushEnabled:       true,
+		PushFrequency:     60, // 默认1小时
+		IsActive:          true,
+		RegisteredBy:      message.From.UserName,
+		RegisteredAt:      time.Now(),
+		ContentCategories: "",
+		ContentTags:       "",
+	}
+
+	err = s.channelRepo.Create(&channel)
+	if err != nil {
+		errorMsg := fmt.Sprintf("❌ 频道注册失败: %v", err)
+		s.sendReply(message, errorMsg)
+		return
+	}
+
+	successMsg := fmt.Sprintf("✅ *频道注册成功！*\n\n频道: %s\n%s\n类型: 频道\n\n现在可以向此频道推送资源内容了。\n\n可以通过管理界面调整推送设置。", chat.Title, identifier)
+	s.sendReply(message, successMsg)
 }
 
 // HandleWebhookUpdate 处理 Webhook 更新（预留接口，目前使用长轮询）
