@@ -126,21 +126,6 @@
               </div>
             </div>
 
-            <!-- 代理状态提示 -->
-            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <div class="flex items-start space-x-3">
-                <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 mt-1"></i>
-                <div>
-                  <h4 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">代理配置说明</h4>
-                  <ul class="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>• HTTP/HTTPS 代理支持基本的认证</li>
-                    <li>• SOCKS5 代理支持用户名/密码认证</li>
-                    <li>• 配置完成后需要重启机器人服务</li>
-                    <li>• 确保代理服务器稳定可靠</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
           </div>
 
           <!-- API Key 配置 -->

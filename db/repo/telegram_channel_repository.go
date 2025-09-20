@@ -15,6 +15,7 @@ type TelegramChannelRepository interface {
 	FindByChatType(chatType string) ([]entity.TelegramChannel, error)
 	UpdateLastPushAt(id uint, lastPushAt time.Time) error
 	FindDueForPush() ([]entity.TelegramChannel, error)
+	CleanupDuplicateChannels() error
 }
 
 type TelegramChannelRepositoryImpl struct {
@@ -99,18 +100,49 @@ func (r *TelegramChannelRepositoryImpl) FindDueForPush() ([]entity.TelegramChann
 	var dueChannels []entity.TelegramChannel
 	now := time.Now()
 
+	// 用于去重的map，以chat_id为键
+	seenChatIDs := make(map[int64]bool)
+
 	for _, channel := range channels {
+		// 检查是否已经处理过这个chat_id（去重）
+		if seenChatIDs[channel.ChatID] {
+			continue
+		}
+
 		// 如果从未推送过，或者距离上次推送已超过推送频率小时
+		isDue := false
 		if channel.LastPushAt == nil {
-			dueChannels = append(dueChannels, channel)
+			isDue = true
 		} else {
 			// 计算下次推送时间：上次推送时间 + 推送频率分钟
 			nextPushTime := channel.LastPushAt.Add(time.Duration(channel.PushFrequency) * time.Minute)
 			if now.After(nextPushTime) {
-				dueChannels = append(dueChannels, channel)
+				isDue = true
 			}
+		}
+
+		if isDue {
+			dueChannels = append(dueChannels, channel)
+			seenChatIDs[channel.ChatID] = true // 标记此chat_id已处理
 		}
 	}
 
 	return dueChannels, nil
+}
+
+// CleanupDuplicateChannels 清理重复的频道记录，保留ID最小的记录
+func (r *TelegramChannelRepositoryImpl) CleanupDuplicateChannels() error {
+	// 使用SQL查询找出重复的chat_id，并删除除了ID最小外的所有记录
+	query := `
+		DELETE t1 FROM telegram_channels t1
+		INNER JOIN (
+			SELECT chat_id, MIN(id) as min_id
+			FROM telegram_channels
+			GROUP BY chat_id
+			HAVING COUNT(*) > 1
+		) t2 ON t1.chat_id = t2.chat_id
+		WHERE t1.id > t2.min_id
+	`
+
+	return r.db.Exec(query).Error
 }

@@ -22,7 +22,13 @@ CREATE TABLE telegram_channels (
     -- 注册信息
     registered_by VARCHAR(100) COMMENT '注册者用户名',
     registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
-
+   
+    -- API配置
+    api VARCHAR(255) COMMENT 'API地址',
+    token VARCHAR(255) COMMENT '访问令牌',
+    api_type VARCHAR(50) COMMENT 'API类型',
+    is_push_saved_info BOOLEAN DEFAULT FALSE COMMENT '是否只推送已转存资源',
+   
     -- 索引
     INDEX idx_chat_id (chat_id),
     INDEX idx_chat_type (chat_type),

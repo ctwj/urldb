@@ -30,6 +30,12 @@ type TelegramChannel struct {
 	// 注册信息
 	RegisteredBy string    `json:"registered_by" gorm:"size:100;comment:注册者用户名"`
 	RegisteredAt time.Time `json:"registered_at"`
+
+	// API配置
+	API             string `json:"api" gorm:"size:255;comment:API地址"`
+	Token           string `json:"token" gorm:"size:255;comment:访问令牌"`
+	ApiType         string `json:"api_type" gorm:"size:50;comment:API类型"`
+	IsPushSavedInfo bool   `json:"is_push_saved_info" gorm:"default:false;comment:是否只推送已转存资源"`
 }
 
 // TableName 指定表名

@@ -32,6 +32,7 @@ type TelegramBotService interface {
 	RegisterChannel(chatID int64, chatName, chatType string) error
 	IsChannelRegistered(chatID int64) bool
 	HandleWebhookUpdate(c interface{})
+	CleanupDuplicateChannels() error
 }
 
 type TelegramBotServiceImpl struct {
@@ -573,6 +574,13 @@ func (s *TelegramBotServiceImpl) handleRegisterCommand(message *tgbotapi.Message
 			return
 		}
 
+		// 检查是否已经注册了群组
+		if s.hasActiveGroup() {
+			errorMsg := "❌ *注册限制*\n\n系统最多只支持注册一个群组用于推送。\n\n请先注销现有群组，然后再注册新的群组。"
+			s.sendReply(message, errorMsg)
+			return
+		}
+
 		// 注册群组
 		chatTitle := message.Chat.Title
 		if chatTitle == "" {
@@ -581,8 +589,13 @@ func (s *TelegramBotServiceImpl) handleRegisterCommand(message *tgbotapi.Message
 
 		err := s.RegisterChannel(chatID, chatTitle, "group")
 		if err != nil {
-			errorMsg := fmt.Sprintf("❌ 注册失败: %v", err)
-			s.sendReply(message, errorMsg)
+			if strings.Contains(err.Error(), "该频道/群组已注册") {
+				successMsg := fmt.Sprintf("⚠️ *群组已注册*\n\n群组: %s\n类型: 群组\n\n此群组已经注册，无需重复注册。", chatTitle)
+				s.sendReply(message, successMsg)
+			} else {
+				errorMsg := fmt.Sprintf("❌ 注册失败: %v", err)
+				s.sendReply(message, errorMsg)
+			}
 			return
 		}
 
@@ -595,29 +608,14 @@ func (s *TelegramBotServiceImpl) handleRegisterCommand(message *tgbotapi.Message
 	parts := strings.Fields(text)
 
 	if len(parts) == 1 {
-		// 没有参数，注册私聊
-		chatTitle := message.Chat.UserName
-		if chatTitle == "" {
-			chatTitle = fmt.Sprintf("Private_%d", message.From.ID)
-		}
-
-		err := s.RegisterChannel(chatID, chatTitle, "private")
-		if err != nil {
-			errorMsg := fmt.Sprintf("❌ 注册失败: %v", err)
-			s.sendReply(message, errorMsg)
-			return
-		}
-
-		successMsg := fmt.Sprintf("✅ *私聊注册成功！*\n\n聊天: %s\n类型: 私聊\n\n现在可以向此私聊推送资源内容了。", chatTitle)
-		s.sendReply(message, successMsg)
-	} else if parts[1] == "help" || parts[1] == "-h" {
-		// 显示注册帮助
-		helpMsg := `🤖 *私聊注册帮助*
-
-*注册私聊:*
-/register - 注册当前私聊用于推送
+		// 私聊中没有参数，显示注册帮助
+		helpMsg := `🤖 *注册帮助*
+*注册群组:*
+* 添加机器人，为频道管理员
+* 管理员发送 /register 命令
 
 *注册频道:*
+私聊机器人， 发送注册命令
 支持两种格式：
 • /register <频道ID> - 如: /register -1001234567890
 • /register @用户名 - 如: /register @xypan
@@ -627,10 +625,33 @@ func (s *TelegramBotServiceImpl) handleRegisterCommand(message *tgbotapi.Message
 2. 向频道发送消息，查看机器人收到的消息
 3. 频道ID通常是负数，如 -1001234567890
 
-*获取频道用户名的其他方法:*
-• 频道链接: https://t.me/用户名
-• 频道设置中的用户名
-• @用户名 格式
+*示例:*
+/register -1001234567890
+/register @xypan
+
+*注意:*
+• 频道ID必须是纯数字（包括负号）
+• 用户名格式必须以 @ 开头
+• 机器人必须是频道的管理员才能注册
+• 私聊不支持注册，只支持频道和群组注册`
+		s.sendReply(message, helpMsg)
+	} else if parts[1] == "help" || parts[1] == "-h" {
+		// 显示注册帮助
+		helpMsg := `🤖 *注册帮助*
+*注册群组:*
+* 添加机器人，为频道管理员
+* 管理员发送 /register 命令
+
+*注册频道:*
+私聊机器人， 发送注册命令
+支持两种格式：
+• /register <频道ID> - 如: /register -1001234567890
+• /register @用户名 - 如: /register @xypan
+
+*获取频道ID的方法:*
+1. 将机器人添加到频道并设为管理员
+2. 向频道发送消息，查看机器人收到的消息
+3. 频道ID通常是负数，如 -1001234567890
 
 *示例:*
 /register -1001234567890
@@ -1073,6 +1094,10 @@ func (s *TelegramBotServiceImpl) RegisterChannel(chatID int64, chatName, chatTyp
 		RegisteredAt:      time.Now(),
 		ContentCategories: "",
 		ContentTags:       "",
+		API:               "",    // 后续可配置
+		Token:             "",    // 后续可配置
+		ApiType:           "l9",  // 默认l9类型
+		IsPushSavedInfo:   false, // 默认推送所有资源
 	}
 
 	return s.channelRepo.Create(&channel)
@@ -1109,6 +1134,73 @@ func (s *TelegramBotServiceImpl) isUserAdministrator(chatID int64, userID int64)
 	return userStatus == "administrator" || userStatus == "creator"
 }
 
+// isBotAdministrator 检查机器人是否为频道管理员
+func (s *TelegramBotServiceImpl) isBotAdministrator(chatID int64) bool {
+	if s.bot == nil {
+		return false
+	}
+
+	// 获取机器人自己的信息
+	botInfo, err := s.bot.GetMe()
+	if err != nil {
+		utils.Error("[TELEGRAM:ADMIN:BOT] 获取机器人信息失败: %v", err)
+		return false
+	}
+
+	// 获取机器人作为频道成员的信息
+	memberConfig := tgbotapi.GetChatMemberConfig{
+		ChatConfigWithUser: tgbotapi.ChatConfigWithUser{
+			ChatID: chatID,
+			UserID: botInfo.ID,
+		},
+	}
+
+	member, err := s.bot.GetChatMember(memberConfig)
+	if err != nil {
+		utils.Error("[TELEGRAM:ADMIN:BOT] 获取机器人频道成员信息失败: %v", err)
+		return false
+	}
+
+	// 检查机器人是否为管理员或创建者
+	botStatus := string(member.Status)
+	utils.Info("[TELEGRAM:ADMIN:BOT] 机器人状态: %s (ChatID: %d)", botStatus, chatID)
+	return botStatus == "administrator" || botStatus == "creator"
+}
+
+// hasActiveGroup 检查是否已经注册了活跃的群组
+func (s *TelegramBotServiceImpl) hasActiveGroup() bool {
+	channels, err := s.channelRepo.FindByChatType("group")
+	if err != nil {
+		utils.Error("[TELEGRAM:LIMIT] 检查活跃群组失败: %v", err)
+		return false
+	}
+
+	// 检查是否有活跃的群组
+	for _, channel := range channels {
+		if channel.IsActive {
+			return true
+		}
+	}
+	return false
+}
+
+// hasActiveChannel 检查是否已经注册了活跃的频道
+func (s *TelegramBotServiceImpl) hasActiveChannel() bool {
+	channels, err := s.channelRepo.FindByChatType("channel")
+	if err != nil {
+		utils.Error("[TELEGRAM:LIMIT] 检查活跃频道失败: %v", err)
+		return false
+	}
+
+	// 检查是否有活跃的频道
+	for _, channel := range channels {
+		if channel.IsActive {
+			return true
+		}
+	}
+	return false
+}
+
 // handleChannelRegistration 处理频道注册（支持频道ID和用户名）
 func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Message, channelParam string) {
 	channelParam = strings.TrimSpace(channelParam)
@@ -1116,6 +1208,9 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 	var chat tgbotapi.Chat
 	var err error
 	var identifier string
+
+	// 首先获取频道信息，然后检查机器人权限
+	// 这一步会在后面的逻辑中完成，获取chat对象后再检查权限
 
 	// 判断是频道ID还是用户名格式
 	if strings.HasPrefix(channelParam, "@") {
@@ -1225,6 +1320,13 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 
 		identifier = fmt.Sprintf("@%s", username)
 
+		// 检查机器人是否是频道管理员
+		if !s.isBotAdministrator(chat.ID) {
+			errorMsg := "❌ *权限不足*\n\n机器人必须是频道的管理员才能注册此频道用于推送。\n\n请先将机器人添加为频道管理员，然后重试注册命令。"
+			s.sendReply(message, errorMsg)
+			return
+		}
+
 	} else if strings.HasPrefix(channelParam, "-") && len(channelParam) > 10 {
 		// 频道ID格式：-1001234567890
 		channelID, parseErr := strconv.ParseInt(channelParam, 10, 64)
@@ -1254,6 +1356,20 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 			return
 		}
 
+		// 检查机器人是否是频道管理员
+		if !s.isBotAdministrator(chat.ID) {
+			errorMsg := "❌ *权限不足*\n\n机器人必须是频道的管理员才能注册此频道用于推送。\n\n请先将机器人添加为频道管理员，然后重试注册命令。"
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		// 检查是否已经注册了频道
+		if s.hasActiveChannel() {
+			errorMsg := "❌ *注册限制*\n\n系统最多只支持注册一个频道用于推送。\n\n请先注销现有频道，然后再注册新的频道。"
+			s.sendReply(message, errorMsg)
+			return
+		}
+
 		identifier = fmt.Sprintf("ID: %d", chat.ID)
 
 	} else {
@@ -1263,7 +1379,34 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 		return
 	}
 
-	// 注册频道
+	// 尝试查找现有频道
+	existingChannel, findErr := s.channelRepo.FindByChatID(chat.ID)
+
+	if findErr == nil && existingChannel != nil {
+		// 频道已存在，更新信息
+		existingChannel.ChatName = chat.Title
+		existingChannel.RegisteredBy = message.From.UserName
+		existingChannel.RegisteredAt = time.Now()
+		existingChannel.IsActive = true
+		existingChannel.PushEnabled = true
+		// 为现有频道设置默认值
+		if existingChannel.ApiType == "" {
+			existingChannel.ApiType = "telegram"
+		}
+
+		err := s.channelRepo.Update(existingChannel)
+		if err != nil {
+			errorMsg := fmt.Sprintf("❌ 频道更新失败: %v", err)
+			s.sendReply(message, errorMsg)
+			return
+		}
+
+		successMsg := fmt.Sprintf("✅ *频道更新成功！*\n\n频道: %s\n%s\n类型: 频道\n\n频道信息已更新，现在可以正常推送内容。", chat.Title, identifier)
+		s.sendReply(message, successMsg)
+		return
+	}
+
+	// 频道不存在，创建新记录
 	channel := entity.TelegramChannel{
 		ChatID:            chat.ID,
 		ChatName:          chat.Title,
@@ -1275,12 +1418,22 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 		RegisteredAt:      time.Now(),
 		ContentCategories: "",
 		ContentTags:       "",
+		API:               "",         // 后续可配置
+		Token:             "",         // 后续可配置
+		ApiType:           "telegram", // 默认telegram类型
+		IsPushSavedInfo:   false,      // 默认推送所有资源
 	}
 
-	err = s.channelRepo.Create(&channel)
-	if err != nil {
-		errorMsg := fmt.Sprintf("❌ 频道注册失败: %v", err)
-		s.sendReply(message, errorMsg)
+	createErr := s.channelRepo.Create(&channel)
+	if createErr != nil {
+		// 如果创建失败，可能是因为并发或其他问题，再次尝试查找
+		if existing, retryErr := s.channelRepo.FindByChatID(chat.ID); retryErr == nil && existing != nil {
+			successMsg := fmt.Sprintf("⚠️ *频道已注册*\n\n频道: %s\n%s\n类型: 频道\n\n此频道已经注册，无需重复注册。", chat.Title, identifier)
+			s.sendReply(message, successMsg)
+		} else {
+			errorMsg := fmt.Sprintf("❌ 频道注册失败: %v", createErr)
+			s.sendReply(message, errorMsg)
+		}
 		return
 	}
 
@@ -1293,4 +1446,18 @@ func (s *TelegramBotServiceImpl) HandleWebhookUpdate(c interface{}) {
 	// 目前使用长轮询模式，webhook 接口预留
 	// 将来可以实现从 webhook 接收消息的处理逻辑
 	// 如果需要实现 webhook 模式，可以在这里添加处理逻辑
+}
+
+// CleanupDuplicateChannels 清理数据库中的重复频道记录
+func (s *TelegramBotServiceImpl) CleanupDuplicateChannels() error {
+	utils.Info("[TELEGRAM:CLEANUP] 开始清理重复的频道记录...")
+
+	err := s.channelRepo.CleanupDuplicateChannels()
+	if err != nil {
+		utils.Error("[TELEGRAM:CLEANUP:ERROR] 清理重复频道记录失败: %v", err)
+		return fmt.Errorf("清理重复频道记录失败: %v", err)
+	}
+
+	utils.Info("[TELEGRAM:CLEANUP:SUCCESS] 成功清理重复的频道记录")
+	return nil
 }
