@@ -42,6 +42,7 @@ type ResourceRepository interface {
 	MarkAsSyncedToMeilisearch(ids []uint) error
 	MarkAllAsUnsyncedToMeilisearch() error
 	FindAllWithPagination(page, limit int) ([]entity.Resource, int64, error)
+	GetRandomResourceWithFilters(categoryFilter, tagFilter string, isPushSavedInfo bool) (*entity.Resource, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -612,4 +613,48 @@ func (r *ResourceRepositoryImpl) FindAllWithPagination(page, limit int) ([]entit
 	// 获取分页数据
 	err := db.Offset(offset).Limit(limit).Find(&resources).Error
 	return resources, total, err
+}
+
+// GetRandomResourceWithFilters 使用 PostgreSQL RANDOM() 功能随机获取一个符合条件的资源
+func (r *ResourceRepositoryImpl) GetRandomResourceWithFilters(categoryFilter, tagFilter string, isPushSavedInfo bool) (*entity.Resource, error) {
+	// 构建查询条件
+	query := r.db.Model(&entity.Resource{}).Preload("Category").Preload("Pan").Preload("Tags")
+
+	// 基础条件：有效且公开的资源
+	query = query.Where("is_valid = ? AND is_public = ?", true, true)
+
+	// 根据分类过滤
+	if categoryFilter != "" {
+		// 查找分类ID
+		var categoryEntity entity.Category
+		if err := r.db.Where("name ILIKE ?", "%"+categoryFilter+"%").First(&categoryEntity).Error; err == nil {
+			query = query.Where("category_id = ?", categoryEntity.ID)
+		}
+	}
+
+	// 根据标签过滤
+	if tagFilter != "" {
+		// 查找标签ID
+		var tagEntity entity.Tag
+		if err := r.db.Where("name ILIKE ?", "%"+tagFilter+"%").First(&tagEntity).Error; err == nil {
+			// 通过中间表查找包含该标签的资源
+			query = query.Joins("JOIN resource_tags ON resources.id = resource_tags.resource_id").
+				Where("resource_tags.tag_id = ?", tagEntity.ID)
+		}
+	}
+
+	// // 根据是否只推送已转存资源过滤
+	// if isPushSavedInfo {
+	// 	query = query.Where("save_url IS NOT NULL AND save_url != '' AND TRIM(save_url) != ''")
+	// }
+
+	// 使用 PostgreSQL 的 RANDOM() 进行随机排序，并限制为1个结果
+	var resource entity.Resource
+	err := query.Order("RANDOM()").Limit(1).First(&resource).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &resource, nil
 }

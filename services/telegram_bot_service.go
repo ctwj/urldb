@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
@@ -28,6 +29,7 @@ type TelegramBotService interface {
 	ValidateApiKeyWithProxy(apiKey string, proxyEnabled bool, proxyType, proxyHost string, proxyPort int, proxyUsername, proxyPassword string) (bool, map[string]interface{}, error)
 	GetBotUsername() string
 	SendMessage(chatID int64, text string) error
+	SendMessageWithFormat(chatID int64, text string, parseMode string) error
 	DeleteMessage(chatID int64, messageID int) error
 	RegisterChannel(chatID int64, chatName, chatType string) error
 	IsChannelRegistered(chatID int64) bool
@@ -540,7 +542,7 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	// 默认自动回复（只对正常消息，不对转发消息）
+	// 默认自动回复（只对正常消息，不对转发消息，且消息没有换行）
 	if s.config.AutoReplyEnabled {
 		// 检查是否是转发消息
 		isForward := message.ForwardFrom != nil ||
@@ -550,8 +552,15 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		if isForward {
 			utils.Info("[TELEGRAM:MESSAGE] 跳过自动回复，转发消息 from ChatID=%d", chatID)
 		} else {
-			utils.Info("[TELEGRAM:MESSAGE] 发送自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
-			s.sendReply(message, s.config.AutoReplyTemplate)
+			// 检查消息是否包含换行符
+			hasNewLine := strings.Contains(text, "\n") || strings.Contains(text, "\r")
+
+			if hasNewLine {
+				utils.Info("[TELEGRAM:MESSAGE] 跳过自动回复，消息包含换行 from ChatID=%d", chatID)
+			} else {
+				utils.Info("[TELEGRAM:MESSAGE] 发送自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
+				s.sendReply(message, s.config.AutoReplyTemplate)
+			}
 		}
 	} else {
 		utils.Info("[TELEGRAM:MESSAGE] 跳过自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
@@ -763,7 +772,7 @@ func (s *TelegramBotServiceImpl) sendReplyWithAutoDelete(message *tgbotapi.Messa
 	}
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = "Markdown"
+	msg.ParseMode = "MarkdownV2"
 	msg.ReplyToMessageID = message.MessageID
 
 	utils.Debug("[TELEGRAM:MESSAGE] 发送Markdown版本消息: %s", text[:min(100, len(text))])
@@ -991,8 +1000,8 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 	// 2. 构建推送消息
 	message := s.buildPushMessage(channel, resources)
 
-	// 3. 发送消息（推送消息不自动删除）
-	err := s.SendMessage(channel.ChatID, message)
+	// 3. 发送消息（推送消息不自动删除，使用 Markdown 格式）
+	err := s.SendMessageWithFormat(channel.ChatID, message, "MarkdownV2")
 	if err != nil {
 		utils.Error("[TELEGRAM:PUSH:ERROR] 推送失败到频道 %s (%d): %v", channel.ChatName, channel.ChatID, err)
 		return
@@ -1010,24 +1019,66 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 
 // findResourcesForChannel 查找适合频道的资源
 func (s *TelegramBotServiceImpl) findResourcesForChannel(channel entity.TelegramChannel) []interface{} {
-	// 这里需要实现根据频道配置过滤资源
-	// 暂时返回空数组，实际实现中需要查询资源数据库
+	utils.Info("[TELEGRAM:PUSH] 开始为频道 %s (%d) 查找资源", channel.ChatName, channel.ChatID)
+
+	params := map[string]interface{}{"category": "", "tag": ""}
+
+	if channel.ContentCategories != "" {
+		categories := strings.Split(channel.ContentCategories, ",")
+		for i, category := range categories {
+			categories[i] = strings.TrimSpace(category)
+		}
+		params["category"] = categories[0]
+	}
+
+	if channel.ContentTags != "" {
+		tags := strings.Split(channel.ContentTags, ",")
+		for i, tag := range tags {
+			tags[i] = strings.TrimSpace(tag)
+		}
+		params["tag"] = tags[0]
+	}
+
+	// 尝试使用 PostgreSQL 的随机功能
+	defer func() {
+		if r := recover(); r != nil {
+			utils.Warn("[TELEGRAM:PUSH] 随机查询失败，回退到传统方法: %v", r)
+		}
+	}()
+
+	randomResource, err := s.resourceRepo.GetRandomResourceWithFilters(params["category"].(string), params["tag"].(string), channel.IsPushSavedInfo)
+	if err == nil && randomResource != nil {
+		utils.Info("[TELEGRAM:PUSH] 成功获取随机资源: %s", randomResource.Title)
+		return []interface{}{randomResource}
+	}
+
 	return []interface{}{}
 }
 
 // buildPushMessage 构建推送消息
 func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel, resources []interface{}) string {
-	message := fmt.Sprintf("📢 **%s**\n\n", channel.ChatName)
+	resource := resources[0].(*entity.Resource)
 
-	if len(resources) == 0 {
-		message += "暂无新内容推送"
-	} else {
-		message += fmt.Sprintf("🆕 发现 %d 个新资源:\n\n", len(resources))
-		// 这里需要格式化资源列表
-		message += "*详细资源列表请查看网站*"
+	message := fmt.Sprintf("🆕 %s\n\n", s.cleanResourceText(resource.Title))
+
+	if resource.Description != "" {
+		message += fmt.Sprintf("📝 %s\n\n", s.cleanResourceText(resource.Description))
 	}
 
-	message += fmt.Sprintf("\n\n⏰ 下次推送: %d 分钟后", channel.PushFrequency)
+	// 添加标签
+	if len(resource.Tags) > 0 {
+		message += "\n🏷️ "
+		for i, tag := range resource.Tags {
+			if i > 0 {
+				message += " "
+			}
+			message += fmt.Sprintf("#%s", tag.Name)
+		}
+		message += "\n"
+	}
+
+	// 添加资源信息
+	message += fmt.Sprintf("\n💡 评论区评论 (【%s】%s) 即可获取资源，括号内名称点击可复制📋\n", resource.Key, resource.Title)
 
 	return message
 }
@@ -1040,28 +1091,79 @@ func (s *TelegramBotServiceImpl) GetBotUsername() string {
 	return ""
 }
 
-// SendMessage 发送消息
+// SendMessage 发送消息（默认使用 MarkdownV2 格式）
 func (s *TelegramBotServiceImpl) SendMessage(chatID int64, text string) error {
+	return s.SendMessageWithFormat(chatID, text, "MarkdownV2")
+}
+
+// SendMessageWithFormat 发送消息，支持指定格式
+func (s *TelegramBotServiceImpl) SendMessageWithFormat(chatID int64, text string, parseMode string) error {
 	if s.bot == nil {
 		return fmt.Errorf("Bot 未初始化")
 	}
 
-	// 清理消息文本，确保UTF-8编码
-	text = s.cleanMessageText(text)
+	// 根据格式选择不同的文本清理方法
+	var cleanedText string
+	switch parseMode {
+	case "Markdown", "MarkdownV2":
+		cleanedText = s.cleanMessageText(text)
+	case "HTML":
+		cleanedText = s.cleanMessageTextForPlain(text) // HTML 格式暂时使用纯文本清理
+	default: // 纯文本或其他格式
+		cleanedText = s.cleanMessageTextForPlain(text)
+		parseMode = "" // Telegram API 中空字符串表示纯文本
+	}
 
-	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "Markdown"
+	msg := tgbotapi.NewMessage(chatID, cleanedText)
+	msg.ParseMode = parseMode
+
+	// 检测并添加代码实体（只在 Markdown 格式下）
+	if parseMode == "Markdown" || parseMode == "MarkdownV2" {
+		entities := s.parseCodeEntities(text, cleanedText)
+		if len(entities) > 0 {
+			msg.Entities = entities
+			utils.Info("[TELEGRAM:MESSAGE] 为消息添加了 %d 个代码实体", len(entities))
+		}
+	}
 
 	_, err := s.bot.Send(msg)
 	if err != nil {
-		// 如果是UTF-8编码错误或Markdown错误，尝试发送纯文本版本
-		if strings.Contains(err.Error(), "UTF-8") || strings.Contains(err.Error(), "Bad Request") {
-			utils.Info("[TELEGRAM:PUSH] 尝试发送纯文本版本...")
+		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败 (格式: %s): %v", parseMode, err)
+		// 如果是格式错误，尝试发送纯文本版本
+		if strings.Contains(err.Error(), "parse") || strings.Contains(err.Error(), "Bad Request") {
+			utils.Info("[TELEGRAM:MESSAGE] 尝试发送纯文本版本...")
 			msg.ParseMode = ""
 			msg.Text = s.cleanMessageTextForPlain(text)
+			msg.Entities = nil // 纯文本模式下不使用实体
 			_, err = s.bot.Send(msg)
 		}
-	}
+	s.bot.Send("*bold text*\n" +
+"_italic \n" +
+"__underline__\n" +
+"~strikethrough~\n" +
+"||spoiler||\n" +
+"*bold _italic bold ~italic bold strikethrough ||italic bold strikethrough spoiler||~ __underline italic bold___ bold*\n" +
+"[inline URL](http://www.example.com/)\n" +
+"[inline mention of a user](tg://user?id=123456789)\n" +
+"![👍](tg://emoji?id=5368324170671202286)\n" +
+"`inline fixed-width code`\n" +
+"```\n" +
+"pre-formatted fixed-width code block\n" +
+"```\n" +
+"```python\n" +
+"pre-formatted fixed-width code block written in the Python programming language\n" +
+"```\n" +
+">Block quotation started\n" +
+">Block quotation continued\n" +
+">Block quotation continued\n" +
+">Block quotation continued\n" +
+">The last line of the block quotation\n" +
+"**>The expandable block quotation started right after the previous block quotation\n" +
+">It is separated from the previous block quotation by an empty bold entity\n" +
+">Expandable block quotation continued\n" +
+">Hidden by default part of the expandable block quotation started\n" +
+">Expandable block quotation continued\n" +
+">The last line of the expandable block quotation with the expandability mark||")
 	return err
 }
 
@@ -1460,4 +1562,158 @@ func (s *TelegramBotServiceImpl) CleanupDuplicateChannels() error {
 
 	utils.Info("[TELEGRAM:CLEANUP:SUCCESS] 成功清理重复的频道记录")
 	return nil
+}
+
+// parseCodeEntities 解析消息中的代码实体
+func (s *TelegramBotServiceImpl) parseCodeEntities(originalText string, cleanedText string) []tgbotapi.MessageEntity {
+	var entities []tgbotapi.MessageEntity
+
+	// 定义开始和结束标记
+	startMarker := "评论区评论 ("
+	endMarker := ") 即可获取资源"
+
+	// 在原始文本中查找标记
+	start := strings.Index(originalText, startMarker)
+	if start == -1 {
+		return entities
+	}
+
+	// 计算代码块的开始位置（在开始标记之后）
+	codeStart := start + len(startMarker)
+
+	// 查找结束标记
+	end := strings.Index(originalText[codeStart:], endMarker)
+	if end == -1 {
+		return entities
+	}
+
+	// 计算代码块的结束位置
+	codeEnd := codeStart + end
+
+	// 确保代码内容不为空
+	if codeEnd <= codeStart {
+		return entities
+	}
+
+	// 获取原始代码内容
+	originalCodeContent := originalText[codeStart:codeEnd]
+
+	// 在清理后的文本中查找相同的代码内容，计算新的偏移量
+	cleanedStart := strings.Index(cleanedText, originalCodeContent)
+	if cleanedStart == -1 {
+		// 如果找不到完全匹配的内容，使用精确偏移计算
+		cleanedStart = s.findPreciseOffset(originalText, cleanedText, codeStart)
+	}
+
+	// 验证清理后偏移量是否有效
+	if cleanedStart < 0 || cleanedStart >= len(cleanedText) {
+		utils.Warn("[TELEGRAM:MESSAGE] 无法计算有效的实体偏移量")
+		return entities
+	}
+
+	// 安全地获取清理后的代码内容（确保不超出字符串边界）
+	cleanedEnd := cleanedStart + len(originalCodeContent)
+	if cleanedEnd > len(cleanedText) {
+		cleanedEnd = len(cleanedText)
+	}
+	cleanedCodeContent := cleanedText[cleanedStart:cleanedEnd]
+
+	// 确保清理后的代码内容不为空
+	if strings.TrimSpace(cleanedCodeContent) == "" {
+		return entities
+	}
+
+	// 创建代码实体，使用 UTF-8 字符计数
+	codeEntity := tgbotapi.MessageEntity{
+		Type:   "code",
+		Offset: utf8.RuneCountInString(cleanedText[:cleanedStart]), // 使用 UTF-8 字符计数
+		Length: utf8.RuneCountInString(cleanedCodeContent),         // 使用 UTF-8 字符计数
+	}
+
+	entities = append(entities, codeEntity)
+
+	utils.Info("[TELEGRAM:MESSAGE] 检测到代码实体: 原始位置=%d-%d, 清理后位置=%d-%d",
+		codeStart, codeEnd, cleanedStart, cleanedEnd)
+	utils.Info("[TELEGRAM:MESSAGE] 原始代码内容: %s", originalCodeContent)
+	utils.Info("[TELEGRAM:MESSAGE] 清理后代码内容: %s", cleanedCodeContent)
+	utils.Info("[TELEGRAM:MESSAGE] 实体偏移量: %d, 长度: %d", codeEntity.Offset, codeEntity.Length)
+
+	return entities
+}
+
+// findPreciseOffset 通过字符级别的精确匹配计算清理后文本中的偏移量
+func (s *TelegramBotServiceImpl) findPreciseOffset(originalText string, cleanedText string, originalOffset int) int {
+	// 获取原始文本中指定位置前后的上下文
+	contextSize := 50
+	originalContext := originalText[max(0, originalOffset-contextSize):min(len(originalText), originalOffset+contextSize)]
+
+	// 在清理后的文本中查找相似的上下文
+	bestMatch := -1
+	maxSimilarity := 0.0
+
+	for i := 0; i <= len(cleanedText)-len(originalContext); i++ {
+		candidate := cleanedText[i:min(len(cleanedText), i+len(originalContext))]
+		similarity := s.calculateSimilarity(originalContext, candidate)
+		if similarity > maxSimilarity {
+			maxSimilarity = similarity
+			bestMatch = i + (originalOffset - max(0, originalOffset-contextSize))
+		}
+	}
+
+	// 如果相似度足够高，返回最佳匹配
+	if maxSimilarity > 0.7 {
+		return max(0, min(len(cleanedText)-1, bestMatch))
+	}
+
+	// 回退到比例估算
+	return s.calculateCleanedOffset(originalText, cleanedText, originalOffset)
+}
+
+// calculateSimilarity 计算两个字符串的相似度
+func (s *TelegramBotServiceImpl) calculateSimilarity(s1, s2 string) float64 {
+	if len(s1) == 0 || len(s2) == 0 {
+		return 0
+	}
+
+	// 简单字符匹配相似度
+	matches := 0
+	minLen := min(len(s1), len(s2))
+
+	for i := 0; i < minLen; i++ {
+		if s1[i] == s2[i] {
+			matches++
+		}
+	}
+
+	return float64(matches) / float64(minLen)
+}
+
+// calculateCleanedOffset 计算清理后文本中的偏移量（比例估算）
+func (s *TelegramBotServiceImpl) calculateCleanedOffset(originalText string, cleanedText string, originalOffset int) int {
+	// 计算清理后文本中对应位置的近似偏移量
+	// 这种方法通过比较字符比例来估算位置
+	if len(originalText) == 0 {
+		return 0
+	}
+
+	originalRatio := float64(originalOffset) / float64(len(originalText))
+	estimatedOffset := int(float64(len(cleanedText)) * originalRatio)
+
+	// 确保偏移量在有效范围内
+	if estimatedOffset < 0 {
+		estimatedOffset = 0
+	}
+	if estimatedOffset >= len(cleanedText) {
+		estimatedOffset = len(cleanedText) - 1
+	}
+
+	return estimatedOffset
+}
+
+// 辅助函数：返回两个数中的较大值
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
