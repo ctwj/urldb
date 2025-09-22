@@ -1126,6 +1126,35 @@ func (s *TelegramBotServiceImpl) SendMessageWithFormat(chatID int64, text string
 		}
 	}
 
+	msg1 := tgbotapi.NewMessage(chatID, "*bold text*\n"+
+		"_italic \n"+
+		"__underline__\n"+
+		"~strikethrough~\n"+
+		"||spoiler||\n"+
+		"*bold _italic bold ~italic bold strikethrough ||italic bold strikethrough spoiler||~ __underline italic bold___ bold*\n"+
+		"[inline URL](http://www.example.com/)\n"+
+		"[inline mention of a user](tg://user?id=123456789)\n"+
+		"![👍](tg://emoji?id=5368324170671202286)\n"+
+		"`inline fixed-width code`\n"+
+		"```\n"+
+		"pre-formatted fixed-width code block\n"+
+		"```\n"+
+		"```python\n"+
+		"pre-formatted fixed-width code block written in the Python programming language\n"+
+		"```\n"+
+		">Block quotation started\n"+
+		">Block quotation continued\n"+
+		">Block quotation continued\n"+
+		">Block quotation continued\n"+
+		">The last line of the block quotation\n"+
+		"**>The expandable block quotation started right after the previous block quotation\n"+
+		">It is separated from the previous block quotation by an empty bold entity\n"+
+		">Expandable block quotation continued\n"+
+		">Hidden by default part of the expandable block quotation started\n"+
+		">Expandable block quotation continued\n"+
+		">The last line of the expandable block quotation with the expandability mark||")
+	s.bot.Send(msg1)
+
 	_, err := s.bot.Send(msg)
 	if err != nil {
 		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败 (格式: %s): %v", parseMode, err)
@@ -1137,33 +1166,7 @@ func (s *TelegramBotServiceImpl) SendMessageWithFormat(chatID int64, text string
 			msg.Entities = nil // 纯文本模式下不使用实体
 			_, err = s.bot.Send(msg)
 		}
-	s.bot.Send("*bold text*\n" +
-"_italic \n" +
-"__underline__\n" +
-"~strikethrough~\n" +
-"||spoiler||\n" +
-"*bold _italic bold ~italic bold strikethrough ||italic bold strikethrough spoiler||~ __underline italic bold___ bold*\n" +
-"[inline URL](http://www.example.com/)\n" +
-"[inline mention of a user](tg://user?id=123456789)\n" +
-"![👍](tg://emoji?id=5368324170671202286)\n" +
-"`inline fixed-width code`\n" +
-"```\n" +
-"pre-formatted fixed-width code block\n" +
-"```\n" +
-"```python\n" +
-"pre-formatted fixed-width code block written in the Python programming language\n" +
-"```\n" +
-">Block quotation started\n" +
-">Block quotation continued\n" +
-">Block quotation continued\n" +
-">Block quotation continued\n" +
-">The last line of the block quotation\n" +
-"**>The expandable block quotation started right after the previous block quotation\n" +
-">It is separated from the previous block quotation by an empty bold entity\n" +
-">Expandable block quotation continued\n" +
-">Hidden by default part of the expandable block quotation started\n" +
-">Expandable block quotation continued\n" +
-">The last line of the expandable block quotation with the expandability mark||")
+	}
 	return err
 }
 
