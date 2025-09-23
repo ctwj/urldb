@@ -89,7 +89,7 @@ func (m *MeilisearchService) HealthCheck() error {
 	// 使用官方SDK的健康检查
 	_, err := m.client.Health()
 	if err != nil {
-		utils.Error("Meilisearch健康检查失败: %v", err)
+		// utils.Error("Meilisearch健康检查失败: %v", err)
 		return fmt.Errorf("Meilisearch健康检查失败: %v", err)
 	}
 

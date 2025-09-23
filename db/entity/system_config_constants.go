@@ -42,6 +42,20 @@ const (
 	ConfigKeyMeilisearchPort      = "meilisearch_port"
 	ConfigKeyMeilisearchMasterKey = "meilisearch_master_key"
 	ConfigKeyMeilisearchIndexName = "meilisearch_index_name"
+
+	// Telegram配置
+	ConfigKeyTelegramBotEnabled         = "telegram_bot_enabled"
+	ConfigKeyTelegramBotApiKey          = "telegram_bot_api_key"
+	ConfigKeyTelegramAutoReplyEnabled   = "telegram_auto_reply_enabled"
+	ConfigKeyTelegramAutoReplyTemplate  = "telegram_auto_reply_template"
+	ConfigKeyTelegramAutoDeleteEnabled  = "telegram_auto_delete_enabled"
+	ConfigKeyTelegramAutoDeleteInterval = "telegram_auto_delete_interval"
+	ConfigKeyTelegramProxyEnabled       = "telegram_proxy_enabled"
+	ConfigKeyTelegramProxyType          = "telegram_proxy_type"
+	ConfigKeyTelegramProxyHost          = "telegram_proxy_host"
+	ConfigKeyTelegramProxyPort          = "telegram_proxy_port"
+	ConfigKeyTelegramProxyUsername      = "telegram_proxy_username"
+	ConfigKeyTelegramProxyPassword      = "telegram_proxy_password"
 )
 
 // ConfigType 配置类型常量
@@ -98,6 +112,20 @@ const (
 	ConfigResponseFieldMeilisearchPort      = "meilisearch_port"
 	ConfigResponseFieldMeilisearchMasterKey = "meilisearch_master_key"
 	ConfigResponseFieldMeilisearchIndexName = "meilisearch_index_name"
+
+	// Telegram配置字段
+	ConfigResponseFieldTelegramBotEnabled         = "telegram_bot_enabled"
+	ConfigResponseFieldTelegramBotApiKey          = "telegram_bot_api_key"
+	ConfigResponseFieldTelegramAutoReplyEnabled   = "telegram_auto_reply_enabled"
+	ConfigResponseFieldTelegramAutoReplyTemplate  = "telegram_auto_reply_template"
+	ConfigResponseFieldTelegramAutoDeleteEnabled  = "telegram_auto_delete_enabled"
+	ConfigResponseFieldTelegramAutoDeleteInterval = "telegram_auto_delete_interval"
+	ConfigResponseFieldTelegramProxyEnabled       = "telegram_proxy_enabled"
+	ConfigResponseFieldTelegramProxyType          = "telegram_proxy_type"
+	ConfigResponseFieldTelegramProxyHost          = "telegram_proxy_host"
+	ConfigResponseFieldTelegramProxyPort          = "telegram_proxy_port"
+	ConfigResponseFieldTelegramProxyUsername      = "telegram_proxy_username"
+	ConfigResponseFieldTelegramProxyPassword      = "telegram_proxy_password"
 )
 
 // ConfigDefaultValue 配置默认值常量
@@ -141,4 +169,18 @@ const (
 	ConfigDefaultMeilisearchPort      = "7700"
 	ConfigDefaultMeilisearchMasterKey = ""
 	ConfigDefaultMeilisearchIndexName = "resources"
+
+	// Telegram配置默认值
+	ConfigDefaultTelegramBotEnabled         = "false"
+	ConfigDefaultTelegramBotApiKey          = ""
+	ConfigDefaultTelegramAutoReplyEnabled   = "true"
+	ConfigDefaultTelegramAutoReplyTemplate  = "您好！我可以帮您搜索网盘资源，请输入您要搜索的内容。"
+	ConfigDefaultTelegramAutoDeleteEnabled  = "false"
+	ConfigDefaultTelegramAutoDeleteInterval = "60"
+	ConfigDefaultTelegramProxyEnabled       = "false"
+	ConfigDefaultTelegramProxyType          = "http"
+	ConfigDefaultTelegramProxyHost          = ""
+	ConfigDefaultTelegramProxyPort          = "8080"
+	ConfigDefaultTelegramProxyUsername      = ""
+	ConfigDefaultTelegramProxyPassword      = ""
 )

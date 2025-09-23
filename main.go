@@ -323,6 +323,40 @@ func main() {
 		api.GET("/files", middleware.AuthMiddleware(), fileHandler.GetFileList)
 		api.DELETE("/files", middleware.AuthMiddleware(), fileHandler.DeleteFiles)
 		api.PUT("/files", middleware.AuthMiddleware(), fileHandler.UpdateFile)
+
+		// 创建Telegram Bot服务
+		telegramBotService := services.NewTelegramBotService(
+			repoManager.SystemConfigRepository,
+			repoManager.TelegramChannelRepository,
+			repoManager.ResourceRepository,
+		)
+
+		// 启动Telegram Bot服务
+		if err := telegramBotService.Start(); err != nil {
+			utils.Error("启动Telegram Bot服务失败: %v", err)
+		}
+
+		// Telegram相关路由
+		telegramHandler := handlers.NewTelegramHandler(
+			repoManager.TelegramChannelRepository,
+			repoManager.SystemConfigRepository,
+			telegramBotService,
+		)
+		api.GET("/telegram/bot-config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetBotConfig)
+		api.PUT("/telegram/bot-config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.UpdateBotConfig)
+		api.POST("/telegram/validate-api-key", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.ValidateApiKey)
+		api.GET("/telegram/bot-status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetBotStatus)
+		api.POST("/telegram/reload-config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.ReloadBotConfig)
+		api.POST("/telegram/test-message", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.TestBotMessage)
+		api.GET("/telegram/debug-connection", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.DebugBotConnection)
+		api.GET("/telegram/channels", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetChannels)
+		api.POST("/telegram/channels", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.CreateChannel)
+		api.PUT("/telegram/channels/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.UpdateChannel)
+		api.DELETE("/telegram/channels/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.DeleteChannel)
+		api.GET("/telegram/logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetTelegramLogs)
+		api.GET("/telegram/logs/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetTelegramLogStats)
+		api.POST("/telegram/logs/clear", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.ClearTelegramLogs)
+		api.POST("/telegram/webhook", telegramHandler.HandleWebhook)
 	}
 
 	// 静态文件服务
