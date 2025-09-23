@@ -329,6 +329,7 @@ func main() {
 			repoManager.SystemConfigRepository,
 			repoManager.TelegramChannelRepository,
 			repoManager.ResourceRepository,
+			repoManager.ReadyResourceRepository,
 		)
 
 		// 启动Telegram Bot服务

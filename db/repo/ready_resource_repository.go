@@ -95,7 +95,7 @@ func (r *ReadyResourceRepositoryImpl) BatchFindByURLs(urls []string) ([]entity.R
 // FindByKey 根据Key查找
 func (r *ReadyResourceRepositoryImpl) FindByKey(key string) ([]entity.ReadyResource, error) {
 	var resources []entity.ReadyResource
-	err := r.db.Where("key = ?", key).Find(&resources).Error
+	err := r.db.Unscoped().Where("key = ?", key).Find(&resources).Error
 	return resources, err
 }
 

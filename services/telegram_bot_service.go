@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
@@ -31,7 +30,7 @@ type TelegramBotService interface {
 	ValidateApiKey(apiKey string) (bool, map[string]interface{}, error)
 	ValidateApiKeyWithProxy(apiKey string, proxyEnabled bool, proxyType, proxyHost string, proxyPort int, proxyUsername, proxyPassword string) (bool, map[string]interface{}, error)
 	GetBotUsername() string
-	SendMessage(chatID int64, text string) error
+	SendMessage(chatID int64, text string, img string) error
 	DeleteMessage(chatID int64, messageID int) error
 	RegisterChannel(chatID int64, chatName, chatType string) error
 	IsChannelRegistered(chatID int64) bool
@@ -45,6 +44,7 @@ type TelegramBotServiceImpl struct {
 	systemConfigRepo repo.SystemConfigRepository
 	channelRepo      repo.TelegramChannelRepository
 	resourceRepo     repo.ResourceRepository // 添加资源仓库用于搜索
+	readyRepo        repo.ReadyResourceRepository
 	cronScheduler    *cron.Cron
 	config           *TelegramBotConfig
 }
@@ -68,12 +68,14 @@ func NewTelegramBotService(
 	systemConfigRepo repo.SystemConfigRepository,
 	channelRepo repo.TelegramChannelRepository,
 	resourceRepo repo.ResourceRepository,
+	readyResourceRepo repo.ReadyResourceRepository,
 ) TelegramBotService {
 	return &TelegramBotServiceImpl{
 		isRunning:        false,
 		systemConfigRepo: systemConfigRepo,
 		channelRepo:      channelRepo,
 		resourceRepo:     resourceRepo,
+		readyRepo:        readyResourceRepo,
 		cronScheduler:    cron.New(),
 		config:           &TelegramBotConfig{},
 	}
@@ -449,7 +451,7 @@ func (s *TelegramBotServiceImpl) ValidateApiKeyWithProxy(apiKey string, proxyEna
 
 		bot, err = tgbotapi.NewBotAPIWithClient(apiKey, tgbotapi.APIEndpoint, httpClient)
 		if err != nil {
-			utils.Error(fmt.Sprintf("[TELEGRAM:VALIDATE] 创建 Telegram Bot (代理校验) 失败 $v", err))
+			utils.Error(fmt.Sprintf("[TELEGRAM:VALIDATE] 创建 Telegram Bot (代理校验) 失败: %v", err))
 			return false, nil, fmt.Errorf("创建 Telegram Bot (代理校验) 失败: %v", err)
 		}
 
@@ -458,7 +460,7 @@ func (s *TelegramBotServiceImpl) ValidateApiKeyWithProxy(apiKey string, proxyEna
 		// 直连校验
 		bot, err = tgbotapi.NewBotAPI(apiKey)
 		if err != nil {
-			utils.Error(fmt.Sprintf("[TELEGRAM:VALIDATE] 创建 Telegram Bot 失败 $v", err))
+			utils.Error(fmt.Sprintf("[TELEGRAM:VALIDATE] 创建 Telegram Bot 失败: %v", err))
 			return false, nil, fmt.Errorf("无效的 API Key: %v", err)
 		}
 
@@ -912,10 +914,10 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 	}
 
 	// 2. 构建推送消息
-	message := s.buildPushMessage(channel, resources)
+	message, img := s.buildPushMessage(channel, resources)
 
 	// 3. 发送消息（推送消息不自动删除，使用 HTML 格式）
-	err := s.SendMessage(channel.ChatID, message)
+	err := s.SendMessage(channel.ChatID, message, img)
 	if err != nil {
 		utils.Error("[TELEGRAM:PUSH:ERROR] 推送失败到频道 %s (%d): %v", channel.ChatName, channel.ChatID, err)
 		return
@@ -970,7 +972,7 @@ func (s *TelegramBotServiceImpl) findResourcesForChannel(channel entity.Telegram
 }
 
 // buildPushMessage 构建推送消息
-func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel, resources []interface{}) string {
+func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel, resources []interface{}) (string, string) {
 	resource := resources[0].(*entity.Resource)
 
 	message := fmt.Sprintf("🆕 <b>%s</b>\n", s.cleanMessageTextForHTML(resource.Title))
@@ -994,7 +996,30 @@ func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel
 	// 添加资源信息
 	message += fmt.Sprintf("\n💡 评论区评论 (<code>【%v】%s</code>) 即可获取资源，括号内名称点击可复制📋\n", resource.ID, resource.Title)
 
-	return message
+	img := ""
+	if resource.Cover != "" {
+		img = resource.Cover
+	} else {
+		// 从 readyRepo 中取出 extra 字段，解析 JSON 获取 fid，用于构造图片URL
+		readyResources, err := s.readyRepo.FindByKey(resource.Key)
+		if err == nil && len(readyResources) > 0 {
+			readyResource := readyResources[0]
+			if readyResource.Extra != "" {
+				var extraData map[string]interface{}
+				if err := json.Unmarshal([]byte(readyResource.Extra), &extraData); err == nil {
+					if fid, ok := extraData["fid"].(string); ok && fid != "" {
+						img = fid
+					}
+				}
+			}
+		}
+	}
+
+	return message, img
+}
+
+func (s *TelegramBotServiceImpl) GetImgUrl(fid string) string {
+	return fmt.Sprintf("http://tg.9book.top:3000/api/tool/file/%s", fid)
 }
 
 // GetBotUsername 获取机器人用户名
@@ -1006,14 +1031,41 @@ func (s *TelegramBotServiceImpl) GetBotUsername() string {
 }
 
 // SendMessage 发送消息（默认使用 HTML 格式）
-func (s *TelegramBotServiceImpl) SendMessage(chatID int64, text string) error {
-	msg := tgbotapi.NewMessage(chatID, text)
-	msg.ParseMode = "HTML"
-	_, err := s.bot.Send(msg)
-	if err != nil {
-		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败: %v", err)
+func (s *TelegramBotServiceImpl) SendMessage(chatID int64, text string, img string) error {
+	if img == "" {
+		msg := tgbotapi.NewMessage(chatID, text)
+		msg.ParseMode = "HTML"
+		_, err := s.bot.Send(msg)
+		if err != nil {
+			utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败: %v", err)
+		}
+		return err
+	} else {
+		// 如果 img 以 http 开头，则为图片URL，否则为文件remote_id
+		if strings.HasPrefix(img, "http") {
+			// 发送图片URL
+			photoMsg := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(img))
+			photoMsg.Caption = text
+			photoMsg.ParseMode = "HTML"
+			_, err := s.bot.Send(photoMsg)
+			if err != nil {
+				utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送图片消息失败: %v", err)
+			}
+			return err
+		} else {
+			// imgUrl := s.GetImgUrl(img)
+			//todo  判断 imgUrl 是否可用
+			// 发送文件ID
+			photoMsg := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(img))
+			photoMsg.Caption = text
+			photoMsg.ParseMode = "HTML"
+			_, err := s.bot.Send(photoMsg)
+			if err != nil {
+				utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送图片消息失败: %v", err)
+			}
+			return err
+		}
 	}
-	return err
 }
 
 // DeleteMessage 删除消息
@@ -1411,158 +1463,4 @@ func (s *TelegramBotServiceImpl) CleanupDuplicateChannels() error {
 
 	utils.Info("[TELEGRAM:CLEANUP:SUCCESS] 成功清理重复的频道记录")
 	return nil
-}
-
-// parseCodeEntities 解析消息中的代码实体
-func (s *TelegramBotServiceImpl) parseCodeEntities(originalText string, cleanedText string) []tgbotapi.MessageEntity {
-	var entities []tgbotapi.MessageEntity
-
-	// 定义开始和结束标记
-	startMarker := "评论区评论 ("
-	endMarker := ") 即可获取资源"
-
-	// 在原始文本中查找标记
-	start := strings.Index(originalText, startMarker)
-	if start == -1 {
-		return entities
-	}
-
-	// 计算代码块的开始位置（在开始标记之后）
-	codeStart := start + len(startMarker)
-
-	// 查找结束标记
-	end := strings.Index(originalText[codeStart:], endMarker)
-	if end == -1 {
-		return entities
-	}
-
-	// 计算代码块的结束位置
-	codeEnd := codeStart + end
-
-	// 确保代码内容不为空
-	if codeEnd <= codeStart {
-		return entities
-	}
-
-	// 获取原始代码内容
-	originalCodeContent := originalText[codeStart:codeEnd]
-
-	// 在清理后的文本中查找相同的代码内容，计算新的偏移量
-	cleanedStart := strings.Index(cleanedText, originalCodeContent)
-	if cleanedStart == -1 {
-		// 如果找不到完全匹配的内容，使用精确偏移计算
-		cleanedStart = s.findPreciseOffset(originalText, cleanedText, codeStart)
-	}
-
-	// 验证清理后偏移量是否有效
-	if cleanedStart < 0 || cleanedStart >= len(cleanedText) {
-		utils.Warn("[TELEGRAM:MESSAGE] 无法计算有效的实体偏移量")
-		return entities
-	}
-
-	// 安全地获取清理后的代码内容（确保不超出字符串边界）
-	cleanedEnd := cleanedStart + len(originalCodeContent)
-	if cleanedEnd > len(cleanedText) {
-		cleanedEnd = len(cleanedText)
-	}
-	cleanedCodeContent := cleanedText[cleanedStart:cleanedEnd]
-
-	// 确保清理后的代码内容不为空
-	if strings.TrimSpace(cleanedCodeContent) == "" {
-		return entities
-	}
-
-	// 创建代码实体，使用 UTF-8 字符计数
-	codeEntity := tgbotapi.MessageEntity{
-		Type:   "code",
-		Offset: utf8.RuneCountInString(cleanedText[:cleanedStart]), // 使用 UTF-8 字符计数
-		Length: utf8.RuneCountInString(cleanedCodeContent),         // 使用 UTF-8 字符计数
-	}
-
-	entities = append(entities, codeEntity)
-
-	utils.Info("[TELEGRAM:MESSAGE] 检测到代码实体: 原始位置=%d-%d, 清理后位置=%d-%d",
-		codeStart, codeEnd, cleanedStart, cleanedEnd)
-	utils.Info("[TELEGRAM:MESSAGE] 原始代码内容: %s", originalCodeContent)
-	utils.Info("[TELEGRAM:MESSAGE] 清理后代码内容: %s", cleanedCodeContent)
-	utils.Info("[TELEGRAM:MESSAGE] 实体偏移量: %d, 长度: %d", codeEntity.Offset, codeEntity.Length)
-
-	return entities
-}
-
-// findPreciseOffset 通过字符级别的精确匹配计算清理后文本中的偏移量
-func (s *TelegramBotServiceImpl) findPreciseOffset(originalText string, cleanedText string, originalOffset int) int {
-	// 获取原始文本中指定位置前后的上下文
-	contextSize := 50
-	originalContext := originalText[max(0, originalOffset-contextSize):min(len(originalText), originalOffset+contextSize)]
-
-	// 在清理后的文本中查找相似的上下文
-	bestMatch := -1
-	maxSimilarity := 0.0
-
-	for i := 0; i <= len(cleanedText)-len(originalContext); i++ {
-		candidate := cleanedText[i:min(len(cleanedText), i+len(originalContext))]
-		similarity := s.calculateSimilarity(originalContext, candidate)
-		if similarity > maxSimilarity {
-			maxSimilarity = similarity
-			bestMatch = i + (originalOffset - max(0, originalOffset-contextSize))
-		}
-	}
-
-	// 如果相似度足够高，返回最佳匹配
-	if maxSimilarity > 0.7 {
-		return max(0, min(len(cleanedText)-1, bestMatch))
-	}
-
-	// 回退到比例估算
-	return s.calculateCleanedOffset(originalText, cleanedText, originalOffset)
-}
-
-// calculateSimilarity 计算两个字符串的相似度
-func (s *TelegramBotServiceImpl) calculateSimilarity(s1, s2 string) float64 {
-	if len(s1) == 0 || len(s2) == 0 {
-		return 0
-	}
-
-	// 简单字符匹配相似度
-	matches := 0
-	minLen := min(len(s1), len(s2))
-
-	for i := 0; i < minLen; i++ {
-		if s1[i] == s2[i] {
-			matches++
-		}
-	}
-
-	return float64(matches) / float64(minLen)
-}
-
-// calculateCleanedOffset 计算清理后文本中的偏移量（比例估算）
-func (s *TelegramBotServiceImpl) calculateCleanedOffset(originalText string, cleanedText string, originalOffset int) int {
-	// 计算清理后文本中对应位置的近似偏移量
-	// 这种方法通过比较字符比例来估算位置
-	if len(originalText) == 0 {
-		return 0
-	}
-
-	originalRatio := float64(originalOffset) / float64(len(originalText))
-	estimatedOffset := int(float64(len(cleanedText)) * originalRatio)
-
-	// 确保偏移量在有效范围内
-	if estimatedOffset < 0 {
-		estimatedOffset = 0
-	}
-	if estimatedOffset >= len(cleanedText) {
-		estimatedOffset = len(cleanedText) - 1
-	}
-
-	return estimatedOffset
-}
-
-// 辅助函数：返回两个数中的较大值
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

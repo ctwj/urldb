@@ -358,7 +358,7 @@ func (h *TelegramHandler) TestBotMessage(c *gin.Context) {
 		return
 	}
 
-	err := h.telegramBotService.SendMessage(req.ChatID, req.Text)
+	err := h.telegramBotService.SendMessage(req.ChatID, req.Text, "")
 	if err != nil {
 		ErrorResponse(c, "发送消息失败: "+err.Error(), http.StatusInternalServerError)
 		return
