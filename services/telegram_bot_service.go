@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,7 +32,6 @@ type TelegramBotService interface {
 	ValidateApiKeyWithProxy(apiKey string, proxyEnabled bool, proxyType, proxyHost string, proxyPort int, proxyUsername, proxyPassword string) (bool, map[string]interface{}, error)
 	GetBotUsername() string
 	SendMessage(chatID int64, text string) error
-	SendMessageWithFormat(chatID int64, text string, parseMode string) error
 	DeleteMessage(chatID int64, messageID int) error
 	RegisterChannel(chatID int64, chatName, chatType string) error
 	IsChannelRegistered(chatID int64) bool
@@ -537,10 +537,7 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	// 处理普通文本消息（搜索请求）
-	if len(text) > 0 && !strings.HasPrefix(text, "/") {
-		utils.Info("[TELEGRAM:MESSAGE] 处理搜索请求 from ChatID=%d: %s", chatID, text)
-		s.handleSearchRequest(message)
+	if len(text) == 0 {
 		return
 	}
 
@@ -560,6 +557,23 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 			if hasNewLine {
 				utils.Info("[TELEGRAM:MESSAGE] 跳过自动回复，消息包含换行 from ChatID=%d", chatID)
 			} else {
+				// 处理普通文本消息（搜索请求）
+				re := regexp.MustCompile(`^【(\d+)】.*?`)
+				matches := re.FindStringSubmatch(text)
+				if len(matches) >= 2 {
+					utils.Info("[TELEGRAM:MESSAGE] 处理搜索请求 from ChatID=%d: %s", chatID, text)
+					num, _ := strconv.Atoi(matches[1])
+					s.handleResourceRequest(message, uint(num))
+					return
+				}
+				sre := regexp.MustCompile(`^搜索(.*?)$`)
+				smatches := sre.FindStringSubmatch(text)
+				if len(smatches) >= 2 {
+					utils.Info("[TELEGRAM:MESSAGE] 处理搜索请求 from ChatID=%d: %s", chatID, text)
+					keyword := strings.TrimSpace(smatches[1])
+					s.handleSearchRequest(message, keyword)
+					return
+				}
 				utils.Info("[TELEGRAM:MESSAGE] 发送自动回复 to ChatID=%d (AutoReplyEnabled=%v)", chatID, s.config.AutoReplyEnabled)
 				s.sendReply(message, s.config.AutoReplyTemplate)
 			}
@@ -698,17 +712,48 @@ func (s *TelegramBotServiceImpl) handleStartCommand(message *tgbotapi.Message) {
 }
 
 // handleSearchRequest 处理搜索请求
-func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message) {
-	query := strings.TrimSpace(message.Text)
-	if query == "" {
-		s.sendReply(message, "请输入搜索关键词")
+func (s *TelegramBotServiceImpl) handleResourceRequest(message *tgbotapi.Message, id uint) {
+
+	// 使用资源仓库进行搜索
+	resources, err := s.resourceRepo.FindByIDs([]uint{uint(id)}) // 限制为5个结果
+	if err != nil {
+		utils.Error("[TELEGRAM:SEARCH] 搜索失败: %v", err)
+		s.sendReply(message, "搜索服务暂时不可用，请稍后重试")
 		return
 	}
 
-	utils.Info("[TELEGRAM:SEARCH] 处理搜索请求: %s", query)
+	if len(resources) == 0 {
+		s.sendReply(message, "未找到该资源")
+		return
+	}
+
+	// 构建搜索结果消息
+	resultText := ""
+
+	// 显示前5个结果
+	for i, resource := range resources {
+		if i >= 1 {
+			break
+		}
+		title := s.cleanMessageTextForHTML(resource.Title)
+
+		if resource.SaveURL != "" {
+			resultText += fmt.Sprintf("<b>%d. %s</>\n<i>%s</i>\n", i+1, title, resource.SaveURL)
+		} else {
+			resultText += fmt.Sprintf("<b>%d. %s</>\n<i>%s</i>\n", i+1, title, resource.URL)
+		}
+	}
+
+	// 使用包含资源的自动删除功能
+	s.sendReplyWithResourceAutoDelete(message, resultText)
+	s.sendReply(message, "资源已发送，请注意查收")
+}
+
+// handleSearchRequest 处理搜索请求
+func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, keyword string) {
 
 	// 使用资源仓库进行搜索
-	resources, total, err := s.resourceRepo.Search(query, nil, 1, 5) // 限制为5个结果
+	resources, total, err := s.resourceRepo.Search(keyword, nil, 1, 5) // 限制为5个结果
 	if err != nil {
 		utils.Error("[TELEGRAM:SEARCH] 搜索失败: %v", err)
 		s.sendReply(message, "搜索服务暂时不可用，请稍后重试")
@@ -716,43 +761,38 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message) 
 	}
 
 	if total == 0 {
-		response := fmt.Sprintf("🔍 *搜索结果*\n\n关键词: `%s`\n\n❌ 未找到相关资源\n\n💡 建议:\n• 尝试使用更通用的关键词\n• 检查拼写是否正确\n• 减少关键词数量", query)
+		response := fmt.Sprintf("🔍 *搜索结果*\n\n关键词: `%s`\n\n❌ 未找到相关资源\n\n💡 建议:\n• 尝试使用更通用的关键词\n• 检查拼写是否正确\n• 减少关键词数量", keyword)
 		// 没有找到资源，不使用资源自动删除
 		s.sendReply(message, response)
 		return
 	}
 
 	// 构建搜索结果消息
-	resultText := fmt.Sprintf("🔍 *搜索结果*\n\n关键词: `%s`\n总共找到: %d 个资源\n\n", query, total)
+	resultText := fmt.Sprintf("🔍 *搜索结果* 总共找到: %d 个资源\n\n", total)
 
 	// 显示前5个结果
 	for i, resource := range resources {
 		if i >= 5 {
 			break
 		}
-
-		// 清理资源标题和描述，确保UTF-8编码
-		title := s.cleanResourceText(resource.Title)
-		if len(title) > 50 {
-			title = title[:47] + "..."
+		title := s.cleanMessageTextForHTML(resource.Title)
+		// description := s.cleanMessageTextForHTML(resource.Description)
+		if resource.SaveURL != "" {
+			resultText += fmt.Sprintf("<b>%s</b>\n<a href=\"%s\">%s</a>\n", title, resource.SaveURL, resource.SaveURL)
+		} else {
+			resultText += fmt.Sprintf("<b>%s</b>\n<a href=\"%s\">%s</a>\n", title, resource.URL, resource.URL)
 		}
-
-		description := s.cleanResourceText(resource.Description)
-		if len(description) > 100 {
-			description = description[:97] + "..."
-		}
-
-		resultText += fmt.Sprintf("%d. *%s*\n%s\n\n", i+1, title, description)
 	}
 
 	// 如果有更多结果，添加提示
 	if total > 5 {
 		resultText += fmt.Sprintf("... 还有 %d 个结果\n\n", total-5)
-		resultText += "💡 如需查看更多结果，请访问网站搜索"
 	}
 
+	resultText += "<i>如果资源失效请访问，发送搜索 + 关键字，可以搜索资源， 或者访问 https://pan.l9.lc 搜索最新资源</i>"
+
 	// 使用包含资源的自动删除功能
-	s.sendReplyWithResourceAutoDelete(message, resultText, len(resources))
+	s.sendReplyWithResourceAutoDelete(message, resultText)
 }
 
 // sendReply 发送回复消息
@@ -764,17 +804,10 @@ func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text strin
 func (s *TelegramBotServiceImpl) sendReplyWithAutoDelete(message *tgbotapi.Message, text string, autoDelete bool) {
 	// 清理消息文本，确保UTF-8编码
 	originalText := text
-	text = s.cleanMessageText(text)
 	utils.Info("[TELEGRAM:MESSAGE] 尝试发送回复消息到 ChatID=%d, 原始长度=%d, 清理后长度=%d", message.Chat.ID, len(originalText), len(text))
 
-	// 检查清理后的文本是否有效
-	if len(text) == 0 {
-		utils.Error("[TELEGRAM:MESSAGE:ERROR] 清理后消息为空，无法发送")
-		return
-	}
-
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ParseMode = "MarkdownV2"
+	msg.ParseMode = "HTML"
 	msg.ReplyToMessageID = message.MessageID
 
 	utils.Debug("[TELEGRAM:MESSAGE] 发送Markdown版本消息: %s", text[:min(100, len(text))])
@@ -782,24 +815,8 @@ func (s *TelegramBotServiceImpl) sendReplyWithAutoDelete(message *tgbotapi.Messa
 	sentMsg, err := s.bot.Send(msg)
 	if err != nil {
 		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送Markdown消息失败: %v", err)
-		// 如果是UTF-8编码错误或Markdown错误，尝试发送纯文本版本
-		if strings.Contains(err.Error(), "UTF-8") || strings.Contains(err.Error(), "Bad Request") || strings.Contains(err.Error(), "strings must be encoded") {
-			utils.Info("[TELEGRAM:MESSAGE] 尝试发送纯文本版本...")
-			plainText := s.cleanMessageTextForPlain(originalText)
-			utils.Debug("[TELEGRAM:MESSAGE] 发送纯文本版本消息: %s", plainText[:min(100, len(plainText))])
-
-			msg.ParseMode = ""
-			msg.Text = plainText
-			sentMsg, err = s.bot.Send(msg)
-			if err != nil {
-				utils.Error("[TELEGRAM:MESSAGE:ERROR] 纯文本发送也失败: %v", err)
-				return
-			}
-		} else {
-			return
-		}
+		return
 	}
-
 	utils.Info("[TELEGRAM:MESSAGE:SUCCESS] 消息发送成功 to ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
 
 	// 如果启用了自动删除，启动删除定时器
@@ -828,132 +845,27 @@ func min(a, b int) int {
 	return b
 }
 
-// cleanMessageText 清理消息文本，确保UTF-8编码和Markdown格式兼容
-func (s *TelegramBotServiceImpl) cleanMessageText(text string) string {
+// cleanMessageTextForHTML 清理消息文本为HTML格式
+func (s *TelegramBotServiceImpl) cleanMessageTextForHTML(text string) string {
 	if text == "" {
 		return text
 	}
-
-	// 记录原始消息用于调试
-	utils.Debug("[TELEGRAM:CLEAN] 原始消息长度: %d", len(text))
-
-	// 清理Markdown特殊字符
-	text = strings.ReplaceAll(text, "\\", "\\\\") // 转义反斜杠
-	text = strings.ReplaceAll(text, "*", "\\*")   // 转义星号
-	text = strings.ReplaceAll(text, "_", "\\_")   // 转义下划线
-	text = strings.ReplaceAll(text, "`", "\\`")   // 转义反引号
-	text = strings.ReplaceAll(text, "[", "\\[")   // 转义方括号
-	text = strings.ReplaceAll(text, "]", "\\]")   // 转义方括号
-
-	// 移除可能的控制字符
-	text = strings.Map(func(r rune) rune {
-		if r < 32 && r != 9 && r != 10 && r != 13 { // 保留tab、换行、回车
-			return -1 // 删除控制字符
-		}
-		return r
-	}, text)
-
-	// 限制消息长度（Telegram单条消息最大4096字符）
-	if len(text) > 4000 {
-		text = text[:4000] + "..."
-		utils.Debug("[TELEGRAM:CLEAN] 消息已截断，长于4000字符")
-	}
-
-	utils.Debug("[TELEGRAM:CLEAN] 清理后消息长度: %d", len(text))
-	return text
-}
-
-// cleanMessageTextForPlain 清理消息文本为纯文本格式
-func (s *TelegramBotServiceImpl) cleanMessageTextForPlain(text string) string {
-	if text == "" {
-		return "空消息"
-	}
-
-	utils.Debug("[TELEGRAM:CLEAN:PLAIN] 原始纯文本消息长度: %d", len(text))
-
-	// 移除Markdown格式字符
-	text = strings.ReplaceAll(text, "*", "")  // 移除粗体
-	text = strings.ReplaceAll(text, "_", "")  // 移除斜体
-	text = strings.ReplaceAll(text, "`", "")  // 移除代码
-	text = strings.ReplaceAll(text, "[", "(") // 替换链接开始
-	text = strings.ReplaceAll(text, "]", ")") // 替换链接结束
-	text = strings.ReplaceAll(text, "\\", "") // 移除转义符
-
-	// 移除可能的控制字符
-	text = strings.Map(func(r rune) rune {
-		if r < 32 && r != 9 && r != 10 && r != 13 { // 保留tab、换行、回车
-			return -1 // 删除控制字符
-		}
-		return r
-	}, text)
-
-	// 如果清理后消息为空，返回默认消息
-	if strings.TrimSpace(text) == "" {
-		text = "消息内容无法显示"
-	}
-
-	// 限制消息长度
-	if len(text) > 4000 {
-		text = text[:4000] + "..."
-		utils.Debug("[TELEGRAM:CLEAN:PLAIN] 纯文本消息已截断，长于4000字符")
-	}
-
-	utils.Debug("[TELEGRAM:CLEAN:PLAIN] 清理后纯文本消息长度: %d", len(text))
-	return text
-}
-
-// cleanResourceText 清理从数据库读取的资源文本
-func (s *TelegramBotServiceImpl) cleanResourceText(text string) string {
-	if text == "" {
-		return text
-	}
-
-	// 记录原始文本用于调试（只记录前50字符避免日志过长）
-	debugText := text
-	if len(text) > 50 {
-		debugText = text[:47] + "..."
-	}
-	utils.Debug("[TELEGRAM:CLEAN:RESOURCE] 原始资源文本: %s", debugText)
-
-	// 移除可能的控制字符，但保留中文字符
-	text = strings.Map(func(r rune) rune {
-		if r < 32 && r != 9 && r != 10 && r != 13 { // 保留tab、换行、回车
-			return -1 // 删除控制字符
-		}
-		// 注意：不再移除超出BMP的字符，因为中文字符可能需要这些码点
-		return r
-	}, text)
-
-	// 移除零宽度字符和其他不可见字符，但保留中文字符
-	text = strings.ReplaceAll(text, "\u200B", "") // 零宽度空格
-	text = strings.ReplaceAll(text, "\u200C", "") // 零宽度非连接符
-	text = strings.ReplaceAll(text, "\u200D", "") // 零宽度连接符
-	text = strings.ReplaceAll(text, "\uFEFF", "") // 字节顺序标记
-
-	// 移除其他可能的垃圾字符，但非常保守
-	text = strings.ReplaceAll(text, "\u0000", "") // 空字符
-	text = strings.ReplaceAll(text, "\uFFFD", "") // 替换字符
-
-	// 如果清理后为空，返回默认文本
-	if strings.TrimSpace(text) == "" {
-		text = "无标题"
-	}
-
-	utils.Debug("[TELEGRAM:CLEAN:RESOURCE] 清理后资源文本长度: %d", len(text))
+	text = strings.ReplaceAll(text, "&", "&amp;")
+	text = strings.ReplaceAll(text, "<", "&lt;")
+	text = strings.ReplaceAll(text, ">", "&gt;")
 	return text
 }
 
 // sendReplyWithResourceAutoDelete 发送包含资源的回复消息，自动添加删除提醒
-func (s *TelegramBotServiceImpl) sendReplyWithResourceAutoDelete(message *tgbotapi.Message, text string, resourceCount int) {
+func (s *TelegramBotServiceImpl) sendReplyWithResourceAutoDelete(message *tgbotapi.Message, text string) {
 	// 如果启用了自动删除且有资源，在消息中添加删除提醒
-	if s.config.AutoDeleteEnabled && s.config.AutoDeleteInterval > 0 && resourceCount > 0 {
-		deleteNotice := fmt.Sprintf("\n\n⏰ *此消息将在 %d 分钟后自动删除*", s.config.AutoDeleteInterval)
+	if s.config.AutoDeleteEnabled && s.config.AutoDeleteInterval > 0 {
+		deleteNotice := fmt.Sprintf("\n\n⏰ <b>此消息将在 %d 分钟后自动删除</b>", s.config.AutoDeleteInterval)
 		text += deleteNotice
-		utils.Info("[TELEGRAM:MESSAGE] 添加删除提醒到包含资源的回复消息")
 	}
 
 	// 使用资源消息的特殊删除逻辑
-	s.sendReplyWithAutoDelete(message, text, s.config.AutoDeleteEnabled && resourceCount > 0)
+	s.sendReplyWithAutoDelete(message, text, true)
 }
 
 // startContentPusher 启动内容推送器
@@ -1002,8 +914,8 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 	// 2. 构建推送消息
 	message := s.buildPushMessage(channel, resources)
 
-	// 3. 发送消息（推送消息不自动删除，使用 Markdown 格式）
-	err := s.SendMessageWithFormat(channel.ChatID, message, "MarkdownV2")
+	// 3. 发送消息（推送消息不自动删除，使用 HTML 格式）
+	err := s.SendMessage(channel.ChatID, message)
 	if err != nil {
 		utils.Error("[TELEGRAM:PUSH:ERROR] 推送失败到频道 %s (%d): %v", channel.ChatName, channel.ChatID, err)
 		return
@@ -1061,10 +973,10 @@ func (s *TelegramBotServiceImpl) findResourcesForChannel(channel entity.Telegram
 func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel, resources []interface{}) string {
 	resource := resources[0].(*entity.Resource)
 
-	message := fmt.Sprintf("🆕 %s\n\n", s.cleanResourceText(resource.Title))
+	message := fmt.Sprintf("🆕 <b>%s</b>\n", s.cleanMessageTextForHTML(resource.Title))
 
 	if resource.Description != "" {
-		message += fmt.Sprintf("📝 %s\n\n", s.cleanResourceText(resource.Description))
+		message += fmt.Sprintf("<blockquote>%s</blockquote>\n", s.cleanMessageTextForHTML(resource.Description))
 	}
 
 	// 添加标签
@@ -1080,7 +992,7 @@ func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel
 	}
 
 	// 添加资源信息
-	message += fmt.Sprintf("\n💡 评论区评论 (【%s】%s) 即可获取资源，括号内名称点击可复制📋\n", resource.Key, resource.Title)
+	message += fmt.Sprintf("\n💡 评论区评论 (<code>【%v】%s</code>) 即可获取资源，括号内名称点击可复制📋\n", resource.ID, resource.Title)
 
 	return message
 }
@@ -1093,70 +1005,13 @@ func (s *TelegramBotServiceImpl) GetBotUsername() string {
 	return ""
 }
 
-// SendMessage 发送消息（默认使用 MarkdownV2 格式）
+// SendMessage 发送消息（默认使用 HTML 格式）
 func (s *TelegramBotServiceImpl) SendMessage(chatID int64, text string) error {
-	return s.SendMessageWithFormat(chatID, text, "MarkdownV2")
-}
-
-// SendMessageWithFormat 发送消息，支持指定格式
-func (s *TelegramBotServiceImpl) SendMessageWithFormat(chatID int64, text string, parseMode string) error {
-	if s.bot == nil {
-		return fmt.Errorf("Bot 未初始化")
-	}
-
-	// 根据格式选择不同的文本清理方法
-	var cleanedText string
-	switch parseMode {
-	case "Markdown", "MarkdownV2":
-		cleanedText = s.cleanMessageText(text)
-	case "HTML":
-		cleanedText = s.cleanMessageTextForPlain(text) // HTML 格式暂时使用纯文本清理
-	default: // 纯文本或其他格式
-		cleanedText = s.cleanMessageTextForPlain(text)
-		parseMode = "" // Telegram API 中空字符串表示纯文本
-	}
-
-	msg := tgbotapi.NewMessage(chatID, cleanedText)
-	msg.ParseMode = parseMode
-
-	// 检测并添加代码实体（只在 Markdown 格式下）
-	if parseMode == "Markdown" || parseMode == "MarkdownV2" {
-		entities := s.parseCodeEntities(text, cleanedText)
-		if len(entities) > 0 {
-			msg.Entities = entities
-			utils.Info("[TELEGRAM:MESSAGE] 为消息添加了 %d 个代码实体", len(entities))
-		}
-	}
-
-	msg1 := tgbotapi.NewMessage(chatID,
-		"<b>bold</b>, <strong>bold</strong>"+
-			"<i>italic</i>, <em>italic</em>"+
-			"<u>underline</u>, <ins>underline</ins>"+
-			"<s>strikethrough</s>, <strike>strikethrough</strike>, <del>strikethrough</del>"+
-			"<span class=\"tg-spoiler\">spoiler</span>, <tg-spoiler>spoiler</tg-spoiler>"+
-			"<b>bold <i>italic bold <s>italic bold strikethrough <span class=\"tg-spoiler\">italic bold strikethrough spoiler</span></s> <u>underline italic bold</u></i> bold</b>"+
-			"<a href=\"http://www.example.com/\">inline URL</a>"+
-			"<a href=\"tg://user?id=123456789\">inline mention of a user</a>"+
-			"<tg-emoji emoji-id=\"5368324170671202286\">👍</tg-emoji>"+
-			"<code>inline fixed-width code</code>"+
-			"<pre>pre-formatted fixed-width code block</pre>"+
-			"<pre><code class=\"language-python\">pre-formatted fixed-width code block written in the Python programming language</code></pre>"+
-			"<blockquote>Block quotation started\nBlock quotation continued\nThe last line of the block quotation</blockquote>"+
-			"<blockquote expandable>Expandable block quotation started\nExpandable block quotation continued\nExpandable block quotation continued\nHidden by default part of the block quotation started\nExpandable block quotation continued\nThe last line of the block quotation</blockquote>")
-	msg1.ParseMode = "HTML"
-	s.bot.Send(msg1)
-
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
 	_, err := s.bot.Send(msg)
 	if err != nil {
-		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败 (格式: %s): %v", parseMode, err)
-		// 如果是格式错误，尝试发送纯文本版本
-		if strings.Contains(err.Error(), "parse") || strings.Contains(err.Error(), "Bad Request") {
-			utils.Info("[TELEGRAM:MESSAGE] 尝试发送纯文本版本...")
-			msg.ParseMode = ""
-			msg.Text = s.cleanMessageTextForPlain(text)
-			msg.Entities = nil // 纯文本模式下不使用实体
-			_, err = s.bot.Send(msg)
-		}
+		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败: %v", err)
 	}
 	return err
 }
