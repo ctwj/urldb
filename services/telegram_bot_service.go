@@ -799,7 +799,7 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 
 // sendReply 发送回复消息
 func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text string) {
-	s.sendReplyWithAutoDelete(message, text, s.config.AutoDeleteEnabled)
+	s.sendReplyWithAutoDelete(message, text, false)
 }
 
 // sendReplyWithAutoDelete 发送回复消息，支持指定是否自动删除
