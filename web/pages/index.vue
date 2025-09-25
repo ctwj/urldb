@@ -300,7 +300,7 @@ const { getImageUrl } = useImageUrl()
 // Logo错误处理
 const handleLogoError = (event: Event) => {
   const img = event.target as HTMLImageElement
-  img.style.display = 'none'
+  img.src = '/assets/images/logo.webp'
 }
 
 // 使用 useAsyncData 获取资源数据
