@@ -26,6 +26,12 @@
             class="h-8 w-auto object-contain"
             @error="handleLogoError"
           />
+          <img 
+            v-else
+            src="/assets/images/logo.webp" 
+            alt="Logo" 
+            class="h-8 w-auto object-contain"
+          />
           <a href="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline">
             {{ systemConfig?.site_title || '老九网盘资源数据库' }}
           </a>
