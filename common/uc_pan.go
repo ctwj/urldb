@@ -52,6 +52,16 @@ func (u *UCService) DeleteFiles(fileList []string) (*TransferResult, error) {
 	return ErrorResult("UC网盘文件删除功能暂未实现"), nil
 }
 
+func (x *UCService) UpdateConfig(config *PanConfig) {
+	if config == nil {
+		return
+	}
+	x.config = config
+	if config.Cookie != "" {
+		x.SetHeader("Cookie", config.Cookie)
+	}
+}
+
 // GetUserInfo 获取用户信息
 func (u *UCService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	// 设置Cookie
