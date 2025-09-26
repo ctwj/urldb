@@ -531,6 +531,8 @@ func (h *TaskHandler) GetExpansionAccounts(c *gin.Context) {
 				"name":         accountName,
 				"service_type": ck.ServiceType,
 				"expanded":     expanded,
+				"total_space":  ck.Space,
+				"used_space":   ck.UsedSpace,
 				"created_at":   ck.CreatedAt,
 				"updated_at":   ck.UpdatedAt,
 			})

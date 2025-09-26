@@ -88,10 +88,13 @@
                       </div>
                     </div>
 
-                    <!-- 创建时间 -->
+                    <!-- 创建时间和容量 -->
                     <div class="mt-2">
                       <span class="text-xs text-gray-600 dark:text-gray-400">
                         创建时间: {{ formatDate(item.created_at) }}
+                      </span>
+                      <span v-if="item.total_space" class="text-xs text-gray-600 dark:text-gray-400 ml-4">
+                        容量: {{ formatCapacity(item.used_space, item.total_space) }}
                       </span>
                     </div>
                   </div>
@@ -337,6 +340,19 @@ const formatDate = (dateString) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// 格式化容量
+const formatCapacity = (used, total) => {
+  if (!total) return '-'
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+  return `${formatBytes(used || 0)} / ${formatBytes(total)}`
 }
 
 // 页面加载
