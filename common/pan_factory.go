@@ -98,6 +98,8 @@ type PanService interface {
 	GetServiceType() ServiceType
 
 	SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks)
+
+	UpdateConfig(config *PanConfig)
 }
 
 // PanFactory 网盘工厂

@@ -112,3 +112,13 @@ func (b *BaiduPanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error)
 
 func (u *BaiduPanService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
 }
+
+func (x *BaiduPanService) UpdateConfig(config *PanConfig) {
+	if config == nil {
+		return
+	}
+	x.config = config
+	if config.Cookie != "" {
+		x.SetHeader("Cookie", config.Cookie)
+	}
+}
