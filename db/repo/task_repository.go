@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"time"
+
 	"github.com/ctwj/urldb/db/entity"
 	"gorm.io/gorm"
 )
@@ -15,6 +17,8 @@ type TaskRepository interface {
 	UpdateProgress(id uint, progress float64, progressData string) error
 	UpdateStatusAndMessage(id uint, status, message string) error
 	UpdateTaskStats(id uint, processed, success, failed int) error
+	UpdateStartedAt(id uint) error
+	UpdateCompletedAt(id uint) error
 }
 
 // TaskRepositoryImpl 任务仓库实现
@@ -133,4 +137,16 @@ func (r *TaskRepositoryImpl) UpdateTaskStats(id uint, processed, success, failed
 		"success_items":   success,
 		"failed_items":    failed,
 	}).Error
+}
+
+// UpdateStartedAt 更新任务开始时间
+func (r *TaskRepositoryImpl) UpdateStartedAt(id uint) error {
+	now := time.Now()
+	return r.db.Model(&entity.Task{}).Where("id = ?", id).Update("started_at", now).Error
+}
+
+// UpdateCompletedAt 更新任务完成时间
+func (r *TaskRepositoryImpl) UpdateCompletedAt(id uint) error {
+	now := time.Now()
+	return r.db.Model(&entity.Task{}).Where("id = ?", id).Update("completed_at", now).Error
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"time"
 
 	pan "github.com/ctwj/urldb/common"
@@ -295,7 +294,7 @@ func (ep *ExpansionProcessor) performExpansion(ctx context.Context, panAccountID
 			}
 
 			// 执行转存
-			saveURL, err := ep.transferResource(ctx, service, resource)
+			saveURL, err := ep.transferResource(ctx, service, resource, *account)
 			if err != nil {
 				utils.Error("转存资源失败: %s, 错误: %v", resource.Title, err)
 				totalFailed++
@@ -347,12 +346,14 @@ func (ep *ExpansionProcessor) getResourcesByHot(
 
 // getResourcesFromInternalDB 根据 HotDrama 的title 获取数据库中资源，并且资源的类型和 account 的资源类型一致
 func (ep *ExpansionProcessor) getResourcesFromInternalDB(HotDrama *entity.HotDrama, account entity.Cks, service pan.PanService) (*entity.Resource, error) {
-	// 获取账号对应的平台ID
-	panIDInt, err := ep.repoMgr.PanRepository.FindIdByServiceType(account.ServiceType)
-	if err != nil {
-		return nil, fmt.Errorf("获取平台ID失败: %v", err)
-	}
-	panID := uint(panIDInt)
+	// 修改配置 isType = 1 只检测，不转存
+	service.UpdateConfig(&pan.PanConfig{
+		URL:         "",
+		ExpiredType: 0,
+		IsType:      1,
+		Cookie:      account.Ck,
+	})
+	panID := account.PanID
 
 	// 1. 搜索标题
 	params := map[string]interface{}{
@@ -413,29 +414,9 @@ func (ep *ExpansionProcessor) getHotResources(category string) ([]*entity.HotDra
 // getResourcesFromThirdPartyAPI 从第三方API获取资源
 func (ep *ExpansionProcessor) getResourcesFromThirdPartyAPI(resource *entity.HotDrama, apiURL string) (*entity.Resource, error) {
 	// 构建API请求URL，添加分类参数
-	requestURL := fmt.Sprintf("%s?category=%s&limit=20", apiURL, resource)
+	// requestURL := fmt.Sprintf("%s?category=%s&limit=20", apiURL, resource)
 
-	// 发送HTTP请求
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(requestURL)
-	if err != nil {
-		return nil, fmt.Errorf("请求第三方API失败: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("第三方API返回错误状态码: %d", resp.StatusCode)
-	}
-
-	// 解析响应数据（假设API返回JSON格式的资源列表）
-	var apiResponse struct {
-		Data []*entity.HotDrama `json:"data"`
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&apiResponse)
-	if err != nil {
-		return nil, fmt.Errorf("解析第三方API响应失败: %v", err)
-	}
+	// TODO 使用第三方API接口，请求资源
 
 	return nil, nil
 }
@@ -463,7 +444,15 @@ func (ep *ExpansionProcessor) checkStorageSpace(service pan.PanService, ck *stri
 }
 
 // transferResource 执行单个资源的转存
-func (ep *ExpansionProcessor) transferResource(ctx context.Context, service pan.PanService, res *entity.Resource) (string, error) {
+func (ep *ExpansionProcessor) transferResource(ctx context.Context, service pan.PanService, res *entity.Resource, account entity.Cks) (string, error) {
+	// 修改配置 isType = 0 转存
+	service.UpdateConfig(&pan.PanConfig{
+		URL:         "",
+		ExpiredType: 0,
+		IsType:      0,
+		Cookie:      account.Ck,
+	})
+
 	// 如果没有URL，跳过转存
 	if res.URL == "" {
 		return "", fmt.Errorf("资源 %s 没有有效的URL", res.URL)
@@ -510,35 +499,35 @@ func (ep *ExpansionProcessor) transferResource(ctx context.Context, service pan.
 }
 
 // recordTransferredResource 记录转存成功的资源
-func (ep *ExpansionProcessor) recordTransferredResource(drama *entity.HotDrama, accountID uint, saveURL string) error {
-	// 获取夸克网盘的平台ID
-	panIDInt, err := ep.repoMgr.PanRepository.FindIdByServiceType("quark")
-	if err != nil {
-		utils.Error("获取夸克网盘平台ID失败: %v", err)
-		return err
-	}
+// func (ep *ExpansionProcessor) recordTransferredResource(drama *entity.HotDrama, accountID uint, saveURL string) error {
+// 	// 获取夸克网盘的平台ID
+// 	panIDInt, err := ep.repoMgr.PanRepository.FindIdByServiceType("quark")
+// 	if err != nil {
+// 		utils.Error("获取夸克网盘平台ID失败: %v", err)
+// 		return err
+// 	}
 
-	// 转换为uint
-	panID := uint(panIDInt)
+// 	// 转换为uint
+// 	panID := uint(panIDInt)
 
-	// 创建资源记录
-	resource := &entity.Resource{
-		Title:     drama.Title,
-		URL:       drama.PosterURL,
-		SaveURL:   saveURL,
-		PanID:     &panID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		IsValid:   true,
-		IsPublic:  false, // 扩容资源默认不公开
-	}
+// 	// 创建资源记录
+// 	resource := &entity.Resource{
+// 		Title:     drama.Title,
+// 		URL:       drama.PosterURL,
+// 		SaveURL:   saveURL,
+// 		PanID:     &panID,
+// 		CreatedAt: time.Now(),
+// 		UpdatedAt: time.Now(),
+// 		IsValid:   true,
+// 		IsPublic:  false, // 扩容资源默认不公开
+// 	}
 
-	// 保存到数据库
-	err = ep.repoMgr.ResourceRepository.Create(resource)
-	if err != nil {
-		return fmt.Errorf("保存资源记录失败: %v", err)
-	}
+// 	// 保存到数据库
+// 	err = ep.repoMgr.ResourceRepository.Create(resource)
+// 	if err != nil {
+// 		return fmt.Errorf("保存资源记录失败: %v", err)
+// 	}
 
-	utils.Info("成功记录转存资源: %s (ID: %d)", drama.Title, resource.ID)
-	return nil
-}
+// 	utils.Info("成功记录转存资源: %s (ID: %d)", drama.Title, resource.ID)
+// 	return nil
+// }

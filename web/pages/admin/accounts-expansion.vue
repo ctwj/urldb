@@ -113,6 +113,19 @@
                       </template>
                       {{ item.expanded ? '已扩容' : '扩容' }}
                     </n-button>
+
+                    <!-- 提取按钮，仅对已扩容账号显示 -->
+                    <n-button
+                      v-if="item.expanded"
+                      size="small"
+                      type="success"
+                      @click="handleExtract(item)"
+                    >
+                      <template #icon>
+                        <i class="fas fa-download"></i>
+                      </template>
+                      提取
+                    </n-button>
                   </div>
                 </div>
               </div>
@@ -218,6 +231,62 @@
         </div>
       </n-card>
     </n-modal>
+
+    <!-- 提取内容弹窗 -->
+    <n-modal v-model:show="showExtractDialog" title="提取数据" size="large" style="width: 800px; max-width: 95vw;">
+      <n-card title="提取扩容数据" size="small">
+        <div class="space-y-4">
+          <!-- 加载状态 -->
+          <div v-if="loadingExtractData" class="flex items-center justify-center py-12">
+            <n-spin size="large">
+              <template #description>
+                <span class="text-gray-500">获取数据中...</span>
+              </template>
+            </n-spin>
+          </div>
+
+          <!-- 数据加载完成后的内容 -->
+          <div v-else class="flex flex-col gap-2">
+            <!-- 显示模式选择 -->
+            <div>
+              <n-radio-group v-model:value="selectedDisplayMode">
+                <n-space>
+                  <n-radio value="links-only">
+                    <span class="font-medium">仅链接</span>
+                    <!-- <div class="text-sm text-gray-500 mt-1">只显示链接，一行一个</div> -->
+                  </n-radio>
+                  <n-radio value="title-link">
+                    <span class="font-medium">标题|链接</span>
+                    <!-- <div class="text-sm text-gray-500 mt-1">显示标题连接用|连接，一个一行</div> -->
+                  </n-radio>
+                  <n-radio value="title-newline-link">
+                    <span class="font-medium">标题/n链接</span>
+                    <!-- <div class="text-sm text-gray-500 mt-1">标题和链接，两行一个</div> -->
+                  </n-radio>
+                </n-space>
+              </n-radio-group>
+            </div>
+
+            <!-- 文本显示区域 -->
+            <div>
+              <n-input
+                v-model:value="extractedText"
+                type="textarea"
+                :rows="15"
+                readonly
+                placeholder="选择显示模式后，内容将显示在此处"
+              />
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex justify-end space-x-2">
+              <n-button @click="copyToClipboard">复制</n-button>
+              <n-button type="primary" @click="showExtractDialog = false">关闭</n-button>
+            </div>
+          </div>
+        </div>
+      </n-card>
+    </n-modal>
 </template>
 
 <script setup lang="ts">
@@ -226,7 +295,7 @@ definePageMeta({
   middleware: ['auth']
 })
 
-import { ref, onMounted, computed, h } from 'vue'
+import { ref, onMounted, computed, h, watch } from 'vue'
 import { useTaskApi } from '~/composables/useApi'
 import { useNotification, useDialog } from 'naive-ui'
 
@@ -241,6 +310,12 @@ const showDataSourceDialog = ref(false) // 数据源选择弹窗
 const selectedDataSource = ref('internal') // internal or third-party
 const thirdPartyUrl = ref('https://so.252035.xyz/')
 const pendingAccount = ref<any>(null) // 待处理的账号
+const showExtractDialog = ref(false) // 提取内容弹窗
+const selectedDisplayMode = ref('links-only') // 显示模式: links-only, title-link, title-newline-link
+const extractedText = ref('') // 提取的文本内容
+const currentExtractAccount = ref<any>(null) // 当前提取的账号
+const loadingExtractData = ref(false) // 提取数据加载状态
+const extractedResources = ref([]) // 保存获取到的资源数据
 
 // API实例
 const taskApi = useTaskApi()
@@ -251,7 +326,7 @@ const notification = useNotification()
 const fetchExpansionAccounts = async () => {
   loading.value = true
   try {
-    const response = await taskApi.getExpansionAccounts()
+    const response = await taskApi.getExpansionAccounts()  as any
     expansionAccounts.value = response.accounts || []
   } catch (error) {
     console.error('获取扩容账号列表失败:', error)
@@ -354,6 +429,112 @@ const formatCapacity = (used, total) => {
   }
   return `${formatBytes(used || 0)} / ${formatBytes(total)}`
 }
+
+// 处理提取操作
+const handleExtract = async (account) => {
+  currentExtractAccount.value = account
+  showExtractDialog.value = true
+  loadingExtractData.value = true
+  extractedText.value = ''
+
+  try {
+    // 获取账号的扩容任务输出数据
+    const response = await taskApi.getExpansionOutput(account.id)
+    const resources = response.output_data?.transferred_resources || []
+
+    // 保存获取到的数据
+    extractedResources.value = resources
+
+    // 根据当前选择的模式格式化文本
+    formatExtractedText(resources, selectedDisplayMode.value)
+
+  } catch (error) {
+    console.error('获取提取数据失败:', error)
+    notification.error({
+      title: '失败',
+      content: '获取提取数据失败: ' + (error.data?.message || '未知错误'),
+      duration: 3000
+    })
+
+    // 如果获取失败，使用模拟数据
+    const mockData = [
+      { title: "示例电影1", url: "https://example.com/1" },
+      { title: "示例电影2", url: "https://example.com/2" },
+      { title: "示例电影3", url: "https://example.com/3" }
+    ]
+    extractedResources.value = mockData
+    formatExtractedText(mockData, selectedDisplayMode.value)
+  } finally {
+    loadingExtractData.value = false
+  }
+}
+
+// 过滤标题文本，移除换行、| 和不可见字符
+const cleanTitle = (title) => {
+  if (!title) return ''
+  return title
+    .replace(/[\r\n\t]/g, ' ') // 移除换行符和制表符，替换为空格
+    .replace(/[|]/g, ' ') // 移除|符号，替换为空格
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // 移除不可见字符
+    .replace(/\s+/g, ' ') // 多个空格合并为一个
+    .trim() // 移除首尾空格
+}
+
+// 格式化提取的文本
+const formatExtractedText = (resources, mode) => {
+  if (!resources || resources.length === 0) {
+    extractedText.value = '暂无数据'
+    return
+  }
+
+  let text = ''
+
+  switch (mode) {
+    case 'links-only':
+      // 仅链接，一行一个
+      text = resources.map(item => item.url).join('\n')
+      break
+    case 'title-link':
+      // 标题|链接，一个一行
+      text = resources.map(item => `${cleanTitle(item.title)}|${item.url}`).join('\n')
+      break
+    case 'title-newline-link':
+      // 标题/n链接，两行一个
+      text = resources.map(item => `${cleanTitle(item.title)}\n${item.url}`).join('\n')
+      break
+    default:
+      text = '请选择显示模式'
+  }
+
+  extractedText.value = text
+}
+
+// 复制到剪贴板
+const copyToClipboard = async () => {
+  try {
+    await navigator.clipboard.writeText(extractedText.value)
+    notification.success({
+      title: '成功',
+      content: '内容已复制到剪贴板',
+      duration: 3000
+    })
+  } catch (error) {
+    console.error('复制失败:', error)
+    notification.error({
+      title: '失败',
+      content: '复制失败，请手动选择文本复制',
+      duration: 3000
+    })
+  }
+}
+
+// 监听显示模式变化
+watch(selectedDisplayMode, (newMode) => {
+  if (extractedResources.value && extractedResources.value.length > 0) {
+    // 使用已保存的数据重新格式化文本
+    formatExtractedText(extractedResources.value, newMode)
+  }
+})
 
 // 页面加载
 onMounted(async () => {

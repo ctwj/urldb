@@ -253,7 +253,8 @@ export const useTaskApi = () => {
   const pauseTask = (id: number) => useApiFetch(`/tasks/${id}/pause`, { method: 'POST' }).then(parseApiResponse)
   const deleteTask = (id: number) => useApiFetch(`/tasks/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const getTaskItems = (id: number, params?: any) => useApiFetch(`/tasks/${id}/items`, { params }).then(parseApiResponse)
-  return { createBatchTransferTask, createExpansionTask, getExpansionAccounts, getTasks, getTaskStatus, startTask, stopTask, pauseTask, deleteTask, getTaskItems }
+  const getExpansionOutput = (accountId: number) => useApiFetch(`/tasks/expansion/accounts/${accountId}/output`).then(parseApiResponse)
+  return { createBatchTransferTask, createExpansionTask, getExpansionAccounts, getTasks, getTaskStatus, startTask, stopTask, pauseTask, deleteTask, getTaskItems, getExpansionOutput }
 }
 
 // 日志函数：只在开发环境打印
