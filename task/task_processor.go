@@ -201,6 +201,12 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 		return
 	}
 
+	// 更新任务开始时间
+	err = tm.repoMgr.TaskRepository.UpdateStartedAt(task.ID)
+	if err != nil {
+		utils.Error("更新任务开始时间失败: %v", err)
+	}
+
 	// 获取任务项统计信息，用于计算正确的进度
 	stats, err := tm.repoMgr.TaskItemRepository.GetStatsByTaskID(task.ID)
 	if err != nil {
@@ -294,6 +300,14 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 		utils.Error("更新任务状态失败: %v", err)
 	}
 
+	// 如果任务完成，更新完成时间
+	if status == "completed" || status == "failed" || status == "partial_success" {
+		err = tm.repoMgr.TaskRepository.UpdateCompletedAt(task.ID)
+		if err != nil {
+			utils.Error("更新任务完成时间失败: %v", err)
+		}
+	}
+
 	utils.Info("任务 %d 处理完成: %s", task.ID, message)
 }
 
@@ -324,13 +338,21 @@ func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *e
 	}
 
 	// 处理成功
-	outputData := map[string]interface{}{
-		"success": true,
-		"time":    utils.GetCurrentTime(),
+	// 如果处理器已经设置了 output_data（比如 ExpansionProcessor），则不覆盖
+	var outputJSON string
+	if item.OutputData == "" {
+		outputData := map[string]interface{}{
+			"success": true,
+			"time":    utils.GetCurrentTime(),
+		}
+		outputBytes, _ := json.Marshal(outputData)
+		outputJSON = string(outputBytes)
+	} else {
+		// 使用处理器设置的 output_data
+		outputJSON = item.OutputData
 	}
-	outputJSON, _ := json.Marshal(outputData)
 
-	err = tm.repoMgr.TaskItemRepository.UpdateStatusAndOutput(item.ID, "completed", string(outputJSON))
+	err = tm.repoMgr.TaskItemRepository.UpdateStatusAndOutput(item.ID, "completed", outputJSON)
 	if err != nil {
 		utils.Error("更新成功任务项状态失败: %v", err)
 	}
@@ -368,6 +390,12 @@ func (tm *TaskManager) markTaskFailed(taskID uint, message string) {
 	err := tm.repoMgr.TaskRepository.UpdateStatusAndMessage(taskID, "failed", message)
 	if err != nil {
 		utils.Error("标记任务失败状态失败: %v", err)
+	}
+
+	// 更新任务完成时间
+	err = tm.repoMgr.TaskRepository.UpdateCompletedAt(taskID)
+	if err != nil {
+		utils.Error("更新任务完成时间失败: %v", err)
 	}
 }
 

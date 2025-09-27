@@ -545,3 +545,75 @@ func (h *TaskHandler) GetExpansionAccounts(c *gin.Context) {
 		"message":  "获取支持扩容账号列表成功",
 	})
 }
+
+// GetExpansionOutput 获取账号扩容输出数据
+func (h *TaskHandler) GetExpansionOutput(c *gin.Context) {
+	accountIDStr := c.Param("accountId")
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的账号ID: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	utils.Debug("获取账号扩容输出数据: 账号ID %d", accountID)
+
+	// 获取该账号的所有扩容任务
+	tasks, _, err := h.repoMgr.TaskRepository.GetList(1, 1000, "expansion", "completed")
+	if err != nil {
+		utils.Error("获取扩容任务列表失败: %v", err)
+		ErrorResponse(c, "获取扩容任务列表失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 查找该账号的扩容任务
+	var targetTask *entity.Task
+	for _, task := range tasks {
+		if task.Config != "" {
+			var taskConfig map[string]interface{}
+			if err := json.Unmarshal([]byte(task.Config), &taskConfig); err == nil {
+				if configAccountID, ok := taskConfig["pan_account_id"].(float64); ok {
+					if uint(configAccountID) == uint(accountID) {
+						targetTask = task
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if targetTask == nil {
+		ErrorResponse(c, "该账号没有完成扩容任务", http.StatusNotFound)
+		return
+	}
+
+	// 获取任务项，获取输出数据
+	items, _, err := h.repoMgr.TaskItemRepository.GetListByTaskID(targetTask.ID, 1, 10, "completed")
+	if err != nil {
+		utils.Error("获取任务项失败: %v", err)
+		ErrorResponse(c, "获取任务输出数据失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(items) == 0 {
+		ErrorResponse(c, "任务项不存在", http.StatusNotFound)
+		return
+	}
+
+	// 返回第一个完成的任务项的输出数据
+	taskItem := items[0]
+	var outputData map[string]interface{}
+	if taskItem.OutputData != "" {
+		if err := json.Unmarshal([]byte(taskItem.OutputData), &outputData); err != nil {
+			utils.Error("解析输出数据失败: %v", err)
+			ErrorResponse(c, "解析输出数据失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	SuccessResponse(c, gin.H{
+		"task_id":     targetTask.ID,
+		"account_id":  accountID,
+		"output_data": outputData,
+		"message":     "获取扩容输出数据成功",
+	})
+}
