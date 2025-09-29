@@ -1,5 +1,9 @@
 name: Release
 
+permissions:
+  contents: write
+  packages: read
+  id-token: write
 on:
   push:
     tags:
