@@ -34,23 +34,21 @@
 - [文档说明](https://ecn5khs4t956.feishu.cn/wiki/PsnDwtxghiP0mLkTiruczKtxnwd?from=from_copylink)
 - [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
 - [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
+- [Telegram机器人](https://ecn5khs4t956.feishu.cn/wiki/SwkQw6AzRiFes7kxJXac3pd2ncb?from=from_copylink)
 
-### v1.2.5
-1. 修复一些Bug
-
-### v1.2.4
-
-1. 搜索增强，毫秒级响应，关键字高亮显示
-2. 修复版本显示不正确的问题
-3. 配置项新增Meilisearch配置
+### v1.3.0
+1. 新增 [Telegram Bot](https://ecn5khs4t956.feishu.cn/wiki/SwkQw6AzRiFes7kxJXac3pd2ncb?from=from_copylink)
+2. 新增[扩容](https://ecn5khs4t956.feishu.cn/wiki/R3cPwEU6viTWfukHFNycM7O6nMd?from=from_copylink)
+3. 支持迅雷云盘
+4. UI优化
 
 [详细改动记录](https://github.com/ctwj/urldb/blob/main/ChangeLog.md) 
 
 当前特性
 1. 支持API，手动批量录入资源
 2. 支持，自动判断资源有效性
-3. 支持自动转存（Quark）
-4. 支持平台多账号管理（Quark）
+3. 支持自动转存
+4. 支持平台多账号管理
 5. 支持简单的数据统计
 6. 支持Meilisearch
 
