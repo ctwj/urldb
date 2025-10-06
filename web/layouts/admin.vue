@@ -398,13 +398,13 @@ const userMenuItems = computed(() => [
   {
     to: '/admin/accounts',
     icon: 'fas fa-user-shield',
-    label: '账号管理',
+    label: '平台账号',
     type: 'link'
   },
   {
-    to: '/admin/system-config',
-    icon: 'fas fa-cog',
-    label: '系统配置',
+    to: '/admin/api-access-logs',
+    icon: 'fas fa-history',
+    label: 'API访问日志',
     type: 'link'
   },
   {
