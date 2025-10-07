@@ -106,7 +106,7 @@
       </div>
 
       <!-- 日志列表 -->
-      <div v-else class="space-y-2">
+      <div v-else class="space-y-2 h-full overflow-y-auto">
         <div
           v-for="log in logs"
           :key="log.id"
@@ -140,8 +140,23 @@
                 </div>
               </div>
 
-              <div v-if="log.request_params" class="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                <strong>请求参数:</strong> {{ log.request_params }}
+              <div v-if="log.request_params" class="mt-2 text-xs text-gray-600 dark:text-gray-400 flex items-center justify-between">
+                <div class="flex items-center flex-1 min-w-0">
+                  <strong class="mr-2 flex-0 whitespace-nowrap">请求参数:</strong>
+                  <span class="truncate">{{ log.request_params }}</span>
+                </div>
+                <div class="flex items-center space-x-1 ml-2">
+                  <n-button size="tiny" @click="copyParams(log.request_params)">
+                    <template #icon>
+                      <i class="fas fa-copy"></i>
+                    </template>
+                  </n-button>
+                  <n-button size="tiny" @click="viewParams(log.request_params)">
+                    <template #icon>
+                      <i class="fas fa-eye"></i>
+                    </template>
+                  </n-button>
+                </div>
               </div>
 
               <div v-if="log.error_message" class="mt-2 text-xs text-red-600 dark:text-red-400">
@@ -170,6 +185,17 @@
       </div>
     </template>
   </AdminPageLayout>
+
+  <!-- 请求参数详情模态框 -->
+  <n-modal v-model:show="showModal" preset="card" title="请求参数详情" style="min-width: 600px;">
+    <n-code
+      :code="selectedParams"
+      language="json"
+      :folding="true"
+      :show-line-numbers="true"
+      class="bg-gray-100 dark:bg-gray-700 p-4 rounded max-h-96 overflow-auto"
+    />
+  </n-modal>
 
 </template>
 
@@ -225,6 +251,10 @@ const endDate = ref<number | null>(null)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+
+// 模态框
+const showModal = ref(false)
+const selectedParams = ref('')
 
 
 // 获取日志数据
@@ -335,6 +365,31 @@ const formatDate = (dateString: string) => {
     minute: '2-digit',
     second: '2-digit'
   })
+}
+
+// 复制参数
+const copyParams = (params: string) => {
+  navigator.clipboard.writeText(params).then(() => {
+    notification.success({
+      content: '已复制到剪贴板',
+      duration: 2000
+    })
+  }).catch(() => {
+    notification.error({
+      content: '复制失败',
+      duration: 2000
+    })
+  })
+}
+
+// 查看参数
+const viewParams = (params: string) => {
+  try {
+    selectedParams.value = JSON.stringify(JSON.parse(params), null, 2)
+  } catch {
+    selectedParams.value = params
+  }
+  showModal.value = true
 }
 
 
