@@ -240,8 +240,33 @@ func (m *MeilisearchManager) SyncResourceToMeilisearch(resource *entity.Resource
 		return fmt.Errorf("创建Meilisearch索引失败: %v", err)
 	}
 
-	doc := m.convertResourceToDocument(resource)
-	err := m.service.BatchAddDocuments([]MeilisearchDocument{doc})
+	// 重新加载资源及其关联数据，确保Tags被正确加载
+	resourcesWithRelations, err := m.repoMgr.ResourceRepository.FindByIDs([]uint{resource.ID})
+	if err != nil {
+		utils.Error(fmt.Sprintf("重新加载资源失败: %v", err))
+		return fmt.Errorf("重新加载资源失败: %v", err)
+	}
+
+	if len(resourcesWithRelations) == 0 {
+		utils.Error(fmt.Sprintf("资源未找到: %d", resource.ID))
+		return fmt.Errorf("资源未找到: %d", resource.ID)
+	}
+
+	resourceWithRelations := resourcesWithRelations[0]
+	doc := m.convertResourceToDocument(&resourceWithRelations)
+
+	// 添加调试日志，记录标签数量
+	utils.Debug(fmt.Sprintf("资源ID %d 的标签数量: %d", resource.ID, len(resourceWithRelations.Tags)))
+	for i, tag := range resourceWithRelations.Tags {
+		utils.Debug(fmt.Sprintf("  标签 %d: ID=%d, Name=%s", i+1, tag.ID, tag.Name))
+	}
+
+	// 验证转换后的文档
+	utils.Debug(fmt.Sprintf("转换后的文档标签数量: %d", len(doc.Tags)))
+	if len(doc.Tags) > 0 {
+		utils.Debug(fmt.Sprintf("转换后的文档标签内容: %v", doc.Tags))
+	}
+	err = m.service.BatchAddDocuments([]MeilisearchDocument{doc})
 	if err != nil {
 		return err
 	}
@@ -410,11 +435,14 @@ func (m *MeilisearchManager) syncAllResourcesInternal() {
 			default:
 			}
 
-			// 转换为Meilisearch文档（使用缓存）
+			// 转换为Meilisearch文档（确保Tags被正确加载）
 			var docs []MeilisearchDocument
 			for _, resource := range resources {
+				utils.Debug(fmt.Sprintf("批量同步开始处理资源 %d，标签数量: %d", resource.ID, len(resource.Tags)))
+				// 使用带缓存的转换方法，但传入的资源已经预加载了Tags数据
 				doc := m.convertResourceToDocumentWithCache(&resource, categoryCache, panCache)
 				docs = append(docs, doc)
+				utils.Debug(fmt.Sprintf("批量同步资源 %d 处理完成，最终标签数量: %d", resource.ID, len(doc.Tags)))
 			}
 
 			// 检查是否需要停止
@@ -636,11 +664,21 @@ func (m *MeilisearchManager) convertResourceToDocument(resource *entity.Resource
 
 	// 获取标签 - 从关联的Tags字段获取
 	var tagNames []string
-	if resource.Tags != nil {
-		for _, tag := range resource.Tags {
-			tagNames = append(tagNames, tag.Name)
+	if len(resource.Tags) > 0 {
+		utils.Debug(fmt.Sprintf("处理资源 %d 的 %d 个标签", resource.ID, len(resource.Tags)))
+		for i, tag := range resource.Tags {
+			if tag.Name != "" {
+				utils.Debug(fmt.Sprintf("标签 %d: ID=%d, Name='%s'", i+1, tag.ID, tag.Name))
+				tagNames = append(tagNames, tag.Name)
+			} else {
+				utils.Debug(fmt.Sprintf("标签 %d: ID=%d, Name为空，跳过", i+1, tag.ID))
+			}
 		}
+	} else {
+		utils.Debug(fmt.Sprintf("资源 %d 没有关联的标签", resource.ID))
 	}
+
+	utils.Debug(fmt.Sprintf("资源 %d 最终标签数量: %d", resource.ID, len(tagNames)))
 
 	return MeilisearchDocument{
 		ID:          resource.ID,
@@ -679,11 +717,21 @@ func (m *MeilisearchManager) convertResourceToDocumentWithCache(resource *entity
 
 	// 获取标签 - 从关联的Tags字段获取
 	var tagNames []string
-	if resource.Tags != nil {
-		for _, tag := range resource.Tags {
-			tagNames = append(tagNames, tag.Name)
+	if len(resource.Tags) > 0 {
+		utils.Debug(fmt.Sprintf("批量同步处理资源 %d 的 %d 个标签", resource.ID, len(resource.Tags)))
+		for i, tag := range resource.Tags {
+			if tag.Name != "" {
+				utils.Debug(fmt.Sprintf("批量同步标签 %d: ID=%d, Name='%s'", i+1, tag.ID, tag.Name))
+				tagNames = append(tagNames, tag.Name)
+			} else {
+				utils.Debug(fmt.Sprintf("批量同步标签 %d: ID=%d, Name为空，跳过", i+1, tag.ID))
+			}
 		}
+	} else {
+		utils.Debug(fmt.Sprintf("批量同步资源 %d 没有关联的标签", resource.ID))
 	}
+
+	utils.Debug(fmt.Sprintf("批量同步资源 %d 最终标签数量: %d", resource.ID, len(tagNames)))
 
 	return MeilisearchDocument{
 		ID:          resource.ID,

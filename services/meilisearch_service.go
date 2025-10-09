@@ -212,7 +212,10 @@ func (m *MeilisearchService) BatchAddDocuments(docs []MeilisearchDocument) error
 	// 转换为interface{}切片
 	var documents []interface{}
 	for i, doc := range docs {
-		utils.Debug(fmt.Sprintf("转换文档 %d - ID: %d, 标题: %s", i+1, doc.ID, doc.Title))
+		utils.Debug(fmt.Sprintf("转换文档 %d - ID: %d, 标题: %s, 标签数量: %d", i+1, doc.ID, doc.Title, len(doc.Tags)))
+		if len(doc.Tags) > 0 {
+			utils.Debug(fmt.Sprintf("文档 %d 的标签: %v", i+1, doc.Tags))
+		}
 		documents = append(documents, doc)
 	}
 
