@@ -394,10 +394,27 @@ func DeleteResource(c *gin.Context) {
 		return
 	}
 
+	// 先从数据库中删除资源
 	err = repoManager.ResourceRepository.Delete(uint(id))
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// 如果启用了Meilisearch，尝试从Meilisearch中删除对应数据
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() {
+		go func() {
+			service := meilisearchManager.GetService()
+			if service != nil {
+				if err := service.DeleteDocument(uint(id)); err != nil {
+					utils.Error("从Meilisearch删除资源失败 (ID: %d): %v", uint(id), err)
+				} else {
+					utils.Info("成功从Meilisearch删除资源 (ID: %d)", uint(id))
+				}
+			} else {
+				utils.Error("无法获取Meilisearch服务进行资源删除 (ID: %d)", uint(id))
+			}
+		}()
 	}
 
 	SuccessResponse(c, gin.H{"message": "资源删除成功"})
@@ -512,12 +529,39 @@ func BatchDeleteResources(c *gin.Context) {
 		ErrorResponse(c, "参数错误", 400)
 		return
 	}
+
 	count := 0
+	var deletedIDs []uint
+
+	// 先删除数据库中的资源
 	for _, id := range req.IDs {
 		if err := repoManager.ResourceRepository.Delete(id); err == nil {
 			count++
+			deletedIDs = append(deletedIDs, id)
 		}
 	}
+
+	// 如果启用了Meilisearch，异步删除对应的搜索数据
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() && len(deletedIDs) > 0 {
+		go func() {
+			service := meilisearchManager.GetService()
+			if service != nil {
+				deletedCount := 0
+				for _, id := range deletedIDs {
+					if err := service.DeleteDocument(id); err != nil {
+						utils.Error("从Meilisearch批量删除资源失败 (ID: %d): %v", id, err)
+					} else {
+						deletedCount++
+						utils.Info("成功从Meilisearch批量删除资源 (ID: %d)", id)
+					}
+				}
+				utils.Info("批量删除完成：成功删除 %d 个资源，Meilisearch删除 %d 个资源", count, deletedCount)
+			} else {
+				utils.Error("批量删除时无法获取Meilisearch服务")
+			}
+		}()
+	}
+
 	SuccessResponse(c, gin.H{"deleted": count, "message": "批量删除成功"})
 }
 

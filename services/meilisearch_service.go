@@ -544,6 +544,25 @@ func (m *MeilisearchService) GetIndexStats() (map[string]interface{}, error) {
 	return result, nil
 }
 
+// DeleteDocument 删除单个文档
+func (m *MeilisearchService) DeleteDocument(documentID uint) error {
+	if !m.enabled {
+		return fmt.Errorf("Meilisearch未启用")
+	}
+
+	utils.Debug("开始删除Meilisearch文档 - ID: %d", documentID)
+
+	// 删除单个文档
+	documentIDStr := fmt.Sprintf("%d", documentID)
+	_, err := m.index.DeleteDocument(documentIDStr)
+	if err != nil {
+		return fmt.Errorf("删除Meilisearch文档失败: %v", err)
+	}
+
+	utils.Debug("成功删除Meilisearch文档 - ID: %d", documentID)
+	return nil
+}
+
 // ClearIndex 清空索引
 func (m *MeilisearchService) ClearIndex() error {
 	if !m.enabled {
