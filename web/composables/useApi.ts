@@ -327,3 +327,17 @@ export const useMeilisearchApi = () => {
     debugGetAllDocuments
   }
 }
+
+// API访问日志管理API
+export const useApiAccessLogApi = () => {
+  const getApiAccessLogs = (params?: any) => useApiFetch('/api/api-access-logs', { params }).then(parseApiResponse)
+  const getApiAccessLogSummary = () => useApiFetch('/api/api-access-logs/summary').then(parseApiResponse)
+  const getApiAccessLogStats = () => useApiFetch('/api/api-access-logs/stats').then(parseApiResponse)
+  const clearApiAccessLogs = (days: number) => useApiFetch('/api/api-access-logs', { method: 'DELETE', body: { days } }).then(parseApiResponse)
+  return {
+    getApiAccessLogs,
+    getApiAccessLogSummary,
+    getApiAccessLogStats,
+    clearApiAccessLogs
+  }
+}

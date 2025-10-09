@@ -83,6 +83,9 @@ func InitDB() error {
 			&entity.TaskItem{},
 			&entity.File{},
 			&entity.TelegramChannel{},
+			&entity.APIAccessLog{},
+			&entity.APIAccessLogStats{},
+			&entity.APIAccessLogSummary{},
 		)
 		if err != nil {
 			utils.Fatal("数据库迁移失败: %v", err)

@@ -21,6 +21,7 @@ type RepositoryManager struct {
 	TaskItemRepository        TaskItemRepository
 	FileRepository            FileRepository
 	TelegramChannelRepository TelegramChannelRepository
+	APIAccessLogRepository    APIAccessLogRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -41,5 +42,6 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		TaskItemRepository:        NewTaskItemRepository(db),
 		FileRepository:            NewFileRepository(db),
 		TelegramChannelRepository: NewTelegramChannelRepository(db),
+		APIAccessLogRepository:    NewAPIAccessLogRepository(db),
 	}
 }

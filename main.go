@@ -272,6 +272,12 @@ func main() {
 		api.POST("/search-stats/record", handlers.RecordSearch)
 		api.GET("/search-stats/summary", handlers.GetSearchStatsSummary)
 
+		// API访问日志路由
+		api.GET("/api-access-logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetAPIAccessLogs)
+		api.GET("/api-access-logs/summary", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetAPIAccessLogSummary)
+		api.GET("/api-access-logs/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetAPIAccessLogStats)
+		api.DELETE("/api-access-logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ClearAPIAccessLogs)
+
 		// 系统配置路由
 		api.GET("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemConfig)
 		api.POST("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSystemConfig)

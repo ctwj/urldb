@@ -3,6 +3,7 @@ package handlers
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
@@ -69,6 +70,53 @@ func (h *PublicAPIHandler) filterForbiddenWords(resources []entity.Resource) ([]
 	return filteredResources, uniqueForbiddenWords
 }
 
+// logAPIAccess 记录API访问日志
+func (h *PublicAPIHandler) logAPIAccess(c *gin.Context, startTime time.Time, processCount int, responseData interface{}, errorMessage string) {
+	endpoint := c.Request.URL.Path
+	method := c.Request.Method
+	ip := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+
+	// 计算处理时间
+	processingTime := time.Since(startTime).Milliseconds()
+
+	// 获取查询参数
+	var requestParams interface{}
+	if method == "GET" {
+		requestParams = c.Request.URL.Query()
+	} else {
+		// 对于POST请求，尝试从上下文中获取请求体（如果之前已解析）
+		if req, exists := c.Get("request_body"); exists {
+			requestParams = req
+		}
+	}
+
+	// 异步记录日志，避免影响API响应时间
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				utils.Error("记录API访问日志时发生panic: %v", r)
+			}
+		}()
+
+		err := repoManager.APIAccessLogRepository.RecordAccess(
+			ip,
+			userAgent,
+			endpoint,
+			method,
+			requestParams,
+			c.Writer.Status(),
+			responseData,
+			processCount,
+			errorMessage,
+			processingTime,
+		)
+		if err != nil {
+			utils.Error("记录API访问日志失败: %v", err)
+		}
+	}()
+}
+
 // AddBatchResources godoc
 // @Summary 批量添加资源
 // @Description 通过公开API批量添加多个资源到待处理列表
@@ -83,11 +131,17 @@ func (h *PublicAPIHandler) filterForbiddenWords(resources []entity.Resource) ([]
 // @Failure 500 {object} map[string]interface{} "服务器内部错误"
 // @Router /api/public/resources/batch-add [post]
 func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
+	startTime := time.Now()
+
 	var req dto.BatchReadyResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logAPIAccess(c, startTime, 0, nil, "请求参数错误: "+err.Error())
 		ErrorResponse(c, "请求参数错误: "+err.Error(), 400)
 		return
 	}
+
+	// 存储请求体用于日志记录
+	c.Set("request_body", req)
 
 	if len(req.Resources) == 0 {
 		ErrorResponse(c, "资源列表不能为空", 400)
@@ -125,6 +179,7 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 		// 生成 key（每组同一个 key）
 		key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
 		if err != nil {
+			h.logAPIAccess(c, startTime, len(createdResources), nil, "生成资源组标识失败: "+err.Error())
 			ErrorResponse(c, "生成资源组标识失败: "+err.Error(), 500)
 			return
 		}
@@ -156,10 +211,12 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 		}
 	}
 
-	SuccessResponse(c, gin.H{
+	responseData := gin.H{
 		"created_count": len(createdResources),
 		"created_ids":   createdResources,
-	})
+	}
+	h.logAPIAccess(c, startTime, len(createdResources), responseData, "")
+	SuccessResponse(c, responseData)
 }
 
 // SearchResources godoc
@@ -179,6 +236,8 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{} "服务器内部错误"
 // @Router /api/public/resources/search [get]
 func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
+	startTime := time.Now()
+
 	// 获取查询参数
 	keyword := c.Query("keyword")
 	tag := c.Query("tag")
@@ -276,6 +335,7 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 		// 执行数据库搜索
 		resources, total, err = repoManager.ResourceRepository.SearchWithFilters(params)
 		if err != nil {
+			h.logAPIAccess(c, startTime, 0, nil, "搜索失败: "+err.Error())
 			ErrorResponse(c, "搜索失败: "+err.Error(), 500)
 			return
 		}
@@ -320,6 +380,7 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 		"limit": pageSize,
 	}
 
+	h.logAPIAccess(c, startTime, len(resourceResponses), responseData, "")
 	SuccessResponse(c, responseData)
 }
 
@@ -337,6 +398,8 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{} "服务器内部错误"
 // @Router /api/public/hot-dramas [get]
 func (h *PublicAPIHandler) GetHotDramas(c *gin.Context) {
+	startTime := time.Now()
+
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "20")
 
@@ -353,6 +416,7 @@ func (h *PublicAPIHandler) GetHotDramas(c *gin.Context) {
 	// 获取热门剧
 	hotDramas, total, err := repoManager.HotDramaRepository.FindAll(page, pageSize)
 	if err != nil {
+		h.logAPIAccess(c, startTime, 0, nil, "获取热门剧失败: "+err.Error())
 		ErrorResponse(c, "获取热门剧失败: "+err.Error(), 500)
 		return
 	}
@@ -376,10 +440,12 @@ func (h *PublicAPIHandler) GetHotDramas(c *gin.Context) {
 		})
 	}
 
-	SuccessResponse(c, gin.H{
+	responseData := gin.H{
 		"hot_dramas": hotDramaResponses,
 		"total":      total,
 		"page":       page,
 		"page_size":  pageSize,
-	})
+	}
+	h.logAPIAccess(c, startTime, len(hotDramaResponses), responseData, "")
+	SuccessResponse(c, responseData)
 }
