@@ -206,12 +206,19 @@ func (h *TelegramHandler) UpdateChannel(c *gin.Context) {
 		return
 	}
 
+	utils.Info("[TELEGRAM:HANDLER] 接收到频道更新请求: ID=%s, ChatName=%s, PushStartTime=%s, PushEndTime=%s, ResourceStrategy=%s, TimeLimit=%s",
+		idStr, req.ChatName, req.PushStartTime, req.PushEndTime, req.ResourceStrategy, req.TimeLimit)
+
 	// 查找现有频道
 	channel, err := h.telegramChannelRepo.FindByID(uint(id))
 	if err != nil {
 		ErrorResponse(c, "频道不存在", http.StatusNotFound)
 		return
 	}
+
+	// 保存前的日志
+	utils.Info("[TELEGRAM:HANDLER] 更新前频道状态: PushStartTime=%s, PushEndTime=%s, ResourceStrategy=%s, TimeLimit=%s",
+		channel.PushStartTime, channel.PushEndTime, channel.ResourceStrategy, channel.TimeLimit)
 
 	// 如果前端传递了ChatID，验证它是否与现有频道匹配
 	if req.ChatID != 0 && req.ChatID != channel.ChatID {
@@ -229,11 +236,17 @@ func (h *TelegramHandler) UpdateChannel(c *gin.Context) {
 	channel.ContentCategories = req.ContentCategories
 	channel.ContentTags = req.ContentTags
 	channel.IsActive = req.IsActive
+	channel.ResourceStrategy = req.ResourceStrategy
+	channel.TimeLimit = req.TimeLimit
 
 	if err := h.telegramChannelRepo.Update(channel); err != nil {
 		ErrorResponse(c, "更新频道失败", http.StatusInternalServerError)
 		return
 	}
+
+	// 保存后的日志
+	utils.Info("[TELEGRAM:HANDLER] 更新后频道状态: PushStartTime=%s, PushEndTime=%s, ResourceStrategy=%s, TimeLimit=%s",
+		channel.PushStartTime, channel.PushEndTime, channel.ResourceStrategy, channel.TimeLimit)
 
 	response := converter.TelegramChannelToResponse(*channel)
 	SuccessResponse(c, response)
@@ -278,13 +291,18 @@ func (h *TelegramHandler) RegisterChannelByCommand(chatID int64, chatName, chatT
 
 	// 创建新的频道记录
 	channel := entity.TelegramChannel{
-		ChatID:        chatID,
-		ChatName:      chatName,
-		ChatType:      chatType,
-		PushEnabled:   true,
-		PushFrequency: 5, // 默认5分钟
-		IsActive:      true,
-		RegisteredBy:  "bot_command",
+		ChatID:           chatID,
+		ChatName:         chatName,
+		ChatType:         chatType,
+		PushEnabled:      true,
+		PushFrequency:    15,      // 默认15分钟
+		PushStartTime:    "08:30", // 默认开始时间8:30
+		PushEndTime:      "11:30", // 默认结束时间11:30
+		IsActive:         true,
+		RegisteredBy:     "bot_command",
+		RegisteredAt:     time.Now(),
+		ResourceStrategy: "random", // 默认纯随机
+		TimeLimit:        "none",   // 默认无限制
 	}
 
 	return h.telegramChannelRepo.Create(&channel)

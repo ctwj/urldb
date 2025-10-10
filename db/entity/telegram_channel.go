@@ -36,6 +36,10 @@ type TelegramChannel struct {
 	Token           string `json:"token" gorm:"size:255;comment:访问令牌"`
 	ApiType         string `json:"api_type" gorm:"size:50;comment:API类型"`
 	IsPushSavedInfo bool   `json:"is_push_saved_info" gorm:"default:false;comment:是否只推送已转存资源"`
+
+	// 资源策略和时间限制配置
+	ResourceStrategy string `json:"resource_strategy" gorm:"size:20;default:'random';comment:资源策略：latest-最新优先,transferred-已转存优先,random-纯随机"`
+	TimeLimit        string `json:"time_limit" gorm:"size:20;default:'none';comment:时间限制：none-无限制,week-一周内,month-一月内"`
 }
 
 // TableName 指定表名

@@ -14,6 +14,8 @@ type TelegramChannelRequest struct {
 	ContentCategories string `json:"content_categories"`
 	ContentTags       string `json:"content_tags"`
 	IsActive          bool   `json:"is_active"`
+	ResourceStrategy  string `json:"resource_strategy"`
+	TimeLimit         string `json:"time_limit"`
 }
 
 // TelegramChannelUpdateRequest 更新 Telegram 频道/群组请求（ChatID可选）
@@ -28,6 +30,8 @@ type TelegramChannelUpdateRequest struct {
 	ContentCategories string `json:"content_categories"`
 	ContentTags       string `json:"content_tags"`
 	IsActive          bool   `json:"is_active"`
+	ResourceStrategy  string `json:"resource_strategy"`
+	TimeLimit         string `json:"time_limit"`
 }
 
 // TelegramChannelResponse Telegram 频道/群组响应
@@ -43,6 +47,8 @@ type TelegramChannelResponse struct {
 	ContentCategories string     `json:"content_categories"`
 	ContentTags       string     `json:"content_tags"`
 	IsActive          bool       `json:"is_active"`
+	ResourceStrategy  string     `json:"resource_strategy"`
+	TimeLimit         string     `json:"time_limit"`
 	LastPushAt        *time.Time `json:"last_push_at"`
 	RegisteredBy      string     `json:"registered_by"`
 	RegisteredAt      time.Time  `json:"registered_at"`

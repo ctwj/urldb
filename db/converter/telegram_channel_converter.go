@@ -24,6 +24,8 @@ func TelegramChannelToResponse(channel entity.TelegramChannel) dto.TelegramChann
 		ContentCategories: channel.ContentCategories,
 		ContentTags:       channel.ContentTags,
 		IsActive:          channel.IsActive,
+		ResourceStrategy:  channel.ResourceStrategy,
+		TimeLimit:         channel.TimeLimit,
 		LastPushAt:        channel.LastPushAt,
 		RegisteredBy:      channel.RegisteredBy,
 		RegisteredAt:      channel.RegisteredAt,
@@ -41,7 +43,7 @@ func TelegramChannelsToResponse(channels []entity.TelegramChannel) []dto.Telegra
 
 // RequestToTelegramChannel 将请求DTO转换为TelegramChannel实体
 func RequestToTelegramChannel(req dto.TelegramChannelRequest, registeredBy string) entity.TelegramChannel {
-	return entity.TelegramChannel{
+	channel := entity.TelegramChannel{
 		ChatID:            req.ChatID,
 		ChatName:          req.ChatName,
 		ChatType:          req.ChatType,
@@ -55,6 +57,21 @@ func RequestToTelegramChannel(req dto.TelegramChannelRequest, registeredBy strin
 		RegisteredBy:      registeredBy,
 		RegisteredAt:      time.Now(),
 	}
+
+	// 设置默认值（如果为空）
+	if req.ResourceStrategy == "" {
+		channel.ResourceStrategy = "random"
+	} else {
+		channel.ResourceStrategy = req.ResourceStrategy
+	}
+
+	if req.TimeLimit == "" {
+		channel.TimeLimit = "none"
+	} else {
+		channel.TimeLimit = req.TimeLimit
+	}
+
+	return channel
 }
 
 // TelegramBotConfigToResponse 将Telegram bot配置转换为响应DTO

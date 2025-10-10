@@ -28,6 +28,12 @@ CREATE TABLE telegram_channels (
     token VARCHAR(255) COMMENT '访问令牌',
     api_type VARCHAR(50) COMMENT 'API类型',
     is_push_saved_info BOOLEAN DEFAULT FALSE COMMENT '是否只推送已转存资源',
+
+    -- 资源策略和时间限制配置
+    resource_strategy VARCHAR(20) DEFAULT 'random' COMMENT '资源策略：latest-最新优先,transferred-已转存优先,random-纯随机',
+    time_limit VARCHAR(20) DEFAULT 'none' COMMENT '时间限制：none-无限制,week-一周内,month-一月内',
+    push_start_time VARCHAR(10) COMMENT '推送开始时间，格式HH:mm',
+    push_end_time VARCHAR(10) COMMENT '推送结束时间，格式HH:mm',
    
     -- 索引
     INDEX idx_chat_id (chat_id),

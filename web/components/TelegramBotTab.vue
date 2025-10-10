@@ -293,21 +293,27 @@
             </div>
 
             <!-- 推送配置 -->
-            <div v-if="channel.push_enabled" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-              <div>
+            <div v-if="channel.push_enabled" class="flex flex-wrap gap-6 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+              <div class="flex-1 min-w-0">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">推送频率</label>
                 <p class="text-sm text-gray-600 dark:text-gray-400">{{ channel.push_frequency }} 分钟</p>
               </div>
-              <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">内容分类</label>
+              <div class="flex-1 min-w-0">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">资源策略</label>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                  {{ channel.content_categories || '全部' }}
+                  {{ getResourceStrategyLabel(channel.resource_strategy) }}
                 </p>
               </div>
-              <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">标签</label>
+              <div class="flex-1 min-w-0">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">时间限制</label>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                  {{ channel.content_tags || '全部' }}
+                  {{ getTimeLimitLabel(channel.time_limit) }}
+                </p>
+              </div>
+              <div class="flex-1 min-w-0">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">推送时间段</label>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  {{ channel.push_start_time && channel.push_end_time ? `${channel.push_start_time}-${channel.push_end_time}` : '全天' }}
                 </p>
               </div>
             </div>
@@ -469,8 +475,6 @@
           <n-select
             v-model:value="editingChannel.push_frequency"
             :options="[
-              { label: '每5分钟', value: 5 },
-              { label: '每10分钟', value: 10 },
               { label: '每15分钟', value: 15 },
               { label: '每30分钟', value: 30 },
               { label: '每45分钟', value: 45 },
@@ -485,6 +489,40 @@
             ]"
             placeholder="选择推送频率"
           />
+        </div>
+
+        <!-- 资源策略 -->
+        <div v-if="editingChannel.push_enabled">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">资源策略</label>
+          <n-select
+            v-model:value="editingChannel.resource_strategy"
+            :options="[
+              { label: '纯随机', value: 'random' },
+              { label: '最新优先', value: 'latest' },
+              { label: '已转存优先', value: 'transferred' }
+            ]"
+            placeholder="选择资源策略"
+          />
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            纯随机：完全随机推送资源；最新优先：优先推送最新资源；已转存优先：优先推送已转存的资源
+          </p>
+        </div>
+
+        <!-- 时间限制 -->
+        <div v-if="editingChannel.push_enabled">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">时间限制</label>
+          <n-select
+            v-model:value="editingChannel.time_limit"
+            :options="[
+              { label: '无限制', value: 'none' },
+              { label: '一周内', value: 'week' },
+              { label: '一月内', value: 'month' }
+            ]"
+            placeholder="选择时间限制"
+          />
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            无限制：推送所有时间段的资源；一周内：仅推送最近一周的资源；一月内：仅推送最近一个月的资源
+          </p>
         </div>
 
         <!-- 推送时间段 -->
@@ -896,29 +934,78 @@ const editChannel = (channel: any) => {
 
   // 处理时间字段，确保时间选择器可以正确显示
   try {
+    console.log('处理编辑频道时间字段:')
+    console.log('原始开始时间:', channelCopy.push_start_time)
+    console.log('原始结束时间:', channelCopy.push_end_time)
+
     // 处理开始时间
     if (channelCopy.push_start_time) {
       if (isValidTimeString(channelCopy.push_start_time)) {
-        // 确保格式正确，转换为标准格式
-        channelCopy.push_start_time = normalizeTimeString(channelCopy.push_start_time)
+        // 数据库中是 "HH:mm" 格式的时间字符串
+        console.log('开始时间是有效格式，保持原样:', channelCopy.push_start_time)
       } else {
+        console.log('开始时间格式无效，设为null')
         channelCopy.push_start_time = null
       }
     } else {
+      console.log('开始时间为空，设为null')
       channelCopy.push_start_time = null
     }
 
     // 处理结束时间
     if (channelCopy.push_end_time) {
       if (isValidTimeString(channelCopy.push_end_time)) {
-        // 确保格式正确，转换为标准格式
-        channelCopy.push_end_time = normalizeTimeString(channelCopy.push_end_time)
+        // 数据库中是 "HH:mm" 格式的时间字符串
+        console.log('结束时间是有效格式，保持原样:', channelCopy.push_end_time)
       } else {
+        console.log('结束时间格式无效，设为null')
         channelCopy.push_end_time = null
       }
     } else {
+      console.log('结束时间为空，设为null')
       channelCopy.push_end_time = null
     }
+
+    console.log('处理后时间字段:', {
+      push_start_time: channelCopy.push_start_time,
+      push_end_time: channelCopy.push_end_time
+    })
+
+    // 尝试转换为时间戳格式（毫秒），因为时间选择器可能期望这种格式
+    if (channelCopy.push_start_time) {
+      const timeStr = channelCopy.push_start_time // 格式如 "08:30"
+      const parts = timeStr.split(':')
+      if (parts.length === 2) {
+        const hours = parseInt(parts[0], 10)
+        const minutes = parseInt(parts[1], 10)
+        // 创建今天的日期，然后设置小时和分钟
+        const today = new Date()
+        today.setHours(hours, minutes, 0, 0)
+        const timestamp = today.getTime()
+        console.log('转换开始时间戳:', timestamp)
+        channelCopy.push_start_time = timestamp
+      }
+    }
+
+    if (channelCopy.push_end_time) {
+      const timeStr = channelCopy.push_end_time // 格式如 "11:30"
+      const parts = timeStr.split(':')
+      if (parts.length === 2) {
+        const hours = parseInt(parts[0], 10)
+        const minutes = parseInt(parts[1], 10)
+        // 创建今天的日期，然后设置小时和分钟
+        const today = new Date()
+        today.setHours(hours, minutes, 0, 0)
+        const timestamp = today.getTime()
+        console.log('转换结束时间戳:', timestamp)
+        channelCopy.push_end_time = timestamp
+      }
+    }
+
+    console.log('最终时间字段格式:', {
+      push_start_time: channelCopy.push_start_time,
+      push_end_time: channelCopy.push_end_time
+    })
   } catch (error) {
     console.warn('处理频道时间字段时出错:', error)
     channelCopy.push_start_time = null
@@ -1168,6 +1255,26 @@ const getCategoryLabel = (category: string): string => {
   }
 }
 
+// 获取资源策略标签
+const getResourceStrategyLabel = (strategy: string): string => {
+  switch (strategy) {
+    case 'random': return '纯随机'
+    case 'latest': return '最新优先'
+    case 'transferred': return '已转存优先'
+    default: return '纯随机'
+  }
+}
+
+// 获取时间限制标签
+const getTimeLimitLabel = (timeLimit: string): string => {
+  switch (timeLimit) {
+    case 'none': return '无限制'
+    case 'week': return '一周内'
+    case 'month': return '一月内'
+    default: return '无限制'
+  }
+}
+
 const notification = useNotification()
 const dialog = useDialog()
 
@@ -1216,14 +1323,26 @@ const saveChannelSettings = async () => {
       chat_type: editingChannel.value.chat_type,
       push_enabled: editingChannel.value.push_enabled,
       push_frequency: editingChannel.value.push_frequency,
+      push_start_time: formatTimeForSave(editingChannel.value.push_start_time),
+      push_end_time: formatTimeForSave(editingChannel.value.push_end_time),
       content_categories: editingChannel.value.content_categories,
       content_tags: editingChannel.value.content_tags,
       is_active: editingChannel.value.is_active,
-      push_start_time: formatTimeForSave(editingChannel.value.push_start_time),
-      push_end_time: formatTimeForSave(editingChannel.value.push_end_time)
+      resource_strategy: editingChannel.value.resource_strategy,
+      time_limit: editingChannel.value.time_limit
     }
 
+    console.log('准备提交频道更新数据:', updateData)
+    console.log('频道ID:', editingChannel.value.id)
+    console.log('推送开始时间原始值:', editingChannel.value.push_start_time)
+    console.log('推送结束时间原始值:', editingChannel.value.push_end_time)
+    console.log('格式化后推送开始时间:', formatTimeForSave(editingChannel.value.push_start_time))
+    console.log('格式化后推送结束时间:', formatTimeForSave(editingChannel.value.push_end_time))
+    console.log('资源策略:', editingChannel.value.resource_strategy)
+    console.log('时间限制:', editingChannel.value.time_limit)
+
     await telegramApi.updateChannel(editingChannel.value.id, updateData)
+    console.log('频道更新提交完成')
 
     notification.success({
       content: `频道 "${editingChannel.value.chat_name}" 设置已更新`,
@@ -1248,22 +1367,61 @@ const saveChannelSettings = async () => {
 
 // 格式化时间字段以便保存
 const formatTimeForSave = (timeValue: any): string | null => {
+  console.log('formatTimeForSave 输入值:', timeValue, '类型:', typeof timeValue)
+
   if (!timeValue) {
+    console.log('formatTimeForSave: 空值，返回 null')
     return null
   }
 
   // 如果已经是字符串格式，直接返回
   if (typeof timeValue === 'string') {
+    console.log('formatTimeForSave: 字符串格式，直接返回:', timeValue)
     return timeValue
+  }
+
+  // 如果是数组（Naive UI Time Picker 可能返回这种格式）
+  if (Array.isArray(timeValue)) {
+    console.log('formatTimeForSave: 数组格式，处理数组:', timeValue)
+    if (timeValue.length >= 2) {
+      const hours = timeValue[0].toString().padStart(2, '0')
+      const minutes = timeValue[1].toString().padStart(2, '0')
+      const result = `${hours}:${minutes}`
+      console.log('formatTimeForSave: 数组转换为:', result)
+      return result
+    }
   }
 
   // 如果是 Date 对象，格式化为 HH:mm
   if (timeValue instanceof Date) {
     const hours = timeValue.getHours().toString().padStart(2, '0')
     const minutes = timeValue.getMinutes().toString().padStart(2, '0')
-    return `${hours}:${minutes}`
+    const result = `${hours}:${minutes}`
+    console.log('formatTimeForSave: Date 对象转换为:', result)
+    return result
   }
 
+  // 如果是有 hour 和 minute 属性的对象
+  if (timeValue && typeof timeValue === 'object' && 'hour' in timeValue && 'minute' in timeValue) {
+    const hours = timeValue.hour.toString().padStart(2, '0')
+    const minutes = timeValue.minute.toString().padStart(2, '0')
+    const result = `${hours}:${minutes}`
+    console.log('formatTimeForSave: 对象格式转换为:', result)
+    return result
+  }
+
+  // 如果是时间戳（毫秒）
+  if (typeof timeValue === 'number' && timeValue > 0) {
+    console.log('formatTimeForSave: 时间戳格式，转换为日期')
+    const date = new Date(timeValue)
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    const result = `${hours}:${minutes}`
+    console.log('formatTimeForSave: 时间戳转换为:', result)
+    return result
+  }
+
+  console.log('formatTimeForSave: 无法识别的格式，返回 null')
   return null
 }
 

@@ -937,6 +937,191 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 func (s *TelegramBotServiceImpl) findResourcesForChannel(channel entity.TelegramChannel) []interface{} {
 	utils.Info("[TELEGRAM:PUSH] 开始为频道 %s (%d) 查找资源", channel.ChatName, channel.ChatID)
 
+	// 获取最近推送的历史资源ID，避免重复推送
+	excludeResourceIDs := s.getRecentlyPushedResourceIDs(channel.ChatID)
+
+	// 解析资源策略
+	strategy := channel.ResourceStrategy
+	if strategy == "" {
+		strategy = "random" // 默认纯随机
+	}
+
+	utils.Info("[TELEGRAM:PUSH] 使用策略: %s, 时间限制: %s, 排除最近推送资源数: %d",
+		strategy, channel.TimeLimit, len(excludeResourceIDs))
+
+	// 根据策略获取资源
+	switch strategy {
+	case "latest":
+		// 最新优先策略 - 获取最近的资源
+		return s.findLatestResources(channel, excludeResourceIDs)
+	case "transferred":
+		// 已转存优先策略 - 优先获取有转存链接的资源
+		return s.findTransferredResources(channel, excludeResourceIDs)
+	case "random":
+		// 纯随机策略（原逻辑）
+		return s.findRandomResources(channel, excludeResourceIDs)
+	default:
+		// 默认随机策略
+		return s.findRandomResources(channel, excludeResourceIDs)
+	}
+}
+
+// findLatestResources 查找最新资源
+func (s *TelegramBotServiceImpl) findLatestResources(channel entity.TelegramChannel, excludeResourceIDs []uint) []interface{} {
+	params := s.buildFilterParams(channel)
+
+	// 使用现有的搜索功能，按更新时间倒序获取最新资源
+	resources, _, err := s.resourceRepo.SearchWithFilters(params)
+	if err != nil {
+		utils.Error("[TELEGRAM:PUSH] 获取最新资源失败: %v", err)
+		return []interface{}{}
+	}
+
+	// 排除最近推送过的资源
+	if len(excludeResourceIDs) > 0 {
+		resources = s.excludePushedResources(resources, excludeResourceIDs)
+	}
+
+	// 应用时间限制
+	if channel.TimeLimit != "none" && len(resources) > 0 {
+		resources = s.applyTimeFilter(resources, channel.TimeLimit)
+	}
+
+	if len(resources) == 0 {
+		utils.Info("[TELEGRAM:PUSH] 没有找到符合条件的最新资源")
+		return []interface{}{}
+	}
+
+	// 返回最新资源（第一条）
+	utils.Info("[TELEGRAM:PUSH] 成功获取最新资源: %s", resources[0].Title)
+	return []interface{}{resources[0]}
+}
+
+// findTransferredResources 查找已转存资源
+func (s *TelegramBotServiceImpl) findTransferredResources(channel entity.TelegramChannel, excludeResourceIDs []uint) []interface{} {
+	params := s.buildFilterParams(channel)
+
+	// 添加转存链接条件
+	params["has_save_url"] = true
+
+	// 优先获取有转存链接的资源
+	resources, _, err := s.resourceRepo.SearchWithFilters(params)
+	if err != nil {
+		utils.Error("[TELEGRAM:PUSH] 获取已转存资源失败: %v", err)
+		return []interface{}{}
+	}
+
+	// 排除最近推送过的资源
+	if len(excludeResourceIDs) > 0 {
+		resources = s.excludePushedResources(resources, excludeResourceIDs)
+	}
+
+	// 应用时间限制
+	if channel.TimeLimit != "none" && len(resources) > 0 {
+		resources = s.applyTimeFilter(resources, channel.TimeLimit)
+	}
+
+	if len(resources) == 0 {
+		utils.Info("[TELEGRAM:PUSH] 没有找到符合条件的已转存资源，尝试获取随机资源")
+		// 如果没有已转存资源，回退到随机策略
+		return s.findRandomResources(channel, excludeResourceIDs)
+	}
+
+	// 返回第一个有转存链接的资源
+	utils.Info("[TELEGRAM:PUSH] 成功获取已转存资源: %s", resources[0].Title)
+	return []interface{}{resources[0]}
+}
+
+// findRandomResources 查找随机资源（原有逻辑）
+func (s *TelegramBotServiceImpl) findRandomResources(channel entity.TelegramChannel, excludeResourceIDs []uint) []interface{} {
+	params := s.buildFilterParams(channel)
+
+	// 如果是已转存优先策略但没有找到转存资源，这里会回退到随机策略
+	// 此时不需要额外的转存链接条件，让随机函数处理
+
+	// 先尝试获取候选资源列表，然后从中排除已推送的资源
+	var candidateResources []entity.Resource
+	var err error
+
+	// 使用搜索功能获取候选资源，然后过滤
+	params["limit"] = 100 // 获取更多候选资源
+	candidateResources, _, err = s.resourceRepo.SearchWithFilters(params)
+	if err != nil {
+		utils.Error("[TELEGRAM:PUSH] 获取候选资源失败: %v", err)
+		return []interface{}{}
+	}
+
+	// 排除最近推送过的资源
+	if len(excludeResourceIDs) > 0 {
+		candidateResources = s.excludePushedResources(candidateResources, excludeResourceIDs)
+	}
+
+	// 应用时间限制
+	if channel.TimeLimit != "none" && len(candidateResources) > 0 {
+		candidateResources = s.applyTimeFilter(candidateResources, channel.TimeLimit)
+	}
+
+	// 如果还有候选资源，随机选择一个
+	if len(candidateResources) > 0 {
+		// 简单随机选择（未来可以考虑使用更好的随机算法）
+		randomIndex := time.Now().Nanosecond() % len(candidateResources)
+		selectedResource := candidateResources[randomIndex]
+
+		utils.Info("[TELEGRAM:PUSH] 成功获取随机资源: %s (从 %d 个候选资源中选择)",
+			selectedResource.Title, len(candidateResources))
+		return []interface{}{selectedResource}
+	}
+
+	// 如果候选资源不足，回退到数据库随机函数
+	defer func() {
+		if r := recover(); r != nil {
+			utils.Warn("[TELEGRAM:PUSH] 随机查询失败，回退到传统方法: %v", r)
+		}
+	}()
+
+	randomResource, err := s.resourceRepo.GetRandomResourceWithFilters(params["category"].(string), params["tag"].(string), channel.IsPushSavedInfo)
+	if err == nil && randomResource != nil {
+		utils.Info("[TELEGRAM:PUSH] 使用数据库随机函数获取资源: %s", randomResource.Title)
+		return []interface{}{randomResource}
+	}
+
+	return []interface{}{}
+}
+
+// applyTimeFilter 应用时间限制过滤
+func (s *TelegramBotServiceImpl) applyTimeFilter(resources []entity.Resource, timeLimit string) []entity.Resource {
+	now := time.Now()
+	var filtered []entity.Resource
+
+	for _, resource := range resources {
+		include := false
+
+		switch timeLimit {
+		case "week":
+			// 一周内
+			if resource.CreatedAt.After(now.AddDate(0, 0, -7)) {
+				include = true
+			}
+		case "month":
+			// 一月内
+			if resource.CreatedAt.After(now.AddDate(0, -1, 0)) {
+				include = true
+			}
+		case "none":
+			// 无限制，包含所有
+			include = true
+		}
+
+		if include {
+			filtered = append(filtered, resource)
+		}
+	}
+
+	return filtered
+}
+
+// buildFilterParams 构建过滤参数
+func (s *TelegramBotServiceImpl) buildFilterParams(channel entity.TelegramChannel) map[string]interface{} {
 	params := map[string]interface{}{"category": "", "tag": ""}
 
 	if channel.ContentCategories != "" {
@@ -955,20 +1140,7 @@ func (s *TelegramBotServiceImpl) findResourcesForChannel(channel entity.Telegram
 		params["tag"] = tags[0]
 	}
 
-	// 尝试使用 PostgreSQL 的随机功能
-	defer func() {
-		if r := recover(); r != nil {
-			utils.Warn("[TELEGRAM:PUSH] 随机查询失败，回退到传统方法: %v", r)
-		}
-	}()
-
-	randomResource, err := s.resourceRepo.GetRandomResourceWithFilters(params["category"].(string), params["tag"].(string), channel.IsPushSavedInfo)
-	if err == nil && randomResource != nil {
-		utils.Info("[TELEGRAM:PUSH] 成功获取随机资源: %s", randomResource.Title)
-		return []interface{}{randomResource}
-	}
-
-	return []interface{}{}
+	return params
 }
 
 // buildPushMessage 构建推送消息
@@ -1091,16 +1263,20 @@ func (s *TelegramBotServiceImpl) RegisterChannel(chatID int64, chatName, chatTyp
 		ChatName:          chatName,
 		ChatType:          chatType,
 		PushEnabled:       true,
-		PushFrequency:     5, // 默认5分钟
+		PushFrequency:     15,      // 默认15分钟
+		PushStartTime:     "08:30", // 默认开始时间8:30
+		PushEndTime:       "11:30", // 默认结束时间11:30
 		IsActive:          true,
 		RegisteredBy:      "bot_command",
 		RegisteredAt:      time.Now(),
 		ContentCategories: "",
 		ContentTags:       "",
-		API:               "",    // 后续可配置
-		Token:             "",    // 后续可配置
-		ApiType:           "l9",  // 默认l9类型
-		IsPushSavedInfo:   false, // 默认推送所有资源
+		API:               "",       // 后续可配置
+		Token:             "",       // 后续可配置
+		ApiType:           "l9",     // 默认l9类型
+		IsPushSavedInfo:   false,    // 默认推送所有资源
+		ResourceStrategy:  "random", // 默认纯随机
+		TimeLimit:         "none",   // 默认无限制
 	}
 
 	return s.channelRepo.Create(&channel)
@@ -1396,6 +1572,21 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 		if existingChannel.ApiType == "" {
 			existingChannel.ApiType = "telegram"
 		}
+		if existingChannel.ResourceStrategy == "" {
+			existingChannel.ResourceStrategy = "random"
+		}
+		if existingChannel.TimeLimit == "" {
+			existingChannel.TimeLimit = "none"
+		}
+		if existingChannel.PushFrequency == 0 {
+			existingChannel.PushFrequency = 15
+		}
+		if existingChannel.PushStartTime == "" {
+			existingChannel.PushStartTime = "08:30"
+		}
+		if existingChannel.PushEndTime == "" {
+			existingChannel.PushEndTime = "11:30"
+		}
 
 		err := s.channelRepo.Update(existingChannel)
 		if err != nil {
@@ -1463,4 +1654,42 @@ func (s *TelegramBotServiceImpl) CleanupDuplicateChannels() error {
 
 	utils.Info("[TELEGRAM:CLEANUP:SUCCESS] 成功清理重复的频道记录")
 	return nil
+}
+
+// getRecentlyPushedResourceIDs 获取最近推送过的资源ID列表
+func (s *TelegramBotServiceImpl) getRecentlyPushedResourceIDs(chatID int64) []uint {
+	// 这里需要实现获取推送历史的逻辑
+	// 由于没有现有的推送历史表，我们暂时返回空列表
+	// 未来可以添加一个 TelegramPushHistory 实体来跟踪推送历史
+	utils.Debug("[TELEGRAM:PUSH] 获取推送历史，ChatID: %d", chatID)
+
+	// 暂时返回空列表，表示没有历史推送记录
+	// TODO: 实现推送历史跟踪功能
+	return []uint{}
+}
+
+// excludePushedResources 从候选资源中排除已推送过的资源
+func (s *TelegramBotServiceImpl) excludePushedResources(resources []entity.Resource, excludeIDs []uint) []entity.Resource {
+	if len(excludeIDs) == 0 {
+		return resources
+	}
+
+	utils.Debug("[TELEGRAM:PUSH] 排除 %d 个已推送资源", len(excludeIDs))
+
+	// 创建排除ID的映射，提高查找效率
+	excludeMap := make(map[uint]bool)
+	for _, id := range excludeIDs {
+		excludeMap[id] = true
+	}
+
+	// 过滤资源列表
+	var filtered []entity.Resource
+	for _, resource := range resources {
+		if !excludeMap[resource.ID] {
+			filtered = append(filtered, resource)
+		}
+	}
+
+	utils.Debug("[TELEGRAM:PUSH] 过滤后剩余 %d 个资源", len(filtered))
+	return filtered
 }
