@@ -693,6 +693,7 @@ func (m *MeilisearchManager) convertResourceToDocument(resource *entity.Resource
 		PanName:     panName,
 		PanID:       resource.PanID,
 		Author:      resource.Author,
+		Cover:       resource.Cover,
 		CreatedAt:   resource.CreatedAt,
 		UpdatedAt:   resource.UpdatedAt,
 	}
@@ -746,6 +747,7 @@ func (m *MeilisearchManager) convertResourceToDocumentWithCache(resource *entity
 		PanName:     panName,
 		PanID:       resource.PanID,
 		Author:      resource.Author,
+		Cover:       resource.Cover,
 		CreatedAt:   resource.CreatedAt,
 		UpdatedAt:   resource.UpdatedAt,
 	}

@@ -24,6 +24,7 @@ type MeilisearchDocument struct {
 	PanName     string    `json:"pan_name"`
 	PanID       *uint     `json:"pan_id"`
 	Author      string    `json:"author"`
+	Cover       string    `json:"cover"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	// 高亮字段
@@ -414,6 +415,13 @@ func (m *MeilisearchService) Search(query string, filters map[string]interface{}
 						var author string
 						if err := json.Unmarshal(rawAuthor, &author); err == nil {
 							doc.Author = author
+						}
+					}
+				case "cover":
+					if rawCover, ok := value.(json.RawMessage); ok {
+						var cover string
+						if err := json.Unmarshal(rawCover, &cover); err == nil {
+							doc.Cover = cover
 						}
 					}
 				case "created_at":

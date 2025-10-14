@@ -295,6 +295,7 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 						FileSize:    doc.FileSize,
 						Key:         doc.Key,
 						PanID:       doc.PanID,
+						Cover:       doc.Cover,
 						CreatedAt:   doc.CreatedAt,
 						UpdatedAt:   doc.UpdatedAt,
 					}
@@ -364,6 +365,7 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 			"view_count":  processedResource.ViewCount,
 			"created_at":  processedResource.CreatedAt.Format("2006-01-02 15:04:05"),
 			"updated_at":  processedResource.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"cover":       processedResource.Cover, // 添加封面字段
 		}
 
 		// 添加违禁词标记

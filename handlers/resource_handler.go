@@ -188,6 +188,7 @@ func GetResources(c *gin.Context) {
 			}
 		}
 		resourceResponse["tags"] = tagResponses
+		resourceResponse["cover"] = originalResource.Cover
 
 		resourceResponses = append(resourceResponses, resourceResponse)
 	}

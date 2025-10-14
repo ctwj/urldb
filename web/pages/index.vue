@@ -123,6 +123,11 @@
         <table class="w-full min-w-full">
           <thead>
             <tr class="bg-slate-800 dark:bg-slate-700 text-white dark:text-slate-100">
+              <th class="text-left text-xs sm:text-sm w-20 pl-2 sm:pl-3">
+                <div class="flex items-center">
+                  <i class="fas fa-image mr-1 text-gray-300 dark:text-slate-300"></i> 封面
+                </div>
+              </th>
               <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">
                 <div class="flex items-center">
                   <i class="fas fa-cloud mr-1 text-gray-300 dark:text-slate-300"></i> 文件名
@@ -137,12 +142,12 @@
               <td colspan="1" class="text-gray-500 dark:text-gray-400 sm:hidden">
                 <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
               </td>
-              <td colspan="3" class="text-gray-500 dark:text-gray-400 hidden sm:table-cell">
+              <td colspan="4" class="text-gray-500 dark:text-gray-400 hidden sm:table-cell">
                 <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
               </td>
             </tr>
             <tr v-else-if="safeResources.length === 0" class="text-center py-12">
-              <td colspan="3" class="text-gray-500 dark:text-slate-500">
+              <td colspan="4" class="text-gray-500 dark:text-slate-500">
                 <div class="flex flex-col items-center justify-center space-y-4">
                   <img 
                     src="/assets/svg/empty.svg" 
@@ -160,12 +165,28 @@
                 </div>
               </td>
             </tr>
-            <tr 
-              v-for="(resource, index) in safeResources" 
+            <tr
+              v-for="(resource, index) in safeResources"
               :key="resource.id"
               :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-500/10 bg-pink-50/30 dark:bg-pink-500/5' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50'"
               :data-index="index"
             >
+              <td class="text-xs sm:text-sm w-20 pl-2 sm:pl-3">
+                <div class="flex justify-center">
+                  <ClientOnly>
+                    <n-image
+                      :src="getResourceImageUrl(resource)"
+                      :alt="resource.title || '资源图片'"
+                      width="80"
+                      class="rounded object-cover border border-gray-200 dark:border-slate-600 h-auto"
+                      @error="handleResourceImageError"
+                    />
+                    <template #fallback>
+                      <div class="w-[80px] h-[80px] rounded bg-gray-200 dark:bg-slate-700 animate-pulse"></div>
+                    </template>
+                  </ClientOnly>
+                </div>
+              </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm">
                 <div class="flex items-start">
                   <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(resource.pan_id || 0)"></span>
@@ -188,7 +209,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="sm:hidden mt-1 space-y-1">
+                <div class="sm:hidden mt-2 space-y-2">
                   <!-- 移动端时间和链接按钮一行显示 -->
                   <div class="flex items-center gap-2">
                     <div class="flex-1 min-w-0">
@@ -309,6 +330,31 @@ const handleLogoError = (event: Event) => {
   img.src = '/assets/images/logo.webp'
 }
 
+// 获取资源图片URL，如果没有则返回随机默认封面
+const getResourceImageUrl = (resource: any) => {
+  console.log('Resource data:', resource)
+  // 如果资源有图片，使用资源图片（优先检查image_url，其次检查cover）
+  if (resource.image_url) {
+    return getImageUrl(resource.image_url)
+  }
+
+  if (resource.cover) {
+    return getImageUrl(resource.cover)
+  }
+
+  // 否则随机选择默认封面图片 (cover1.webp 到 cover8.webp)
+  const randomNum = Math.floor(Math.random() * 8) + 1
+  return `/assets/images/cover${randomNum}.webp`
+}
+
+// 处理资源图片加载错误
+const handleResourceImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  // 重新设置一个随机的默认封面图片
+  const randomNum = Math.floor(Math.random() * 8) + 1
+  img.src = `/assets/images/cover${randomNum}.webp`
+}
+
 // 使用 useAsyncData 获取资源数据
 const { data: resourcesData, pending, refresh } = await useAsyncData(
   () => `resources-1-${route.query.search || ''}-${route.query.platform || ''}`,
@@ -381,18 +427,27 @@ watch(systemConfigError, (error) => {
 // 从 SSR 数据中获取值
 const safeResources = computed(() => {
   const data = resourcesData.value as any
+  console.log('原始API数据结构:', JSON.stringify(data, null, 2))
+
   // 处理嵌套的data结构：{data: {data: [...], total: ...}}
   if (data?.data?.data && Array.isArray(data.data.data)) {
-    return data.data.data
+    const resources = data.data.data
+    console.log('第一层嵌套资源:', resources)
+    return resources
   }
   // 处理直接的data结构：{data: [...], total: ...}
   if (data?.data && Array.isArray(data.data)) {
-    return data.data
+    const resources = data.data
+    console.log('第二层嵌套资源:', resources)
+    return resources
   }
   // 处理直接的数组结构
   if (Array.isArray(data)) {
+    console.log('直接数组结构:', data)
     return data
   }
+
+  console.log('未匹配到任何数据结构')
   return []
 })
 const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_resources: 0 })

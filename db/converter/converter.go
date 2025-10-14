@@ -73,6 +73,9 @@ func ToResourceResponseFromMeilisearch(doc interface{}) dto.ResourceResponse {
 	if urlField := docValue.FieldByName("URL"); urlField.IsValid() {
 		response.URL = urlField.String()
 	}
+	if coverField := docValue.FieldByName("Cover"); coverField.IsValid() {
+		response.Cover = coverField.String()
+	}
 	if saveURLField := docValue.FieldByName("SaveURL"); saveURLField.IsValid() {
 		response.SaveURL = saveURLField.String()
 	}
