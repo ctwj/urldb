@@ -895,9 +895,16 @@ func (s *TelegramBotServiceImpl) pushContentToChannels() {
 		return
 	}
 
-	utils.Info("[TELEGRAM:PUSH] 开始推送内容到 %d 个频道", len(channels))
+	// 过滤出在允许推送时间段内的频道
+	validChannels := s.filterChannelsByTimeRange(channels)
+	if len(validChannels) == 0 {
+		utils.Info("[TELEGRAM:PUSH] 所有频道都不在推送时间段内")
+		return
+	}
 
-	for _, channel := range channels {
+	utils.Info("[TELEGRAM:PUSH] 开始推送内容到 %d 个频道（过滤前: %d 个频道）", len(validChannels), len(channels))
+
+	for _, channel := range validChannels {
 		go s.pushToChannel(channel)
 	}
 }
@@ -1145,7 +1152,7 @@ func (s *TelegramBotServiceImpl) buildFilterParams(channel entity.TelegramChanne
 
 // buildPushMessage 构建推送消息
 func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel, resources []interface{}) (string, string) {
-	resource := resources[0].(*entity.Resource)
+	resource := resources[0].(entity.Resource)
 
 	message := fmt.Sprintf("🆕 <b>%s</b>\n", s.cleanMessageTextForHTML(resource.Title))
 
@@ -1173,18 +1180,18 @@ func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel
 		img = resource.Cover
 	} else {
 		// 从 readyRepo 中取出 extra 字段，解析 JSON 获取 fid，用于构造图片URL
-		readyResources, err := s.readyRepo.FindByKey(resource.Key)
-		if err == nil && len(readyResources) > 0 {
-			readyResource := readyResources[0]
-			if readyResource.Extra != "" {
-				var extraData map[string]interface{}
-				if err := json.Unmarshal([]byte(readyResource.Extra), &extraData); err == nil {
-					if fid, ok := extraData["fid"].(string); ok && fid != "" {
-						img = fid
-					}
-				}
-			}
-		}
+		// readyResources, err := s.readyRepo.FindByKey(resource.Key)
+		// if err == nil && len(readyResources) > 0 {
+		// 	readyResource := readyResources[0]
+		// 	if readyResource.Extra != "" {
+		// 		var extraData map[string]interface{}
+		// 		if err := json.Unmarshal([]byte(readyResource.Extra), &extraData); err == nil {
+		// 			if fid, ok := extraData["fid"].(string); ok && fid != "" {
+		// 				img = fid
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 
 	return message, img
@@ -1692,4 +1699,47 @@ func (s *TelegramBotServiceImpl) excludePushedResources(resources []entity.Resou
 
 	utils.Debug("[TELEGRAM:PUSH] 过滤后剩余 %d 个资源", len(filtered))
 	return filtered
+}
+
+// filterChannelsByTimeRange 过滤出在允许推送时间段内的频道
+func (s *TelegramBotServiceImpl) filterChannelsByTimeRange(channels []entity.TelegramChannel) []entity.TelegramChannel {
+	now := time.Now()
+	currentTime := now.Format("15:04") // HH:MM 格式
+
+	var filteredChannels []entity.TelegramChannel
+
+	for _, channel := range channels {
+		// 检查是否在推送时间段内
+		if !s.isChannelInPushTimeRange(channel, currentTime) {
+			utils.Info("[TELEGRAM:PUSH] 频道 %s 不在推送时间段内 (当前: %s, 允许: %s-%s)",
+				channel.ChatName, currentTime, channel.PushStartTime, channel.PushEndTime)
+			continue
+		}
+
+		filteredChannels = append(filteredChannels, channel)
+	}
+
+	utils.Info("[TELEGRAM:PUSH] 时间段过滤结果: %d/%d 个频道在允许推送时间段内",
+		len(filteredChannels), len(channels))
+	return filteredChannels
+}
+
+// isChannelInPushTimeRange 检查频道是否在推送时间段内
+func (s *TelegramBotServiceImpl) isChannelInPushTimeRange(channel entity.TelegramChannel, currentTime string) bool {
+	// 如果开始时间或结束时间为空，允许推送
+	if channel.PushStartTime == "" || channel.PushEndTime == "" {
+		return true
+	}
+
+	startTime := channel.PushStartTime
+	endTime := channel.PushEndTime
+
+	// 比较时间（假设时间格式为 HH:MM）
+	if startTime <= endTime {
+		// 同一天时间段，例如 08:30 - 11:30
+		return currentTime >= startTime && currentTime <= endTime
+	} else {
+		// 跨天时间段，例如 22:00 - 06:00
+		return currentTime >= startTime || currentTime <= endTime
+	}
 }

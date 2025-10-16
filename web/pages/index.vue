@@ -179,8 +179,14 @@
                       :alt="resource.title || '资源图片'"
                       width="80"
                       class="rounded object-cover border border-gray-200 dark:border-slate-600 h-auto"
+                      lazy
                       @error="handleResourceImageError"
                     />
+                    <template #placeholder>
+                      <div class="w-[80px] h-[80px] rounded bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
+                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                      </div>
+                    </template>
                     <template #fallback>
                       <div class="w-[80px] h-[80px] rounded bg-gray-200 dark:bg-slate-700 animate-pulse"></div>
                     </template>
