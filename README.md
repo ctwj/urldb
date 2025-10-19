@@ -153,7 +153,7 @@ docker push ctwj/urldb-backend:1.0.7
 
 - **项目地址**: [https://github.com/ctwj/urldb](https://github.com/ctwj/urldb)
 - **问题反馈**: [Issues](https://github.com/ctwj/urldb/issues)
-- **TG**: [tg](https://t.me/+g9Ljb84t7lIwNDYx)
+- **TG**: [tg](https://t.me/+QF9OMpOv-PBjZGEx)
 
 ---
 
