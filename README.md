@@ -120,16 +120,6 @@ PORT=8080
 # 时区配置
 TIMEZONE=Asia/Shanghai
 ```
-
-### 镜像构建
-
-```
-docker build -t ctwj/urldb-frontend:1.0.7 --target frontend .
-docker build -t ctwj/urldb-backend:1.0.7 --target backend .
-docker push ctwj/urldb-frontend:1.0.7
-docker push ctwj/urldb-backend:1.0.7
-```
-
 ---
 
 ## 📄 许可证
@@ -153,7 +143,7 @@ docker push ctwj/urldb-backend:1.0.7
 
 - **项目地址**: [https://github.com/ctwj/urldb](https://github.com/ctwj/urldb)
 - **问题反馈**: [Issues](https://github.com/ctwj/urldb/issues)
-- **TG**: [tg](https://t.me/+QF9OMpOv-PBjZGEx)
+- **TG**: [Telegram 技术交流群](https://t.me/+QF9OMpOv-PBjZGEx)
 
 ---
 
