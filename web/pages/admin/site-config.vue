@@ -176,103 +176,59 @@
               </n-form>
             </div>
           </n-tab-pane>
+
+          <n-tab-pane name="ui" tab="界面配置">
+            <div class="tab-content-container">
+              <n-form
+                ref="formRef"
+                :model="configForm"
+                :rules="rules"
+                label-placement="left"
+                label-width="auto"
+                require-mark-placement="right-hanging"
+              >
+                <div class="space-y-6">
+                 <!-- 公告配置组件 -->
+                 <AnnouncementConfig
+                   v-model="announcementConfig"
+                   @update:modelValue="handleAnnouncementUpdate"
+                 />
+
+                 <!-- 浮动按钮配置组件 -->
+                 <FloatButtonsConfig
+                   v-model="floatButtonsConfig"
+                   @update:modelValue="handleFloatButtonsUpdate"
+                   @openWechatSelector="showWechatSelector = true"
+                   @openTelegramSelector="showTelegramSelector = true"
+                 />
+
+                 <!-- 微信图片选择器 -->
+                 <ImageSelectorModal
+                   v-model:show="showWechatSelector"
+                   title="选择微信搜一搜图片"
+                   @select="handleWechatImageSelect"
+                 />
+
+                 <!-- Telegram图片选择器 -->
+                 <ImageSelectorModal
+                   v-model:show="showTelegramSelector"
+                   title="选择Telegram二维码图片"
+                   @select="handleTelegramImageSelect"
+                 />
+                </div>
+              </n-form>
+            </div>
+          </n-tab-pane>
         </n-tabs>
       </div>
     </template>
 </AdminPageLayout>
-    <!-- Logo选择模态框 -->
-    <n-modal v-model:show="showLogoSelector" preset="card" title="选择Logo图片" style="width: 90vw; max-width: 1200px; max-height: 80vh;">
-      <div class="space-y-4">
-        <!-- 搜索 -->
-        <div class="flex gap-4">
-          <n-input
-            v-model:value="searchKeyword"
-            placeholder="搜索文件名..."
-            @keyup.enter="handleSearch"
-            class="flex-1"
-            clearable
-          >
-            <template #prefix>
-              <i class="fas fa-search"></i>
-            </template>
-          </n-input>
-          
-          <n-button type="primary" @click="handleSearch" class="w-20">
-            <template #icon>
-              <i class="fas fa-search"></i>
-            </template>
-            搜索
-          </n-button>
-        </div>
-
-        <!-- 文件列表 -->
-        <div v-if="loading" class="flex items-center justify-center py-8">
-          <n-spin size="large" />
-        </div>
-
-        <div v-else-if="fileList.length === 0" class="text-center py-8">
-          <i class="fas fa-file-upload text-4xl text-gray-400 mb-4"></i>
-          <p class="text-gray-500">暂无图片文件</p>
-        </div>
-
-        <div v-else class="file-grid">
-          <div 
-            v-for="file in fileList" 
-            :key="file.id" 
-            class="file-item cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-3 transition-colors"
-            :class="{ 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-600': selectedFileId === file.id }"
-            @click="selectFile(file)"
-          >
-            <div class="image-preview">
-              <n-image
-                :src="getImageUrl(file.access_url)"
-                :alt="file.original_name"
-                :lazy="false"
-                object-fit="cover"
-                class="preview-image rounded"
-                @error="handleImageError"
-                @load="handleImageLoad"
-              />
-
-              <div class="image-info mt-2">
-                <div class="file-name text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                  {{ file.original_name }}
-                </div>
-                <div class="file-size text-xs text-gray-500 dark:text-gray-400">
-                  {{ formatFileSize(file.file_size) }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 分页 -->
-        <div class="pagination-wrapper">
-          <n-pagination
-            v-model:page="pagination.page"
-            v-model:page-size="pagination.pageSize"
-            :page-count="Math.ceil(pagination.total / pagination.pageSize)"
-            :page-sizes="pagination.pageSizes"
-            show-size-picker
-            @update:page="handlePageChange"
-            @update:page-size="handlePageSizeChange"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="showLogoSelector = false">取消</n-button>
-          <n-button 
-            type="primary" 
-            @click="confirmSelection"
-            :disabled="!selectedFileId"
-          >
-            确认选择
-          </n-button>
-        </n-space>
-      </template>
-    </n-modal>
+    <!-- ImageSelectorModal 组件 -->
+    <ImageSelectorModal
+      v-model:show="showLogoSelector"
+      title="选择Logo图片"
+      @select="handleLogoSelect"
+    />
 </template>
 
 <script setup lang="ts">
@@ -285,6 +241,9 @@ definePageMeta({
 
 import { useImageUrl } from '~/composables/useImageUrl'
 import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
+import AnnouncementConfig from '~/components/Admin/AnnouncementConfig.vue'
+import FloatButtonsConfig from '~/components/Admin/FloatButtonsConfig.vue'
+import ImageSelectorModal from '~/components/Admin/ImageSelectorModal.vue'
 
 const notification = useNotification()
 const { getImageUrl } = useImageUrl()
@@ -294,18 +253,16 @@ const activeTab = ref('basic')
 
 // Logo选择器相关数据
 const showLogoSelector = ref(false)
-const loading = ref(false)
-const fileList = ref<any[]>([])
-const selectedFileId = ref<number | null>(null)
-const searchKeyword = ref('')
 
-// 分页
-const pagination = ref({
-  page: 1,
-  pageSize: 20,
-  total: 0,
-  pageSizes: [10, 20, 50, 100]
-})
+// 微信和Telegram选择器相关数据
+const showWechatSelector = ref(false)
+const showTelegramSelector = ref(false)
+
+// 公告类型接口
+interface Announcement {
+  content: string
+  enabled: boolean
+}
 
 // 配置表单数据类型
 interface SiteConfigForm {
@@ -317,9 +274,38 @@ interface SiteConfigForm {
   maintenance_mode: boolean
   enable_register: boolean
   forbidden_words: string
-  enable_sitemap: boolean
-  sitemap_update_frequency: string
+  enable_announcements: boolean
+  announcements: Announcement[]
+  enable_float_buttons: boolean
+  wechat_search_image: string
+  telegram_qr_image: string
 }
+
+// 公告配置子组件数据
+const announcementConfig = computed({
+  get: () => ({
+    enable_announcements: configForm.value.enable_announcements,
+    announcements: configForm.value.announcements
+  }),
+  set: (value: any) => {
+    configForm.value.enable_announcements = value.enable_announcements
+    configForm.value.announcements = value.announcements
+  }
+})
+
+// 浮动按钮配置子组件数据
+const floatButtonsConfig = computed({
+  get: () => ({
+    enable_float_buttons: configForm.value.enable_float_buttons,
+    wechat_search_image: configForm.value.wechat_search_image,
+    telegram_qr_image: configForm.value.telegram_qr_image
+  }),
+  set: (value: any) => {
+    configForm.value.enable_float_buttons = value.enable_float_buttons
+    configForm.value.wechat_search_image = value.wechat_search_image
+    configForm.value.telegram_qr_image = value.telegram_qr_image
+  }
+})
 
 // 使用配置改动检测
 const {
@@ -342,10 +328,15 @@ const {
     maintenance_mode: 'maintenance_mode',
     enable_register: 'enable_register',
     forbidden_words: 'forbidden_words',
-    enable_sitemap: 'enable_sitemap',
-    sitemap_update_frequency: 'sitemap_update_frequency'
+    enable_announcements: 'enable_announcements',
+    announcements: 'announcements',
+    enable_float_buttons: 'enable_float_buttons',
+    wechat_search_image: 'wechat_search_image',
+    telegram_qr_image: 'telegram_qr_image'
   }
 })
+
+// 公告类型选项（如果需要的话可以保留，但根据反馈暂时移除）
 
 // 配置表单数据
 const configForm = ref<SiteConfigForm>({
@@ -357,8 +348,11 @@ const configForm = ref<SiteConfigForm>({
   maintenance_mode: false,
   enable_register: false,
   forbidden_words: '',
-  enable_sitemap: false,
-  sitemap_update_frequency: 'daily'
+  enable_announcements: false,
+  announcements: [],
+  enable_float_buttons: false,
+  wechat_search_image: '',
+  telegram_qr_image: ''
 })
 
 
@@ -394,10 +388,13 @@ const fetchConfig = async () => {
         maintenance_mode: response.maintenance_mode || false,
         enable_register: response.enable_register || false,
         forbidden_words: response.forbidden_words || '',
-        enable_sitemap: response.enable_sitemap || false,
-        sitemap_update_frequency: response.sitemap_update_frequency || 'daily'
+        enable_announcements: response.enable_announcements || false,
+        announcements: response.announcements ? JSON.parse(response.announcements) : [],
+        enable_float_buttons: response.enable_float_buttons || false,
+        wechat_search_image: response.wechat_search_image || '',
+        telegram_qr_image: response.telegram_qr_image || ''
       }
-      
+
       // 设置表单数据和原始数据
       configForm.value = { ...configData }
       setOriginalConfig(configData)
@@ -421,18 +418,7 @@ const saveConfig = async () => {
     saving.value = true
     
     // 更新当前配置数据
-    updateCurrentConfig({
-      site_title: configForm.value.site_title,
-      site_description: configForm.value.site_description,
-      keywords: configForm.value.keywords,
-      copyright: configForm.value.copyright,
-      site_logo: configForm.value.site_logo,
-      maintenance_mode: configForm.value.maintenance_mode,
-      enable_register: configForm.value.enable_register,
-      forbidden_words: configForm.value.forbidden_words,
-      enable_sitemap: configForm.value.enable_sitemap,
-      sitemap_update_frequency: configForm.value.sitemap_update_frequency
-    })
+    updateCurrentConfig(configForm.value)
     
     const { useSystemConfigApi } = await import('~/composables/useApi')
     const systemConfigApi = useSystemConfigApi()
@@ -481,99 +467,40 @@ const saveConfig = async () => {
 // Logo选择器方法
 const openLogoSelector = () => {
   showLogoSelector.value = true
-  loadFileList()
 }
 
 const clearLogo = () => {
   configForm.value.site_logo = ''
 }
 
-const loadFileList = async () => {
-  try {
-    loading.value = true
-    const { useFileApi } = await import('~/composables/useFileApi')
-    const fileApi = useFileApi()
-    
-    const response = await fileApi.getFileList({
-      page: pagination.value.page,
-      pageSize: pagination.value.pageSize,
-      search: searchKeyword.value,
-      fileType: 'image', // 只获取图片文件
-      status: 'active'   // 只获取正常状态的文件
-    }) as any
-
-    if (response && response.data) {
-      fileList.value = response.data.files || []
-      pagination.value.total = response.data.total || 0
-      console.log('获取到的图片文件:', fileList.value) // 调试信息
-      
-      // 添加图片URL处理调试
-      fileList.value.forEach(file => {
-        console.log('图片文件详情:', {
-          id: file.id,
-          name: file.original_name,
-          accessUrl: file.access_url,
-          processedUrl: getImageUrl(file.access_url),
-          fileType: file.file_type,
-          mimeType: file.mime_type
-        })
-      })
-    }
-  } catch (error) {
-    console.error('获取文件列表失败:', error)
-    notification.error({
-      content: '获取文件列表失败',
-      duration: 3000
-    })
-  } finally {
-    loading.value = false
-  }
+// 子组件更新处理方法
+const handleAnnouncementUpdate = (newValue: any) => {
+  configForm.value.enable_announcements = newValue.enable_announcements
+  configForm.value.announcements = newValue.announcements
 }
 
-const handleSearch = () => {
-  pagination.value.page = 1
-  loadFileList()
+const handleFloatButtonsUpdate = (newValue: any) => {
+  configForm.value.enable_float_buttons = newValue.enable_float_buttons
+  configForm.value.wechat_search_image = newValue.wechat_search_image
+  configForm.value.telegram_qr_image = newValue.telegram_qr_image
 }
 
-const handlePageChange = (page: number) => {
-  pagination.value.page = page
-  loadFileList()
+// Logo选择处理
+const handleLogoSelect = (file: any) => {
+  configForm.value.site_logo = file.access_url
+  showLogoSelector.value = false
 }
 
-const handlePageSizeChange = (pageSize: number) => {
-  pagination.value.pageSize = pageSize
-  pagination.value.page = 1
-  loadFileList()
+// 微信图片选择处理
+const handleWechatImageSelect = (file: any) => {
+  configForm.value.wechat_search_image = file.access_url
+  showWechatSelector.value = false
 }
 
-const selectFile = (file: any) => {
-  selectedFileId.value = file.id
-}
-
-const confirmSelection = () => {
-  if (selectedFileId.value) {
-    const file = fileList.value.find(f => f.id === selectedFileId.value)
-    if (file) {
-      configForm.value.site_logo = file.access_url
-      showLogoSelector.value = false
-      selectedFileId.value = null
-    }
-  }
-}
-
-const formatFileSize = (size: number) => {
-  if (size < 1024) return size + ' B'
-  if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB'
-  if (size < 1024 * 1024 * 1024) return (size / (1024 * 1024)).toFixed(1) + ' MB'
-  return (size / (1024 * 1024 * 1024)).toFixed(1) + ' GB'
-}
-
-const handleImageError = (event: any) => {
-  console.error('图片加载失败:', event)
-}
-
-const handleImageLoad = (event: any) => {
-  console.log('图片加载成功:', event)
+// Telegram图片选择处理
+const handleTelegramImageSelect = (file: any) => {
+  configForm.value.telegram_qr_image = file.access_url
+  showTelegramSelector.value = false
 }
 
 // 页面加载时获取配置
@@ -610,35 +537,4 @@ onMounted(() => {
   padding-bottom: 1rem;
 }
 
-.file-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.file-item {
-  border: 1px solid #e5e7eb;
-  transition: all 0.2s ease;
-}
-
-.file-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.preview-image {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-}
-
-.pagination-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
-}
 </style>

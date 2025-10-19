@@ -42,6 +42,13 @@ type SystemConfigRequest struct {
 	MeilisearchPort      *string `json:"meilisearch_port,omitempty"`
 	MeilisearchMasterKey *string `json:"meilisearch_master_key,omitempty"`
 	MeilisearchIndexName *string `json:"meilisearch_index_name,omitempty"`
+
+	// 界面配置
+	EnableAnnouncements *bool     `json:"enable_announcements,omitempty"`
+	Announcements       *[]map[string]interface{} `json:"announcements,omitempty"`
+	EnableFloatButtons  *bool     `json:"enable_float_buttons,omitempty"`
+	WechatSearchImage   *string   `json:"wechat_search_image,omitempty"`
+	TelegramQrImage     *string   `json:"telegram_qr_image,omitempty"`
 }
 
 // SystemConfigResponse 系统配置响应
@@ -90,6 +97,13 @@ type SystemConfigResponse struct {
 	MeilisearchPort      string `json:"meilisearch_port"`
 	MeilisearchMasterKey string `json:"meilisearch_master_key"`
 	MeilisearchIndexName string `json:"meilisearch_index_name"`
+
+	// 界面配置
+	EnableAnnouncements bool     `json:"enable_announcements"`
+	Announcements       string   `json:"announcements"`
+	EnableFloatButtons  bool     `json:"enable_float_buttons"`
+	WechatSearchImage   string   `json:"wechat_search_image"`
+	TelegramQrImage     string   `json:"telegram_qr_image"`
 }
 
 // SystemConfigItem 单个配置项

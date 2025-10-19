@@ -56,6 +56,13 @@ const (
 	ConfigKeyTelegramProxyPort          = "telegram_proxy_port"
 	ConfigKeyTelegramProxyUsername      = "telegram_proxy_username"
 	ConfigKeyTelegramProxyPassword      = "telegram_proxy_password"
+
+	// 界面配置
+	ConfigKeyEnableAnnouncements = "enable_announcements"
+	ConfigKeyAnnouncements       = "announcements"
+	ConfigKeyEnableFloatButtons  = "enable_float_buttons"
+	ConfigKeyWechatSearchImage   = "wechat_search_image"
+	ConfigKeyTelegramQrImage     = "telegram_qr_image"
 )
 
 // ConfigType 配置类型常量
@@ -183,4 +190,11 @@ const (
 	ConfigDefaultTelegramProxyPort          = "8080"
 	ConfigDefaultTelegramProxyUsername      = ""
 	ConfigDefaultTelegramProxyPassword      = ""
+
+	// 界面配置默认值
+	ConfigDefaultEnableAnnouncements = "false"
+	ConfigDefaultAnnouncements       = ""
+	ConfigDefaultEnableFloatButtons  = "false"
+	ConfigDefaultWechatSearchImage   = ""
+	ConfigDefaultTelegramQrImage     = ""
 )

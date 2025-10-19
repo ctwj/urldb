@@ -73,6 +73,11 @@
         </nav>
       </div>
 
+      <!-- 公告信息 -->
+      <div class="w-full max-w-3xl mx-auto mb-2 px-2 sm:px-0">
+        <Announcement />
+      </div>
+
       <!-- 搜索区域 -->
       <div class="w-full max-w-3xl mx-auto mb-4 sm:mb-8 px-2 sm:px-0">
         <ClientOnly>
@@ -84,7 +89,7 @@
               </n-input>
           </div>
         </ClientOnly>
-        
+
         <!-- 平台类型筛选 -->
         <div class="mt-3 flex flex-wrap gap-2" id="platformFilters">
           <a 

@@ -133,6 +133,11 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyMeilisearchPort, Value: entity.ConfigDefaultMeilisearchPort, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyMeilisearchMasterKey, Value: entity.ConfigDefaultMeilisearchMasterKey, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyMeilisearchIndexName, Value: entity.ConfigDefaultMeilisearchIndexName, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyEnableAnnouncements, Value: entity.ConfigDefaultEnableAnnouncements, Type: entity.ConfigTypeBool},
+			{Key: entity.ConfigKeyAnnouncements, Value: entity.ConfigDefaultAnnouncements, Type: entity.ConfigTypeJSON},
+			{Key: entity.ConfigKeyEnableFloatButtons, Value: entity.ConfigDefaultEnableFloatButtons, Type: entity.ConfigTypeBool},
+			{Key: entity.ConfigKeyWechatSearchImage, Value: entity.ConfigDefaultWechatSearchImage, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
 		}
 
 		err = r.UpsertConfigs(defaultConfigs)
@@ -169,6 +174,11 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		entity.ConfigKeyMeilisearchPort:           {Key: entity.ConfigKeyMeilisearchPort, Value: entity.ConfigDefaultMeilisearchPort, Type: entity.ConfigTypeString},
 		entity.ConfigKeyMeilisearchMasterKey:      {Key: entity.ConfigKeyMeilisearchMasterKey, Value: entity.ConfigDefaultMeilisearchMasterKey, Type: entity.ConfigTypeString},
 		entity.ConfigKeyMeilisearchIndexName:      {Key: entity.ConfigKeyMeilisearchIndexName, Value: entity.ConfigDefaultMeilisearchIndexName, Type: entity.ConfigTypeString},
+		entity.ConfigKeyEnableAnnouncements:       {Key: entity.ConfigKeyEnableAnnouncements, Value: entity.ConfigDefaultEnableAnnouncements, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyAnnouncements:             {Key: entity.ConfigKeyAnnouncements, Value: entity.ConfigDefaultAnnouncements, Type: entity.ConfigTypeJSON},
+		entity.ConfigKeyEnableFloatButtons:        {Key: entity.ConfigKeyEnableFloatButtons, Value: entity.ConfigDefaultEnableFloatButtons, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyWechatSearchImage:         {Key: entity.ConfigKeyWechatSearchImage, Value: entity.ConfigDefaultWechatSearchImage, Type: entity.ConfigTypeString},
+		entity.ConfigKeyTelegramQrImage:           {Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
 	}
 
 	// 检查现有配置中是否有缺失的配置项

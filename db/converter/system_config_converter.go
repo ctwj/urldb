@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -90,6 +91,25 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			response.MeilisearchMasterKey = config.Value
 		case entity.ConfigKeyMeilisearchIndexName:
 			response.MeilisearchIndexName = config.Value
+		case entity.ConfigKeyEnableAnnouncements:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response.EnableAnnouncements = val
+			}
+		case entity.ConfigKeyAnnouncements:
+			if config.Value == "" || config.Value == "[]" {
+				response.Announcements = ""
+			} else {
+				// 在响应时保持为字符串，后续由前端处理
+				response.Announcements = config.Value
+			}
+		case entity.ConfigKeyEnableFloatButtons:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response.EnableFloatButtons = val
+			}
+		case entity.ConfigKeyWechatSearchImage:
+			response.WechatSearchImage = config.Value
+		case entity.ConfigKeyTelegramQrImage:
+			response.TelegramQrImage = config.Value
 		}
 	}
 
@@ -221,6 +241,31 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 		updatedKeys = append(updatedKeys, entity.ConfigKeyMeilisearchIndexName)
 	}
 
+	// 界面配置处理
+	if req.EnableAnnouncements != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyEnableAnnouncements, Value: strconv.FormatBool(*req.EnableAnnouncements), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyEnableAnnouncements)
+	}
+	if req.Announcements != nil {
+		// 将数组转换为JSON字符串
+		if jsonBytes, err := json.Marshal(*req.Announcements); err == nil {
+			configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAnnouncements, Value: string(jsonBytes), Type: entity.ConfigTypeJSON})
+			updatedKeys = append(updatedKeys, entity.ConfigKeyAnnouncements)
+		}
+	}
+	if req.EnableFloatButtons != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyEnableFloatButtons, Value: strconv.FormatBool(*req.EnableFloatButtons), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyEnableFloatButtons)
+	}
+	if req.WechatSearchImage != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyWechatSearchImage, Value: *req.WechatSearchImage, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyWechatSearchImage)
+	}
+	if req.TelegramQrImage != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyTelegramQrImage, Value: *req.TelegramQrImage, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyTelegramQrImage)
+	}
+
 	// 记录更新的配置项
 	if len(updatedKeys) > 0 {
 		utils.Info("配置更新 - 被修改的配置项: %v", updatedKeys)
@@ -332,6 +377,24 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			response[entity.ConfigResponseFieldMeilisearchMasterKey] = config.Value
 		case entity.ConfigKeyMeilisearchIndexName:
 			response[entity.ConfigResponseFieldMeilisearchIndexName] = config.Value
+		case entity.ConfigKeyEnableAnnouncements:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response["enable_announcements"] = val
+			}
+		case entity.ConfigKeyAnnouncements:
+			if config.Value == "" || config.Value == "[]" {
+				response["announcements"] = ""
+			} else {
+				response["announcements"] = config.Value
+			}
+		case entity.ConfigKeyEnableFloatButtons:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response["enable_float_buttons"] = val
+			}
+		case entity.ConfigKeyWechatSearchImage:
+			response["wechat_search_image"] = config.Value
+		case entity.ConfigKeyTelegramQrImage:
+			response["telegram_qr_image"] = config.Value
 		}
 	}
 
@@ -372,5 +435,10 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		MeilisearchPort:           entity.ConfigDefaultMeilisearchPort,
 		MeilisearchMasterKey:      entity.ConfigDefaultMeilisearchMasterKey,
 		MeilisearchIndexName:      entity.ConfigDefaultMeilisearchIndexName,
+		EnableAnnouncements:       false,
+		Announcements:             "",
+		EnableFloatButtons:        false,
+		WechatSearchImage:         entity.ConfigDefaultWechatSearchImage,
+		TelegramQrImage:           entity.ConfigDefaultTelegramQrImage,
 	}
 }
