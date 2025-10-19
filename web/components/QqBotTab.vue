@@ -221,7 +221,7 @@ const copyToClipboard = async (text: string) => {
 // 页面加载时获取配置
 onMounted(async () => {
   fetchApiToken()
-  console.log('QQ 机器人标签已加载')
+  // console.log('QQ 机器人标签已加载')
 })
 </script>
 

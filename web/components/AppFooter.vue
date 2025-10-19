@@ -28,7 +28,7 @@ import { useSystemConfigStore } from '~/stores/systemConfig'
 const systemConfigStore = useSystemConfigStore()
 await systemConfigStore.initConfig(false, false)
 const systemConfig = computed(() => systemConfigStore.config)
-console.log(systemConfig.value)
+// console.log(systemConfig.value)
 
 // 组件挂载时获取版本信息
 onMounted(() => {

@@ -433,7 +433,7 @@ watch(systemConfigError, (error) => {
 // 从 SSR 数据中获取值
 const safeResources = computed(() => {
   const data = resourcesData.value as any
-  console.log('原始API数据结构:', JSON.stringify(data, null, 2))
+  // console.log('原始API数据结构:', JSON.stringify(data, null, 2))
 
   // 处理嵌套的data结构：{data: {data: [...], total: ...}}
   if (data?.data?.data && Array.isArray(data.data.data)) {
@@ -444,16 +444,16 @@ const safeResources = computed(() => {
   // 处理直接的data结构：{data: [...], total: ...}
   if (data?.data && Array.isArray(data.data)) {
     const resources = data.data
-    console.log('第二层嵌套资源:', resources)
+    // console.log('第二层嵌套资源:', resources)
     return resources
   }
   // 处理直接的数组结构
   if (Array.isArray(data)) {
-    console.log('直接数组结构:', data)
+    // console.log('直接数组结构:', data)
     return data
   }
 
-  console.log('未匹配到任何数据结构')
+  // console.log('未匹配到任何数据结构')
   return []
 })
 const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_resources: 0 })

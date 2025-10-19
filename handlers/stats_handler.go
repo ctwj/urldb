@@ -22,16 +22,20 @@ func GetStats(c *gin.Context) {
 	db.DB.Model(&entity.Tag{}).Count(&totalTags)
 	db.DB.Model(&entity.Resource{}).Select("COALESCE(SUM(view_count), 0)").Scan(&totalViews)
 
-	// 获取今日数据
-	today := utils.GetTodayString()
+	// 获取今日数据（在UTC+8时区的0点开始统计）
+	now := utils.GetCurrentTime()
+	// 使用UTC+8时区的今天0点
+	loc, _ := time.LoadLocation("Asia/Shanghai") // UTC+8
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	endOfToday := startOfToday.Add(24 * time.Hour)
 
-	// 今日新增资源数量
+	// 今日新增资源数量（从0点开始）
 	var todayResources int64
-	db.DB.Model(&entity.Resource{}).Where("DATE(created_at) = ?", today).Count(&todayResources)
+	db.DB.Model(&entity.Resource{}).Where("created_at >= ? AND created_at < ?", startOfToday, endOfToday).Count(&todayResources)
 
-	// 今日更新资源数量（包括新增和修改）
+	// 今日更新资源数量（包括新增和修改，从0点开始）
 	var todayUpdates int64
-	db.DB.Model(&entity.Resource{}).Where("DATE(updated_at) = ?", today).Count(&todayUpdates)
+	db.DB.Model(&entity.Resource{}).Where("updated_at >= ? AND updated_at < ?", startOfToday, endOfToday).Count(&todayUpdates)
 
 	// 今日浏览量 - 使用访问记录表统计今日访问量
 	var todayViews int64
@@ -41,9 +45,9 @@ func GetStats(c *gin.Context) {
 		todayViews = 0
 	}
 
-	// 今日搜索量
+	// 今日搜索量（从0点开始）
 	var todaySearches int64
-	db.DB.Model(&entity.SearchStat{}).Where("DATE(date) = ?", today).Count(&todaySearches)
+	db.DB.Model(&entity.SearchStat{}).Where("date >= ? AND date < ?", startOfToday.Format(utils.TimeFormatDate), endOfToday.Format(utils.TimeFormatDate)).Count(&todaySearches)
 
 	// 添加调试日志
 	utils.Info("统计数据 - 总资源: %d, 总分类: %d, 总标签: %d, 总浏览量: %d",
