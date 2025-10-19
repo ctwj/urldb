@@ -273,6 +273,9 @@
 
     <!-- 页脚 -->
     <AppFooter />
+
+    <!-- 悬浮按钮组件 -->
+    <FloatButtons />
   </div>
   <div v-if="systemConfig.maintenance_mode" class="fixed inset-0 z-[1000000] flex items-center justify-center bg-gradient-to-br from-yellow-100/80 via-gray-900/90 to-yellow-200/80 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl px-8 py-10 flex flex-col items-center max-w-xs w-full border border-yellow-200 dark:border-yellow-700">
