@@ -20,7 +20,7 @@
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center space-x-3">
             <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">公告 {{ index + 1 }}</h4>
-            <n-switch v-model:value="announcement.enabled" size="small" />
+            <n-switch :value="announcement.enabled" @update:value="handleEnabledChange(index, $event)" size="small" />
           </div>
           <div class="flex items-center space-x-1">
             <n-button text @click="moveAnnouncementUp(index)" :disabled="index === 0" size="small">
@@ -43,7 +43,8 @@
 
         <div class="space-y-2">
           <n-input
-            v-model:value="announcement.content"
+            :value="announcement.content"
+            @update:value="handleContentChange(index, $event)"
             placeholder="公告内容，支持HTML标签"
             type="textarea"
             :rows="2"
@@ -89,12 +90,57 @@ const enableAnnouncements = computed({
   }
 })
 
-console.log(props.modelValue)
 
 // 更新数据
 const updateValue = (newValue: ConfigData) => {
   emit('update:modelValue', newValue)
 }
+
+// 监听单个公告内容变化
+const handleContentChange = (index: number, content: string) => {
+  const newAnnouncements = [...props.modelValue.announcements]
+  newAnnouncements[index] = { ...newAnnouncements[index], content }
+  emit('update:modelValue', {
+    enable_announcements: props.modelValue.enable_announcements,
+    announcements: newAnnouncements
+  })
+}
+
+// 监听单个公告启用状态变化
+const handleEnabledChange = (index: number, enabled: boolean) => {
+  const newAnnouncements = [...props.modelValue.announcements]
+  newAnnouncements[index] = { ...newAnnouncements[index], enabled }
+  emit('update:modelValue', {
+    enable_announcements: props.modelValue.enable_announcements,
+    announcements: newAnnouncements
+  })
+}
+
+// 计算属性用于公告内容双向绑定
+const announcementContent = (index: number) => computed({
+  get: () => props.modelValue.announcements[index]?.content || '',
+  set: (value: string) => {
+    const newAnnouncements = [...props.modelValue.announcements]
+    newAnnouncements[index] = { ...newAnnouncements[index], content: value }
+    updateValue({
+      enable_announcements: props.modelValue.enable_announcements,
+      announcements: newAnnouncements
+    })
+  }
+})
+
+// 计算属性用于公告启用状态双向绑定
+const announcementEnabled = (index: number) => computed({
+  get: () => props.modelValue.announcements[index]?.enabled || false,
+  set: (value: boolean) => {
+    const newAnnouncements = [...props.modelValue.announcements]
+    newAnnouncements[index] = { ...newAnnouncements[index], enabled: value }
+    updateValue({
+      enable_announcements: props.modelValue.enable_announcements,
+      announcements: newAnnouncements
+    })
+  }
+})
 
 // 添加公告
 const addAnnouncement = () => {
@@ -102,7 +148,7 @@ const addAnnouncement = () => {
     content: '',
     enabled: true
   }]
-  updateValue({
+  emit('update:modelValue', {
     enable_announcements: props.modelValue.enable_announcements,
     announcements: newAnnouncements
   })
@@ -112,7 +158,7 @@ const addAnnouncement = () => {
 const removeAnnouncement = (index: number) => {
   const currentAnnouncements = Array.isArray(props.modelValue.announcements) ? props.modelValue.announcements : []
   const newAnnouncements = currentAnnouncements.filter((_, i) => i !== index)
-  updateValue({
+  emit('update:modelValue', {
     enable_announcements: props.modelValue.enable_announcements,
     announcements: newAnnouncements
   })
@@ -126,7 +172,7 @@ const moveAnnouncementUp = (index: number) => {
     const temp = newAnnouncements[index]
     newAnnouncements[index] = newAnnouncements[index - 1]
     newAnnouncements[index - 1] = temp
-    updateValue({
+    emit('update:modelValue', {
       enable_announcements: props.modelValue.enable_announcements,
       announcements: newAnnouncements
     })
@@ -141,7 +187,7 @@ const moveAnnouncementDown = (index: number) => {
     const temp = newAnnouncements[index]
     newAnnouncements[index] = newAnnouncements[index + 1]
     newAnnouncements[index + 1] = temp
-    updateValue({
+    emit('update:modelValue', {
       enable_announcements: props.modelValue.enable_announcements,
       announcements: newAnnouncements
     })

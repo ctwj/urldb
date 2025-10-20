@@ -71,26 +71,26 @@ export const useConfigChangeDetection = <T extends Record<string, any>>(
     }
 
     const changedConfig: Partial<T> = {}
-    
+
     // 遍历所有配置项
     for (const key in currentConfig.value) {
       const currentValue = currentConfig.value[key]
       const originalValue = originalConfig.value[key]
-      
+
       // 使用自定义比较函数或默认比较
-      const hasChanged = customCompare 
+      const hasChanged = customCompare
         ? customCompare(key, currentValue, originalValue)
         : currentValue !== originalValue
-      
+
       if (hasChanged) {
         changedConfig[key as keyof T] = currentValue
       }
     }
-    
+
     if (debug) {
       console.log('useConfigChangeDetection - 检测到的改动:', changedConfig)
     }
-    
+
     return changedConfig
   }
 

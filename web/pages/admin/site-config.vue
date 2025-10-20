@@ -318,6 +318,15 @@ const {
   saveConfig: saveConfigWithDetection
 } = useConfigChangeDetection<SiteConfigForm>({
   debug: true,
+  // 自定义比较函数，处理数组深层比较
+  customCompare: (key: string, currentValue: any, originalValue: any) => {
+    // 对于数组类型，使用JSON字符串比较
+    if (Array.isArray(currentValue) && Array.isArray(originalValue)) {
+      return JSON.stringify(currentValue) !== JSON.stringify(originalValue)
+    }
+    // 其他类型使用默认比较
+    return currentValue !== originalValue
+  },
   // 字段映射：前端字段名 -> 后端字段名
   fieldMapping: {
     site_title: 'site_title',
@@ -470,37 +479,68 @@ const openLogoSelector = () => {
 }
 
 const clearLogo = () => {
-  configForm.value.site_logo = ''
+  configForm.value = {
+    ...configForm.value,
+    site_logo: ''
+  }
+  // 强制触发更新
+  updateCurrentConfig({ ...configForm.value })
 }
 
 // 子组件更新处理方法
 const handleAnnouncementUpdate = (newValue: any) => {
-  configForm.value.enable_announcements = newValue.enable_announcements
-  configForm.value.announcements = newValue.announcements
+  // 直接更新整个表单
+  configForm.value = {
+    ...configForm.value,
+    enable_announcements: newValue.enable_announcements,
+    announcements: newValue.announcements
+  }
+  // 强制触发更新
+  updateCurrentConfig({ ...configForm.value })
 }
 
 const handleFloatButtonsUpdate = (newValue: any) => {
-  configForm.value.enable_float_buttons = newValue.enable_float_buttons
-  configForm.value.wechat_search_image = newValue.wechat_search_image
-  configForm.value.telegram_qr_image = newValue.telegram_qr_image
+  configForm.value = {
+    ...configForm.value,
+    enable_float_buttons: newValue.enable_float_buttons,
+    wechat_search_image: newValue.wechat_search_image,
+    telegram_qr_image: newValue.telegram_qr_image
+  }
+  // 强制触发更新
+  updateCurrentConfig({ ...configForm.value })
 }
 
 // Logo选择处理
 const handleLogoSelect = (file: any) => {
-  configForm.value.site_logo = file.access_url
+  configForm.value = {
+    ...configForm.value,
+    site_logo: file.access_url
+  }
   showLogoSelector.value = false
+  // 强制触发更新
+  updateCurrentConfig({ ...configForm.value })
 }
 
 // 微信图片选择处理
 const handleWechatImageSelect = (file: any) => {
-  configForm.value.wechat_search_image = file.access_url
+  configForm.value = {
+    ...configForm.value,
+    wechat_search_image: file.access_url
+  }
   showWechatSelector.value = false
+  // 强制触发更新
+  updateCurrentConfig({ ...configForm.value })
 }
 
 // Telegram图片选择处理
 const handleTelegramImageSelect = (file: any) => {
-  configForm.value.telegram_qr_image = file.access_url
+  configForm.value = {
+    ...configForm.value,
+    telegram_qr_image: file.access_url
+  }
   showTelegramSelector.value = false
+  // 强制触发更新
+  updateCurrentConfig({ ...configForm.value })
 }
 
 // 页面加载时获取配置

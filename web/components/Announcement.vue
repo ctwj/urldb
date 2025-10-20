@@ -5,7 +5,7 @@
         <i class="fas fa-bullhorn text-blue-600 dark:text-blue-400 text-sm flex-shrink-0"></i>
         <div class="announcement-content overflow-hidden">
           <div class="announcement-item active">
-            <span class="text-sm text-gray-700 dark:text-gray-300 truncate">{{ validAnnouncements[currentIndex].content }}</span>
+            <span class="text-sm text-gray-700 dark:text-gray-300 truncate" v-html="validAnnouncements[currentIndex].content"></span>
           </div>
         </div>
       </div>
