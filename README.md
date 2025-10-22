@@ -10,6 +10,10 @@
 
 **一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘 **
 
+免费电报资源频道： [@xypan](https://t.me/xypan)  自动推送资源
+
+免费电报资源机器人:  [@L9ResBot](https://t.me/L9ResBot)  发送 搜索 + 名字 可搜索资源  
+
 🌐 [在线演示](https://pan.l9.lc) | 📖 [文档](https://ecn5khs4t956.feishu.cn/wiki/PsnDwtxghiP0mLkTiruczKtxnwd?from=from_copylink) | 🐛 [问题反馈](https://github.com/ctwj/urldb/issues) | ⭐ [给个星标](https://github.com/ctwj/urldb)
 
 ### 支持的网盘平台
