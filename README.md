@@ -143,10 +143,7 @@ TIMEZONE=Asia/Shanghai
 
 ---
 
-## 📞 联系我们
-
-- **项目地址**: [https://github.com/ctwj/urldb](https://github.com/ctwj/urldb)
-- **问题反馈**: [Issues](https://github.com/ctwj/urldb/issues)
+## 📞 交流群
 - **TG**: [Telegram 技术交流群](https://t.me/+QF9OMpOv-PBjZGEx)
 
 ---
