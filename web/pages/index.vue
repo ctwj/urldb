@@ -604,9 +604,10 @@ const formatRelativeTime = (dateString: string) => {
   const diffWeek = Math.floor(diffDay / 7)
   const diffMonth = Math.floor(diffDay / 30)
   const diffYear = Math.floor(diffDay / 365)
-  
+
   const isToday = date.toDateString() === now.toDateString()
-  
+
+  // 处理今天更新的情况
   if (isToday) {
     if (diffMin < 1) {
       return '<span class="text-pink-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>刚刚更新</span>'
@@ -615,9 +616,29 @@ const formatRelativeTime = (dateString: string) => {
     } else {
       return `<span class="text-pink-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>${diffHour}小时前</span>`
     }
-  } else if (diffDay < 1) {
-    return `<span class="text-gray-600">${diffHour}小时前</span>`
-  } else if (diffDay < 7) {
+  }
+
+  // 处理昨天更新的情况 - 显示具体时间
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const isYesterday = date.toDateString() === yesterday.toDateString()
+
+  if (isYesterday) {
+    if (diffHour < 24) {
+      // 昨天但不足24小时
+      if (diffHour < 1) {
+        return `<span class="text-gray-600">${diffMin}分钟前</span>`
+      } else {
+        return `<span class="text-gray-600">${diffHour}小时前</span>`
+      }
+    } else {
+      // 超过24小时但仍然是昨天
+      return `<span class="text-gray-600">${diffDay}天前</span>`
+    }
+  }
+
+  // 处理其他情况
+  if (diffDay < 7) {
     return `<span class="text-gray-600">${diffDay}天前</span>`
   } else if (diffWeek < 4) {
     return `<span class="text-gray-600">${diffWeek}周前</span>`

@@ -3,7 +3,7 @@ import { useUserStore } from '~/stores/user'
 
 // 统一响应解析函数
 export const parseApiResponse = <T>(response: any): T => {
-  log('parseApiResponse - 原始响应:', response)
+  // log('parseApiResponse - 原始响应:', response)
   
   // 检查是否是新的统一响应格式
   if (response && typeof response === 'object' && 'code' in response && 'data' in response) {

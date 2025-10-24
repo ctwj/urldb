@@ -1,6 +1,5 @@
 <template>
-  <div class="float-right float-buttons">
-
+  <div v-if="enableFloatButtons" class="float-right float-buttons">
 
    <!-- 返回顶部按钮 -->
    <a class="float-btn ontop fade show" @click="scrollToTop" title="返回顶部">
@@ -19,22 +18,22 @@
    </span>
 
    <!-- Telegram -->
-   <span class="newadd-btns hover-show float-btn telegram-btn">
+   <span v-if="telegramQrImage" class="newadd-btns hover-show float-btn telegram-btn">
      <i class="fab fa-telegram-plane" style="color: #0088cc;"></i>
      <div class="hover-show-con dropdown-menu drop-newadd newadd-btns" style="width: 200px; height: auto;">
        <div class="image" data-size="100">
-         <n-image src="/assets/images/tg.webp" width="180" height="180" />
+         <n-image :src="getImageUrl(telegramQrImage)" width="180" height="180" />
        </div>
        <div class="mt6 px12 muted-color text-center">扫码加入Telegram群组</div>
      </div>
    </span>
 
    <!-- 微信公众号 -->
-   <a class="float-btn service-wechat hover-show nowave" title="扫码添加微信" href="javascript:;">
+   <a v-if="wechatSearchImage" class="float-btn service-wechat hover-show nowave" title="扫码添加微信" href="javascript:;">
      <i class="fab fa-weixin" style="color: #07c160;"></i>
      <div class="hover-show-con dropdown-menu service-wechat" style="width: 300px; height: auto;">
         <!-- <div class="image" data-size="100"> -->
-         <n-image src="/assets/images/mp.webp"  class="radius4" />
+         <n-image :src="getImageUrl(wechatSearchImage)" class="radius4" />
         <!-- </div> -->
      </div>
    </a>
@@ -43,6 +42,30 @@
 </template>
 
 <script setup lang="ts">
+// 导入系统配置store
+import { useSystemConfigStore } from '~/stores/systemConfig'
+
+// 获取系统配置store
+const systemConfigStore = useSystemConfigStore()
+
+// 使用图片URL composable
+const { getImageUrl } = useImageUrl()
+
+// 计算属性：是否启用浮动按钮
+const enableFloatButtons = computed(() => {
+  return systemConfigStore.config?.enable_float_buttons || false
+})
+
+// 计算属性：微信搜一搜图片
+const wechatSearchImage = computed(() => {
+  return systemConfigStore.config?.wechat_search_image || ''
+})
+
+// 计算属性：Telegram二维码图片
+const telegramQrImage = computed(() => {
+  return systemConfigStore.config?.telegram_qr_image || ''
+})
+
 // 滚动到顶部
 const scrollToTop = () => {
   window.scrollTo({
@@ -53,7 +76,7 @@ const scrollToTop = () => {
 
 // 获取当前页面URL
 const currentUrl = computed(() => {
-  if (process.client) {
+  if (typeof window !== 'undefined') {
     return window.location.href
   }
   return ''
