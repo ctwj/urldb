@@ -791,7 +791,7 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 		resultText += fmt.Sprintf("... 还有 %d 个结果\n\n", total-5)
 	}
 
-	resultText += "<i>如果资源失效请访问，发送搜索 + 关键字，可以搜索资源， 或者访问 https://pan.l9.lc 搜索最新资源</i>"
+	resultText += "<i>如果资源失效请访问，发送搜索 + 关键字，可以搜索资源</i>"
 
 	// 使用包含资源的自动删除功能
 	s.sendReplyWithResourceAutoDelete(message, resultText)
