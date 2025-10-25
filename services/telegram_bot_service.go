@@ -601,10 +601,11 @@ func (s *TelegramBotServiceImpl) handleRegisterCommand(message *tgbotapi.Message
 			return
 		}
 
-		// 检查是否已经注册了群组
-		if s.hasActiveGroup() {
-			errorMsg := "❌ *注册限制*\n\n系统最多只支持注册一个群组用于推送。\n\n请先注销现有群组，然后再注册新的群组。"
-			s.sendReply(message, errorMsg)
+		// 检查当前活跃的Telegram项目总数（频道+群组）
+		activeItemCount := s.hasActiveTelegramItems()
+		if activeItemCount >= 3 {
+			errorMsg := "❌ *注册限制*\n\n系统最多支持注册3个频道/群组用于推送。\n\n当前已注册: %d个，请先注销现有频道/群组，然后再注册新的。"
+			s.sendReply(message, fmt.Sprintf(errorMsg, activeItemCount))
 			return
 		}
 
@@ -1353,38 +1354,51 @@ func (s *TelegramBotServiceImpl) isBotAdministrator(chatID int64) bool {
 	return botStatus == "administrator" || botStatus == "creator"
 }
 
-// hasActiveGroup 检查是否已经注册了活跃的群组
-func (s *TelegramBotServiceImpl) hasActiveGroup() bool {
+// hasActiveGroup 检查当前活跃的群组数量
+func (s *TelegramBotServiceImpl) hasActiveGroup() int {
 	channels, err := s.channelRepo.FindByChatType("group")
 	if err != nil {
 		utils.Error("[TELEGRAM:LIMIT] 检查活跃群组失败: %v", err)
-		return false
+		return 0
 	}
 
-	// 检查是否有活跃的群组
+	// 统计活跃的群组数量
+	activeCount := 0
 	for _, channel := range channels {
 		if channel.IsActive {
-			return true
+			activeCount++
 		}
 	}
-	return false
+	return activeCount
 }
 
-// hasActiveChannel 检查是否已经注册了活跃的频道
-func (s *TelegramBotServiceImpl) hasActiveChannel() bool {
+// hasActiveChannel 检查当前活跃的频道数量
+func (s *TelegramBotServiceImpl) hasActiveChannel() int {
 	channels, err := s.channelRepo.FindByChatType("channel")
 	if err != nil {
 		utils.Error("[TELEGRAM:LIMIT] 检查活跃频道失败: %v", err)
-		return false
+		return 0
 	}
 
-	// 检查是否有活跃的频道
+	// 统计活跃的频道数量
+	activeCount := 0
 	for _, channel := range channels {
 		if channel.IsActive {
-			return true
+			activeCount++
 		}
 	}
-	return false
+	return activeCount
+}
+
+// hasActiveTelegramItems 检查当前活跃的Telegram项目（频道+群组）总数
+func (s *TelegramBotServiceImpl) hasActiveTelegramItems() int {
+	chatTypes := []string{"channel", "group"}
+	channels, err := s.channelRepo.FindActiveChannelsByTypes(chatTypes)
+	if err != nil {
+		utils.Error("[TELEGRAM:LIMIT] 检查活跃Telegram项目失败: %v", err)
+		return 0
+	}
+	return len(channels)
 }
 
 // handleChannelRegistration 处理频道注册（支持频道ID和用户名）
@@ -1549,10 +1563,11 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 			return
 		}
 
-		// 检查是否已经注册了频道
-		if s.hasActiveChannel() {
-			errorMsg := "❌ *注册限制*\n\n系统最多只支持注册一个频道用于推送。\n\n请先注销现有频道，然后再注册新的频道。"
-			s.sendReply(message, errorMsg)
+		// 检查当前活跃的Telegram项目总数（频道+群组）
+		activeItemCount := s.hasActiveTelegramItems()
+		if activeItemCount >= 3 {
+			errorMsg := "❌ *注册限制*\n\n系统最多支持注册3个频道/群组用于推送。\n\n当前已注册: %d个，请先注销现有频道/群组，然后再注册新的。"
+			s.sendReply(message, fmt.Sprintf(errorMsg, activeItemCount))
 			return
 		}
 

@@ -16,6 +16,7 @@ type TelegramChannelRepository interface {
 	UpdateLastPushAt(id uint, lastPushAt time.Time) error
 	FindDueForPush() ([]entity.TelegramChannel, error)
 	CleanupDuplicateChannels() error
+	FindActiveChannelsByTypes(chatTypes []string) ([]entity.TelegramChannel, error)
 }
 
 type TelegramChannelRepositoryImpl struct {
@@ -77,6 +78,13 @@ func (r *TelegramChannelRepositoryImpl) FindByChatID(chatID int64) (*entity.Tele
 func (r *TelegramChannelRepositoryImpl) FindByChatType(chatType string) ([]entity.TelegramChannel, error) {
 	var channels []entity.TelegramChannel
 	err := r.db.Where("chat_type = ?", chatType).Order("created_at desc").Find(&channels).Error
+	return channels, err
+}
+
+// FindActiveChannelsByTypes 根据多个类型查找活跃频道/群组
+func (r *TelegramChannelRepositoryImpl) FindActiveChannelsByTypes(chatTypes []string) ([]entity.TelegramChannel, error) {
+	var channels []entity.TelegramChannel
+	err := r.db.Where("chat_type IN (?) AND is_active = ?", chatTypes, true).Find(&channels).Error
 	return channels, err
 }
 
