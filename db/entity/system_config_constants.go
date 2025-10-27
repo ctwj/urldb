@@ -63,6 +63,7 @@ const (
 	ConfigKeyEnableFloatButtons  = "enable_float_buttons"
 	ConfigKeyWechatSearchImage   = "wechat_search_image"
 	ConfigKeyTelegramQrImage     = "telegram_qr_image"
+	ConfigKeyQrCodeStyle         = "qr_code_style"
 )
 
 // ConfigType 配置类型常量
@@ -133,6 +134,14 @@ const (
 	ConfigResponseFieldTelegramProxyPort          = "telegram_proxy_port"
 	ConfigResponseFieldTelegramProxyUsername      = "telegram_proxy_username"
 	ConfigResponseFieldTelegramProxyPassword      = "telegram_proxy_password"
+
+	// 界面配置字段
+	ConfigResponseFieldEnableAnnouncements = "enable_announcements"
+	ConfigResponseFieldAnnouncements       = "announcements"
+	ConfigResponseFieldEnableFloatButtons  = "enable_float_buttons"
+	ConfigResponseFieldWechatSearchImage   = "wechat_search_image"
+	ConfigResponseFieldTelegramQrImage     = "telegram_qr_image"
+	ConfigResponseFieldQrCodeStyle         = "qr_code_style"
 )
 
 // ConfigDefaultValue 配置默认值常量
@@ -197,4 +206,5 @@ const (
 	ConfigDefaultEnableFloatButtons  = "false"
 	ConfigDefaultWechatSearchImage   = ""
 	ConfigDefaultTelegramQrImage     = ""
+	ConfigDefaultQrCodeStyle         = "Plain"
 )

@@ -137,10 +137,10 @@ func main() {
 	}
 
 	// 添加中间件
-	r.Use(gin.Logger())                      // Gin日志中间件
-	r.Use(errorHandler.RecoverMiddleware())  // Panic恢复中间件
-	r.Use(errorHandler.ErrorMiddleware())    // 错误处理中间件
-	r.Use(metrics.MetricsMiddleware())       // 监控中间件
+	r.Use(gin.Logger())                     // Gin日志中间件
+	r.Use(errorHandler.RecoverMiddleware()) // Panic恢复中间件
+	r.Use(errorHandler.ErrorMiddleware())   // 错误处理中间件
+	r.Use(metrics.MetricsMiddleware())      // 监控中间件
 	r.Use(gin.Recovery())                   // Gin恢复中间件
 
 	// 配置CORS
@@ -397,14 +397,6 @@ func main() {
 
 	// 设置监控系统
 	monitor.SetupMonitoring(r)
-
-	// 添加测试路由（仅在开发环境）
-	if os.Getenv("ENV") != "production" {
-		r.GET("/test/metrics", monitor.TestMetrics)
-		r.GET("/test/error", monitor.TestError)
-		r.GET("/test/error-stats", monitor.GetErrorStats)
-		r.GET("/test/metrics-stats", monitor.GetMetricsStats)
-	}
 
 	// 启动监控服务器
 	metricsConfig := &monitor.MetricsConfig{

@@ -49,6 +49,7 @@ type SystemConfigRequest struct {
 	EnableFloatButtons  *bool     `json:"enable_float_buttons,omitempty"`
 	WechatSearchImage   *string   `json:"wechat_search_image,omitempty"`
 	TelegramQrImage     *string   `json:"telegram_qr_image,omitempty"`
+	QrCodeStyle         *string   `json:"qr_code_style,omitempty"`
 }
 
 // SystemConfigResponse 系统配置响应
@@ -104,6 +105,7 @@ type SystemConfigResponse struct {
 	EnableFloatButtons  bool     `json:"enable_float_buttons"`
 	WechatSearchImage   string   `json:"wechat_search_image"`
 	TelegramQrImage     string   `json:"telegram_qr_image"`
+	QrCodeStyle         string   `json:"qr_code_style"`
 }
 
 // SystemConfigItem 单个配置项

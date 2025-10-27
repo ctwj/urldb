@@ -110,6 +110,8 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			response.WechatSearchImage = config.Value
 		case entity.ConfigKeyTelegramQrImage:
 			response.TelegramQrImage = config.Value
+		case entity.ConfigKeyQrCodeStyle:
+			response.QrCodeStyle = config.Value
 		}
 	}
 
@@ -265,6 +267,10 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyTelegramQrImage, Value: *req.TelegramQrImage, Type: entity.ConfigTypeString})
 		updatedKeys = append(updatedKeys, entity.ConfigKeyTelegramQrImage)
 	}
+	if req.QrCodeStyle != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyQrCodeStyle, Value: *req.QrCodeStyle, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyQrCodeStyle)
+	}
 
 	// 记录更新的配置项
 	if len(updatedKeys) > 0 {
@@ -395,6 +401,8 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			response["wechat_search_image"] = config.Value
 		case entity.ConfigKeyTelegramQrImage:
 			response["telegram_qr_image"] = config.Value
+		case entity.ConfigKeyQrCodeStyle:
+			response["qr_code_style"] = config.Value
 		}
 	}
 
@@ -440,5 +448,6 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		EnableFloatButtons:        false,
 		WechatSearchImage:         entity.ConfigDefaultWechatSearchImage,
 		TelegramQrImage:           entity.ConfigDefaultTelegramQrImage,
+		QrCodeStyle:               entity.ConfigDefaultQrCodeStyle,
 	}
 }

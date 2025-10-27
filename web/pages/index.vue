@@ -346,7 +346,7 @@ const handleLogoError = (event: Event) => {
 
 // 获取资源图片URL，如果没有则返回随机默认封面
 const getResourceImageUrl = (resource: any) => {
-  console.log('Resource data:', resource)
+  // console.log('Resource data:', resource)
   // 如果资源有图片，使用资源图片（优先检查image_url，其次检查cover）
   if (resource.image_url) {
     return getImageUrl(resource.image_url)
