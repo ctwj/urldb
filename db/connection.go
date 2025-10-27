@@ -2,7 +2,9 @@ package db
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -45,8 +47,22 @@ func InitDB() error {
 		host, port, user, password, dbname)
 
 	var err error
+	// 配置慢查询日志
+	slowThreshold := getEnvInt("DB_SLOW_THRESHOLD_MS", 200)
+	logLevel := logger.Info
+	if os.Getenv("ENV") == "production" {
+		logLevel = logger.Warn
+	}
+
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.New(
+			log.New(os.Stdout, "\r\n", log.LstdFlags),
+			logger.Config{
+				SlowThreshold: time.Duration(slowThreshold) * time.Millisecond,
+				LogLevel:      logLevel,
+				Colorful:      true,
+			},
+		),
 	})
 	if err != nil {
 		return err
@@ -58,10 +74,17 @@ func InitDB() error {
 		return err
 	}
 
-	// 设置连接池参数
-	sqlDB.SetMaxIdleConns(10)           // 最大空闲连接数
-	sqlDB.SetMaxOpenConns(100)          // 最大打开连接数
-	sqlDB.SetConnMaxLifetime(time.Hour) // 连接最大生命周期
+	// 优化数据库连接池参数
+	maxOpenConns := getEnvInt("DB_MAX_OPEN_CONNS", 50)
+	maxIdleConns := getEnvInt("DB_MAX_IDLE_CONNS", 20)
+	connMaxLifetime := getEnvInt("DB_CONN_MAX_LIFETIME_MINUTES", 30)
+
+	sqlDB.SetMaxOpenConns(maxOpenConns)                               // 最大打开连接数
+	sqlDB.SetMaxIdleConns(maxIdleConns)                               // 最大空闲连接数
+	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Minute) // 连接最大生命周期
+
+	utils.Info("数据库连接池配置 - 最大连接: %d, 空闲连接: %d, 生命周期: %d分钟",
+		maxOpenConns, maxIdleConns, connMaxLifetime)
 
 	// 检查是否需要迁移（只在开发环境或首次启动时）
 	if shouldRunMigration() {
@@ -299,4 +322,20 @@ func insertDefaultDataIfEmpty() error {
 
 	utils.Info("默认数据插入完成")
 	return nil
+}
+
+// getEnvInt 获取环境变量中的整数值，如果不存在则返回默认值
+func getEnvInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		utils.Warn("环境变量 %s 的值 '%s' 不是有效的整数，使用默认值 %d", key, value, defaultValue)
+		return defaultValue
+	}
+
+	return intValue
 }

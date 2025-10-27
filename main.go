@@ -5,12 +5,15 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/ctwj/urldb/config"
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
+	"github.com/ctwj/urldb/monitor"
 	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/task"
@@ -85,6 +88,17 @@ func main() {
 	// 创建Repository管理器
 	repoManager := repo.NewRepositoryManager(db.DB)
 
+	// 创建配置管理器
+	configManager := config.NewConfigManager(repoManager)
+
+	// 设置全局配置管理器
+	config.SetGlobalConfigManager(configManager)
+
+	// 加载所有配置到缓存
+	if err := configManager.LoadAllConfigs(); err != nil {
+		utils.Error("加载配置缓存失败: %v", err)
+	}
+
 	// 创建任务管理器
 	taskManager := task.NewTaskManager(repoManager)
 
@@ -112,7 +126,22 @@ func main() {
 	utils.Info("任务管理器初始化完成")
 
 	// 创建Gin实例
-	r := gin.Default()
+	r := gin.New()
+
+	// 创建监控和错误处理器
+	metrics := monitor.GetGlobalMetrics()
+	errorHandler := monitor.GetGlobalErrorHandler()
+	if errorHandler == nil {
+		errorHandler = monitor.NewErrorHandler(1000, 24*time.Hour)
+		monitor.SetGlobalErrorHandler(errorHandler)
+	}
+
+	// 添加中间件
+	r.Use(gin.Logger())                      // Gin日志中间件
+	r.Use(errorHandler.RecoverMiddleware())  // Panic恢复中间件
+	r.Use(errorHandler.ErrorMiddleware())    // 错误处理中间件
+	r.Use(metrics.MetricsMiddleware())       // 监控中间件
+	r.Use(gin.Recovery())                   // Gin恢复中间件
 
 	// 配置CORS
 	config := cors.DefaultConfig()
@@ -365,6 +394,27 @@ func main() {
 		api.POST("/telegram/logs/clear", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.ClearTelegramLogs)
 		api.POST("/telegram/webhook", telegramHandler.HandleWebhook)
 	}
+
+	// 设置监控系统
+	monitor.SetupMonitoring(r)
+
+	// 添加测试路由（仅在开发环境）
+	if os.Getenv("ENV") != "production" {
+		r.GET("/test/metrics", monitor.TestMetrics)
+		r.GET("/test/error", monitor.TestError)
+		r.GET("/test/error-stats", monitor.GetErrorStats)
+		r.GET("/test/metrics-stats", monitor.GetMetricsStats)
+	}
+
+	// 启动监控服务器
+	metricsConfig := &monitor.MetricsConfig{
+		Enabled:       true,
+		ListenAddress: ":9090",
+		MetricsPath:   "/metrics",
+		Namespace:     "urldb",
+		Subsystem:     "api",
+	}
+	metrics.StartMetricsServer(metricsConfig)
 
 	// 静态文件服务
 	r.Static("/uploads", "./uploads")
