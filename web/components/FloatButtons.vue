@@ -11,7 +11,14 @@
      <i class="fa fa-qrcode" style="color: #27ae60;"></i>
      <div class="hover-show-con dropdown-menu qrcode-btn" style="width: 150px; height: auto;">
        <div class="qrcode" data-size="100">
-         <n-qr-code :value="currentUrl" :size="100" :bordered="false" />
+         <QRCodeDisplay
+           v-if="qrCodePreset"
+           :data="currentUrl"
+           :preset="qrCodePreset"
+           :width="100"
+           :height="100"
+         />
+         <n-qr-code v-else :value="currentUrl" :size="100" :bordered="false" />
        </div>
        <div class="mt6 px12 muted-color">扫一扫在手机上体验</div>
      </div>
@@ -44,6 +51,7 @@
 <script setup lang="ts">
 // 导入系统配置store
 import { useSystemConfigStore } from '~/stores/systemConfig'
+import { QRCodeDisplay, findPresetByName } from '~/components/QRCode'
 
 // 获取系统配置store
 const systemConfigStore = useSystemConfigStore()
@@ -64,6 +72,12 @@ const wechatSearchImage = computed(() => {
 // 计算属性：Telegram二维码图片
 const telegramQrImage = computed(() => {
   return systemConfigStore.config?.telegram_qr_image || ''
+})
+
+// 计算属性：二维码样式预设
+const qrCodePreset = computed(() => {
+  const styleName = systemConfigStore.config?.qr_code_style || 'Plain'
+  return findPresetByName(styleName)
 })
 
 // 滚动到顶部

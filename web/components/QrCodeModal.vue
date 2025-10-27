@@ -96,7 +96,14 @@
         <div v-if="isQuarkLink" class="space-y-4">
           <div class=" flex justify-center">
             <div class="flex qr-container items-center justify-center w-full">
-              <QRCodeDisplay :data="save_url || url" :width="size" :height="size" />
+              <QRCodeDisplay
+                v-if="qrCodePreset"
+                :data="save_url || url"
+                :preset="qrCodePreset"
+                :width="size"
+                :height="size"
+              />
+              <QRCodeDisplay v-else :data="save_url || url" :width="size" :height="size" />
             </div>
           </div>
           <div class="text-center">
@@ -109,12 +116,19 @@
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">请使用手机扫码操作</p>
           </div>
         </div>
-        
+
         <!-- 其他链接：同时显示链接和二维码 -->
         <div v-else class="space-y-4">
           <div class="mb-4 flex justify-center">
             <div class="flex qr-container items-center justify-center w-full">
-              <QRCodeDisplay :data="save_url || url" :preset="supabaseGreenPreset" :width="size" :height="size" />
+              <QRCodeDisplay
+                v-if="qrCodePreset"
+                :data="save_url || url"
+                :preset="qrCodePreset"
+                :width="size"
+                :height="size"
+              />
+              <QRCodeDisplay v-else :data="save_url || url" :width="size" :height="size" />
             </div>
           </div>
           
@@ -149,7 +163,9 @@
 <script setup lang="ts">
 
 import { ref, computed, watch, onMounted } from 'vue'
-import { QRCodeDisplay, supabaseGreenPreset, preloadCommonLogos } from './QRCode'
+import { QRCodeDisplay, preloadCommonLogos } from './QRCode'
+import { useSystemConfigStore } from '~/stores/systemConfig'
+import { findPresetByName } from './QRCode/presets'
 
 interface Props {
   visible: boolean
@@ -173,9 +189,18 @@ const props = withDefaults(defineProps<Props>(), {
 })
 const emit = defineEmits<Emits>()
 
+// 获取系统配置store
+const systemConfigStore = useSystemConfigStore()
+
 const size = ref(180)
 const color = ref('#409eff')
 const backgroundColor = ref('#F5F5F5')
+
+// 计算二维码样式预设
+const qrCodePreset = computed(() => {
+  const styleName = systemConfigStore.config?.qr_code_style || 'Plain'
+  return findPresetByName(styleName)
+})
 
 // 检测是否为移动设备
 const isMobile = ref(false)

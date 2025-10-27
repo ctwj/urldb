@@ -138,6 +138,7 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyEnableFloatButtons, Value: entity.ConfigDefaultEnableFloatButtons, Type: entity.ConfigTypeBool},
 			{Key: entity.ConfigKeyWechatSearchImage, Value: entity.ConfigDefaultWechatSearchImage, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyQrCodeStyle, Value: entity.ConfigDefaultQrCodeStyle, Type: entity.ConfigTypeString},
 		}
 
 		err = r.UpsertConfigs(defaultConfigs)

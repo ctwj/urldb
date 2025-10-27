@@ -42,6 +42,7 @@ interface Props {
   preset?: Preset
   borderRadius?: string
   background?: string
+  className?: string
   customImage?: string
   customImageOptions?: {
     margin?: number
@@ -75,17 +76,37 @@ let qrCodeInstance: QRCodeStyling | null = null
 // 计算容器样式
 const containerStyle = computed(() => {
   if (props.preset) {
-    return {
+    const style = {
       borderRadius: props.preset.style.borderRadius || '0px',
       background: props.preset.style.background || 'transparent',
       padding: '16px'
     }
+
+    // 如果预设有className，添加到样式中
+    if (props.preset.style.className) {
+      return {
+        ...style,
+        class: props.preset.style.className
+      }
+    }
+    return style
   }
-  return {
+
+  const style = {
     borderRadius: props.borderRadius,
     background: props.background,
     padding: '16px'
   }
+
+  // 如果props有className，添加到样式中
+  if (props.className) {
+    return {
+      ...style,
+      class: props.className
+    }
+  }
+
+  return style
 })
 
 // 生成配置键，用于缓存

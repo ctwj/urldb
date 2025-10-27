@@ -8,6 +8,53 @@
   }
 }
 
+/* 二维码动态动画 */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes rainbowMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes neonPulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.5), 0 0 40px rgba(0, 255, 136, 0.3), 0 0 60px rgba(0, 255, 136, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.8), 0 0 50px rgba(0, 255, 136, 0.5), 0 0 70px rgba(0, 255, 136, 0.3);
+  }
+}
+
+/* 动态预设的动画类 */
+.qr-dynamic {
+  animation: gradientShift 3s ease infinite;
+}
+
+.qr-rainbow {
+  animation: rainbowMove 4s linear infinite;
+}
+
+.qr-neon {
+  animation: neonPulse 2s ease-in-out infinite;
+}
+
 @layer components {
   .btn-primary {
     @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;

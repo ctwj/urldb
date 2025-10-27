@@ -115,6 +115,27 @@
                     placeholder="请输入版权信息"
                   />
                 </div>
+
+                <!-- 二维码样式 -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">二维码样式</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">选择前台显示的二维码样式</span>
+                  </div>
+                  <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-3">
+                      <n-button type="primary" @click="openQRStyleSelector">
+                        <template #icon>
+                          <i class="fas fa-qrcode"></i>
+                        </template>
+                        {{ configForm.qr_code_style ? '更换样式' : '选择样式' }}
+                      </n-button>
+                      <div v-if="configForm.qr_code_style" class="text-sm text-gray-600 dark:text-gray-400">
+                        当前样式: <span class="font-semibold">{{ configForm.qr_code_style }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               </n-form>
             </div>
@@ -229,6 +250,13 @@
       title="选择Logo图片"
       @select="handleLogoSelect"
     />
+
+    <!-- QR Code Style Selector Modal -->
+    <QRCodeStyleSelector
+      v-model:show="showQRStyleSelector"
+      :current-style="configForm.qr_code_style"
+      @select="handleQRStyleSelect"
+    />
 </template>
 
 <script setup lang="ts">
@@ -244,6 +272,7 @@ import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection
 import AnnouncementConfig from '~/components/Admin/AnnouncementConfig.vue'
 import FloatButtonsConfig from '~/components/Admin/FloatButtonsConfig.vue'
 import ImageSelectorModal from '~/components/Admin/ImageSelectorModal.vue'
+import QRCodeStyleSelector from '~/components/Admin/QRCodeStyleSelector.vue'
 
 const notification = useNotification()
 const { getImageUrl } = useImageUrl()
@@ -257,6 +286,9 @@ const showLogoSelector = ref(false)
 // 微信和Telegram选择器相关数据
 const showWechatSelector = ref(false)
 const showTelegramSelector = ref(false)
+
+// QR样式选择器相关数据
+const showQRStyleSelector = ref(false)
 
 // 公告类型接口
 interface Announcement {
@@ -279,6 +311,7 @@ interface SiteConfigForm {
   enable_float_buttons: boolean
   wechat_search_image: string
   telegram_qr_image: string
+  qr_code_style: string
 }
 
 // 公告配置子组件数据
@@ -341,7 +374,8 @@ const {
     announcements: 'announcements',
     enable_float_buttons: 'enable_float_buttons',
     wechat_search_image: 'wechat_search_image',
-    telegram_qr_image: 'telegram_qr_image'
+    telegram_qr_image: 'telegram_qr_image',
+    qr_code_style: 'qr_code_style'
   }
 })
 
@@ -361,7 +395,8 @@ const configForm = ref<SiteConfigForm>({
   announcements: [],
   enable_float_buttons: false,
   wechat_search_image: '',
-  telegram_qr_image: ''
+  telegram_qr_image: '',
+  qr_code_style: 'Plain'
 })
 
 
@@ -401,7 +436,8 @@ const fetchConfig = async () => {
         announcements: response.announcements ? JSON.parse(response.announcements) : [],
         enable_float_buttons: response.enable_float_buttons || false,
         wechat_search_image: response.wechat_search_image || '',
-        telegram_qr_image: response.telegram_qr_image || ''
+        telegram_qr_image: response.telegram_qr_image || '',
+        qr_code_style: response.qr_code_style || 'Plain'
       }
 
       // 设置表单数据和原始数据
@@ -539,6 +575,22 @@ const handleTelegramImageSelect = (file: any) => {
     telegram_qr_image: file.access_url
   }
   showTelegramSelector.value = false
+  // 强制触发更新
+  updateCurrentConfig({ ...configForm.value })
+}
+
+// QR样式选择器方法
+const openQRStyleSelector = () => {
+  showQRStyleSelector.value = true
+}
+
+// QR样式选择处理
+const handleQRStyleSelect = (preset: any) => {
+  configForm.value = {
+    ...configForm.value,
+    qr_code_style: preset.name
+  }
+  showQRStyleSelector.value = false
   // 强制触发更新
   updateCurrentConfig({ ...configForm.value })
 }

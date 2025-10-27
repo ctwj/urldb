@@ -117,6 +117,236 @@ export const techPreset: Preset = {
   style: { borderRadius: '0px', background: '#000000' }
 }
 
+// 透明预设
+export const transparentPreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Transparent',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%23374151',
+  dotsOptions: { color: '#374151', type: 'dots' },
+  cornersSquareOptions: { color: '#374151', type: 'dot' },
+  cornersDotOptions: { color: '#374151', type: 'dot' },
+  imageOptions: { margin: 8 },
+  style: { borderRadius: '8px', background: 'transparent' }
+}
+
+// 渐变预设 - 二维码组成部分使用渐变
+export const gradientModernPreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Gradient Modern',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%23667eea',
+  dotsOptions: {
+    type: 'rounded',
+    gradient: {
+      type: 'linear',
+      rotation: 45,
+      colorStops: [
+        { offset: 0, color: '#667eea' },
+        { offset: 0.5, color: '#764ba2' },
+        { offset: 1, color: '#f093fb' }
+      ]
+    }
+  },
+  cornersSquareOptions: {
+    type: 'extra-rounded',
+    gradient: {
+      type: 'radial',
+      colorStops: [
+        { offset: 0, color: '#f093fb' },
+        { offset: 1, color: '#f5576c' }
+      ]
+    }
+  },
+  cornersDotOptions: {
+    type: 'dot',
+    gradient: {
+      type: 'linear',
+      rotation: 90,
+      colorStops: [
+        { offset: 0, color: '#fda085' },
+        { offset: 1, color: '#f5576c' }
+      ]
+    }
+  },
+  imageOptions: { margin: 8 },
+  style: {
+    borderRadius: '16px',
+    background: '#F8FAFC'
+  }
+}
+
+// 彩虹渐变预设 - 二维码组成部分使用彩虹渐变
+export const rainbowPreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Rainbow',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%23ff0000',
+  dotsOptions: {
+    type: 'dots',
+    gradient: {
+      type: 'linear',
+      rotation: 45,
+      colorStops: [
+        { offset: 0, color: '#ff0000' },
+        { offset: 0.14, color: '#ff7f00' },
+        { offset: 0.28, color: '#ffff00' },
+        { offset: 0.42, color: '#00ff00' },
+        { offset: 0.57, color: '#0000ff' },
+        { offset: 0.71, color: '#4b0082' },
+        { offset: 0.85, color: '#9400d3' },
+        { offset: 1, color: '#ff0000' }
+      ]
+    }
+  },
+  cornersSquareOptions: {
+    type: 'extra-rounded',
+    gradient: {
+      type: 'radial',
+      colorStops: [
+        { offset: 0, color: '#ffff00' },
+        { offset: 0.5, color: '#00ff00' },
+        { offset: 1, color: '#0000ff' }
+      ]
+    }
+  },
+  cornersDotOptions: {
+    type: 'dot',
+    gradient: {
+      type: 'linear',
+      rotation: 90,
+      colorStops: [
+        { offset: 0, color: '#ff7f00' },
+        { offset: 0.5, color: '#ff00ff' },
+        { offset: 1, color: '#00ffff' }
+      ]
+    }
+  },
+  imageOptions: { margin: 8 },
+  style: {
+    borderRadius: '20px',
+    background: '#FEFEFE'
+  }
+}
+
+// 动态颜色预设 - 二维码组成部分使用动态渐变
+export const dynamicPreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Dynamic',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%23ee7752',
+  dotsOptions: {
+    type: 'rounded',
+    gradient: {
+      type: 'linear',
+      rotation: -45,
+      colorStops: [
+        { offset: 0, color: '#ee7752' },
+        { offset: 0.33, color: '#e73c7e' },
+        { offset: 0.66, color: '#23a6d5' },
+        { offset: 1, color: '#23d5ab' }
+      ]
+    }
+  },
+  cornersSquareOptions: {
+    type: 'extra-rounded',
+    gradient: {
+      type: 'radial',
+      colorStops: [
+        { offset: 0, color: '#23d5ab' },
+        { offset: 0.5, color: '#ee7752' },
+        { offset: 1, color: '#e73c7e' }
+      ]
+    }
+  },
+  cornersDotOptions: {
+    type: 'dot',
+    gradient: {
+      type: 'linear',
+      rotation: 45,
+      colorStops: [
+        { offset: 0, color: '#23a6d5' },
+        { offset: 0.5, color: '#23d5ab' },
+        { offset: 1, color: '#ee7752' }
+      ]
+    }
+  },
+  imageOptions: { margin: 8 },
+  style: {
+    borderRadius: '12px',
+    background: '#F5F5F5',
+    className: 'qr-dynamic'
+  }
+}
+
+// 玻璃态预设
+export const glassPreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Glass',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%231F2937',
+  dotsOptions: { color: '#1F2937', type: 'dots' },
+  cornersSquareOptions: { color: '#1F2937', type: 'dot' },
+  cornersDotOptions: { color: '#1F2937', type: 'dot' },
+  imageOptions: { margin: 8 },
+  style: {
+    borderRadius: '16px',
+    background: 'rgba(255, 255, 255, 0.25)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.18)'
+  }
+}
+
+// 霓虹预设 - 二维码组成部分使用霓虹渐变
+export const neonPreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Neon',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%2300FF88',
+  dotsOptions: {
+    type: 'square',
+    gradient: {
+      type: 'linear',
+      rotation: 45,
+      colorStops: [
+        { offset: 0, color: '#00FF88' },
+        { offset: 0.5, color: '#00FFAA' },
+        { offset: 1, color: '#00FFCC' }
+      ]
+    }
+  },
+  cornersSquareOptions: {
+    type: 'square',
+    gradient: {
+      type: 'radial',
+      colorStops: [
+        { offset: 0, color: '#FF00FF' },
+        { offset: 0.5, color: '#FF00AA' },
+        { offset: 1, color: '#FF0088' }
+      ]
+    }
+  },
+  cornersDotOptions: {
+    type: 'square',
+    gradient: {
+      type: 'linear',
+      rotation: 90,
+      colorStops: [
+        { offset: 0, color: '#00FFFF' },
+        { offset: 0.5, color: '#00FFEE' },
+        { offset: 1, color: '#00FFCC' }
+      ]
+    }
+  },
+  imageOptions: { margin: 8 },
+  style: {
+    borderRadius: '8px',
+    background: '#1a1a1a',
+    boxShadow: '0 0 20px rgba(0, 255, 136, 0.3), 0 0 40px rgba(0, 255, 136, 0.2), 0 0 60px rgba(0, 255, 136, 0.1)',
+    className: 'qr-neon'
+  }
+}
+
 export const naturePreset: Preset = {
   ...defaultPresetOptions,
   name: 'Nature',
@@ -153,6 +383,150 @@ export const coolPreset: Preset = {
   style: { borderRadius: '20px', background: '#EFF6FF' }
 }
 
+// 新增：金属渐变预设
+export const metallicPreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Metallic',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%23FFD700',
+  dotsOptions: {
+    type: 'rounded',
+    gradient: {
+      type: 'linear',
+      rotation: 135,
+      colorStops: [
+        { offset: 0, color: '#C0C0C0' },
+        { offset: 0.25, color: '#E5E5E5' },
+        { offset: 0.5, color: '#FFD700' },
+        { offset: 0.75, color: '#E5E5E5' },
+        { offset: 1, color: '#C0C0C0' }
+      ]
+    }
+  },
+  cornersSquareOptions: {
+    type: 'extra-rounded',
+    gradient: {
+      type: 'radial',
+      colorStops: [
+        { offset: 0, color: '#FFD700' },
+        { offset: 0.5, color: '#C0C0C0' },
+        { offset: 1, color: '#808080' }
+      ]
+    }
+  },
+  cornersDotOptions: {
+    type: 'dot',
+    gradient: {
+      type: 'linear',
+      rotation: 45,
+      colorStops: [
+        { offset: 0, color: '#FFD700' },
+        { offset: 1, color: '#B8860B' }
+      ]
+    }
+  },
+  imageOptions: { margin: 8 },
+  style: {
+    borderRadius: '16px',
+    background: '#F8F8F8'
+  }
+}
+
+// 新增：海洋渐变预设
+export const oceanPreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Ocean',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%2300CED1',
+  dotsOptions: {
+    type: 'dots',
+    gradient: {
+      type: 'radial',
+      colorStops: [
+        { offset: 0, color: '#00CED1' },
+        { offset: 0.5, color: '#4682B4' },
+        { offset: 1, color: '#191970' }
+      ]
+    }
+  },
+  cornersSquareOptions: {
+    type: 'square',
+    gradient: {
+      type: 'linear',
+      rotation: 90,
+      colorStops: [
+        { offset: 0, color: '#00FFFF' },
+        { offset: 0.5, color: '#00CED1' },
+        { offset: 1, color: '#0000CD' }
+      ]
+    }
+  },
+  cornersDotOptions: {
+    type: 'dot',
+    gradient: {
+      type: 'linear',
+      rotation: 45,
+      colorStops: [
+        { offset: 0, color: '#87CEEB' },
+        { offset: 1, color: '#4682B4' }
+      ]
+    }
+  },
+  imageOptions: { margin: 8 },
+  style: {
+    borderRadius: '20px',
+    background: '#E0F2FE'
+  }
+}
+
+// 新增：火焰渐变预设
+export const firePreset: Preset = {
+  ...defaultPresetOptions,
+  name: 'Fire',
+  data: 'https://pan.l9.lc',
+  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%23FF4500',
+  dotsOptions: {
+    type: 'classy-rounded',
+    gradient: {
+      type: 'radial',
+      colorStops: [
+        { offset: 0, color: '#FFFF00' },
+        { offset: 0.3, color: '#FFA500' },
+        { offset: 0.7, color: '#FF4500' },
+        { offset: 1, color: '#8B0000' }
+      ]
+    }
+  },
+  cornersSquareOptions: {
+    type: 'extra-rounded',
+    gradient: {
+      type: 'linear',
+      rotation: 45,
+      colorStops: [
+        { offset: 0, color: '#FF6347' },
+        { offset: 0.5, color: '#FF4500' },
+        { offset: 1, color: '#DC143C' }
+      ]
+    }
+  },
+  cornersDotOptions: {
+    type: 'square',
+    gradient: {
+      type: 'linear',
+      rotation: 90,
+      colorStops: [
+        { offset: 0, color: '#FFA500' },
+        { offset: 1, color: '#FF4500' }
+      ]
+    }
+  },
+  imageOptions: { margin: 8 },
+  style: {
+    borderRadius: '12px',
+    background: '#FFF7ED'
+  }
+}
+
 // 原项目预设
 export const padletPreset: Preset = {
   ...defaultPresetOptions,
@@ -166,17 +540,6 @@ export const padletPreset: Preset = {
   style: { borderRadius: '24px', background: '#000000' }
 }
 
-export const vercelLightPreset: Preset = {
-  ...defaultPresetOptions,
-  name: 'Vercel Light',
-  data: 'https://pan.l9.lc',
-  image: 'https://api.iconify.design/ion:logo-vercel.svg?color=%23000',
-  dotsOptions: { color: '#000000', type: 'classy' },
-  cornersSquareOptions: { color: '#000000', type: 'square' },
-  cornersDotOptions: { color: '#000000', type: 'square' },
-  imageOptions: { margin: 8 },
-  style: { borderRadius: '0px', background: '#FFFFFF' }
-}
 
 export const vercelDarkPreset: Preset = {
   ...defaultPresetOptions,
@@ -190,29 +553,6 @@ export const vercelDarkPreset: Preset = {
   style: { borderRadius: '0px', background: '#000000' }
 }
 
-export const supabaseGreenPreset: Preset = {
-  ...defaultPresetOptions,
-  name: 'Supabase Green',
-  data: 'https://pan.l9.lc',
-  image: 'https://api.iconify.design/logos:supabase-icon.svg',
-  dotsOptions: { color: '#3ecf8e', type: 'classy-rounded' },
-  cornersSquareOptions: { color: '#3ecf8e', type: 'square' },
-  cornersDotOptions: { color: '#3ecf8e', type: 'square' },
-  imageOptions: { margin: 8 },
-  style: { borderRadius: '12px', background: '#000000' }
-}
-
-export const supabasePurplePreset: Preset = {
-  ...defaultPresetOptions,
-  name: 'Supabase Purple',
-  data: 'https://pan.l9.lc',
-  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%237700ff',
-  dotsOptions: { color: '#7700ff', type: 'classy-rounded' },
-  cornersSquareOptions: { color: '#7700ff', type: 'square' },
-  cornersDotOptions: { color: '#7700ff', type: 'square' },
-  imageOptions: { margin: 8 },
-  style: { borderRadius: '12px', background: '#000000' }
-}
 
 export const uiliciousPreset: Preset = {
   ...defaultPresetOptions,
@@ -250,17 +590,6 @@ export const vueJsPreset: Preset = {
   style: { borderRadius: '12px', background: '#000000' }
 }
 
-export const vuei18nPreset: Preset = {
-  ...defaultPresetOptions,
-  name: 'Vue i18n',
-  data: 'https://pan.l9.lc',
-  image: 'https://api.iconify.design/ion:qr-code-outline.svg?color=%23FF6B6B',
-  dotsOptions: { color: '#FF6B6B', type: 'classy-rounded' },
-  cornersSquareOptions: { color: '#FF6B6B', type: 'square' },
-  cornersDotOptions: { color: '#FF6B6B', type: 'square' },
-  imageOptions: { margin: 8 },
-  style: { borderRadius: '12px', background: '#000000' }
-}
 
 export const lyqhtPreset: Preset = {
   ...defaultPresetOptions,
@@ -359,19 +688,25 @@ export const builtInPresets: Preset[] = [
   gradientPreset,
   minimalPreset,
   techPreset,
+  // 高级样式预设
+  transparentPreset,
+  gradientModernPreset,
+  rainbowPreset,
+  dynamicPreset,
+  glassPreset,
+  neonPreset,
   naturePreset,
   warmPreset,
   coolPreset,
+  metallicPreset,
+  oceanPreset,
+  firePreset,
   // 原项目预设
   padletPreset,
-  vercelLightPreset,
   vercelDarkPreset,
-  supabaseGreenPreset,
-  supabasePurplePreset,
   uiliciousPreset,
   viteConf2023Preset,
   vueJsPreset,
-  vuei18nPreset,
   lyqhtPreset,
   pejuangKodePreset,
   geeksHackingPreset,
