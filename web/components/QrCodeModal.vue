@@ -96,12 +96,7 @@
         <div v-if="isQuarkLink" class="space-y-4">
           <div class=" flex justify-center">
             <div class="flex qr-container items-center justify-center w-full">
-              <n-qr-code 
-                :value="save_url || url" 
-                :size="size" 
-                :color="color"
-                :background-color="backgroundColor"
-                />
+              <QRCodeDisplay :data="save_url || url" :width="size" :height="size" />
             </div>
           </div>
           <div class="text-center">
@@ -119,11 +114,7 @@
         <div v-else class="space-y-4">
           <div class="mb-4 flex justify-center">
             <div class="flex qr-container items-center justify-center w-full">
-              <n-qr-code :value="save_url || url" 
-                :size="size"
-                :color="color"
-                :background-color="backgroundColor"
-                />
+              <QRCodeDisplay :data="save_url || url" :preset="supabaseGreenPreset" :width="size" :height="size" />
             </div>
           </div>
           
@@ -156,6 +147,10 @@
 </template>
 
 <script setup lang="ts">
+
+import { ref, computed, watch, onMounted } from 'vue'
+import { QRCodeDisplay, supabaseGreenPreset, preloadCommonLogos } from './QRCode'
+
 interface Props {
   visible: boolean
   save_url?: string
@@ -244,6 +239,15 @@ const downloadQrCode = () => {
     console.error('下载失败:', error)
   }
 }
+
+// 组件挂载时预加载常用Logo
+onMounted(async () => {
+  try {
+    await preloadCommonLogos()
+  } catch (error) {
+    console.warn('Failed to preload common logos:', error)
+  }
+})
 
 // 监听visible变化
 watch(() => props.visible, (newVisible) => {
