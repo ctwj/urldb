@@ -115,10 +115,11 @@
 
 <script setup lang="ts">
 import type { DotType } from 'qr-code-styling'
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import QRCodeDisplay from './Display.vue'
 import { allQrCodePresets, findPresetByName, getRandomPreset } from './presets'
 import { createRandomColor } from './color'
+import { preloadCommonLogos } from './image-utils'
 
 // Props
 interface Props {
@@ -217,6 +218,11 @@ watch(selectedPresetName, (newPresetName) => {
   } else {
     // 选择自定义时，保持当前设置
   }
+})
+
+// 组件挂载时预加载常用Logo
+onMounted(async () => {
+  await preloadCommonLogos()
 })
 </script>
 

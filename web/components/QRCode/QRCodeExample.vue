@@ -114,11 +114,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import QRCodeDisplay from './Display.vue'
 import SimpleQRCode from './Simple.vue'
 import { allQrCodePresets, findPresetByName, getRandomPreset } from './presets'
 import { createRandomColor } from './color'
+import { preloadCommonLogos } from './image-utils'
 
 // 响应式数据
 const qrData = ref('https://example.com')
@@ -194,6 +195,11 @@ const downloadAsSVG = async () => {
     console.error('下载失败:', error)
   }
 }
+
+// 组件挂载时预加载常用Logo
+onMounted(async () => {
+  await preloadCommonLogos()
+})
 </script>
 
 <style scoped>

@@ -148,7 +148,8 @@
 
 <script setup lang="ts">
 
-import { QRCodeDisplay, supabaseGreenPreset } from './QRCode'
+import { ref, computed, watch, onMounted } from 'vue'
+import { QRCodeDisplay, supabaseGreenPreset, preloadCommonLogos } from './QRCode'
 
 interface Props {
   visible: boolean
@@ -238,6 +239,15 @@ const downloadQrCode = () => {
     console.error('下载失败:', error)
   }
 }
+
+// 组件挂载时预加载常用Logo
+onMounted(async () => {
+  try {
+    await preloadCommonLogos()
+  } catch (error) {
+    console.warn('Failed to preload common logos:', error)
+  }
+})
 
 // 监听visible变化
 watch(() => props.visible, (newVisible) => {

@@ -13,8 +13,18 @@ import type {
   Options as StyledQRCodeProps
 } from 'qr-code-styling'
 import QRCodeStyling from 'qr-code-styling'
-import { onMounted, ref, watch, nextTick, computed } from 'vue'
+import { onMounted, ref, watch, nextTick, computed, onUnmounted } from 'vue'
 import type { Preset } from './presets'
+import { imageLoader } from './image-utils'
+
+// 防抖函数
+const debounce = (fn: Function, delay: number) => {
+  let timeoutId: NodeJS.Timeout
+  return (...args: any[]) => {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn(...args), delay)
+  }
+}
 
 // Props
 interface Props {
@@ -78,10 +88,27 @@ const containerStyle = computed(() => {
   }
 })
 
+// 生成配置键，用于缓存
+const generateConfigKey = () => {
+  if (props.preset) {
+    return `${props.preset.name}-${props.data}-${props.width}-${props.height}-${props.customImage || props.preset.image}-${props.errorCorrectionLevel}`
+  }
+  return `${props.data}-${props.width}-${props.height}-${props.foregroundColor}-${props.backgroundColor}-${props.customImage}-${props.dotType}-${props.cornerSquareType}-${props.cornerDotType}-${props.errorCorrectionLevel}-${props.margin}-${props.type}`
+}
+
 // 获取当前配置
 const getCurrentConfig = () => {
+  const configKey = generateConfigKey()
+
+  // 如果配置未变化，返回缓存的配置
+  if (lastConfig && configKey === lastConfigKey) {
+    return lastConfig
+  }
+
+  let config: any
+
   if (props.preset) {
-    return {
+    config = {
       data: props.data,
       width: props.preset.width,
       height: props.preset.height,
@@ -102,40 +129,46 @@ const getCurrentConfig = () => {
         errorCorrectionLevel: props.errorCorrectionLevel
       }
     }
-  }
-
-  return {
-    data: props.data,
-    width: props.width,
-    height: props.height,
-    type: props.type,
-    margin: props.margin,
-    image: props.customImage,
-    imageOptions: {
-      margin: props.customImageOptions?.margin ?? 0,
-      hideBackgroundDots: props.customImageOptions?.hideBackgroundDots ?? false,
-      imageSize: props.customImageOptions?.imageSize ?? 0.4,
-      crossOrigin: props.customImageOptions?.crossOrigin ?? undefined
-    },
-    dotsOptions: {
-      color: props.foregroundColor,
-      type: props.dotType
-    },
-    backgroundOptions: {
-      color: props.backgroundColor
-    },
-    cornersSquareOptions: {
-      color: props.foregroundColor,
-      type: props.cornerSquareType
-    },
-    cornersDotOptions: {
-      color: props.foregroundColor,
-      type: props.cornerDotType
-    },
-    qrOptions: {
-      errorCorrectionLevel: props.errorCorrectionLevel
+  } else {
+    config = {
+      data: props.data,
+      width: props.width,
+      height: props.height,
+      type: props.type,
+      margin: props.margin,
+      image: props.customImage,
+      imageOptions: {
+        margin: props.customImageOptions?.margin ?? 0,
+        hideBackgroundDots: props.customImageOptions?.hideBackgroundDots ?? false,
+        imageSize: props.customImageOptions?.imageSize ?? 0.4,
+        crossOrigin: props.customImageOptions?.crossOrigin ?? undefined
+      },
+      dotsOptions: {
+        color: props.foregroundColor,
+        type: props.dotType
+      },
+      backgroundOptions: {
+        color: props.backgroundColor
+      },
+      cornersSquareOptions: {
+        color: props.foregroundColor,
+        type: props.cornerSquareType
+      },
+      cornersDotOptions: {
+        color: props.foregroundColor,
+        type: props.cornerDotType
+      },
+      qrOptions: {
+        errorCorrectionLevel: props.errorCorrectionLevel
+      }
     }
   }
+
+  // 缓存配置
+  lastConfig = config
+  lastConfigKey = configKey
+
+  return config
 }
 
 // 初始化 QR Code
@@ -178,20 +211,69 @@ defineExpose({
   downloadJPG
 })
 
-// 监听 props 变化
-watch(
-  () => props,
-  () => {
-    nextTick(() => {
-      updateQRCode()
-    })
-  },
-  { deep: true }
-)
+// 配置对象缓存
+let lastConfig: any = null
+let lastConfigKey = ''
+
+// 监听关键 props 变化
+watch([
+  () => props.data,
+  () => props.preset,
+  () => props.width,
+  () => props.height,
+  () => props.foregroundColor,
+  () => props.backgroundColor,
+  () => props.customImage,
+  () => props.customImageOptions,
+  () => props.dotType,
+  () => props.cornerSquareType,
+  () => props.cornerDotType,
+  () => props.errorCorrectionLevel,
+  () => props.margin,
+  () => props.type
+], async () => {
+  // 预加载新图片
+  const config = getCurrentConfig()
+  if (config.image) {
+    try {
+      await imageLoader.preloadImage(config.image)
+    } catch (error) {
+      console.warn('Failed to preload QR code image:', error)
+    }
+  }
+
+  nextTick(() => {
+    debouncedUpdateQRCode()
+  })
+})
+
+// 防抖更新，避免频繁重绘
+const debouncedUpdateQRCode = debounce(updateQRCode, 50)
 
 // 组件挂载
-onMounted(() => {
+onMounted(async () => {
+  // 预加载当前配置中的图片
+  const config = getCurrentConfig()
+  if (config.image) {
+    try {
+      await imageLoader.preloadImage(config.image)
+    } catch (error) {
+      console.warn('Failed to preload QR code image:', error)
+    }
+  }
+
   initQRCode()
+})
+
+// 组件卸载时清理
+onUnmounted(() => {
+  if (qrCodeInstance) {
+    // 清理 QRCode 实例
+    qrCodeInstance = null
+  }
+  // 清空缓存
+  lastConfig = null
+  lastConfigKey = ''
 })
 </script>
 
