@@ -301,15 +301,6 @@
 </template>
 
 <script setup lang="ts">
-// 页面元数据
-useHead({
-  title: '老九网盘资源数据库 - 首页',
-  meta: [
-    { name: 'description', content: '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘' },
-    { name: 'keywords', content: '网盘资源,资源管理,数据库' }
-  ]
-})
-
 // 获取运行时配置
 const config = useRuntimeConfig()
 
@@ -319,6 +310,93 @@ const resourceApi = useResourceApi()
 const statsApi = useStatsApi()
 const panApi = usePanApi()
 const publicSystemConfigApi = usePublicSystemConfigApi()
+
+// 页面元数据 - 使用系统配置的标题
+const { data: systemConfigData } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
+
+// 获取平台名称的辅助函数
+const getPlatformName = (platformId: string) => {
+  if (!platformId) return ''
+  const platform = platforms.value.find((p: any) => p.id == platformId)
+  return platform?.name || ''
+}
+
+// 动态生成页面标题和meta信息
+const pageTitle = computed(() => {
+  const config = systemConfigData.value as any
+  const siteTitle = config?.data?.site_title || config?.site_title || '老九网盘资源数据库'
+  const searchKeyword = route.query.search as string || ''
+  const platformId = route.query.platform as string || ''
+  const platformName = getPlatformName(platformId)
+
+  let title = siteTitle
+
+  // 根据搜索条件组合标题
+  if (searchKeyword && platformName) {
+    title = `${searchKeyword} - ${platformName} - ${siteTitle}`
+  } else if (searchKeyword) {
+    title = `${searchKeyword} - 搜索结果 - ${siteTitle}`
+  } else if (platformName) {
+    title = `${platformName} - ${siteTitle}`
+  } else {
+    title = `${siteTitle} - 首页`
+  }
+
+  return title
+})
+
+const pageDescription = computed(() => {
+  const config = systemConfigData.value as any
+  const baseDescription = config?.data?.site_description || config?.site_description || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘'
+
+  const searchKeyword = route.query.search as string || ''
+  const platformId = route.query.platform as string || ''
+  const platformName = getPlatformName(platformId)
+
+  let description = baseDescription
+
+  // 根据搜索条件优化描述
+  if (searchKeyword && platformName) {
+    description = `在${platformName}中搜索"${searchKeyword}"的相关资源。${baseDescription}提供海量${searchKeyword}资源下载，支持多网盘平台。`
+  } else if (searchKeyword) {
+    description = `搜索"${searchKeyword}"的相关资源。${baseDescription}提供海量${searchKeyword}资源下载，支持百度网盘、阿里云盘、夸克网盘等多个平台。`
+  } else if (platformName) {
+    description = `${platformName}资源专区。${baseDescription}专门收录${platformName}平台的优质资源，每日更新。`
+  }
+
+  return description
+})
+
+const pageKeywords = computed(() => {
+  const config = systemConfigData.value as any
+  const baseKeywords = config?.data?.keywords || config?.keywords || '网盘资源,资源管理,数据库'
+
+  const searchKeyword = route.query.search as string || ''
+  const platformId = route.query.platform as string || ''
+  const platformName = getPlatformName(platformId)
+
+  let keywords = baseKeywords
+
+  // 根据搜索条件添加关键词
+  if (searchKeyword) {
+    keywords = `${searchKeyword},${baseKeywords},${searchKeyword}下载,${searchKeyword}资源`
+  }
+
+  if (platformName) {
+    keywords = keywords ? `${platformName},${keywords}` : platformName
+  }
+
+  return keywords
+})
+
+// 设置动态SEO
+useHead(() => ({
+  title: pageTitle.value,
+  meta: [
+    { name: 'description', content: pageDescription.value },
+    { name: 'keywords', content: pageKeywords.value }
+  ]
+}))
 
 // 获取路由参数
 const route = useRoute()
@@ -398,8 +476,8 @@ const { data: statsData, error: statsError } = await useAsyncData('stats', () =>
 // 获取平台数据
 const { data: platformsData, error: platformsError } = await useAsyncData('platforms', () => panApi.getPans())
 
-// 获取系统配置
-const { data: systemConfigData, error: systemConfigError } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
+// 系统配置已在顶部获取，这里处理错误
+const systemConfigError = ref(null)
 
 // 错误处理
 const notification = ref()
