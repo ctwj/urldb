@@ -341,3 +341,17 @@ export const useApiAccessLogApi = () => {
     clearApiAccessLogs
   }
 }
+
+// 系统日志管理API
+export const useSystemLogApi = () => {
+  const getSystemLogs = (params?: any) => useApiFetch('/api/system-logs', { params }).then(parseApiResponse)
+  const getSystemLogFiles = () => useApiFetch('/api/system-logs/files').then(parseApiResponse)
+  const getSystemLogSummary = () => useApiFetch('/api/system-logs/summary').then(parseApiResponse)
+  const clearSystemLogs = (days: number) => useApiFetch('/api/system-logs', { method: 'DELETE', body: { days } }).then(parseApiResponse)
+  return {
+    getSystemLogs,
+    getSystemLogFiles,
+    getSystemLogSummary,
+    clearSystemLogs
+  }
+}

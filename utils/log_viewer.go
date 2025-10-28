@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,11 +14,23 @@ import (
 
 // LogEntry 日志条目
 type LogEntry struct {
-	Timestamp time.Time
-	Level     string
-	Message   string
-	File      string
-	Line      int
+	Timestamp time.Time `json:"timestamp"`
+	Level     string    `json:"level"`
+	Message   string    `json:"message"`
+	File      string    `json:"file"`
+	Line      int       `json:"line"`
+}
+
+// 为LogEntry实现自定义JSON序列化
+func (le LogEntry) MarshalJSON() ([]byte, error) {
+	type Alias LogEntry
+	return json.Marshal(&struct {
+		*Alias
+		Timestamp string `json:"timestamp"`
+	}{
+		Alias:     (*Alias)(&le),
+		Timestamp: le.Timestamp.Format("2006-01-02T15:04:05Z07:00"),
+	})
 }
 
 // LogViewer 日志查看器
@@ -199,6 +212,76 @@ func (lv *LogViewer) GetLogStats(files []string) (map[string]int, error) {
 	}
 
 	return stats, nil
+}
+
+// ParseLogEntriesFromFile 从文件中解析日志条目
+func (lv *LogViewer) ParseLogEntriesFromFile(filename string, levelFilter string, searchFilter string) ([]LogEntry, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var results []LogEntry
+	scanner := bufio.NewScanner(file)
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := scanner.Text()
+
+		// 如果指定了级别过滤器，检查日志级别
+		if levelFilter != "" {
+			levelPrefix := "[" + strings.ToUpper(levelFilter) + "]"
+			if !strings.Contains(line, levelPrefix) {
+				continue
+			}
+		}
+
+		// 如果指定了搜索过滤器，检查是否包含搜索词
+		if searchFilter != "" {
+			if !strings.Contains(strings.ToLower(line), strings.ToLower(searchFilter)) {
+				continue
+			}
+		}
+
+		entry := lv.parseLogLine(line)
+		// 如果解析失败且行不为空，创建一个基本条目
+		if entry.Message == line && entry.Level == "" {
+			// 尝试从行中提取级别
+			if strings.Contains(line, "[DEBUG]") {
+				entry.Level = "DEBUG"
+			} else if strings.Contains(line, "[INFO]") {
+				entry.Level = "INFO"
+			} else if strings.Contains(line, "[WARN]") {
+				entry.Level = "WARN"
+			} else if strings.Contains(line, "[ERROR]") {
+				entry.Level = "ERROR"
+			} else if strings.Contains(line, "[FATAL]") {
+				entry.Level = "FATAL"
+			} else {
+				entry.Level = "UNKNOWN"
+			}
+		}
+		results = append(results, entry)
+	}
+
+	return results, scanner.Err()
+}
+
+// SortLogEntriesByTime 按时间对日志条目进行排序
+func SortLogEntriesByTime(entries []LogEntry, ascending bool) {
+	sort.Slice(entries, func(i, j int) bool {
+		if ascending {
+			return entries[i].Timestamp.Before(entries[j].Timestamp)
+		}
+		return entries[i].Timestamp.After(entries[j].Timestamp)
+	})
+}
+
+// GetFileInfo 获取文件信息
+func GetFileInfo(filepath string) (os.FileInfo, error) {
+	return os.Stat(filepath)
 }
 
 // getFileStats 获取单个文件的统计信息

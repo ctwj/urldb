@@ -307,6 +307,12 @@ func main() {
 		api.GET("/api-access-logs/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetAPIAccessLogStats)
 		api.DELETE("/api-access-logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ClearAPIAccessLogs)
 
+		// 系统日志路由
+		api.GET("/system-logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemLogs)
+		api.GET("/system-logs/files", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemLogFiles)
+		api.GET("/system-logs/summary", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemLogSummary)
+		api.DELETE("/system-logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ClearSystemLogs)
+
 		// 系统配置路由
 		api.GET("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemConfig)
 		api.POST("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSystemConfig)

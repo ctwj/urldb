@@ -408,6 +408,12 @@ const userMenuItems = computed(() => [
     type: 'link'
   },
   {
+    to: '/admin/system-logs',
+    icon: 'fas fa-file-alt',
+    label: '系统日志',
+    type: 'link'
+  },
+  {
     to: '/admin/version',
     icon: 'fas fa-code-branch',
     label: '版本信息',

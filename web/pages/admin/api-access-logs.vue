@@ -186,7 +186,7 @@
     </template>
   </AdminPageLayout>
 
-  <!-- 请求参数详情模态框 -->
+    <!-- 请求参数详情模态框 -->
   <n-modal v-model:show="showModal" preset="card" title="请求参数详情" style="min-width: 600px;">
     <n-code
       :code="selectedParams"
@@ -197,6 +197,16 @@
     />
   </n-modal>
 
+  <!-- 请求参数详情模态框 -->
+  <n-modal v-model:show="showModal" preset="card" title="请求参数详情" style="min-width: 600px;">
+    <n-code
+      :code="selectedParams"
+      language="json"
+      :folding="true"
+      :show-line-numbers="true"
+      class="bg-gray-100 dark:bg-gray-700 p-4 rounded max-h-96 overflow-auto"
+    />
+  </n-modal>
 </template>
 
 <script setup lang="ts">
