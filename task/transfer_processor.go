@@ -51,20 +51,42 @@ type TransferOutput struct {
 
 // Process 处理转存任务项
 func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *entity.TaskItem) error {
-	utils.Info("开始处理转存任务项: %d", item.ID)
+	startTime := utils.GetCurrentTime()
+	utils.InfoWithFields(map[string]interface{}{
+		"task_item_id": item.ID,
+		"task_id":      taskID,
+	}, "开始处理转存任务项: %d", item.ID)
 
 	// 解析输入数据
+	parseStart := utils.GetCurrentTime()
 	var input TransferInput
 	if err := json.Unmarshal([]byte(item.InputData), &input); err != nil {
+		parseDuration := time.Since(parseStart)
+		utils.ErrorWithFields(map[string]interface{}{
+		"error":       err.Error(),
+		"duration_ms": parseDuration.Milliseconds(),
+	}, "解析输入数据失败: %v，耗时: %v", err, parseDuration)
 		return fmt.Errorf("解析输入数据失败: %v", err)
 	}
+	parseDuration := time.Since(parseStart)
+	utils.DebugWithFields(map[string]interface{}{
+		"duration_ms": parseDuration.Milliseconds(),
+	}, "解析输入数据完成，耗时: %v", parseDuration)
 
 	// 验证输入数据
+	validateStart := utils.GetCurrentTime()
 	if err := tp.validateInput(&input); err != nil {
+		validateDuration := time.Since(validateStart)
+		utils.Error("输入数据验证失败: %v，耗时: %v", err, validateDuration)
 		return fmt.Errorf("输入数据验证失败: %v", err)
 	}
+	validateDuration := time.Since(validateStart)
+	utils.DebugWithFields(map[string]interface{}{
+		"duration_ms": validateDuration.Milliseconds(),
+	}, "输入数据验证完成，耗时: %v", validateDuration)
 
 	// 获取任务配置中的账号信息
+	configStart := utils.GetCurrentTime()
 	var selectedAccounts []uint
 	task, err := tp.repoMgr.TaskRepository.GetByID(taskID)
 	if err == nil && task.Config != "" {
@@ -79,15 +101,21 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 			}
 		}
 	}
+	configDuration := time.Since(configStart)
+	utils.Debug("获取任务配置完成，耗时: %v", configDuration)
 
 	if len(selectedAccounts) == 0 {
 		utils.Error("失败: %v", "没有指定转存账号")
 	}
 
 	// 检查资源是否已存在
+	checkStart := utils.GetCurrentTime()
 	exists, existingResource, err := tp.checkResourceExists(input.URL)
+	checkDuration := time.Since(checkStart)
 	if err != nil {
-		utils.Error("检查资源是否存在失败: %v", err)
+		utils.Error("检查资源是否存在失败: %v，耗时: %v", err, checkDuration)
+	} else {
+		utils.Debug("检查资源是否存在完成，耗时: %v", checkDuration)
 	}
 
 	if exists {
@@ -107,19 +135,26 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 			outputJSON, _ := json.Marshal(output)
 			item.OutputData = string(outputJSON)
 
-			utils.Info("资源已存在且有转存链接，跳过转存: %s", input.Title)
+			elapsedTime := time.Since(startTime)
+			utils.Info("资源已存在且有转存链接，跳过转存: %s，总耗时: %v", input.Title, elapsedTime)
 			return nil
 		}
 	}
 
 	// 查询出 账号列表
+	cksStart := utils.GetCurrentTime()
 	cks, err := tp.repoMgr.CksRepository.FindByIds(selectedAccounts)
+	cksDuration := time.Since(cksStart)
 	if err != nil {
-		utils.Error("读取账号失败: %v", err)
+		utils.Error("读取账号失败: %v，耗时: %v", err, cksDuration)
+	} else {
+		utils.Debug("读取账号完成，账号数量: %d，耗时: %v", len(cks), cksDuration)
 	}
 
 	// 执行转存操作
+	transferStart := utils.GetCurrentTime()
 	resourceID, saveURL, err := tp.performTransfer(ctx, &input, cks)
+	transferDuration := time.Since(transferStart)
 	if err != nil {
 		// 转存失败，更新输出数据
 		output := TransferOutput{
@@ -131,7 +166,13 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 		outputJSON, _ := json.Marshal(output)
 		item.OutputData = string(outputJSON)
 
-		utils.Error("转存任务项处理失败: %d, 错误: %v", item.ID, err)
+		elapsedTime := time.Since(startTime)
+		utils.ErrorWithFields(map[string]interface{}{
+			"task_item_id": item.ID,
+			"error":        err.Error(),
+			"duration_ms":  transferDuration.Milliseconds(),
+			"total_ms":     elapsedTime.Milliseconds(),
+		}, "转存任务项处理失败: %d, 错误: %v，转存耗时: %v，总耗时: %v", item.ID, err, transferDuration, elapsedTime)
 		return fmt.Errorf("转存失败: %v", err)
 	}
 
@@ -146,7 +187,8 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 		outputJSON, _ := json.Marshal(output)
 		item.OutputData = string(outputJSON)
 
-		utils.Error("转存任务项处理失败: %d, 未获取到分享链接", item.ID)
+		elapsedTime := time.Since(startTime)
+		utils.Error("转存任务项处理失败: %d, 未获取到分享链接，总耗时: %v", item.ID, elapsedTime)
 		return fmt.Errorf("转存成功但未获取到分享链接")
 	}
 
@@ -161,7 +203,14 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 	outputJSON, _ := json.Marshal(output)
 	item.OutputData = string(outputJSON)
 
-	utils.Info("转存任务项处理完成: %d, 资源ID: %d, 转存链接: %s", item.ID, resourceID, saveURL)
+	elapsedTime := time.Since(startTime)
+	utils.InfoWithFields(map[string]interface{}{
+		"task_item_id":     item.ID,
+		"resource_id":      resourceID,
+		"save_url":         saveURL,
+		"transfer_duration_ms": transferDuration.Milliseconds(),
+		"total_duration_ms":    elapsedTime.Milliseconds(),
+	}, "转存任务项处理完成: %d, 资源ID: %d, 转存链接: %s，转存耗时: %v，总耗时: %v", item.ID, resourceID, saveURL, transferDuration, elapsedTime)
 	return nil
 }
 

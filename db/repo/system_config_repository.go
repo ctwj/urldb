@@ -3,6 +3,7 @@ package repo
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/utils"
@@ -100,8 +101,11 @@ func (r *SystemConfigRepositoryImpl) UpsertConfigs(configs []entity.SystemConfig
 
 // GetOrCreateDefault 获取配置或创建默认配置
 func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig, error) {
+	startTime := utils.GetCurrentTime()
 	configs, err := r.FindAll()
+	initialQueryDuration := time.Since(startTime)
 	if err != nil {
+		utils.Error("获取所有系统配置失败: %v，耗时: %v", err, initialQueryDuration)
 		return nil, err
 	}
 
@@ -141,11 +145,16 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyQrCodeStyle, Value: entity.ConfigDefaultQrCodeStyle, Type: entity.ConfigTypeString},
 		}
 
+		createStart := utils.GetCurrentTime()
 		err = r.UpsertConfigs(defaultConfigs)
+		createDuration := time.Since(createStart)
 		if err != nil {
+			utils.Error("创建默认系统配置失败: %v，耗时: %v", err, createDuration)
 			return nil, err
 		}
 
+		totalDuration := time.Since(startTime)
+		utils.Info("创建默认系统配置成功，数量: %d，总耗时: %v", len(defaultConfigs), totalDuration)
 		return defaultConfigs, nil
 	}
 
@@ -198,17 +207,24 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 
 	// 如果有缺失的配置项，则添加它们
 	if len(missingConfigs) > 0 {
+		upsertStart := utils.GetCurrentTime()
 		err = r.UpsertConfigs(missingConfigs)
+		upsertDuration := time.Since(upsertStart)
 		if err != nil {
+			utils.Error("添加缺失的系统配置失败: %v，耗时: %v", err, upsertDuration)
 			return nil, err
 		}
+		utils.Debug("添加缺失的系统配置完成，数量: %d，耗时: %v", len(missingConfigs), upsertDuration)
 		// 重新获取所有配置
 		configs, err = r.FindAll()
 		if err != nil {
+			utils.Error("重新获取所有系统配置失败: %v", err)
 			return nil, err
 		}
 	}
 
+	totalDuration := time.Since(startTime)
+	utils.Debug("GetOrCreateDefault完成，总数: %d，总耗时: %v", len(configs), totalDuration)
 	return configs, nil
 }
 

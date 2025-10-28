@@ -130,6 +130,10 @@ func UpdateSystemConfig(c *gin.Context) {
 		return
 	}
 
+	adminUsername, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("UpdateSystemConfig - 管理员更新系统配置 - 管理员: %s, IP: %s", adminUsername, clientIP)
+
 	// 调试信息
 	utils.Info("接收到的配置请求: %+v", req)
 
@@ -319,6 +323,10 @@ func ToggleAutoProcess(c *gin.Context) {
 		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
 		return
 	}
+
+	adminUsername, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("ToggleAutoProcess - 管理员切换自动处理配置 - 管理员: %s, 启用: %t, IP: %s", adminUsername, req.AutoProcessReadyResources, clientIP)
 
 	// 获取当前配置
 	configs, err := repoManager.SystemConfigRepository.GetOrCreateDefault()

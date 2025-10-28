@@ -148,6 +148,11 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 		return
 	}
 
+	// 记录API访问安全日志
+	clientIP := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	utils.Info("PublicAPI.AddBatchResources - API访问 - IP: %s, UserAgent: %s, 资源数量: %d", clientIP, userAgent, len(req.Resources))
+
 	// 收集所有待提交的URL，去重
 	urlSet := make(map[string]struct{})
 	for _, resource := range req.Resources {
@@ -238,13 +243,18 @@ func (h *PublicAPIHandler) AddBatchResources(c *gin.Context) {
 func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 	startTime := time.Now()
 
-	// 获取查询参数
+	// 记录API访问安全日志
+	clientIP := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
 	keyword := c.Query("keyword")
 	tag := c.Query("tag")
 	category := c.Query("category")
 	panID := c.Query("pan_id")
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "20")
+
+	utils.Info("PublicAPI.SearchResources - API访问 - IP: %s, UserAgent: %s, Keyword: %s, Tag: %s, Category: %s, PanID: %s",
+		clientIP, userAgent, keyword, tag, category, panID)
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
@@ -402,8 +412,13 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 func (h *PublicAPIHandler) GetHotDramas(c *gin.Context) {
 	startTime := time.Now()
 
+	// 记录API访问安全日志
+	clientIP := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "20")
+
+	utils.Info("PublicAPI.GetHotDramas - API访问 - IP: %s, UserAgent: %s", clientIP, userAgent)
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {

@@ -1,12 +1,14 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -40,6 +42,16 @@ func (l LogLevel) String() string {
 	}
 }
 
+// StructuredLogEntry 结构化日志条目
+type StructuredLogEntry struct {
+	Timestamp time.Time         `json:"timestamp"`
+	Level     string            `json:"level"`
+	Message   string            `json:"message"`
+	Caller    string            `json:"caller"`
+	Module    string            `json:"module"`
+	Fields    map[string]interface{} `json:"fields,omitempty"`
+}
+
 // Logger 统一日志器
 type Logger struct {
 	debugLogger *log.Logger
@@ -63,20 +75,70 @@ type LogConfig struct {
 	EnableConsole  bool     // 是否启用控制台输出
 	EnableFile     bool     // 是否启用文件输出
 	EnableRotation bool     // 是否启用日志轮转
+	StructuredLog  bool     // 是否启用结构化日志格式
 }
 
 // DefaultConfig 默认配置
 func DefaultConfig() *LogConfig {
+	// 从环境变量获取日志级别，默认为INFO
+	logLevel := getLogLevelFromEnv()
+
 	return &LogConfig{
 		LogDir:         "logs",
-		LogLevel:       INFO,
+		LogLevel:       logLevel,
 		MaxFileSize:    100, // 100MB
 		MaxBackups:     5,
 		MaxAge:         30, // 30天
 		EnableConsole:  true,
 		EnableFile:     true,
 		EnableRotation: true,
+		StructuredLog:  os.Getenv("STRUCTURED_LOG") == "true", // 从环境变量控制结构化日志
 	}
+}
+
+// getLogLevelFromEnv 从环境变量获取日志级别
+func getLogLevelFromEnv() LogLevel {
+	envLogLevel := os.Getenv("LOG_LEVEL")
+	envDebug := os.Getenv("DEBUG")
+
+	// 如果设置了DEBUG环境变量为true，则使用DEBUG级别
+	if envDebug == "true" || envDebug == "1" {
+		return DEBUG
+	}
+
+	// 根据LOG_LEVEL环境变量设置日志级别
+	switch strings.ToUpper(envLogLevel) {
+	case "DEBUG":
+		return DEBUG
+	case "INFO":
+		return INFO
+	case "WARN", "WARNING":
+		return WARN
+	case "ERROR":
+		return ERROR
+	case "FATAL":
+		return FATAL
+	default:
+		// 根据运行环境设置默认级别：开发环境DEBUG，生产环境INFO
+		if isDevelopment() {
+			return DEBUG
+		}
+		return INFO
+	}
+}
+
+// isDevelopment 判断是否为开发环境
+func isDevelopment() bool {
+	env := os.Getenv("GO_ENV")
+	return env == "development" || env == "dev" || env == "local" || env == "test"
+}
+
+// getEnvironment 获取当前环境类型
+func (l *Logger) getEnvironment() string {
+	if isDevelopment() {
+		return "development"
+	}
+	return "production"
 }
 
 var (
@@ -134,6 +196,11 @@ func NewLogger(config *LogConfig) (*Logger, error) {
 	if config.EnableRotation {
 		go logger.startRotationCheck()
 	}
+
+	// 打印日志配置信息
+	logger.Info("日志系统初始化完成 - 级别: %s, 环境: %s",
+		config.LogLevel.String(),
+		logger.getEnvironment())
 
 	return logger, nil
 }
@@ -200,26 +267,55 @@ func (l *Logger) log(level LogLevel, format string, args ...interface{}) {
 		line = 0
 	}
 
-	// 提取文件名
+	// 提取文件名作为模块名
 	fileName := filepath.Base(file)
+	moduleName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
 	// 格式化消息
 	message := fmt.Sprintf(format, args...)
 
 	// 添加调用位置信息
-	fullMessage := fmt.Sprintf("[%s:%d] %s", fileName, line, message)
+	caller := fmt.Sprintf("%s:%d", fileName, line)
 
+	if l.config.StructuredLog {
+		// 结构化日志格式
+		entry := StructuredLogEntry{
+			Timestamp: GetCurrentTime(),
+			Level:     level.String(),
+			Message:   message,
+			Caller:    caller,
+			Module:    moduleName,
+		}
+
+		jsonBytes, err := json.Marshal(entry)
+		if err != nil {
+			// 如果JSON序列化失败，回退到普通格式
+			fullMessage := fmt.Sprintf("[%s] [%s:%d] %s", level.String(), fileName, line, message)
+			l.logToLevel(level, fullMessage)
+			return
+		}
+
+		l.logToLevel(level, string(jsonBytes))
+	} else {
+		// 普通文本格式
+		fullMessage := fmt.Sprintf("[%s] [%s:%d] %s", level.String(), fileName, line, message)
+		l.logToLevel(level, fullMessage)
+	}
+}
+
+// logToLevel 根据级别输出日志
+func (l *Logger) logToLevel(level LogLevel, message string) {
 	switch level {
 	case DEBUG:
-		l.debugLogger.Println(fullMessage)
+		l.debugLogger.Println(message)
 	case INFO:
-		l.infoLogger.Println(fullMessage)
+		l.infoLogger.Println(message)
 	case WARN:
-		l.warnLogger.Println(fullMessage)
+		l.warnLogger.Println(message)
 	case ERROR:
-		l.errorLogger.Println(fullMessage)
+		l.errorLogger.Println(message)
 	case FATAL:
-		l.fatalLogger.Println(fullMessage)
+		l.fatalLogger.Println(message)
 		os.Exit(1)
 	}
 }
@@ -328,15 +424,83 @@ func (l *Logger) cleanOldLogs() {
 	}
 }
 
-// Close 关闭日志器
-func (l *Logger) Close() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.file != nil {
-		return l.file.Close()
+// Min 返回两个整数中的较小值
+func Min(a, b int) int {
+	if a < b {
+		return a
 	}
-	return nil
+	return b
+}
+
+// 结构化日志方法
+func (l *Logger) DebugWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	l.logWithFields(DEBUG, fields, format, args...)
+}
+
+func (l *Logger) InfoWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	l.logWithFields(INFO, fields, format, args...)
+}
+
+func (l *Logger) WarnWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	l.logWithFields(WARN, fields, format, args...)
+}
+
+func (l *Logger) ErrorWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	l.logWithFields(ERROR, fields, format, args...)
+}
+
+func (l *Logger) FatalWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	l.logWithFields(FATAL, fields, format, args...)
+}
+
+// logWithFields 带字段的结构化日志方法
+func (l *Logger) logWithFields(level LogLevel, fields map[string]interface{}, format string, args ...interface{}) {
+	if level < l.config.LogLevel {
+		return
+	}
+
+	// 获取调用者信息
+	_, file, line, ok := runtime.Caller(2)
+	if !ok {
+		file = "unknown"
+		line = 0
+	}
+
+	// 提取文件名作为模块名
+	fileName := filepath.Base(file)
+	moduleName := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+	// 格式化消息
+	message := fmt.Sprintf(format, args...)
+
+	// 添加调用位置信息
+	caller := fmt.Sprintf("%s:%d", fileName, line)
+
+	if l.config.StructuredLog {
+		// 结构化日志格式
+		entry := StructuredLogEntry{
+			Timestamp: GetCurrentTime(),
+			Level:     level.String(),
+			Message:   message,
+			Caller:    caller,
+			Module:    moduleName,
+			Fields:    fields,
+		}
+
+		jsonBytes, err := json.Marshal(entry)
+		if err != nil {
+			// 如果JSON序列化失败，回退到普通格式
+			fullMessage := fmt.Sprintf("[%s] [%s:%d] %s - Fields: %v", level.String(), fileName, line, message, fields)
+			l.logToLevel(level, fullMessage)
+			return
+		}
+
+		l.logToLevel(level, string(jsonBytes))
+	} else {
+		// 普通文本格式
+		fullMessage := fmt.Sprintf("[%s] [%s:%d] %s - Fields: %v", level.String(), fileName, line, message, fields)
+		l.logToLevel(level, fullMessage)
+	}
 }
 
 // 全局便捷函数
@@ -358,4 +522,25 @@ func Error(format string, args ...interface{}) {
 
 func Fatal(format string, args ...interface{}) {
 	GetLogger().Fatal(format, args...)
+}
+
+// 全局结构化日志便捷函数
+func DebugWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	GetLogger().DebugWithFields(fields, format, args...)
+}
+
+func InfoWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	GetLogger().InfoWithFields(fields, format, args...)
+}
+
+func WarnWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	GetLogger().WarnWithFields(fields, format, args...)
+}
+
+func ErrorWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	GetLogger().ErrorWithFields(fields, format, args...)
+}
+
+func FatalWithFields(fields map[string]interface{}, format string, args ...interface{}) {
+	GetLogger().FatalWithFields(fields, format, args...)
 }

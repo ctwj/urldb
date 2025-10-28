@@ -27,11 +27,14 @@ type Claims struct {
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		// utils.Info("AuthMiddleware - 收到请求: %s %s", c.Request.Method, c.Request.URL.Path)
-		// utils.Info("AuthMiddleware - Authorization头: %s", authHeader)
+		clientIP := c.ClientIP()
+		userAgent := c.Request.UserAgent()
+
+		utils.Debug("AuthMiddleware - 认证请求: %s %s, IP: %s, UserAgent: %s",
+			c.Request.Method, c.Request.URL.Path, clientIP, userAgent)
 
 		if authHeader == "" {
-			utils.Error("AuthMiddleware - 未提供认证令牌")
+			utils.Warn("AuthMiddleware - 未提供认证令牌 - IP: %s, Path: %s", clientIP, c.Request.URL.Path)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未提供认证令牌"})
 			c.Abort()
 			return
@@ -39,29 +42,31 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// 检查Bearer前缀
 		if !strings.HasPrefix(authHeader, "Bearer ") {
-			// utils.Error("AuthMiddleware - 无效的认证格式: %s", authHeader)
+			utils.Warn("AuthMiddleware - 无效的认证格式 - IP: %s, Header: %s", clientIP, authHeader)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的认证格式"})
 			c.Abort()
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		// utils.Info("AuthMiddleware - 解析令牌: %s", tokenString[:10]+"...")
+		utils.Debug("AuthMiddleware - 解析令牌: %s...", tokenString[:utils.Min(len(tokenString), 10)])
 
 		claims, err := parseToken(tokenString)
 		if err != nil {
-			// utils.Error("AuthMiddleware - 令牌解析失败: %v", err)
+			utils.Warn("AuthMiddleware - 令牌解析失败 - IP: %s, Error: %v", clientIP, err)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的令牌"})
 			c.Abort()
 			return
 		}
 
-		// utils.Info("AuthMiddleware - 令牌验证成功，用户: %s, 角色: %s", claims.Username, claims.Role)
+		utils.Info("AuthMiddleware - 认证成功 - 用户: %s(ID:%d), 角色: %s, IP: %s",
+			claims.Username, claims.UserID, claims.Role, clientIP)
 
 		// 将用户信息存储到上下文中
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
+		c.Set("client_ip", clientIP)
 
 		c.Next()
 	}
@@ -71,18 +76,23 @@ func AuthMiddleware() gin.HandlerFunc {
 func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
+		username, _ := c.Get("username")
+		clientIP, _ := c.Get("client_ip")
+
 		if !exists {
-			// c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
+			utils.Warn("AdminMiddleware - 未认证访问管理员接口 - IP: %s, Path: %s", clientIP, c.Request.URL.Path)
 			c.Abort()
 			return
 		}
 
 		if role != "admin" {
-			// c.JSON(http.StatusForbidden, gin.H{"error": "需要管理员权限"})
+			utils.Warn("AdminMiddleware - 非管理员用户尝试访问管理员接口 - 用户: %s, 角色: %s, IP: %s, Path: %s",
+				username, role, clientIP, c.Request.URL.Path)
 			c.Abort()
 			return
 		}
 
+		utils.Debug("AdminMiddleware - 管理员访问接口 - 用户: %s, IP: %s, Path: %s", username, clientIP, c.Request.URL.Path)
 		c.Next()
 	}
 }

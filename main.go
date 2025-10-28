@@ -41,7 +41,6 @@ func main() {
 	if err := utils.InitLogger(nil); err != nil {
 		log.Fatal("初始化日志系统失败:", err)
 	}
-	defer utils.GetLogger().Close()
 
 	// 加载环境变量
 	if err := godotenv.Load(); err != nil {

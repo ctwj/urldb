@@ -128,6 +128,11 @@ PORT=8080
 
 # 时区配置
 TIMEZONE=Asia/Shanghai
+
+# 日志配置
+LOG_LEVEL=INFO          # 日志级别 (DEBUG, INFO, WARN, ERROR, FATAL)
+DEBUG=false             # 调试模式开关
+STRUCTURED_LOG=false    # 结构化日志开关 (JSON格式)
 ```
 ---
 

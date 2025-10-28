@@ -1,7 +1,10 @@
 package repo
 
 import (
+	"time"
+
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 
 	"gorm.io/gorm"
 )
@@ -66,20 +69,28 @@ func (r *CksRepositoryImpl) FindAll() ([]entity.Cks, error) {
 
 // FindByID 根据ID查找Cks，预加载Pan关联数据
 func (r *CksRepositoryImpl) FindByID(id uint) (*entity.Cks, error) {
+	startTime := utils.GetCurrentTime()
 	var cks entity.Cks
 	err := r.db.Preload("Pan").First(&cks, id).Error
+	queryDuration := time.Since(startTime)
 	if err != nil {
+		utils.Debug("FindByID失败: ID=%d, 错误=%v, 查询耗时=%v", id, err, queryDuration)
 		return nil, err
 	}
+	utils.Debug("FindByID成功: ID=%d, 查询耗时=%v", id, queryDuration)
 	return &cks, nil
 }
 
 func (r *CksRepositoryImpl) FindByIds(ids []uint) ([]*entity.Cks, error) {
+	startTime := utils.GetCurrentTime()
 	var cks []*entity.Cks
 	err := r.db.Preload("Pan").Where("id IN ?", ids).Find(&cks).Error
+	queryDuration := time.Since(startTime)
 	if err != nil {
+		utils.Debug("FindByIds失败: IDs数量=%d, 错误=%v, 查询耗时=%v", len(ids), err, queryDuration)
 		return nil, err
 	}
+	utils.Debug("FindByIds成功: 找到%d个账号，查询耗时=%v", len(cks), queryDuration)
 	return cks, nil
 }
 

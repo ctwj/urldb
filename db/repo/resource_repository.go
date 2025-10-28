@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 	"gorm.io/gorm"
 )
 
@@ -201,6 +202,7 @@ func (r *ResourceRepositoryImpl) SearchByPanID(query string, panID uint, page, l
 
 // SearchWithFilters 根据参数进行搜索
 func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}) ([]entity.Resource, int64, error) {
+	startTime := utils.GetCurrentTime()
 	var resources []entity.Resource
 	var total int64
 
@@ -318,8 +320,11 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 	offset := (page - 1) * pageSize
 
 	// 获取分页数据，按更新时间倒序
+	queryStart := utils.GetCurrentTime()
 	err := db.Order("updated_at DESC").Offset(offset).Limit(pageSize).Find(&resources).Error
-	fmt.Printf("查询结果: 总数=%d, 当前页数据量=%d, pageSize=%d\n", total, len(resources), pageSize)
+	queryDuration := time.Since(queryStart)
+	totalDuration := time.Since(startTime)
+	utils.Debug("SearchWithFilters完成: 总数=%d, 当前页数据量=%d, 查询耗时=%v, 总耗时=%v", total, len(resources), queryDuration, totalDuration)
 	return resources, total, err
 }
 
@@ -452,11 +457,15 @@ func (r *ResourceRepositoryImpl) GetResourcesForTransfer(panID uint, sinceTime t
 
 // GetByURL 根据URL获取资源
 func (r *ResourceRepositoryImpl) GetByURL(url string) (*entity.Resource, error) {
+	startTime := utils.GetCurrentTime()
 	var resource entity.Resource
 	err := r.db.Where("url = ?", url).First(&resource).Error
+	queryDuration := time.Since(startTime)
 	if err != nil {
+		utils.Debug("GetByURL失败: URL=%s, 错误=%v, 查询耗时=%v", url, err, queryDuration)
 		return nil, err
 	}
+	utils.Debug("GetByURL成功: URL=%s, 查询耗时=%v", url, queryDuration)
 	return &resource, nil
 }
 

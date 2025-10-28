@@ -1,7 +1,10 @@
 package repo
 
 import (
+	"time"
+
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 	"gorm.io/gorm"
 )
 
@@ -58,8 +61,15 @@ func (r *TaskItemRepositoryImpl) DeleteByTaskID(taskID uint) error {
 
 // GetByTaskIDAndStatus 根据任务ID和状态获取任务项
 func (r *TaskItemRepositoryImpl) GetByTaskIDAndStatus(taskID uint, status string) ([]*entity.TaskItem, error) {
+	startTime := utils.GetCurrentTime()
 	var items []*entity.TaskItem
 	err := r.db.Where("task_id = ? AND status = ?", taskID, status).Order("id ASC").Find(&items).Error
+	queryDuration := time.Since(startTime)
+	if err != nil {
+		utils.Error("GetByTaskIDAndStatus失败: 任务ID=%d, 状态=%s, 错误=%v, 查询耗时=%v", taskID, status, err, queryDuration)
+		return nil, err
+	}
+	utils.Debug("GetByTaskIDAndStatus成功: 任务ID=%d, 状态=%s, 数量=%d, 查询耗时=%v", taskID, status, len(items), queryDuration)
 	return items, err
 }
 
@@ -93,19 +103,36 @@ func (r *TaskItemRepositoryImpl) GetListByTaskID(taskID uint, page, pageSize int
 
 // UpdateStatus 更新任务项状态
 func (r *TaskItemRepositoryImpl) UpdateStatus(id uint, status string) error {
-	return r.db.Model(&entity.TaskItem{}).Where("id = ?", id).Update("status", status).Error
+	startTime := utils.GetCurrentTime()
+	err := r.db.Model(&entity.TaskItem{}).Where("id = ?", id).Update("status", status).Error
+	updateDuration := time.Since(startTime)
+	if err != nil {
+		utils.Error("UpdateStatus失败: ID=%d, 状态=%s, 错误=%v, 更新耗时=%v", id, status, err, updateDuration)
+		return err
+	}
+	utils.Debug("UpdateStatus成功: ID=%d, 状态=%s, 更新耗时=%v", id, status, updateDuration)
+	return nil
 }
 
 // UpdateStatusAndOutput 更新任务项状态和输出数据
 func (r *TaskItemRepositoryImpl) UpdateStatusAndOutput(id uint, status, outputData string) error {
-	return r.db.Model(&entity.TaskItem{}).Where("id = ?", id).Updates(map[string]interface{}{
+	startTime := utils.GetCurrentTime()
+	err := r.db.Model(&entity.TaskItem{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":      status,
 		"output_data": outputData,
 	}).Error
+	updateDuration := time.Since(startTime)
+	if err != nil {
+		utils.Error("UpdateStatusAndOutput失败: ID=%d, 状态=%s, 错误=%v, 更新耗时=%v", id, status, err, updateDuration)
+		return err
+	}
+	utils.Debug("UpdateStatusAndOutput成功: ID=%d, 状态=%s, 更新耗时=%v", id, status, updateDuration)
+	return nil
 }
 
 // GetStatsByTaskID 获取任务项统计信息
 func (r *TaskItemRepositoryImpl) GetStatsByTaskID(taskID uint) (map[string]int, error) {
+	startTime := utils.GetCurrentTime()
 	var results []struct {
 		Status string
 		Count  int
@@ -117,7 +144,9 @@ func (r *TaskItemRepositoryImpl) GetStatsByTaskID(taskID uint) (map[string]int, 
 		Group("status").
 		Find(&results).Error
 
+	queryDuration := time.Since(startTime)
 	if err != nil {
+		utils.Error("GetStatsByTaskID失败: 任务ID=%d, 错误=%v, 查询耗时=%v", taskID, err, queryDuration)
 		return nil, err
 	}
 
@@ -134,12 +163,22 @@ func (r *TaskItemRepositoryImpl) GetStatsByTaskID(taskID uint) (map[string]int, 
 		stats["total"] += result.Count
 	}
 
+	totalDuration := time.Since(startTime)
+	utils.Debug("GetStatsByTaskID成功: 任务ID=%d, 统计信息=%v, 查询耗时=%v, 总耗时=%v", taskID, stats, queryDuration, totalDuration)
 	return stats, nil
 }
 
 // ResetProcessingItems 重置处理中的任务项为pending状态
 func (r *TaskItemRepositoryImpl) ResetProcessingItems(taskID uint) error {
-	return r.db.Model(&entity.TaskItem{}).
+	startTime := utils.GetCurrentTime()
+	err := r.db.Model(&entity.TaskItem{}).
 		Where("task_id = ? AND status = ?", taskID, "processing").
 		Update("status", "pending").Error
+	updateDuration := time.Since(startTime)
+	if err != nil {
+		utils.Error("ResetProcessingItems失败: 任务ID=%d, 错误=%v, 更新耗时=%v", taskID, err, updateDuration)
+		return err
+	}
+	utils.Debug("ResetProcessingItems成功: 任务ID=%d, 更新耗时=%v", taskID, updateDuration)
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
@@ -90,7 +91,9 @@ func (tm *TaskManager) StartTask(taskID uint) error {
 	// 启动后台任务
 	go tm.processTask(ctx, task, processor)
 
-	utils.Info("StartTask: 任务 %d 启动成功", taskID)
+	utils.InfoWithFields(map[string]interface{}{
+		"task_id": taskID,
+	}, "StartTask: 任务 %d 启动成功", taskID)
 	return nil
 }
 
@@ -185,14 +188,19 @@ func (tm *TaskManager) StopTask(taskID uint) error {
 
 // processTask 处理任务
 func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, processor TaskProcessor) {
+	startTime := utils.GetCurrentTime()
 	defer func() {
 		tm.mu.Lock()
 		delete(tm.running, task.ID)
 		tm.mu.Unlock()
-		utils.Debug("processTask: 任务 %d 处理完成，清理资源", task.ID)
+		elapsedTime := time.Since(startTime)
+		utils.Info("processTask: 任务 %d 处理完成，耗时: %v，清理资源", task.ID, elapsedTime)
 	}()
 
-	utils.Debug("processTask: 开始处理任务: %d, 类型: %s", task.ID, task.Type)
+	utils.InfoWithFields(map[string]interface{}{
+		"task_id":   task.ID,
+		"task_type": task.Type,
+	}, "processTask: 开始处理任务: %d, 类型: %s", task.ID, task.Type)
 
 	// 更新任务状态为运行中
 	err := tm.repoMgr.TaskRepository.UpdateStatus(task.ID, "running")
@@ -208,7 +216,9 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 	}
 
 	// 获取任务项统计信息，用于计算正确的进度
+	statsStart := utils.GetCurrentTime()
 	stats, err := tm.repoMgr.TaskItemRepository.GetStatsByTaskID(task.ID)
+	statsDuration := time.Since(statsStart)
 	if err != nil {
 		utils.Error("获取任务项统计失败: %v", err)
 		stats = map[string]int{
@@ -218,14 +228,20 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 			"completed":  0,
 			"failed":     0,
 		}
+	} else {
+		utils.Debug("获取任务项统计完成，耗时: %v", statsDuration)
 	}
 
 	// 获取待处理的任务项
+	itemsStart := utils.GetCurrentTime()
 	items, err := tm.repoMgr.TaskItemRepository.GetByTaskIDAndStatus(task.ID, "pending")
+	itemsDuration := time.Since(itemsStart)
 	if err != nil {
 		utils.Error("获取任务项失败: %v", err)
 		tm.markTaskFailed(task.ID, fmt.Sprintf("获取任务项失败: %v", err))
 		return
+	} else {
+		utils.Debug("获取任务项完成，数量: %d，耗时: %v", len(items), itemsDuration)
 	}
 
 	// 计算总任务项数和已完成的项数
@@ -236,10 +252,14 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 
 	// 如果当前批次有处理中的任务项，重置它们为pending状态（服务器重启恢复）
 	if processingItems > 0 {
-		utils.Debug("任务 %d 发现 %d 个处理中的任务项，重置为pending状态", task.ID, processingItems)
+		utils.Info("任务 %d 发现 %d 个处理中的任务项，重置为pending状态", task.ID, processingItems)
+		resetStart := utils.GetCurrentTime()
 		err = tm.repoMgr.TaskItemRepository.ResetProcessingItems(task.ID)
+		resetDuration := time.Since(resetStart)
 		if err != nil {
 			utils.Error("重置处理中任务项失败: %v", err)
+		} else {
+			utils.Debug("重置处理中任务项完成，耗时: %v", resetDuration)
 		}
 		// 重新获取待处理的任务项
 		items, err = tm.repoMgr.TaskItemRepository.GetByTaskIDAndStatus(task.ID, "pending")
@@ -258,21 +278,35 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 	utils.Debug("任务 %d 统计信息: 总计=%d, 已完成=%d, 已失败=%d, 待处理=%d",
 		task.ID, totalItems, completedItems, failedItems, currentBatchItems)
 
-	for _, item := range items {
+	// 记录处理开始时间
+	batchStartTime := utils.GetCurrentTime()
+
+	for i, item := range items {
 		select {
 		case <-ctx.Done():
 			utils.Debug("任务 %d 被取消", task.ID)
 			return
 		default:
+			// 记录单个任务项处理开始时间
+			itemStartTime := utils.GetCurrentTime()
+
 			// 处理单个任务项
 			err := tm.processTaskItem(ctx, task.ID, item, processor)
 			processedItems++
 
+			// 记录单个任务项处理耗时
+			itemDuration := time.Since(itemStartTime)
+
 			if err != nil {
 				failedItems++
-				utils.Error("处理任务项 %d 失败: %v", item.ID, err)
+				utils.ErrorWithFields(map[string]interface{}{
+		"task_item_id": item.ID,
+		"error":        err.Error(),
+		"duration_ms":  itemDuration.Milliseconds(),
+	}, "处理任务项 %d 失败: %v，耗时: %v", item.ID, err, itemDuration)
 			} else {
 				successItems++
+				utils.Info("处理任务项 %d 成功，耗时: %v", item.ID, itemDuration)
 			}
 
 			// 更新任务进度（基于总任务项数）
@@ -280,8 +314,20 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 				progress := float64(processedItems) / float64(totalItems) * 100
 				tm.updateTaskProgress(task.ID, progress, processedItems, successItems, failedItems)
 			}
+
+			// 每处理10个任务项记录一次批处理进度
+			if (i+1)%10 == 0 || i == len(items)-1 {
+				batchDuration := time.Since(batchStartTime)
+				utils.Info("任务 %d 批处理进度: 已处理 %d/%d 项，成功 %d 项，失败 %d 项，当前批处理耗时: %v",
+					task.ID, processedItems, totalItems, successItems, failedItems, batchDuration)
+			}
 		}
 	}
+
+	// 记录整个批处理耗时
+	batchDuration := time.Since(batchStartTime)
+	utils.Info("任务 %d 批处理完成: 总计 %d 项，成功 %d 项，失败 %d 项，总耗时: %v",
+		task.ID, len(items), successItems, failedItems, batchDuration)
 
 	// 任务完成
 	status := "completed"
@@ -308,25 +354,41 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 		}
 	}
 
-	utils.Info("任务 %d 处理完成: %s", task.ID, message)
+	utils.InfoWithFields(map[string]interface{}{
+		"task_id": task.ID,
+		"message": message,
+	}, "任务 %d 处理完成: %s", task.ID, message)
 }
 
 // processTaskItem 处理单个任务项
 func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *entity.TaskItem, processor TaskProcessor) error {
+	itemStartTime := utils.GetCurrentTime()
+	utils.Debug("开始处理任务项: %d (任务ID: %d)", item.ID, taskID)
+
 	// 更新任务项状态为处理中
+	updateStart := utils.GetCurrentTime()
 	err := tm.repoMgr.TaskItemRepository.UpdateStatus(item.ID, "processing")
+	updateDuration := time.Since(updateStart)
 	if err != nil {
+		utils.Error("更新任务项状态失败: %v，耗时: %v", err, updateDuration)
 		return fmt.Errorf("更新任务项状态失败: %v", err)
+	} else {
+		utils.Debug("更新任务项状态为处理中完成，耗时: %v", updateDuration)
 	}
 
 	// 处理任务项
+	processStart := utils.GetCurrentTime()
 	err = processor.Process(ctx, taskID, item)
+	processDuration := time.Since(processStart)
 
 	if err != nil {
 		// 处理失败
+		utils.Error("处理任务项 %d 失败: %v，处理耗时: %v", item.ID, err, processDuration)
+
 		outputData := map[string]interface{}{
 			"error": err.Error(),
 			"time":  utils.GetCurrentTime(),
+			"duration_ms": processDuration.Milliseconds(),
 		}
 		outputJSON, _ := json.Marshal(outputData)
 
@@ -338,25 +400,49 @@ func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *e
 	}
 
 	// 处理成功
+	utils.Info("处理任务项 %d 成功，处理耗时: %v", item.ID, processDuration)
+
 	// 如果处理器已经设置了 output_data（比如 ExpansionProcessor），则不覆盖
 	var outputJSON string
 	if item.OutputData == "" {
 		outputData := map[string]interface{}{
 			"success": true,
 			"time":    utils.GetCurrentTime(),
+			"duration_ms": processDuration.Milliseconds(),
 		}
 		outputBytes, _ := json.Marshal(outputData)
 		outputJSON = string(outputBytes)
 	} else {
-		// 使用处理器设置的 output_data
-		outputJSON = item.OutputData
+		// 使用处理器设置的 output_data，并添加处理时间信息
+		var existingOutput map[string]interface{}
+		if json.Unmarshal([]byte(item.OutputData), &existingOutput) == nil {
+			existingOutput["duration_ms"] = processDuration.Milliseconds()
+			outputBytes, _ := json.Marshal(existingOutput)
+			outputJSON = string(outputBytes)
+		} else {
+			// 如果无法解析现有输出，保留原样并添加时间信息
+			outputData := map[string]interface{}{
+				"original_output": item.OutputData,
+				"success": true,
+				"time":    utils.GetCurrentTime(),
+				"duration_ms": processDuration.Milliseconds(),
+			}
+			outputBytes, _ := json.Marshal(outputData)
+			outputJSON = string(outputBytes)
+		}
 	}
 
+	updateSuccessStart := utils.GetCurrentTime()
 	err = tm.repoMgr.TaskItemRepository.UpdateStatusAndOutput(item.ID, "completed", outputJSON)
+	updateSuccessDuration := time.Since(updateSuccessStart)
 	if err != nil {
-		utils.Error("更新成功任务项状态失败: %v", err)
+		utils.Error("更新成功任务项状态失败: %v，耗时: %v", err, updateSuccessDuration)
+	} else {
+		utils.Debug("更新成功任务项状态完成，耗时: %v", updateSuccessDuration)
 	}
 
+	itemDuration := time.Since(itemStartTime)
+	utils.Debug("任务项 %d 处理完成，总耗时: %v", item.ID, itemDuration)
 	return nil
 }
 

@@ -51,6 +51,10 @@ func (h *TaskHandler) CreateBatchTransferTask(c *gin.Context) {
 		return
 	}
 
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("CreateBatchTransferTask - 用户创建批量转存任务 - 用户: %s, 任务标题: %s, 资源数量: %d, IP: %s", username, req.Title, len(req.Resources), clientIP)
+
 	utils.Debug("创建批量转存任务: %s，资源数量: %d，选择账号数量: %d", req.Title, len(req.Resources), len(req.SelectedAccounts))
 
 	// 构建任务配置
@@ -124,6 +128,10 @@ func (h *TaskHandler) StartTask(c *gin.Context) {
 		return
 	}
 
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("StartTask - 用户启动任务 - 用户: %s, 任务ID: %d, IP: %s", username, taskID, clientIP)
+
 	err = h.taskManager.StartTask(uint(taskID))
 	if err != nil {
 		utils.Error("启动任务失败: %v", err)
@@ -147,6 +155,10 @@ func (h *TaskHandler) StopTask(c *gin.Context) {
 		return
 	}
 
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("StopTask - 用户停止任务 - 用户: %s, 任务ID: %d, IP: %s", username, taskID, clientIP)
+
 	err = h.taskManager.StopTask(uint(taskID))
 	if err != nil {
 		utils.Error("停止任务失败: %v", err)
@@ -169,6 +181,10 @@ func (h *TaskHandler) PauseTask(c *gin.Context) {
 		ErrorResponse(c, "无效的任务ID: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("PauseTask - 用户暂停任务 - 用户: %s, 任务ID: %d, IP: %s", username, taskID, clientIP)
 
 	err = h.taskManager.PauseTask(uint(taskID))
 	if err != nil {
@@ -360,8 +376,13 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 		return
 	}
 
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("DeleteTask - 用户删除任务 - 用户: %s, 任务ID: %d, IP: %s", username, taskID, clientIP)
+
 	// 检查任务是否在运行
 	if h.taskManager.IsTaskRunning(uint(taskID)) {
+		utils.Warn("DeleteTask - 尝试删除正在运行的任务 - 用户: %s, 任务ID: %d, IP: %s", username, taskID, clientIP)
 		ErrorResponse(c, "任务正在运行中，无法删除", http.StatusBadRequest)
 		return
 	}
@@ -383,6 +404,7 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 	}
 
 	utils.Debug("任务删除成功: %d", taskID)
+	utils.Info("DeleteTask - 任务删除成功 - 用户: %s, 任务ID: %d, IP: %s", username, taskID, clientIP)
 
 	SuccessResponse(c, gin.H{
 		"message": "任务删除成功",
@@ -401,6 +423,10 @@ func (h *TaskHandler) CreateExpansionTask(c *gin.Context) {
 		ErrorResponse(c, "参数错误: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("CreateExpansionTask - 用户创建扩容任务 - 用户: %s, 账号ID: %d, IP: %s", username, req.PanAccountID, clientIP)
 
 	utils.Debug("创建扩容任务: 账号ID %d", req.PanAccountID)
 
