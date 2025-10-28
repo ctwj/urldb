@@ -311,6 +311,10 @@ const statsApi = useStatsApi()
 const panApi = usePanApi()
 const publicSystemConfigApi = usePublicSystemConfigApi()
 
+// 获取路由参数 - 提前定义以避免初始化顺序问题
+const route = useRoute()
+const router = useRouter()
+
 // 页面元数据 - 使用系统配置的标题
 const { data: systemConfigData } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
 
@@ -321,86 +325,107 @@ const getPlatformName = (platformId: string) => {
   return platform?.name || ''
 }
 
-// 动态生成页面标题和meta信息
+// 动态生成页面标题和meta信息 - 修复安全访问问题
 const pageTitle = computed(() => {
-  const config = systemConfigData.value as any
-  const siteTitle = config?.data?.site_title || config?.site_title || '老九网盘资源数据库'
-  const searchKeyword = route.query.search as string || ''
-  const platformId = route.query.platform as string || ''
-  const platformName = getPlatformName(platformId)
+  try {
+    const config = systemConfigData.value as any
+    const siteTitle = (config?.data?.site_title) ? config.data.site_title :
+                      (config?.site_title) ? config.site_title : '老九网盘资源数据库'
+    const searchKeyword = (route.query && route.query.search) ? route.query.search as string : ''
+    const platformId = (route.query && route.query.platform) ? route.query.platform as string : ''
+    const platformName = getPlatformName(platformId)
 
-  let title = siteTitle
+    let title = siteTitle
 
-  // 根据搜索条件组合标题
-  if (searchKeyword && platformName) {
-    title = `${searchKeyword} - ${platformName} - ${siteTitle}`
-  } else if (searchKeyword) {
-    title = `${searchKeyword} - 搜索结果 - ${siteTitle}`
-  } else if (platformName) {
-    title = `${platformName} - ${siteTitle}`
-  } else {
-    title = `${siteTitle} - 首页`
+    // 根据搜索条件组合标题
+    if (searchKeyword && platformName) {
+      title = `${searchKeyword} - ${platformName} - ${siteTitle}`
+    } else if (searchKeyword) {
+      title = `${searchKeyword} - 搜索结果 - ${siteTitle}`
+    } else if (platformName) {
+      title = `${platformName} - ${siteTitle}`
+    } else {
+      title = `${siteTitle} - 首页`
+    }
+
+    return title
+  } catch (error) {
+    console.error('pageTitle computed error:', error)
+    return '老九网盘资源数据库 - 首页'
   }
-
-  return title
 })
 
 const pageDescription = computed(() => {
-  const config = systemConfigData.value as any
-  const baseDescription = config?.data?.site_description || config?.site_description || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘'
+  try {
+    const config = systemConfigData.value as any
+    const baseDescription = (config?.data?.site_description) ? config.data.site_description :
+                           (config?.site_description) ? config.site_description : '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘'
 
-  const searchKeyword = route.query.search as string || ''
-  const platformId = route.query.platform as string || ''
-  const platformName = getPlatformName(platformId)
+    const searchKeyword = (route.query && route.query.search) ? route.query.search as string : ''
+    const platformId = (route.query && route.query.platform) ? route.query.platform as string : ''
+    const platformName = getPlatformName(platformId)
 
-  let description = baseDescription
+    let description = baseDescription
 
-  // 根据搜索条件优化描述
-  if (searchKeyword && platformName) {
-    description = `在${platformName}中搜索"${searchKeyword}"的相关资源。${baseDescription}提供海量${searchKeyword}资源下载，支持多网盘平台。`
-  } else if (searchKeyword) {
-    description = `搜索"${searchKeyword}"的相关资源。${baseDescription}提供海量${searchKeyword}资源下载，支持百度网盘、阿里云盘、夸克网盘等多个平台。`
-  } else if (platformName) {
-    description = `${platformName}资源专区。${baseDescription}专门收录${platformName}平台的优质资源，每日更新。`
+    // 根据搜索条件优化描述
+    if (searchKeyword && platformName) {
+      description = `在${platformName}中搜索"${searchKeyword}"的相关资源。${baseDescription}提供海量${searchKeyword}资源下载，支持多网盘平台。`
+    } else if (searchKeyword) {
+      description = `搜索"${searchKeyword}"的相关资源。${baseDescription}提供海量${searchKeyword}资源下载，支持百度网盘、阿里云盘、夸克网盘等多个平台。`
+    } else if (platformName) {
+      description = `${platformName}资源专区。${baseDescription}专门收录${platformName}平台的优质资源，每日更新。`
+    }
+
+    return description
+  } catch (error) {
+    console.error('pageDescription computed error:', error)
+    return '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘'
   }
-
-  return description
 })
 
 const pageKeywords = computed(() => {
-  const config = systemConfigData.value as any
-  const baseKeywords = config?.data?.keywords || config?.keywords || '网盘资源,资源管理,数据库'
+  try {
+    const config = systemConfigData.value as any
+    const baseKeywords = (config?.data?.keywords) ? config.data.keywords :
+                        (config?.keywords) ? config.keywords : '网盘资源,资源管理,数据库'
 
-  const searchKeyword = route.query.search as string || ''
-  const platformId = route.query.platform as string || ''
-  const platformName = getPlatformName(platformId)
+    const searchKeyword = (route.query && route.query.search) ? route.query.search as string : ''
+    const platformId = (route.query && route.query.platform) ? route.query.platform as string : ''
+    const platformName = getPlatformName(platformId)
 
-  let keywords = baseKeywords
+    let keywords = baseKeywords
 
-  // 根据搜索条件添加关键词
-  if (searchKeyword) {
-    keywords = `${searchKeyword},${baseKeywords},${searchKeyword}下载,${searchKeyword}资源`
+    // 根据搜索条件添加关键词
+    if (searchKeyword) {
+      keywords = `${searchKeyword},${baseKeywords},${searchKeyword}下载,${searchKeyword}资源`
+    }
+
+    if (platformName) {
+      keywords = keywords ? `${platformName},${keywords}` : platformName
+    }
+
+    return keywords
+  } catch (error) {
+    console.error('pageKeywords computed error:', error)
+    return '网盘资源,资源管理,数据库'
   }
-
-  if (platformName) {
-    keywords = keywords ? `${platformName},${keywords}` : platformName
-  }
-
-  return keywords
 })
 
-// 设置动态SEO
-useHead(() => ({
-  title: pageTitle.value,
-  meta: [
-    { name: 'description', content: pageDescription.value },
-    { name: 'keywords', content: pageKeywords.value }
-  ]
-}))
+// 设置动态SEO - 修复useHead 500错误
+useHead(() => {
+  // 安全地获取标题，添加默认值
+  const safeTitle = pageTitle.value || '老九网盘资源数据库 - 首页'
+  const safeDescription = pageDescription.value || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享'
+  const safeKeywords = pageKeywords.value || '网盘资源,资源管理,数据库'
 
-// 获取路由参数
-const route = useRoute()
-const router = useRouter()
+  return {
+    title: safeTitle,
+    meta: [
+      { name: 'description', content: safeDescription },
+      { name: 'keywords', content: safeKeywords }
+    ]
+  }
+})
 
 // 响应式数据
 const showLinkModal = ref(false)
