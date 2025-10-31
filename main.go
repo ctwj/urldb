@@ -421,7 +421,8 @@ func main() {
 		api.GET("/wechat/bot-config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), wechatHandler.GetBotConfig)
 		api.PUT("/wechat/bot-config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), wechatHandler.UpdateBotConfig)
 		api.GET("/wechat/bot-status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), wechatHandler.GetBotStatus)
-		api.POST("/api/wechat/callback", wechatHandler.HandleWechatMessage)
+		api.POST("/wechat/callback", wechatHandler.HandleWechatMessage)
+		api.GET("/wechat/callback", wechatHandler.HandleWechatMessage)
 	}
 
 	// 设置监控系统

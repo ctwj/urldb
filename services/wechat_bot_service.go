@@ -38,6 +38,7 @@ type WechatBotServiceImpl struct {
 	readyRepo        repo.ReadyResourceRepository
 	config           *WechatBotConfig
 	wechatClient     *officialaccount.OfficialAccount
+	searchSessionManager *SearchSessionManager
 }
 
 // NewWechatBotService 创建微信公众号机器人服务
@@ -52,5 +53,6 @@ func NewWechatBotService(
 		resourceRepo:     resourceRepo,
 		readyRepo:        readyResourceRepo,
 		config:           &WechatBotConfig{},
+		searchSessionManager: GlobalSearchSessionManager,
 	}
 }

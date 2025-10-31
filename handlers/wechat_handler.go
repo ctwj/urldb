@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
@@ -77,16 +78,52 @@ func (h *WechatHandler) HandleWechatMessage(c *gin.Context) {
 		return
 	}
 
+	utils.Info("[WECHAT:MESSAGE] 回复对象: %v", reply)
+
 	// 如果有回复内容，发送回复
 	if reply != nil {
+		// 为微信消息设置正确的ToUserName和FromUserName
+		switch v := reply.(type) {
+		case *message.Text:
+			if v.CommonToken.ToUserName == "" {
+				v.CommonToken.ToUserName = msg.FromUserName
+			}
+			if v.CommonToken.FromUserName == "" {
+				v.CommonToken.FromUserName = msg.ToUserName
+			}
+			if v.CommonToken.CreateTime == 0 {
+				v.CommonToken.CreateTime = time.Now().Unix()
+			}
+			// 确保MsgType正确设置
+			if v.CommonToken.MsgType == "" {
+				v.CommonToken.MsgType = message.MsgTypeText
+			}
+		case *message.Image:
+			if v.CommonToken.ToUserName == "" {
+				v.CommonToken.ToUserName = msg.FromUserName
+			}
+			if v.CommonToken.FromUserName == "" {
+				v.CommonToken.FromUserName = msg.ToUserName
+			}
+			if v.CommonToken.CreateTime == 0 {
+				v.CommonToken.CreateTime = time.Now().Unix()
+			}
+			// 确保MsgType正确设置
+			if v.CommonToken.MsgType == "" {
+				v.CommonToken.MsgType = message.MsgTypeImage
+			}
+		}
+
 		responseXML, err := xml.Marshal(reply)
 		if err != nil {
 			utils.Error("[WECHAT:MESSAGE] 序列化回复消息失败: %v", err)
 			c.String(http.StatusInternalServerError, "回复失败")
 			return
 		}
+		utils.Info("[WECHAT:MESSAGE] 回复XML: %s", string(responseXML))
 		c.Data(http.StatusOK, "application/xml", responseXML)
 	} else {
+		utils.Warn("[WECHAT:MESSAGE] 没有回复内容，返回success")
 		c.String(http.StatusOK, "success")
 	}
 }
@@ -205,6 +242,7 @@ func (h *WechatHandler) validateSignature(c *gin.Context) bool {
 	// 获取配置中的Token
 	configs, err := h.systemConfigRepo.GetOrCreateDefault()
 	if err != nil {
+		utils.Error("[WECHAT:VALIDATE] 获取配置失败: %v", err)
 		return false
 	}
 
@@ -216,8 +254,11 @@ func (h *WechatHandler) validateSignature(c *gin.Context) bool {
 		}
 	}
 
+	utils.Debug("[WECHAT:VALIDATE] Token配置状态: %t", token != "")
+
 	if token == "" {
 		// 如果没有配置Token，跳过签名验证（开发模式）
+		utils.Warn("[WECHAT:VALIDATE] 未配置Token，跳过签名验证")
 		return true
 	}
 
@@ -225,11 +266,21 @@ func (h *WechatHandler) validateSignature(c *gin.Context) bool {
 	timestamp := c.Query("timestamp")
 	nonce := c.Query("nonce")
 
+	utils.Debug("[WECHAT:VALIDATE] 接收到的参数 - signature: %s, timestamp: %s, nonce: %s", signature, timestamp, nonce)
+
 	// 验证签名
 	tmpArr := []string{token, timestamp, nonce}
 	sort.Strings(tmpArr)
 	tmpStr := strings.Join(tmpArr, "")
 	tmpStr = fmt.Sprintf("%x", sha1.Sum([]byte(tmpStr)))
 
-	return tmpStr == signature
+	utils.Debug("[WECHAT:VALIDATE] 计算出的签名: %s, 微信提供的签名: %s", tmpStr, signature)
+
+	if tmpStr == signature {
+		utils.Info("[WECHAT:VALIDATE] 签名验证成功")
+		return true
+	} else {
+		utils.Error("[WECHAT:VALIDATE] 签名验证失败 - 计算出的签名: %s, 微信提供的签名: %s", tmpStr, signature)
+		return false
+	}
 }

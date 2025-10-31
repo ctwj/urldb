@@ -1,6 +1,8 @@
 package converter
 
 import (
+	"strconv"
+
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 )
@@ -70,16 +72,17 @@ func wechatBoolToString(b bool) string {
 }
 
 func wechatIntToString(i int) string {
-	return string(rune(i + '0'))
+	return strconv.Itoa(i)
 }
 
 func wechatStringToInt(s string) int {
 	if s == "" {
 		return 0
 	}
-	// 简单转换，实际项目中应该使用strconv.Atoi
-	if len(s) == 1 && s[0] >= '0' && s[0] <= '9' {
-		return int(s[0] - '0')
+
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
 	}
-	return 0
+	return i
 }

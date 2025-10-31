@@ -169,29 +169,193 @@ func (s *WechatBotServiceImpl) HandleMessage(msg *message.MixMessage) (interface
 
 // handleTextMessage 处理文本消息
 func (s *WechatBotServiceImpl) handleTextMessage(msg *message.MixMessage) (interface{}, error) {
+	utils.Debug("[WECHAT:MESSAGE] 处理文本消息 - AutoReplyEnabled: %v", s.config.AutoReplyEnabled)
 	if !s.config.AutoReplyEnabled {
+		utils.Info("[WECHAT:MESSAGE] 自动回复未启用")
 		return nil, nil
 	}
 
 	keyword := strings.TrimSpace(msg.Content)
+	utils.Info("[WECHAT:MESSAGE] 搜索关键词: '%s'", keyword)
+
+	// 检查是否是分页命令
+	if keyword == "上一页" || keyword == "prev" {
+		return s.handlePrevPage(string(msg.FromUserName))
+	}
+
+	if keyword == "下一页" || keyword == "next" {
+		return s.handleNextPage(string(msg.FromUserName))
+	}
+
+	// 检查是否是获取命令（例如：获取 1, 获取2等）
+	if strings.HasPrefix(keyword, "获取") || strings.HasPrefix(keyword, "get") {
+		return s.handleGetResource(string(msg.FromUserName), keyword)
+	}
+
 	if keyword == "" {
+		utils.Info("[WECHAT:MESSAGE] 关键词为空，返回提示消息")
 		return message.NewText("请输入搜索关键词"), nil
 	}
 
 	// 搜索资源
+	utils.Debug("[WECHAT:MESSAGE] 开始搜索资源，限制数量: %d", s.config.SearchLimit)
 	resources, err := s.SearchResources(keyword)
 	if err != nil {
 		utils.Error("[WECHAT:SEARCH] 搜索失败: %v", err)
 		return message.NewText("搜索服务暂时不可用，请稍后重试"), nil
 	}
 
+	utils.Info("[WECHAT:MESSAGE] 搜索完成，找到 %d 个资源", len(resources))
 	if len(resources) == 0 {
+		utils.Info("[WECHAT:MESSAGE] 未找到相关资源，返回提示消息")
 		return message.NewText(fmt.Sprintf("未找到关键词\"%s\"相关的资源，请尝试其他关键词", keyword)), nil
 	}
 
-	// 格式化搜索结果
-	resultText := s.formatSearchResults(keyword, resources)
+	// 创建搜索会话并保存第一页结果
+	s.searchSessionManager.CreateSession(string(msg.FromUserName), keyword, resources, 5)
+	pageResources := s.searchSessionManager.GetCurrentPageResources(string(msg.FromUserName))
+
+	// 格式化第一页搜索结果
+	resultText := s.formatSearchResultsWithPagination(keyword, pageResources, string(msg.FromUserName))
+	utils.Info("[WECHAT:MESSAGE] 格式化搜索结果，返回文本长度: %d", len(resultText))
 	return message.NewText(resultText), nil
+}
+
+// handlePrevPage 处理上一页命令
+func (s *WechatBotServiceImpl) handlePrevPage(userID string) (interface{}, error) {
+	session := s.searchSessionManager.GetSession(userID)
+	if session == nil {
+		return message.NewText("没有找到搜索记录，请先进行搜索"), nil
+	}
+
+	if !s.searchSessionManager.HasPrevPage(userID) {
+		return message.NewText("已经是第一页了"), nil
+	}
+
+	prevResources := s.searchSessionManager.PrevPage(userID)
+	if prevResources == nil {
+		return message.NewText("获取上一页失败"), nil
+	}
+
+	currentPage, totalPages, _, _ := s.searchSessionManager.GetPageInfo(userID)
+	resultText := s.formatPageResources(session.Keyword, prevResources, currentPage, totalPages, userID)
+	return message.NewText(resultText), nil
+}
+
+// handleNextPage 处理下一页命令
+func (s *WechatBotServiceImpl) handleNextPage(userID string) (interface{}, error) {
+	session := s.searchSessionManager.GetSession(userID)
+	if session == nil {
+		return message.NewText("没有找到搜索记录，请先进行搜索"), nil
+	}
+
+	if !s.searchSessionManager.HasNextPage(userID) {
+		return message.NewText("已经是最后一页了"), nil
+	}
+
+	nextResources := s.searchSessionManager.NextPage(userID)
+	if nextResources == nil {
+		return message.NewText("获取下一页失败"), nil
+	}
+
+	currentPage, totalPages, _, _ := s.searchSessionManager.GetPageInfo(userID)
+	resultText := s.formatPageResources(session.Keyword, nextResources, currentPage, totalPages, userID)
+	return message.NewText(resultText), nil
+}
+
+// handleGetResource 处理获取资源命令
+func (s *WechatBotServiceImpl) handleGetResource(userID, command string) (interface{}, error) {
+	session := s.searchSessionManager.GetSession(userID)
+	if session == nil {
+		return message.NewText("没有找到搜索记录，请先进行搜索"), nil
+	}
+
+	// 解析命令，例如："获取 1" 或 "get 2"
+	var index int
+	_, err := fmt.Sscanf(command, "获取 %d", &index)
+	if err != nil {
+		_, err = fmt.Sscanf(command, "get %d", &index)
+		if err != nil {
+			return message.NewText("命令格式错误，请使用：获取 1 或 get 1"), nil
+		}
+	}
+
+	if index < 1 || index > len(session.Resources) {
+		return message.NewText(fmt.Sprintf("资源编号超出范围，请输入 1-%d 之间的数字", len(session.Resources))), nil
+	}
+
+	// 获取指定资源
+	resource := session.Resources[index-1]
+
+	// 格式化资源详细信息
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("📋 资源详情\n\n"))
+	result.WriteString(fmt.Sprintf("标题: %s\n", resource.Title))
+	if resource.Description != "" {
+		result.WriteString(fmt.Sprintf("描述: %s\n", resource.Description))
+	}
+	if resource.FileSize != "" {
+		result.WriteString(fmt.Sprintf("大小: %s\n", resource.FileSize))
+	}
+	if resource.Author != "" {
+		result.WriteString(fmt.Sprintf("作者: %s\n", resource.Author))
+	}
+	if resource.SaveURL != "" {
+		result.WriteString(fmt.Sprintf("\n📥 转存链接: %s", resource.SaveURL))
+	} else if resource.URL != "" {
+		result.WriteString(fmt.Sprintf("\n🔗 资源链接: %s", resource.URL))
+	}
+
+	result.WriteString(fmt.Sprintf("\n\n💡 提示：回复\"上一页\"或\"下一页\"查看其他资源"))
+
+	return message.NewText(result.String()), nil
+}
+
+// formatSearchResultsWithPagination 格式化带分页的搜索结果
+func (s *WechatBotServiceImpl) formatSearchResultsWithPagination(keyword string, resources []entity.Resource, userID string) string {
+	currentPage, totalPages, _, _ := s.searchSessionManager.GetPageInfo(userID)
+	return s.formatPageResources(keyword, resources, currentPage, totalPages, userID)
+}
+
+// formatPageResources 格式化页面资源
+func (s *WechatBotServiceImpl) formatPageResources(keyword string, resources []entity.Resource, currentPage, totalPages int, userID string) string {
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("🔍 搜索\"%s\"的结果（第%d/%d页）：\n\n", keyword, currentPage, totalPages))
+
+	for i, resource := range resources {
+		// 计算全局索引（当前页的第i个资源在整个结果中的位置）
+		globalIndex := (currentPage-1)*5 + i + 1
+		result.WriteString(fmt.Sprintf("%d. %s\n", globalIndex, resource.Title))
+		if resource.Description != "" {
+			desc := resource.Description
+			if len(desc) > 50 {
+				desc = desc[:50] + "..."
+			}
+			result.WriteString(fmt.Sprintf("   %s\n", desc))
+		}
+		if resource.SaveURL != "" {
+			result.WriteString(fmt.Sprintf("   转存链接：%s\n", resource.SaveURL))
+		} else if resource.URL != "" {
+			result.WriteString(fmt.Sprintf("   资源链接：%s\n", resource.URL))
+		}
+		result.WriteString(fmt.Sprintf("   回复\"获取 %d\"查看详细信息\n", globalIndex))
+		result.WriteString("\n")
+	}
+
+	// 添加分页提示
+	var pageTips []string
+	if currentPage > 1 {
+		pageTips = append(pageTips, "上一页")
+	}
+	if currentPage < totalPages {
+		pageTips = append(pageTips, "下一页")
+	}
+
+	if len(pageTips) > 0 {
+		result.WriteString(fmt.Sprintf("💡 提示：回复\"%s\"翻页\n", strings.Join(pageTips, "\"或\"")))
+	}
+
+	return result.String()
 }
 
 // handleEventMessage 处理事件消息
@@ -225,6 +389,9 @@ func (s *WechatBotServiceImpl) formatSearchResults(keyword string, resources []e
 
 	for i, resource := range resources {
 		result.WriteString(fmt.Sprintf("%d. %s\n", i+1, resource.Title))
+		if resource.Cover != "" {
+			result.WriteString(fmt.Sprintf("   ![封面](%s)\n", resource.Cover))
+		}
 		if resource.Description != "" {
 			desc := resource.Description
 			if len(desc) > 50 {
