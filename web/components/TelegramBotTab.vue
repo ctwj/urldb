@@ -475,17 +475,16 @@
           <n-select
             v-model:value="editingChannel.push_frequency"
             :options="[
+              { label: '每1分钟', value: 1 },
+              { label: '每2分钟', value: 2 },
+              { label: '每3分钟', value: 3 },
+              { label: '每5分钟', value: 5 },
+              { label: '每10分钟', value: 10 },
               { label: '每15分钟', value: 15 },
+              { label: '每20分钟', value: 20 },
               { label: '每30分钟', value: 30 },
               { label: '每45分钟', value: 45 },
-              { label: '每小时', value: 60 },
-              { label: '每2小时', value: 120 },
-              { label: '每3小时', value: 180 },
-              { label: '每6小时', value: 360 },
-              { label: '每12小时', value: 720 },
-              { label: '每天', value: 1440 },
-              { label: '每2天', value: 2880 },
-              { label: '每周', value: 10080 }
+              { label: '每60分钟', value: 60 }
             ]"
             placeholder="选择推送频率"
           />

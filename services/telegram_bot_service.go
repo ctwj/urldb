@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -47,6 +50,8 @@ type TelegramBotServiceImpl struct {
 	readyRepo        repo.ReadyResourceRepository
 	cronScheduler    *cron.Cron
 	config           *TelegramBotConfig
+	pushHistory      map[int64][]uint // 每个频道的推送历史记录，最多100条
+	mu               sync.RWMutex     // 用于保护pushHistory的读写锁
 }
 
 type TelegramBotConfig struct {
@@ -78,6 +83,7 @@ func NewTelegramBotService(
 		readyRepo:        readyResourceRepo,
 		cronScheduler:    cron.New(),
 		config:           &TelegramBotConfig{},
+		pushHistory:      make(map[int64][]uint),
 	}
 }
 
@@ -169,6 +175,12 @@ func (s *TelegramBotServiceImpl) Start() error {
 	// 加载配置
 	if err := s.loadConfig(); err != nil {
 		return fmt.Errorf("加载配置失败: %v", err)
+	}
+
+	// 加载推送历史记录
+	if err := s.loadPushHistory(); err != nil {
+		utils.Error("[TELEGRAM:SERVICE] 加载推送历史记录失败: %v", err)
+		// 不返回错误，继续启动服务
 	}
 
 	if !s.config.Enabled || s.config.ApiKey == "" {
@@ -539,6 +551,18 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
+	// 处理 /s 命令
+	if strings.HasPrefix(strings.ToLower(text), "/s ") {
+		utils.Info("[TELEGRAM:MESSAGE] 处理 /s 命令 from ChatID=%d", chatID)
+		// 提取搜索关键词
+		keyword := strings.TrimSpace(text[3:]) // 去掉 "/s " 前缀
+		if keyword != "" {
+			utils.Info("[TELEGRAM:MESSAGE] 处理搜索请求 from ChatID=%d: %s", chatID, keyword)
+			s.handleSearchRequest(message, keyword)
+			return
+		}
+	}
+
 	if len(text) == 0 {
 		return
 	}
@@ -702,6 +726,7 @@ func (s *TelegramBotServiceImpl) handleStartCommand(message *tgbotapi.Message) {
 	welcomeMsg := `🤖 欢迎使用老九网盘资源机器人！
 
 • 发送 搜索 + 关键词 进行资源搜索
+• 发送 /s 关键词 进行资源搜索（命令形式）
 • 发送 /register 注册当前频道或群组，用于主动推送资源
 • 私聊中使用 /register help 获取注册帮助
 • 发送 /start 获取帮助信息
@@ -936,6 +961,12 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 	if err != nil {
 		utils.Error("[TELEGRAM:PUSH:ERROR] 更新推送时间失败: %v", err)
 		return
+	}
+
+	// 5. 记录推送的资源ID到历史记录，避免重复推送
+	for _, resource := range resources {
+		resourceEntity := resource.(entity.Resource)
+		s.addPushedResourceID(channel.ChatID, resourceEntity.ID)
 	}
 
 	utils.Info("[TELEGRAM:PUSH:SUCCESS] 成功推送内容到频道: %s (%d 条资源)", channel.ChatName, len(resources))
@@ -1271,7 +1302,7 @@ func (s *TelegramBotServiceImpl) RegisterChannel(chatID int64, chatName, chatTyp
 		ChatName:          chatName,
 		ChatType:          chatType,
 		PushEnabled:       true,
-		PushFrequency:     15,      // 默认15分钟
+		PushFrequency:     5,       // 默认5分钟
 		PushStartTime:     "08:30", // 默认开始时间8:30
 		PushEndTime:       "11:30", // 默认结束时间11:30
 		IsActive:          true,
@@ -1601,7 +1632,7 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 			existingChannel.TimeLimit = "none"
 		}
 		if existingChannel.PushFrequency == 0 {
-			existingChannel.PushFrequency = 15
+			existingChannel.PushFrequency = 5
 		}
 		if existingChannel.PushStartTime == "" {
 			existingChannel.PushStartTime = "08:30"
@@ -1628,7 +1659,7 @@ func (s *TelegramBotServiceImpl) handleChannelRegistration(message *tgbotapi.Mes
 		ChatName:          chat.Title,
 		ChatType:          "channel",
 		PushEnabled:       true,
-		PushFrequency:     60, // 默认1小时
+		PushFrequency:     1, // 默认1分钟
 		IsActive:          true,
 		RegisteredBy:      message.From.UserName,
 		RegisteredAt:      time.Now(),
@@ -1678,15 +1709,165 @@ func (s *TelegramBotServiceImpl) CleanupDuplicateChannels() error {
 	return nil
 }
 
+// savePushHistory 保存指定频道的推送历史记录到文件（每行一个消息ID）
+func (s *TelegramBotServiceImpl) savePushHistory(chatID int64) {
+	// 获取指定频道的历史记录
+	history, exists := s.pushHistory[chatID]
+	if !exists {
+		history = []uint{}
+	}
+
+	// 确保目录存在
+	dir := "./data/telegram_push_history"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		utils.Error("[TELEGRAM:PUSH] 创建数据目录失败: %v", err)
+		return
+	}
+
+	// 写入文件，每个频道一个文件，每行一个消息ID
+	filename := filepath.Join(dir, fmt.Sprintf("%d.txt", chatID))
+
+	// 构建文件内容（每行一个消息ID）
+	var content strings.Builder
+	for _, resourceID := range history {
+		content.WriteString(fmt.Sprintf("%d\n", resourceID))
+	}
+
+	if err := os.WriteFile(filename, []byte(content.String()), 0644); err != nil {
+		utils.Error("[TELEGRAM:PUSH] 保存推送历史记录到文件失败: %v", err)
+		return
+	}
+
+	utils.Debug("[TELEGRAM:PUSH] 成功保存频道 %d 的推送历史记录到文件: %s", chatID, filename)
+}
+
+// addPushedResourceID 添加已推送的资源ID到历史记录
+func (s *TelegramBotServiceImpl) addPushedResourceID(chatID int64, resourceID uint) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 获取当前频道的历史记录
+	history := s.pushHistory[chatID]
+	if history == nil {
+		history = []uint{}
+	}
+
+	// 检查是否已经超过100条记录
+	if len(history) >= 100 {
+		// 清空历史记录，重新开始
+		history = []uint{}
+		utils.Info("[TELEGRAM:PUSH] 频道 %d 推送历史记录已满(100条)，清空重置", chatID)
+	}
+
+	// 添加新的资源ID到历史记录
+	history = append(history, resourceID)
+	s.pushHistory[chatID] = history
+
+	utils.Debug("[TELEGRAM:PUSH] 添加推送历史，ChatID: %d, ResourceID: %d, 当前历史记录数: %d",
+		chatID, resourceID, len(history))
+
+	// 保存到文件（只保存当前频道）
+	s.savePushHistory(chatID)
+}
+
+// loadPushHistory 从文件加载推送历史记录（每行一个消息ID）
+func (s *TelegramBotServiceImpl) loadPushHistory() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 检查目录是否存在
+	dir := "./data/telegram_push_history"
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		utils.Info("[TELEGRAM:PUSH] 推送历史记录目录不存在，使用空的历史记录")
+		return nil
+	}
+
+	// 读取目录中的所有文件
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		utils.Error("[TELEGRAM:PUSH] 读取推送历史记录目录失败: %v", err)
+		return err
+	}
+
+	// 初始化推送历史记录映射
+	s.pushHistory = make(map[int64][]uint)
+
+	// 遍历所有文件
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		// 检查文件名格式是否为 *.txt
+		filename := file.Name()
+		if !strings.HasSuffix(filename, ".txt") {
+			continue
+		}
+
+		// 提取chatID
+		chatIDStr := strings.TrimSuffix(filename, ".txt")
+		chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
+		if err != nil {
+			utils.Warn("[TELEGRAM:PUSH] 无法解析频道ID文件名: %s", filename)
+			continue
+		}
+
+		// 读取文件内容
+		fullPath := filepath.Join(dir, filename)
+		data, err := os.ReadFile(fullPath)
+		if err != nil {
+			utils.Error("[TELEGRAM:PUSH] 读取推送历史记录文件失败: %s, %v", fullPath, err)
+			continue
+		}
+
+		// 解析每行的消息ID
+		lines := strings.Split(string(data), "\n")
+		var resourceIDs []uint
+
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			resourceID, err := strconv.ParseUint(line, 10, 32)
+			if err != nil {
+				utils.Warn("[TELEGRAM:PUSH] 无法解析消息ID: %s in file %s", line, filename)
+				continue
+			}
+
+			resourceIDs = append(resourceIDs, uint(resourceID))
+		}
+
+		// 只保留最多100条记录
+		if len(resourceIDs) > 100 {
+			// 保留最新的100条记录
+			resourceIDs = resourceIDs[len(resourceIDs)-100:]
+		}
+
+		s.pushHistory[chatID] = resourceIDs
+		utils.Debug("[TELEGRAM:PUSH] 加载频道 %d 的历史记录，共 %d 条", chatID, len(resourceIDs))
+	}
+
+	utils.Info("[TELEGRAM:PUSH] 成功从文件加载推送历史记录，共 %d 个频道", len(s.pushHistory))
+	return nil
+}
+
 // getRecentlyPushedResourceIDs 获取最近推送过的资源ID列表
 func (s *TelegramBotServiceImpl) getRecentlyPushedResourceIDs(chatID int64) []uint {
-	// 这里需要实现获取推送历史的逻辑
-	// 由于没有现有的推送历史表，我们暂时返回空列表
-	// 未来可以添加一个 TelegramPushHistory 实体来跟踪推送历史
-	utils.Debug("[TELEGRAM:PUSH] 获取推送历史，ChatID: %d", chatID)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
-	// 暂时返回空列表，表示没有历史推送记录
-	// TODO: 实现推送历史跟踪功能
+	// 返回该频道的推送历史记录
+	if history, exists := s.pushHistory[chatID]; exists {
+		utils.Debug("[TELEGRAM:PUSH] 获取推送历史，ChatID: %d, 历史记录数: %d", chatID, len(history))
+		// 返回副本，避免外部修改
+		result := make([]uint, len(history))
+		copy(result, history)
+		return result
+	}
+
+	utils.Debug("[TELEGRAM:PUSH] 获取推送历史，ChatID: %d, 无历史记录", chatID)
 	return []uint{}
 }
 
