@@ -363,6 +363,8 @@ func main() {
 		api.GET("/files", middleware.AuthMiddleware(), fileHandler.GetFileList)
 		api.DELETE("/files", middleware.AuthMiddleware(), fileHandler.DeleteFiles)
 		api.PUT("/files", middleware.AuthMiddleware(), fileHandler.UpdateFile)
+		// 微信公众号验证文件上传（无需认证，仅支持TXT文件）
+		api.POST("/wechat/verify-file", fileHandler.UploadWechatVerifyFile)
 
 		// 创建Telegram Bot服务
 		telegramBotService := services.NewTelegramBotService(
@@ -375,6 +377,18 @@ func main() {
 		// 启动Telegram Bot服务
 		if err := telegramBotService.Start(); err != nil {
 			utils.Error("启动Telegram Bot服务失败: %v", err)
+		}
+
+		// 创建微信公众号机器人服务
+		wechatBotService := services.NewWechatBotService(
+			repoManager.SystemConfigRepository,
+			repoManager.ResourceRepository,
+			repoManager.ReadyResourceRepository,
+		)
+
+		// 启动微信公众号机器人服务
+		if err := wechatBotService.Start(); err != nil {
+			utils.Error("启动微信公众号机器人服务失败: %v", err)
 		}
 
 		// Telegram相关路由
@@ -398,6 +412,16 @@ func main() {
 		api.GET("/telegram/logs/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetTelegramLogStats)
 		api.POST("/telegram/logs/clear", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.ClearTelegramLogs)
 		api.POST("/telegram/webhook", telegramHandler.HandleWebhook)
+
+		// 微信公众号相关路由
+		wechatHandler := handlers.NewWechatHandler(
+			wechatBotService,
+			repoManager.SystemConfigRepository,
+		)
+		api.GET("/wechat/bot-config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), wechatHandler.GetBotConfig)
+		api.PUT("/wechat/bot-config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), wechatHandler.UpdateBotConfig)
+		api.GET("/wechat/bot-status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), wechatHandler.GetBotStatus)
+		api.POST("/api/wechat/callback", wechatHandler.HandleWechatMessage)
 	}
 
 	// 设置监控系统

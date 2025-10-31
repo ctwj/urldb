@@ -23,13 +23,7 @@
           </n-tab-pane>
 
         <n-tab-pane name="wechat" tab="微信公众号">
-          <div class="tab-content-container">
-            <div class="text-center py-12">
-              <i class="fas fa-lock text-4xl text-gray-400 mb-4"></i>
-              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">功能暂未开放</h3>
-              <p class="text-gray-500 dark:text-gray-400">微信公众号机器人功能正在开发中，敬请期待</p>
-            </div>
-          </div>
+          <WechatBotTab />
         </n-tab-pane>
 
         <n-tab-pane name="telegram" tab="Telegram机器人">
@@ -59,6 +53,7 @@ import { ref } from 'vue'
 import AdminPageLayout from '~/components/AdminPageLayout.vue'
 import TelegramBotTab from '~/components/TelegramBotTab.vue'
 import QqBotTab from '~/components/QqBotTab.vue'
+import WechatBotTab from '~/components/WechatBotTab.vue'
 
 // 设置页面布局
 definePageMeta({
