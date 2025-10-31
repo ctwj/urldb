@@ -23,13 +23,14 @@ func WechatBotConfigRequestToSystemConfigs(req dto.WechatBotConfigRequest) []ent
 // SystemConfigToWechatBotConfig 将系统配置转换为微信机器人配置响应
 func SystemConfigToWechatBotConfig(configs []entity.SystemConfig) dto.WechatBotConfigResponse {
 	resp := dto.WechatBotConfigResponse{
-		Enabled:         false,
-		AppID:           "",
-		Token:           "",
-		EncodingAesKey:  "",
-		WelcomeMessage:  "欢迎关注老九网盘资源库！发送关键词即可搜索资源。",
+		Enabled:          false,
+		AppID:            "",
+		AppSecret:        "",
+		Token:            "",
+		EncodingAesKey:   "",
+		WelcomeMessage:   "欢迎关注老九网盘资源库！发送关键词即可搜索资源。",
 		AutoReplyEnabled: true,
-		SearchLimit:     5,
+		SearchLimit:      5,
 	}
 
 	for _, config := range configs {
@@ -38,6 +39,8 @@ func SystemConfigToWechatBotConfig(configs []entity.SystemConfig) dto.WechatBotC
 			resp.Enabled = config.Value == "true"
 		case entity.ConfigKeyWechatAppId:
 			resp.AppID = config.Value
+		case entity.ConfigKeyWechatAppSecret:
+			resp.AppSecret = config.Value
 		case entity.ConfigKeyWechatToken:
 			resp.Token = config.Value
 		case entity.ConfigKeyWechatEncodingAesKey:

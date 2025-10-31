@@ -16,6 +16,7 @@ type WechatBotConfigRequest struct {
 type WechatBotConfigResponse struct {
 	Enabled         bool   `json:"enabled"`
 	AppID           string `json:"app_id"`
+	AppSecret       string `json:"app_secret"`
 	Token           string `json:"token"`
 	EncodingAesKey  string `json:"encoding_aes_key"`
 	WelcomeMessage  string `json:"welcome_message"`
