@@ -192,6 +192,21 @@ func (s *WechatBotServiceImpl) handleTextMessage(msg *message.MixMessage) (inter
 		return s.handleGetResource(string(msg.FromUserName), keyword)
 	}
 
+	// 检查是否是直接获取资源命令（例如：直接输入资源标题的一部分）
+	// 如果用户输入的关键词与最近一次搜索结果中的某个资源标题匹配，则直接返回该资源
+	session := s.searchSessionManager.GetSession(string(msg.FromUserName))
+	if session != nil && keyword != "" {
+		// 在最近的搜索结果中查找匹配的资源
+		for i, resource := range session.Resources {
+			// 如果关键词与资源标题匹配（不区分大小写）
+			if strings.Contains(strings.ToLower(resource.Title), strings.ToLower(keyword)) {
+				// 构造获取命令并调用handleGetResource
+				getCommand := fmt.Sprintf("获取 %d", i+1)
+				return s.handleGetResource(string(msg.FromUserName), getCommand)
+			}
+		}
+	}
+
 	if keyword == "" {
 		utils.Info("[WECHAT:MESSAGE] 关键词为空，返回提示消息")
 		return message.NewText("请输入搜索关键词"), nil
@@ -287,26 +302,110 @@ func (s *WechatBotServiceImpl) handleGetResource(userID, command string) (interf
 	// 获取指定资源
 	resource := session.Resources[index-1]
 
-	// 格式化资源详细信息
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("📋 资源详情\n\n"))
-	result.WriteString(fmt.Sprintf("标题: %s\n", resource.Title))
+	// 创建美观的描述文本
+	var description strings.Builder
+
+	// 添加资源基本信息
 	if resource.Description != "" {
-		result.WriteString(fmt.Sprintf("描述: %s\n", resource.Description))
-	}
-	if resource.FileSize != "" {
-		result.WriteString(fmt.Sprintf("大小: %s\n", resource.FileSize))
-	}
-	if resource.Author != "" {
-		result.WriteString(fmt.Sprintf("作者: %s\n", resource.Author))
-	}
-	if resource.SaveURL != "" {
-		result.WriteString(fmt.Sprintf("\n📥 转存链接: %s", resource.SaveURL))
-	} else if resource.URL != "" {
-		result.WriteString(fmt.Sprintf("\n🔗 资源链接: %s", resource.URL))
+		// 限制描述长度，避免超出微信限制
+		desc := resource.Description
+		if len(desc) > 100 {
+			desc = desc[:100] + "..."
+		}
+		description.WriteString(desc)
+		description.WriteString("\n\n")
 	}
 
-	return message.NewText(result.String()), nil
+	// 添加资源详细信息
+	details := []string{}
+	if resource.FileSize != "" {
+		details = append(details, fmt.Sprintf("📁 大小: %s", resource.FileSize))
+	}
+	if resource.Author != "" {
+		details = append(details, fmt.Sprintf("👤 作者: %s", resource.Author))
+	}
+
+	if len(details) > 0 {
+		description.WriteString(strings.Join(details, "  "))
+		description.WriteString("\n\n")
+	}
+
+	// 添加提示信息
+	description.WriteString("🔗 点击卡片标题可直接访问资源")
+
+	// 创建主图文消息
+	article := message.NewArticle(
+		fmt.Sprintf("🎯 %s", resource.Title), // 在标题前添加emoji增加视觉效果
+		description.String(),
+		resource.Cover, // 使用封面图片
+		"", // URL会在下面设置
+	)
+
+	// 如果有转存链接，优先使用转存链接，否则使用资源链接
+	if resource.SaveURL != "" {
+		article.URL = resource.SaveURL
+	} else if resource.URL != "" {
+		article.URL = resource.URL
+	}
+
+	// 创建相关资源推荐（最多添加4个相关资源作为推荐）
+	var relatedArticles []*message.Article
+	maxRelated := 4
+	added := 0
+
+	// 添加相关资源推荐
+	for i, relatedResource := range session.Resources {
+		// 跳过当前资源本身
+		if i == index-1 {
+			continue
+		}
+
+		// 只添加前4个相关资源
+		if added >= maxRelated {
+			break
+		}
+
+		// 创建简洁的推荐描述
+		var relatedDesc string
+		if relatedResource.Description != "" {
+			// 限制推荐描述长度
+			relatedDesc = relatedResource.Description
+			if len(relatedDesc) > 50 {
+				relatedDesc = relatedDesc[:50] + "..."
+			}
+		} else {
+			relatedDesc = "点击查看相关资源"
+		}
+
+		relatedArticle := message.NewArticle(
+			fmt.Sprintf("🔍 %s", relatedResource.Title), // 添加emoji标识
+			relatedDesc,
+			relatedResource.Cover,
+			"", // URL会在下面设置
+		)
+
+		// 设置链接
+		if relatedResource.SaveURL != "" {
+			relatedArticle.URL = relatedResource.SaveURL
+		} else if relatedResource.URL != "" {
+			relatedArticle.URL = relatedResource.URL
+		}
+
+		relatedArticles = append(relatedArticles, relatedArticle)
+		added++
+	}
+
+	// 创建图文消息回复
+	// 如果有相关推荐，创建多图文消息
+	if len(relatedArticles) > 0 {
+		allArticles := append([]*message.Article{article}, relatedArticles...)
+		news := message.NewNews(allArticles)
+		return news, nil
+	} else {
+		// 如果没有相关推荐，创建单图文消息
+		news := message.NewNews([]*message.Article{article})
+		return news, nil
+	}
 }
 
 // formatSearchResultsWithPagination 格式化带分页的搜索结果
@@ -319,12 +418,18 @@ func (s *WechatBotServiceImpl) formatSearchResultsWithPagination(keyword string,
 // 根据用户需求，搜索结果中不显示资源链接，只显示标题和描述
 func (s *WechatBotServiceImpl) formatPageResources(keyword string, resources []entity.Resource, currentPage, totalPages int, userID string) string {
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("🔍 搜索\"%s\"的结果（第%d/%d页）：\n\n", keyword, currentPage, totalPages))
+
+	// 添加标题和页码信息
+	result.WriteString(fmt.Sprintf("🔍 搜索\"%s\"的结果（第%d/%d页）\n", keyword, currentPage, totalPages))
+	result.WriteString(strings.Repeat("─", 30) + "\n\n")
 
 	for i, resource := range resources {
 		// 计算全局索引（当前页的第i个资源在整个结果中的位置）
 		globalIndex := (currentPage-1)*5 + i + 1
-		result.WriteString(fmt.Sprintf("%d. %s\n", globalIndex, resource.Title))
+
+		// 添加资源信息
+		result.WriteString(fmt.Sprintf("🎯 [%d] %s\n", globalIndex, resource.Title))
+
 		if resource.Description != "" {
 			desc := resource.Description
 			if len(desc) > 50 {
@@ -332,7 +437,9 @@ func (s *WechatBotServiceImpl) formatPageResources(keyword string, resources []e
 			}
 			result.WriteString(fmt.Sprintf("   %s\n", desc))
 		}
-		result.WriteString(fmt.Sprintf("   回复\"获取 %d\"查看详细信息\n", globalIndex))
+
+		// 添加获取提示
+		result.WriteString(fmt.Sprintf("   🔗 回复\"获取 %d\"查看详细信息\n", globalIndex))
 		result.WriteString("\n")
 	}
 
@@ -346,6 +453,7 @@ func (s *WechatBotServiceImpl) formatPageResources(keyword string, resources []e
 	}
 
 	if len(pageTips) > 0 {
+		result.WriteString(strings.Repeat("─", 30) + "\n")
 		result.WriteString(fmt.Sprintf("💡 提示：回复\"%s\"翻页\n", strings.Join(pageTips, "\"或\"")))
 	}
 
