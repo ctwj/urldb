@@ -40,16 +40,11 @@
 - [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
 - [Telegram机器人](https://ecn5khs4t956.feishu.cn/wiki/SwkQw6AzRiFes7kxJXac3pd2ncb?from=from_copylink)
 
-### v1.3.1
-1. 添加API访问日志
-2. 添加首页公告
-3. TG机器人，添加资源选择模式
+### v1.3.2
+1. 二维码美化
+2. TelegramBot参数调整
+3. 修复一些问题
 
-### v1.3.0
-1. 新增 [Telegram Bot](https://ecn5khs4t956.feishu.cn/wiki/SwkQw6AzRiFes7kxJXac3pd2ncb?from=from_copylink)
-2. 新增[扩容](https://ecn5khs4t956.feishu.cn/wiki/R3cPwEU6viTWfukHFNycM7O6nMd?from=from_copylink)
-3. 支持迅雷云盘
-4. UI优化
 
 [详细改动记录](https://github.com/ctwj/urldb/blob/main/ChangeLog.md) 
 
