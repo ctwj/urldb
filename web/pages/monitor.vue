@@ -242,6 +242,20 @@ definePageMeta({
   layout: 'default'
 })
 
+// SEO优化
+useSeoMeta({
+  title: '系统性能监控 - 老九网盘资源数据库',
+  description: '实时监控系统运行状态和性能指标，查看CPU、内存、磁盘使用情况',
+  ogTitle: '系统性能监控 - 老九网盘资源数据库',
+  ogDescription: '实时监控系统运行状态和性能指标，查看CPU、内存、磁盘使用情况',
+  ogImage: '/og-image.jpg',
+  ogUrl: 'https://pan.l9.lc/monitor',
+  twitterCard: 'summary_large_image',
+  twitterTitle: '系统性能监控 - 老九网盘资源数据库',
+  twitterDescription: '实时监控系统运行状态和性能指标，查看CPU、内存、磁盘使用情况',
+  twitterImage: '/og-image.jpg'
+})
+
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useMonitorApi } from '~/composables/useApi'
 const monitorApi = useMonitorApi()

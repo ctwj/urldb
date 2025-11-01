@@ -422,7 +422,49 @@ useHead(() => {
     title: safeTitle,
     meta: [
       { name: 'description', content: safeDescription },
-      { name: 'keywords', content: safeKeywords }
+      { name: 'keywords', content: safeKeywords },
+      // Open Graph
+      { property: 'og:title', content: safeTitle },
+      { property: 'og:description', content: safeDescription },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:image', content: '/og-image.jpg' },
+      { property: 'og:url', content: 'https://pan.l9.lc' },
+      // Twitter Card
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:title', content: safeTitle },
+      { name: 'twitter:description', content: safeDescription },
+      { name: 'twitter:image', content: '/og-image.jpg' }
+    ],
+    script: [
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "老九网盘资源数据库",
+          "url": "https://pan.l9.lc",
+          "description": "现代化的网盘资源数据库，支持多网盘自动化转存分享",
+          "publisher": {
+            "@type": "Organization",
+            "name": "老九网盘资源数据库"
+          }
+        })
+      },
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "首页",
+              "item": "https://pan.l9.lc"
+            }
+          ]
+        })
+      }
     ]
   }
 })

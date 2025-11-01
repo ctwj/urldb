@@ -460,12 +460,18 @@ definePageMeta({
 })
 
 // 页面元数据
-useHead({
+useSeoMeta({
   title: 'API文档 - 老九网盘资源数据库',
-  meta: [
-    { name: 'description', content: '老九网盘资源数据库的公开API接口文档' },
-    { name: 'keywords', content: 'API,接口文档,网盘资源管理' }
-  ]
+  description: '老九网盘资源数据库的公开API接口文档，提供资源搜索、获取等接口',
+  ogTitle: 'API文档 - 老九网盘资源数据库',
+  ogDescription: '老九网盘资源数据库的公开API接口文档，提供资源搜索、获取等接口',
+  ogImage: '/og-image.jpg',
+  ogUrl: 'https://pan.l9.lc/api-docs',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'API文档 - 老九网盘资源数据库',
+  twitterDescription: '老九网盘资源数据库的公开API接口文档，提供资源搜索、获取等接口',
+  twitterImage: '/og-image.jpg',
+  keywords: 'API,接口文档,网盘资源管理'
 })
 </script>
 

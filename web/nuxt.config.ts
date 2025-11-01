@@ -45,7 +45,7 @@ export default defineNuxtConfig({
       }
     }
   },
-  modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
+  modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt', '@nuxtjs/seo', '@nuxtjs/sitemap'],
   css: [
     '~/assets/css/main.css',
     'vfonts/Lato.css',
@@ -63,6 +63,26 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
       ]
+    }
+  },
+  site: {
+    url: 'https://pan.l9.lc',
+    name: '老九网盘资源数据库',
+    description: '老九网盘资源管理数据庫，现代化的网盘资源数据库，支持多网盘自动化转存分享',
+  },
+  sitemap: {
+    hostname: 'https://pan.l9.lc',
+    gzip: true,
+    routes: async () => {
+      // 动态生成资源页面链接
+      const routes = [
+        '/',
+        '/hot-dramas',
+        '/monitor',
+        '/api-docs'
+      ]
+      // 这里可以调用API获取资源列表生成静态路由
+      return routes
     }
   },
   runtimeConfig: {

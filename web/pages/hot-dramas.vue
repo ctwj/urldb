@@ -166,6 +166,20 @@ definePageMeta({
   layout: 'default'
 })
 
+// SEO优化
+useSeoMeta({
+  title: '热播剧榜单 - 老九网盘资源数据库',
+  description: '实时获取豆瓣热门电影和电视剧榜单，提供最新的影视资源信息',
+  ogTitle: '热播剧榜单 - 老九网盘资源数据库',
+  ogDescription: '实时获取豆瓣热门电影和电视剧榜单，提供最新的影视资源信息',
+  ogImage: '/og-image.jpg',
+  ogUrl: 'https://pan.l9.lc/hot-dramas',
+  twitterCard: 'summary_large_image',
+  twitterTitle: '热播剧榜单 - 老九网盘资源数据库',
+  twitterDescription: '实时获取豆瓣热门电影和电视剧榜单，提供最新的影视资源信息',
+  twitterImage: '/og-image.jpg'
+})
+
 const hotDramaApi = useHotDramaApi()
 const { data: hotDramsaResponse, error } = await hotDramaApi.getHotDramas({
   page: 1,
