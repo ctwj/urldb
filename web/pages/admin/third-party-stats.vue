@@ -324,7 +324,7 @@ import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection
 
 // 页面配置
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin-dynamic'
 })
 
 // 定义配置表单类型

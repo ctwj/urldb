@@ -168,7 +168,7 @@ const handleLogin = async () => {
 }
 
 definePageMeta({
-  layout: 'single',
+  layout: 'single-dynamic',
   ssr: false
 })
 

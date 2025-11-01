@@ -36,6 +36,6 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: 'admin' as any
+  layout: 'admin-dynamic' as any
 })
 </script> 

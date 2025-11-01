@@ -253,7 +253,7 @@
 
 <script setup>
 definePageMeta({
-  layout: 'admin',
+  layout: 'admin-dynamic',
   ssr: false
 })
 

@@ -26,7 +26,7 @@ import AdminPageLayout from '~/components/AdminPageLayout.vue'
 
 // 数据推送管理页面
 definePageMeta({
-  layout: 'admin',
+  layout: 'admin-dynamic',
   middleware: ['auth']
 })
 </script> 

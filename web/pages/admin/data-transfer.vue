@@ -50,7 +50,7 @@ import AdminPageLayout from '~/components/AdminPageLayout.vue'
 
 // 页面配置
 definePageMeta({
-  layout: 'admin',
+  layout: 'admin-dynamic',
   middleware: ['auth']
 })
 

@@ -291,7 +291,7 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: 'admin',
+  layout: 'admin-dynamic',
   middleware: ['auth']
 })
 

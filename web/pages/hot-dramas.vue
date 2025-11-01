@@ -163,7 +163,7 @@
 <script setup>
 // 设置页面布局
 definePageMeta({
-  layout: 'default'
+  layout: 'dynamic'
 })
 
 // SEO优化

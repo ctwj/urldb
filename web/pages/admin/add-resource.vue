@@ -52,7 +52,7 @@ import AdminPageLayout from '~/components/AdminPageLayout.vue'
 
 // 设置页面布局
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin-dynamic'
 })
 
 // 根据 Nuxt 3 组件规则，位于 components/Admin/ 的组件会自动以 Admin 前缀导入

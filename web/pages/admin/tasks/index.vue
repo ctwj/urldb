@@ -510,7 +510,7 @@ onMounted(() => {
 
 // 设置页面meta
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin-dynamic'
 })
 </script>
 

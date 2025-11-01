@@ -285,7 +285,7 @@ import AdminPageLayout from '~/components/AdminPageLayout.vue'
 
 // SEO管理页面
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin-dynamic'
 })
 
 import { useMessage } from 'naive-ui'

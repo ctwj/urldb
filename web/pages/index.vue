@@ -304,6 +304,11 @@
 // 获取运行时配置
 const config = useRuntimeConfig()
 
+// 设置页面布局
+definePageMeta({
+  layout: 'dynamic'
+})
+
 import { useResourceApi, useStatsApi, usePanApi, useSystemConfigApi, usePublicSystemConfigApi, useSearchStatsApi } from '~/composables/useApi'
 
 const resourceApi = useResourceApi()

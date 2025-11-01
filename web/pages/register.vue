@@ -275,7 +275,7 @@ const handleRegister = async () => {
 }
 
 definePageMeta({
-  layout: 'single',
+  layout: 'single-dynamic',
   ssr: false
 })
 

@@ -214,7 +214,7 @@ import { useImageUrl } from '~/composables/useImageUrl'
 
 // 设置页面布局
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin-dynamic'
 })
 
 interface FileItem {

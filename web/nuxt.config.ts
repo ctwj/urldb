@@ -46,6 +46,18 @@ export default defineNuxtConfig({
     }
   },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt', '@nuxtjs/seo', '@nuxtjs/sitemap'],
+
+  // 添加模板目录到构建
+  hooks: {
+    'build:extendRoutes': (routes) => {
+      // 可以在这里添加动态路由逻辑
+    }
+  },
+
+  // 添加别名以便更容易导入模板文件
+  alias: {
+    '@templates': '~/templates'
+  },
   css: [
     '~/assets/css/main.css',
     'vfonts/Lato.css',

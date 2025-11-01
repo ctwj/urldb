@@ -456,7 +456,7 @@ if __name__ == '__main__':
 <script setup>
 // 设置页面布局
 definePageMeta({
-  layout: 'default'
+  layout: 'dynamic'
 })
 
 // 页面元数据

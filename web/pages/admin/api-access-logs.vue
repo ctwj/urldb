@@ -212,7 +212,7 @@
 <script setup lang="ts">
 // 设置页面布局
 definePageMeta({
-  layout: 'admin',
+  layout: 'admin-dynamic',
   ssr: false
 })
 
