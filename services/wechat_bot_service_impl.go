@@ -306,8 +306,6 @@ func (s *WechatBotServiceImpl) handleGetResource(userID, command string) (interf
 		result.WriteString(fmt.Sprintf("\n🔗 资源链接: %s", resource.URL))
 	}
 
-	result.WriteString(fmt.Sprintf("\n\n💡 提示：回复\"上一页\"或\"下一页\"查看其他资源"))
-
 	return message.NewText(result.String()), nil
 }
 
@@ -318,6 +316,7 @@ func (s *WechatBotServiceImpl) formatSearchResultsWithPagination(keyword string,
 }
 
 // formatPageResources 格式化页面资源
+// 根据用户需求，搜索结果中不显示资源链接，只显示标题和描述
 func (s *WechatBotServiceImpl) formatPageResources(keyword string, resources []entity.Resource, currentPage, totalPages int, userID string) string {
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("🔍 搜索\"%s\"的结果（第%d/%d页）：\n\n", keyword, currentPage, totalPages))
@@ -332,11 +331,6 @@ func (s *WechatBotServiceImpl) formatPageResources(keyword string, resources []e
 				desc = desc[:50] + "..."
 			}
 			result.WriteString(fmt.Sprintf("   %s\n", desc))
-		}
-		if resource.SaveURL != "" {
-			result.WriteString(fmt.Sprintf("   转存链接：%s\n", resource.SaveURL))
-		} else if resource.URL != "" {
-			result.WriteString(fmt.Sprintf("   资源链接：%s\n", resource.URL))
 		}
 		result.WriteString(fmt.Sprintf("   回复\"获取 %d\"查看详细信息\n", globalIndex))
 		result.WriteString("\n")
