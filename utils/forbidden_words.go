@@ -130,7 +130,7 @@ func (p *ForbiddenWordsProcessor) ProcessForbiddenWords(text string, forbiddenWo
 
 // ParseForbiddenWordsConfig 解析违禁词配置字符串
 // 参数：
-//   - config: 违禁词配置字符串，多个词用逗号分隔
+//   - config: 违禁词配置字符串，多个词用逗号或换行符分隔
 //
 // 返回：
 //   - []string: 处理后的违禁词列表
@@ -139,16 +139,21 @@ func (p *ForbiddenWordsProcessor) ParseForbiddenWordsConfig(config string) []str
 		return nil
 	}
 
-	words := strings.Split(config, ",")
-	var cleanWords []string
-	for _, word := range words {
-		word = strings.TrimSpace(word)
-		if word != "" {
-			cleanWords = append(cleanWords, word)
+	var words []string
+	// 首先尝试用换行符分割
+	lines := strings.Split(config, "\n")
+	for _, line := range lines {
+		// 对每一行再用逗号分割（兼容两种格式）
+		parts := strings.Split(line, ",")
+		for _, part := range parts {
+			word := strings.TrimSpace(part)
+			if word != "" {
+				words = append(words, word)
+			}
 		}
 	}
 
-	return cleanWords
+	return words
 }
 
 // 全局实例，方便直接调用

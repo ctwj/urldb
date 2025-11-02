@@ -152,8 +152,14 @@ func main() {
 	// 将Repository管理器注入到handlers中
 	handlers.SetRepositoryManager(repoManager)
 
+	// 将Repository管理器注入到services中
+	services.SetRepositoryManager(repoManager)
+
 	// 设置Meilisearch管理器到handlers中
 	handlers.SetMeilisearchManager(meilisearchManager)
+
+	// 设置Meilisearch管理器到services中
+	services.SetMeilisearchManager(meilisearchManager)
 
 	// 设置全局调度器的Meilisearch管理器
 	scheduler.SetGlobalMeilisearchManager(meilisearchManager)

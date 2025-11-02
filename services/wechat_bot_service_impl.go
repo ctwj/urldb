@@ -197,6 +197,24 @@ func (s *WechatBotServiceImpl) handleTextMessage(msg *message.MixMessage) (inter
 		return message.NewText("请输入搜索关键词"), nil
 	}
 
+	// 检查搜索关键词是否包含违禁词
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return s.systemConfigRepo.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{} // 如果获取失败，使用空列表
+	}
+
+	// 检查关键词是否包含违禁词
+	if len(cleanWords) > 0 {
+		containsForbidden, matchedWords := utils.CheckContainsForbiddenWords(keyword, cleanWords)
+		if containsForbidden {
+			utils.Info("[WECHAT:MESSAGE] 搜索关键词包含违禁词: %v", matchedWords)
+			return message.NewText("您的搜索关键词包含违禁内容，不予处理"), nil
+		}
+	}
+
 	// 搜索资源
 	utils.Debug("[WECHAT:MESSAGE] 开始搜索资源，限制数量: %d", s.config.SearchLimit)
 	resources, err := s.SearchResources(keyword)
@@ -212,7 +230,7 @@ func (s *WechatBotServiceImpl) handleTextMessage(msg *message.MixMessage) (inter
 	}
 
 	// 创建搜索会话并保存第一页结果
-	s.searchSessionManager.CreateSession(string(msg.FromUserName), keyword, resources, 5)
+	s.searchSessionManager.CreateSession(string(msg.FromUserName), keyword, resources, 4)
 	pageResources := s.searchSessionManager.GetCurrentPageResources(string(msg.FromUserName))
 
 	// 格式化第一页搜索结果
@@ -270,41 +288,81 @@ func (s *WechatBotServiceImpl) handleGetResource(userID, command string) (interf
 		return message.NewText("没有找到搜索记录，请先进行搜索"), nil
 	}
 
+	// 检查是否只输入了"获取"或"get"，没有指定编号
+	if command == "获取" || command == "get" {
+		return message.NewText("📌 请输入要获取的资源编号\n\n💡 提示：回复\"获取 1\"或\"get 1\"获取第一个资源的详细信息"), nil
+	}
+
 	// 解析命令，例如："获取 1" 或 "get 2"
+	// 支持"获取4"这种没有空格的格式
 	var index int
-	_, err := fmt.Sscanf(command, "获取 %d", &index)
+	_, err := fmt.Sscanf(command, "获取%d", &index)
 	if err != nil {
-		_, err = fmt.Sscanf(command, "get %d", &index)
+		_, err = fmt.Sscanf(command, "获取 %d", &index)
 		if err != nil {
-			return message.NewText("命令格式错误，请使用：获取 1 或 get 1"), nil
+			_, err = fmt.Sscanf(command, "get%d", &index)
+			if err != nil {
+				_, err = fmt.Sscanf(command, "get %d", &index)
+				if err != nil {
+					return message.NewText("❌ 命令格式错误\n\n📌 正确格式：\n   • 获取 1\n   • get 1\n   • 获取1\n   • get1"), nil
+				}
+			}
 		}
 	}
 
 	if index < 1 || index > len(session.Resources) {
-		return message.NewText(fmt.Sprintf("资源编号超出范围，请输入 1-%d 之间的数字", len(session.Resources))), nil
+		return message.NewText(fmt.Sprintf("❌ 资源编号超出范围\n\n📌 请输入 1-%d 之间的数字\n💡 提示：回复\"获取 %d\"获取第%d个资源", len(session.Resources), index, index)), nil
 	}
 
 	// 获取指定资源
 	resource := session.Resources[index-1]
 
-	// 格式化资源详细信息
+	// 格式化资源详细信息（美化输出）
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("📋 资源详情\n\n"))
-	result.WriteString(fmt.Sprintf("标题: %s\n", resource.Title))
+	// result.WriteString(fmt.Sprintf("📌 资源详情\n\n"))
+
+	// 标题
+	result.WriteString(fmt.Sprintf("📌 标题: %s\n", resource.Title))
+
+	// 描述
 	if resource.Description != "" {
-		result.WriteString(fmt.Sprintf("描述: %s\n", resource.Description))
+		result.WriteString(fmt.Sprintf("\n📝 描述:\n   %s\n", resource.Description))
 	}
+
+	// 文件大小
 	if resource.FileSize != "" {
-		result.WriteString(fmt.Sprintf("大小: %s\n", resource.FileSize))
+		result.WriteString(fmt.Sprintf("\n📊 大小: %s\n", resource.FileSize))
 	}
+
+	// 作者
 	if resource.Author != "" {
-		result.WriteString(fmt.Sprintf("作者: %s\n", resource.Author))
+		result.WriteString(fmt.Sprintf("\n👤 作者: %s\n", resource.Author))
 	}
+
+	// 分类
+	if resource.Category.Name != "" {
+		result.WriteString(fmt.Sprintf("\n📂 分类: %s\n", resource.Category.Name))
+	}
+
+	// 标签
+	if len(resource.Tags) > 0 {
+		result.WriteString("\n🏷️ 标签: ")
+		var tags []string
+		for _, tag := range resource.Tags {
+			tags = append(tags, tag.Name)
+		}
+		result.WriteString(fmt.Sprintf("%s\n", strings.Join(tags, " ")))
+	}
+
+	// 链接（美化）
 	if resource.SaveURL != "" {
-		result.WriteString(fmt.Sprintf("\n📥 转存链接: %s", resource.SaveURL))
+		result.WriteString(fmt.Sprintf("\n📥 转存链接:\n   %s", resource.SaveURL))
 	} else if resource.URL != "" {
-		result.WriteString(fmt.Sprintf("\n🔗 资源链接: %s", resource.URL))
+		result.WriteString(fmt.Sprintf("\n🔗 资源链接:\n   %s", resource.URL))
 	}
+
+	// 添加操作提示
+	result.WriteString(fmt.Sprintf("\n\n💡 提示：回复\"获取 %d\"可再次查看此资源", index))
 
 	return message.NewText(result.String()), nil
 }
@@ -322,18 +380,65 @@ func (s *WechatBotServiceImpl) formatPageResources(keyword string, resources []e
 	result.WriteString(fmt.Sprintf("🔍 搜索\"%s\"的结果（第%d/%d页）：\n\n", keyword, currentPage, totalPages))
 
 	for i, resource := range resources {
+		// 构建当前资源的文本表示
+		var resourceText strings.Builder
+
 		// 计算全局索引（当前页的第i个资源在整个结果中的位置）
-		globalIndex := (currentPage-1)*5 + i + 1
-		result.WriteString(fmt.Sprintf("%d. %s\n", globalIndex, resource.Title))
+		globalIndex := (currentPage-1)*4 + i + 1
+		resourceText.WriteString(fmt.Sprintf("%d. 📌 %s\n", globalIndex, resource.Title))
+
 		if resource.Description != "" {
+			// 限制描述长度以避免消息过长（正确处理中文字符）
 			desc := resource.Description
-			if len(desc) > 50 {
-				desc = desc[:50] + "..."
+			// 将字符串转换为 rune 切片以正确处理中文字符
+			runes := []rune(desc)
+			if len(runes) > 50 {
+				desc = string(runes[:50]) + "..."
 			}
-			result.WriteString(fmt.Sprintf("   %s\n", desc))
+			resourceText.WriteString(fmt.Sprintf("   📝 %s\n", desc))
 		}
-		result.WriteString(fmt.Sprintf("   回复\"获取 %d\"查看详细信息\n", globalIndex))
-		result.WriteString("\n")
+
+		// 添加标签显示（格式：🏷️标签,空格,再接别的标签）
+		if len(resource.Tags) > 0 {
+			var tags []string
+			for _, tag := range resource.Tags {
+				tags = append(tags, "🏷️"+tag.Name)
+			}
+			// 限制标签数量以避免消息过长
+			if len(tags) > 5 {
+				tags = tags[:5]
+			}
+			resourceText.WriteString(fmt.Sprintf("   %s\n", strings.Join(tags, " ")))
+		}
+
+		resourceText.WriteString(fmt.Sprintf("   👉 回复\"获取 %d\"查看详细信息\n", globalIndex))
+		resourceText.WriteString("\n")
+
+		// 预计算添加当前资源后的消息长度
+		tempMessage := result.String() + resourceText.String()
+
+		// 添加分页提示和预留空间
+		if currentPage > 1 || currentPage < totalPages {
+			tempMessage += "💡 提示：回复\""
+			if currentPage > 1 && currentPage < totalPages {
+				tempMessage += "上一页\"或\"下一页"
+			} else if currentPage > 1 {
+				tempMessage += "上一页"
+			} else {
+				tempMessage += "下一页"
+			}
+			tempMessage += "\"翻页\n"
+		}
+
+		// 检查添加当前资源后是否会超过微信限制
+		tempRunes := []rune(tempMessage)
+		if len(tempRunes) > 550 {
+			result.WriteString("💡 内容较多，请翻页查看更多\n")
+			break
+		}
+
+		// 如果不会超过限制，则添加当前资源到结果中
+		result.WriteString(resourceText.String())
 	}
 
 	// 添加分页提示
@@ -349,7 +454,16 @@ func (s *WechatBotServiceImpl) formatPageResources(keyword string, resources []e
 		result.WriteString(fmt.Sprintf("💡 提示：回复\"%s\"翻页\n", strings.Join(pageTips, "\"或\"")))
 	}
 
-	return result.String()
+	// 确保消息不超过微信限制（正确处理中文字符）
+	message := result.String()
+	// 将字符串转换为 rune 切片以正确处理中文字符
+	runes := []rune(message)
+	if len(runes) > 600 {
+		// 如果还是超过限制，截断消息（微信建议不超过600个字符）
+		message = string(runes[:597]) + "..."
+	}
+
+	return message
 }
 
 // handleEventMessage 处理事件消息
@@ -363,17 +477,8 @@ func (s *WechatBotServiceImpl) handleEventMessage(msg *message.MixMessage) (inte
 
 // SearchResources 搜索资源
 func (s *WechatBotServiceImpl) SearchResources(keyword string) ([]entity.Resource, error) {
-	// 使用现有的资源搜索功能
-	resources, total, err := s.resourceRepo.Search(keyword, nil, 1, s.config.SearchLimit)
-	if err != nil {
-		return nil, err
-	}
-
-	if total == 0 {
-		return []entity.Resource{}, nil
-	}
-
-	return resources, nil
+	// 使用统一搜索函数（包含Meilisearch优先搜索和违禁词处理）
+	return UnifiedSearchResources(keyword, s.config.SearchLimit, s.systemConfigRepo, s.resourceRepo)
 }
 
 // formatSearchResults 格式化搜索结果
