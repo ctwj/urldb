@@ -440,3 +440,80 @@ func (h *FileHandler) calculateFileHash(filePath string) (string, error) {
 	}
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
+
+// UploadWechatVerifyFile 上传微信公众号验证文件（TXT文件）
+// 无需认证，仅支持TXT文件，不记录数据库，直接保存到uploads目录
+func (h *FileHandler) UploadWechatVerifyFile(c *gin.Context) {
+	// 获取上传的文件
+	file, err := c.FormFile("file")
+	if err != nil {
+		ErrorResponse(c, "未提供文件", http.StatusBadRequest)
+		return
+	}
+
+	// 验证文件扩展名必须是.txt
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext != ".txt" {
+		ErrorResponse(c, "仅支持TXT文件", http.StatusBadRequest)
+		return
+	}
+
+	// 验证文件大小（限制1MB）
+	if file.Size > 1*1024*1024 {
+		ErrorResponse(c, "文件大小不能超过1MB", http.StatusBadRequest)
+		return
+	}
+
+	// 生成文件名（使用原始文件名，但确保是安全的）
+	originalName := filepath.Base(file.Filename)
+	safeFileName := h.makeSafeFileName(originalName)
+
+	// 确保uploads目录存在
+	uploadsDir := "./uploads"
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		ErrorResponse(c, "创建上传目录失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 构建完整文件路径
+	filePath := filepath.Join(uploadsDir, safeFileName)
+
+	// 保存文件
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		ErrorResponse(c, "保存文件失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 设置文件权限
+	if err := os.Chmod(filePath, 0644); err != nil {
+		utils.Warn("设置文件权限失败: %v", err)
+	}
+
+	// 返回成功响应
+	accessURL := fmt.Sprintf("/%s", safeFileName)
+	response := map[string]interface{}{
+		"success":    true,
+		"message":    "验证文件上传成功",
+		"file_name":  safeFileName,
+		"access_url": accessURL,
+	}
+
+	SuccessResponse(c, response)
+}
+
+// makeSafeFileName 生成安全的文件名，移除危险字符
+func (h *FileHandler) makeSafeFileName(filename string) string {
+	// 移除路径分隔符和特殊字符
+	safeName := strings.ReplaceAll(filename, "/", "_")
+	safeName = strings.ReplaceAll(safeName, "\\", "_")
+	safeName = strings.ReplaceAll(safeName, "..", "_")
+
+	// 限制文件名长度
+	if len(safeName) > 100 {
+		ext := filepath.Ext(safeName)
+		name := safeName[:100-len(ext)]
+		safeName = name + ext
+	}
+
+	return safeName
+}

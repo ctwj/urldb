@@ -355,3 +355,17 @@ export const useSystemLogApi = () => {
     clearSystemLogs
   }
 }
+
+// 微信机器人管理API
+export const useWechatApi = () => {
+  const getBotConfig = () => useApiFetch('/wechat/bot-config').then(parseApiResponse)
+  const updateBotConfig = (data: any) => useApiFetch('/wechat/bot-config', { method: 'PUT', body: data }).then(parseApiResponse)
+  const getBotStatus = () => useApiFetch('/wechat/bot-status').then(parseApiResponse)
+  const uploadVerifyFile = (formData: FormData) => useApiFetch('/wechat/verify-file', { method: 'POST', body: formData }).then(parseApiResponse)
+  return {
+    getBotConfig,
+    updateBotConfig,
+    getBotStatus,
+    uploadVerifyFile
+  }
+}
