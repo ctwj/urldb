@@ -1753,10 +1753,10 @@ func (s *TelegramBotServiceImpl) addPushedResourceID(chatID int64, resourceID ui
 	}
 
 	// 检查是否已经超过100条记录
-	if len(history) >= 100 {
+	if len(history) >= 10000 {
 		// 清空历史记录，重新开始
 		history = []uint{}
-		utils.Info("[TELEGRAM:PUSH] 频道 %d 推送历史记录已满(100条)，清空重置", chatID)
+		utils.Info("[TELEGRAM:PUSH] 频道 %d 推送历史记录已满(10000条)，清空重置", chatID)
 	}
 
 	// 添加新的资源ID到历史记录
