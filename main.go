@@ -14,6 +14,7 @@ import (
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
 	"github.com/ctwj/urldb/monitor"
+	"github.com/ctwj/urldb/plugin"
 	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/task"
@@ -100,6 +101,9 @@ func main() {
 
 	// 创建任务管理器
 	taskManager := task.NewTaskManager(repoManager)
+
+	// 初始化插件系统
+	plugin.InitPluginSystem(taskManager)
 
 	// 注册转存任务处理器
 	transferProcessor := task.NewTransferProcessor(repoManager)
