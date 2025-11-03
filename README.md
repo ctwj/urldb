@@ -40,10 +40,9 @@
 - [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
 - [Telegram机器人](https://ecn5khs4t956.feishu.cn/wiki/SwkQw6AzRiFes7kxJXac3pd2ncb?from=from_copylink)
 
-### v1.3.2
-1. 二维码美化
-2. TelegramBot参数调整
-3. 修复一些问题
+### v1.3.3
+1. 新增公众号自动回复
+2. 修复一些问题
 
 
 [详细改动记录](https://github.com/ctwj/urldb/blob/main/ChangeLog.md) 
