@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr:*)",
+      "Bash(go get:*)",
+      "Bash(go run:*)",
+      "Bash(Get-NetTCPConnection:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 5 curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(go build:*)",
+      "Bash(dir:*)",
+      "Bash(del:*)",
+      "Bash(STRUCTURED_LOG=true go run:*)",
+      "Bash(chmod:*)",
+      "Bash(git restore:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(npm run dev)",
+      "Read(//g/server/**)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_console_messages",
+      "Bash(move \"G:\\server\\urldb\\plugin\\registry\\registry.go\" \"G:\\server\\urldb\\plugin\\registry\\registry.go\")",
+      "Bash(go test:*)",
+      "Bash(./main:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

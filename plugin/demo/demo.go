@@ -1,12 +1,10 @@
 package demo
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 
 	"github.com/ctwj/urldb/plugin/types"
-	"github.com/ctwj/urldb/utils"
 )
 
 // DemoPlugin is a demo plugin that fetches a random resource from the database every minute
@@ -60,7 +58,7 @@ func (p *DemoPlugin) Start() error {
 	p.context.LogInfo("Demo plugin started")
 
 	// Register a task to run every minute
-	return p.context.RegisterTask("demo-task", p.fetchAndLogResource)
+	return p.context.RegisterTask("demo-task", p.FetchAndLogResource)
 }
 
 // Stop stops the plugin
@@ -85,8 +83,8 @@ func (p *DemoPlugin) CheckDependencies() map[string]bool {
 	return make(map[string]bool)
 }
 
-// fetchAndLogResource fetches a random resource and logs it
-func (p *DemoPlugin) fetchAndLogResource() {
+// FetchAndLogResource fetches a random resource and logs it
+func (p *DemoPlugin) FetchAndLogResource() {
 	// Simulate fetching a resource from the database
 	resource := p.fetchRandomResource()
 

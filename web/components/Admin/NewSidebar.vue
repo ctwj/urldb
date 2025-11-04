@@ -212,6 +212,12 @@ const systemItems = ref([
     active: (route: any) => route.path.startsWith('/admin/system-config')
   },
   {
+    to: '/admin/plugins',
+    label: '插件管理',
+    icon: 'fas fa-plug',
+    active: (route: any) => route.path.startsWith('/admin/plugins')
+  },
+  {
     to: '/admin/version',
     label: '版本信息',
     icon: 'fas fa-code-branch',

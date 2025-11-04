@@ -103,7 +103,11 @@ func main() {
 	taskManager := task.NewTaskManager(repoManager)
 
 	// 初始化插件系统
-	plugin.InitPluginSystem(taskManager)
+	plugin.InitPluginSystem(taskManager, repoManager)
+
+	// 初始化插件监控系统
+	// pluginMonitor := monitor.NewPluginMonitor()
+	// pluginHealthChecker := monitor.NewPluginHealthChecker(pluginMonitor)
 
 	// 注册转存任务处理器
 	transferProcessor := task.NewTransferProcessor(repoManager)
@@ -433,6 +437,32 @@ func main() {
 		api.GET("/wechat/bot-status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), wechatHandler.GetBotStatus)
 		api.POST("/wechat/callback", wechatHandler.HandleWechatMessage)
 		api.GET("/wechat/callback", wechatHandler.HandleWechatMessage)
+
+		// 插件管理相关路由
+		pluginHandler := handlers.NewPluginHandler()
+		api.GET("/plugins", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.GetPlugins)
+		api.GET("/plugins/:name", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.GetPlugin)
+		api.POST("/plugins/:name/initialize", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.InitializePlugin)
+		api.POST("/plugins/:name/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.StartPlugin)
+		api.POST("/plugins/:name/stop", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.StopPlugin)
+		api.DELETE("/plugins/:name", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.UninstallPlugin)
+		api.GET("/plugins/:name/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.GetPluginConfig)
+		api.PUT("/plugins/:name/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.UpdatePluginConfig)
+		api.GET("/plugins/:name/dependencies", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.GetPluginDependencies)
+		api.GET("/plugins/load-order", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.GetPluginLoadOrder)
+		api.POST("/plugins/validate-dependencies", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.ValidatePluginDependencies)
+
+		// 插件监控相关路由
+		pluginMonitorHandler := handlers.NewPluginMonitorHandler()
+		api.GET("/plugins/health/:name", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.GetPluginHealth)
+		api.GET("/plugins/health", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.GetAllPluginsHealth)
+		api.GET("/plugins/activities/:name", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.GetPluginActivities)
+		api.GET("/plugins/metrics/:name", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.GetPluginMetrics)
+		api.GET("/plugins/monitor/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.GetPluginMonitorStats)
+		api.GET("/plugins/alerts/rules", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.GetAlertRules)
+		api.POST("/plugins/alerts/rules", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.CreateAlertRule)
+		api.DELETE("/plugins/alerts/rules/:name", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.DeleteAlertRule)
+		api.GET("/plugins/health-history/:name", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.GetPluginHealthHistory)
 	}
 
 	// 设置监控系统
