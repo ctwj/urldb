@@ -39,6 +39,7 @@
 - [服务器要求](https://ecn5khs4t956.feishu.cn/wiki/W8YBww1Mmiu4Cdkp5W4c8pFNnMf?from=from_copylink) 
 - [QQ机器人](https://github.com/ctwj/astrbot_plugin_urldb) 
 - [Telegram机器人](https://ecn5khs4t956.feishu.cn/wiki/SwkQw6AzRiFes7kxJXac3pd2ncb?from=from_copylink)
+- [微信公众号自动回复](https://ecn5khs4t956.feishu.cn/wiki/APOEwOyDYicKGHk7gTzcQKpynkf?from=from_copylink)
 
 ### v1.3.3
 1. 新增公众号自动回复
