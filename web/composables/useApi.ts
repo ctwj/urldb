@@ -96,7 +96,8 @@ export const useCksApi = () => {
   const updateCks = (id: number, data: any) => useApiFetch(`/cks/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteCks = (id: number) => useApiFetch(`/cks/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const refreshCapacity = (id: number) => useApiFetch(`/cks/${id}/refresh-capacity`, { method: 'POST' }).then(parseApiResponse)
-  return { getCks, getCksByID, createCks, updateCks, deleteCks, refreshCapacity }
+  const deleteRelatedResources = (id: number) => useApiFetch(`/cks/${id}/delete-related-resources`, { method: 'POST' }).then(parseApiResponse)
+  return { getCks, getCksByID, createCks, updateCks, deleteCks, refreshCapacity, deleteRelatedResources }
 }
 
 export const useTagApi = () => {

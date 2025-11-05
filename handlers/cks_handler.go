@@ -22,7 +22,49 @@ func GetCks(c *gin.Context) {
 		return
 	}
 
-	responses := converter.ToCksResponseList(cks)
+	// 使用新的逻辑创建 CksResponse
+	var responses []dto.CksResponse
+	for _, ck := range cks {
+		// 获取平台信息
+		var pan *dto.PanResponse
+		if ck.PanID != 0 {
+			panEntity, err := repoManager.PanRepository.FindByID(ck.PanID)
+			if err == nil && panEntity != nil {
+				pan = &dto.PanResponse{
+					ID:     panEntity.ID,
+					Name:   panEntity.Name,
+					Key:    panEntity.Key,
+					Icon:   panEntity.Icon,
+					Remark: panEntity.Remark,
+				}
+			}
+		}
+
+		// 统计转存资源数
+		count, err := repoManager.ResourceRepository.CountResourcesByCkID(ck.ID)
+		if err != nil {
+			count = 0 // 统计失败时设为0
+		}
+
+		response := dto.CksResponse{
+			ID:               ck.ID,
+			PanID:            ck.PanID,
+			Idx:              ck.Idx,
+			Ck:               ck.Ck,
+			IsValid:          ck.IsValid,
+			Space:            ck.Space,
+			LeftSpace:        ck.LeftSpace,
+			UsedSpace:        ck.UsedSpace,
+			Username:         ck.Username,
+			VipStatus:        ck.VipStatus,
+			ServiceType:      ck.ServiceType,
+			Remark:           ck.Remark,
+			TransferredCount: count,
+			Pan:              pan,
+		}
+		responses = append(responses, response)
+	}
+
 	SuccessResponse(c, responses)
 }
 
@@ -378,5 +420,27 @@ func RefreshCapacity(c *gin.Context) {
 	SuccessResponse(c, gin.H{
 		"message": "容量信息刷新成功",
 		"cks":     converter.ToCksResponse(cks),
+	})
+}
+
+// DeleteRelatedResources 删除关联资源
+func DeleteRelatedResources(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	// 调用资源库删除关联资源
+	affectedRows, err := repoManager.ResourceRepository.DeleteRelatedResources(uint(id))
+	if err != nil {
+		ErrorResponse(c, "删除关联资源失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, gin.H{
+		"message":       "关联资源删除成功",
+		"affected_rows": affectedRows,
 	})
 }

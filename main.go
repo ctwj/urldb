@@ -265,6 +265,7 @@ func main() {
 		api.DELETE("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteCks)
 		api.GET("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetCksByID)
 		api.POST("/cks/:id/refresh-capacity", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.RefreshCapacity)
+		api.POST("/cks/:id/delete-related-resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteRelatedResources)
 
 		// 标签管理
 		api.GET("/tags", handlers.GetTags)

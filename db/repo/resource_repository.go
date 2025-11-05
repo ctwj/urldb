@@ -44,6 +44,8 @@ type ResourceRepository interface {
 	MarkAllAsUnsyncedToMeilisearch() error
 	FindAllWithPagination(page, limit int) ([]entity.Resource, int64, error)
 	GetRandomResourceWithFilters(categoryFilter, tagFilter string, isPushSavedInfo bool) (*entity.Resource, error)
+	DeleteRelatedResources(ckID uint) (int64, error)
+	CountResourcesByCkID(ckID uint) (int64, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -649,4 +651,30 @@ func (r *ResourceRepositoryImpl) GetRandomResourceWithFilters(categoryFilter, ta
 	}
 
 	return &resource, nil
+}
+
+// DeleteRelatedResources 删除关联资源，清空 fid、ck_id 和 save_url 三个字段
+func (r *ResourceRepositoryImpl) DeleteRelatedResources(ckID uint) (int64, error) {
+	result := r.db.Model(&entity.Resource{}).
+		Where("ck_id = ?", ckID).
+		Updates(map[string]interface{}{
+			"fid":      nil, // 清空 fid 字段
+			"ck_id":    0,   // 清空 ck_id 字段
+			"save_url": "",  // 清空 save_url 字段
+		})
+
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
+}
+
+// CountResourcesByCkID 统计指定账号ID的资源数量
+func (r *ResourceRepositoryImpl) CountResourcesByCkID(ckID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Resource{}).
+		Where("ck_id = ?", ckID).
+		Count(&count).Error
+	return count, err
 }

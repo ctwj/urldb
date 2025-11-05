@@ -150,6 +150,10 @@
                       <i class="fas fa-eye mr-1"></i>
                       {{ resource.view_count || 0 }}
                     </span>
+                    <span>
+                      <i class="fas fa-clock mr-1"></i>
+                      {{ resource.updated_at }}
+                    </span>
                   </div>
 
                   <div v-if="resource.tags && resource.tags.length > 0" class="mt-2">
@@ -670,20 +674,20 @@ const handleEditSubmit = async () => {
   try {
     editing.value = true
     await editFormRef.value?.validate()
-    
+
     await resourceApi.updateResource(editingResource.value!.id, editForm.value)
-    
+
     notification.success({
       content: '更新成功',
       duration: 3000
     })
-    
+
     // 更新本地数据
     const resourceId = editingResource.value?.id
     const index = resources.value.findIndex(r => r.id === resourceId)
     if (index > -1) {
-      resources.value[index] = { 
-        ...resources.value[index], 
+      resources.value[index] = {
+        ...resources.value[index],
         title: editForm.value.title,
         description: editForm.value.description,
         url: editForm.value.url,
@@ -692,7 +696,7 @@ const handleEditSubmit = async () => {
         tag_ids: editForm.value.tag_ids
       }
     }
-    
+
     showEditModal.value = false
     editingResource.value = null
   } catch (error) {

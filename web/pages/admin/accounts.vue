@@ -133,6 +133,9 @@
                     <span class="text-xs text-gray-500 dark:text-gray-400">
                       剩余: {{ formatFileSize(Math.max(0, item.left_space)) }}
                     </span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                      已转存: {{ item.transferred_count || 0 }}
+                    </span>
                   </div>
 
                   <!-- 备注 -->
@@ -146,25 +149,20 @@
                 <!-- 右侧操作按钮 -->
                 <div class="flex items-center space-x-2 ml-4">
                   <n-button size="small" :type="item.is_valid ? 'warning' : 'success'" @click="toggleStatus(item)"
-                    :title="item.is_valid ? '禁用账号' : '启用账号'">
-                    <template #icon>
-                      <i :class="item.is_valid ? 'fas fa-ban' : 'fas fa-check'"></i>
-                    </template>
+                    :title="item.is_valid ? '禁用账号' : '启用账号'" text>
+                    {{ item.is_valid ? '禁用' : '启用' }}
                   </n-button>
-                  <n-button size="small" type="info" @click="refreshCapacity(item.id)" title="刷新容量">
-                    <template #icon>
-                      <i class="fas fa-sync-alt"></i>
-                    </template>
+                  <n-button size="small" type="info" @click="refreshCapacity(item.id)" title="刷新容量" text>
+                    刷新容量
                   </n-button>
-                  <n-button size="small" type="primary" @click="editCks(item)" title="编辑账号">
-                    <template #icon>
-                      <i class="fas fa-edit"></i>
-                    </template>
+                  <n-button size="small" type="primary" @click="editCks(item)" title="编辑账号" text>
+                    编辑
                   </n-button>
-                  <n-button size="small" type="error" @click="deleteCks(item.id)" title="删除账号">
-                    <template #icon>
-                      <i class="fas fa-trash"></i>
-                    </template>
+                  <n-button size="small" type="error" @click="deleteCks(item.id)" title="删除账号" text>
+                    删除
+                  </n-button>
+                  <n-button size="small" type="warning" @click="deleteRelatedResources(item.id)" title="删除关联资源" text>
+                    删除关联
                   </n-button>
                 </div>
               </div>
@@ -241,9 +239,15 @@
     <template #footer>
       <div class="flex justify-end space-x-3">
         <n-button type="tertiary" @click="closeModal">
+          <template #icon>
+            <i class="fas fa-times"></i>
+          </template>
           取消
         </n-button>
         <n-button type="primary" :loading="submitting" @click="handleSubmit">
+          <template #icon>
+            <i class="fas fa-check"></i>
+          </template>
           {{ showEditModal ? '更新' : '创建' }}
         </n-button>
       </div>
@@ -421,6 +425,36 @@ const deleteCks = async (id) => {
         notification.error({
           title: '失败',
           content: '删除账号失败: ' + (error.message || '未知错误'),
+          duration: 3000
+        })
+      }
+    }
+  })
+}
+
+// 删除关联资源
+const deleteRelatedResources = async (id) => {
+  dialog.warning({
+    title: '警告',
+    content: '确定要删除与此账号关联的所有资源吗？这将清空这些资源的转存信息，变为未转存状态。',
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        // 调用API删除关联资源
+        await cksApi.deleteRelatedResources(id)
+        await fetchCks()
+        notification.success({
+          title: '成功',
+          content: '关联资源已删除！',
+          duration: 3000
+        })
+      } catch (error) {
+        console.error('删除关联资源失败:', error)
+        notification.error({
+          title: '失败',
+          content: '删除关联资源失败: ' + (error.message || '未知错误'),
           duration: 3000
         })
       }
