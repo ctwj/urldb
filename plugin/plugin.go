@@ -11,7 +11,7 @@ import (
 )
 
 // GlobalManager is the global plugin manager instance
-var GlobalManager *manager.Manager
+var GlobalManager *manager.SimpleManager
 
 // GlobalPluginMonitor is the global plugin monitor instance
 var GlobalPluginMonitor *monitor.PluginMonitor
@@ -26,7 +26,12 @@ func InitPluginSystem(taskManager *task.TaskManager, repoManager *repo.Repositor
 	// Create plugin manager with database and repo manager
 	// 创建插件监控器
 	GlobalPluginMonitor = monitor.NewPluginMonitor()
-	GlobalManager = manager.NewManager(taskManager, repoManager, db.DB, GlobalPluginMonitor)
+	GlobalManager = manager.NewSimpleManager(taskManager, repoManager, db.DB, GlobalPluginMonitor)
+
+	// Load all plugins from filesystem
+	if err := GlobalManager.LoadAllPluginsFromFilesystem(); err != nil {
+		utils.Error("加载文件系统插件失败: %v", err)
+	}
 
 	// Log initialization
 	utils.Info("Plugin system initialized")
@@ -47,6 +52,6 @@ func RegisterPlugin(plugin types.Plugin) error {
 }
 
 // GetManager returns the global plugin manager
-func GetManager() *manager.Manager {
+func GetManager() *manager.SimpleManager {
 	return GlobalManager
 }

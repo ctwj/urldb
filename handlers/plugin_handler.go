@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/ctwj/urldb/plugin"
@@ -79,22 +80,6 @@ func (ph *PluginHandler) UninstallPlugin(c *gin.Context) {
 		return
 	}
 
-	// 检查是否可以安全卸载
-	canUninstall, dependents, err := manager.CanUninstall(pluginName)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !canUninstall && !force {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":      "Plugin cannot be safely uninstalled",
-			"dependents": dependents,
-			"can_force":  true,
-		})
-		return
-	}
-
 	if err := manager.UninstallPlugin(pluginName, force); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -113,19 +98,13 @@ func (ph *PluginHandler) InitializePlugin(c *gin.Context) {
 		return
 	}
 
-	var config map[string]interface{}
-	if err := c.ShouldBindJSON(&config); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid configuration format: " + err.Error()})
-		return
-	}
-
 	manager := plugin.GetManager()
 	if manager == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Plugin manager not initialized"})
 		return
 	}
 
-	if err := manager.InitializePlugin(pluginName, config); err != nil {
+	if err := manager.InitializePlugin(pluginName); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -197,10 +176,17 @@ func (ph *PluginHandler) GetPluginConfig(c *gin.Context) {
 		return
 	}
 
-	config, err := manager.GetLatestConfigVersion(pluginName)
+	// 获取插件实例
+	instance, err := manager.GetPluginInstance(pluginName)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
+	}
+
+	// 如果插件支持配置接口，获取配置
+	config := make(map[string]interface{})
+	if configurablePlugin, ok := instance.Plugin.(interface{ GetConfig() map[string]interface{} }); ok {
+		config = configurablePlugin.GetConfig()
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -229,30 +215,37 @@ func (ph *PluginHandler) UpdatePluginConfig(c *gin.Context) {
 		return
 	}
 
-	// 获取插件信息验证插件是否存在
-	_, err := manager.GetPluginInfo(pluginName)
+	// 获取插件实例验证插件是否存在
+	instance, err := manager.GetPluginInstance(pluginName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
+	// 检查插件是否支持配置更新
+	configurablePlugin, ok := instance.Plugin.(interface{ UpdateConfig(map[string]interface{}) error })
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Plugin does not support configuration updates"})
+		return
+	}
+
 	// 如果插件正在运行，先停止
-	status := manager.GetPluginStatus(pluginName)
-	if status == types.StatusRunning {
+	instanceInfo, _ := manager.GetPluginInstance(pluginName)
+	if instanceInfo.Status == types.StatusRunning {
 		if err := manager.StopPlugin(pluginName); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to stop plugin for configuration update: " + err.Error()})
 			return
 		}
 	}
 
-	// 保存新的配置
-	if err := manager.SaveConfigVersion(pluginName, "latest", "Configuration updated via API", "system", config); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save configuration: " + err.Error()})
+	// 更新配置
+	if err := configurablePlugin.UpdateConfig(config); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update configuration: " + err.Error()})
 		return
 	}
 
 	// 如果插件之前是运行状态，重新启动
-	if status == types.StatusRunning {
+	if instanceInfo.Status == types.StatusRunning {
 		if err := manager.StartPlugin(pluginName); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restart plugin after configuration update: " + err.Error()})
 			return
@@ -285,17 +278,25 @@ func (ph *PluginHandler) GetPluginDependencies(c *gin.Context) {
 		return
 	}
 
-	// 获取依赖检查结果
-	dependenciesStatus := manager.CheckAllDependencies()
+	// 获取插件实例
+	instance, err := manager.GetPluginInstance(pluginName)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
 
-	// 获取依赖项列表
-	dependents := manager.GetDependents(pluginName)
+	// 获取依赖项列表（如果插件支持依赖接口）
+	dependencies := make([]string, 0)
+	dependents := make([]string, 0)
+
+	if dependencyPlugin, ok := instance.Plugin.(interface{ Dependencies() []string }); ok {
+		dependencies = dependencyPlugin.Dependencies()
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"plugin_info":    pluginInfo,
-		"dependencies":   dependenciesStatus[pluginName],
-		"dependents":     dependents,
-		"dependencies_status": dependenciesStatus,
+		"plugin_info":  pluginInfo,
+		"dependencies": dependencies,
+		"dependents":   dependents,
 	})
 }
 
@@ -307,10 +308,11 @@ func (ph *PluginHandler) GetPluginLoadOrder(c *gin.Context) {
 		return
 	}
 
-	loadOrder, err := manager.GetLoadOrder()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	// 简化版管理器直接返回所有插件名称
+	plugins := manager.ListPlugins()
+	loadOrder := make([]string, len(plugins))
+	for i, plugin := range plugins {
+		loadOrder[i] = plugin.Name
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -327,18 +329,13 @@ func (ph *PluginHandler) ValidatePluginDependencies(c *gin.Context) {
 		return
 	}
 
-	err := manager.ValidateDependencies()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":      err.Error(),
-			"valid":      false,
-			"message":    "Plugin dependencies validation failed",
-		})
-		return
-	}
+	// 检查是否有插件注册
+	plugins := manager.ListPlugins()
 
 	c.JSON(http.StatusOK, gin.H{
-		"valid":   true,
-		"message": "All plugin dependencies are satisfied",
+		"valid":   len(plugins) > 0, // 简单验证：如果有插件则认为有效
+		"count":   len(plugins),
+		"plugins": plugins,
+		"message": fmt.Sprintf("Found %d plugins", len(plugins)),
 	})
 }
