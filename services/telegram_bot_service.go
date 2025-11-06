@@ -185,6 +185,11 @@ func (s *TelegramBotServiceImpl) Start() error {
 
 	if !s.config.Enabled || s.config.ApiKey == "" {
 		utils.Info("[TELEGRAM:SERVICE] Telegram Bot 未启用或 API Key 未配置")
+		// 如果机器人当前正在运行，需要停止它
+		if s.isRunning {
+			utils.Info("[TELEGRAM:SERVICE] 机器人已被禁用，停止正在运行的服务")
+			s.Stop()
+		}
 		return nil
 	}
 
@@ -965,8 +970,17 @@ func (s *TelegramBotServiceImpl) pushToChannel(channel entity.TelegramChannel) {
 
 	// 5. 记录推送的资源ID到历史记录，避免重复推送
 	for _, resource := range resources {
-		resourceEntity := resource.(entity.Resource)
-		s.addPushedResourceID(channel.ChatID, resourceEntity.ID)
+		var resourceID uint
+		switch r := resource.(type) {
+		case *entity.Resource:
+			resourceID = r.ID
+		case entity.Resource:
+			resourceID = r.ID
+		default:
+			utils.Error("[TELEGRAM:PUSH] 无效的资源类型: %T", resource)
+			continue
+		}
+		s.addPushedResourceID(channel.ChatID, resourceID)
 	}
 
 	utils.Info("[TELEGRAM:PUSH:SUCCESS] 成功推送内容到频道: %s (%d 条资源)", channel.ChatName, len(resources))
@@ -1033,7 +1047,7 @@ func (s *TelegramBotServiceImpl) findLatestResources(channel entity.TelegramChan
 
 	// 返回最新资源（第一条）
 	utils.Info("[TELEGRAM:PUSH] 成功获取最新资源: %s", resources[0].Title)
-	return []interface{}{resources[0]}
+	return []interface{}{&resources[0]}
 }
 
 // findTransferredResources 查找已转存资源
@@ -1068,7 +1082,7 @@ func (s *TelegramBotServiceImpl) findTransferredResources(channel entity.Telegra
 
 	// 返回第一个有转存链接的资源
 	utils.Info("[TELEGRAM:PUSH] 成功获取已转存资源: %s", resources[0].Title)
-	return []interface{}{resources[0]}
+	return []interface{}{&resources[0]}
 }
 
 // findRandomResources 查找随机资源（原有逻辑）
@@ -1108,7 +1122,7 @@ func (s *TelegramBotServiceImpl) findRandomResources(channel entity.TelegramChan
 
 		utils.Info("[TELEGRAM:PUSH] 成功获取随机资源: %s (从 %d 个候选资源中选择)",
 			selectedResource.Title, len(candidateResources))
-		return []interface{}{selectedResource}
+		return []interface{}{&selectedResource}
 	}
 
 	// 如果候选资源不足，回退到数据库随机函数
@@ -1184,7 +1198,18 @@ func (s *TelegramBotServiceImpl) buildFilterParams(channel entity.TelegramChanne
 
 // buildPushMessage 构建推送消息
 func (s *TelegramBotServiceImpl) buildPushMessage(channel entity.TelegramChannel, resources []interface{}) (string, string) {
-	resource := resources[0].(entity.Resource)
+	var resource *entity.Resource
+
+	// 处理两种可能的类型：*entity.Resource 或 entity.Resource
+	switch r := resources[0].(type) {
+	case *entity.Resource:
+		resource = r
+	case entity.Resource:
+		resource = &r
+	default:
+		utils.Error("[TELEGRAM:PUSH] 无效的资源类型: %T", resources[0])
+		return "", ""
+	}
 
 	message := fmt.Sprintf("🆕 <b>%s</b>\n", s.cleanMessageTextForHTML(resource.Title))
 

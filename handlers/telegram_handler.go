@@ -80,16 +80,40 @@ func (h *TelegramHandler) UpdateBotConfig(c *gin.Context) {
 		return
 	}
 
-	// 配置更新完成后，尝试启动机器人（如果未运行且配置有效）
-	if startErr := h.telegramBotService.Start(); startErr != nil {
-		utils.Warn("[TELEGRAM:HANDLER] 配置更新后尝试启动机器人失败: %v", startErr)
-		// 启动失败不影响配置保存，只记录警告
+	// 根据配置状态决定启动或停止机器人
+	botEnabled := false
+	for _, config := range configs {
+		if config.Key == "telegram_bot_enabled" {
+			botEnabled = config.Value == "true"
+			break
+		}
+	}
+
+	if botEnabled {
+		// 机器人已启用，尝试启动机器人
+		if startErr := h.telegramBotService.Start(); startErr != nil {
+			utils.Warn("[TELEGRAM:HANDLER] 配置更新后尝试启动机器人失败: %v", startErr)
+			// 启动失败不影响配置保存，只记录警告
+		}
+	} else {
+		// 机器人已禁用，停止机器人服务
+		if stopErr := h.telegramBotService.Stop(); stopErr != nil {
+			utils.Warn("[TELEGRAM:HANDLER] 配置更新后停止机器人失败: %v", stopErr)
+			// 停止失败不影响配置保存，只记录警告
+		}
 	}
 
 	// 返回成功
+	var message string
+	if botEnabled {
+		message = "配置更新成功，机器人已尝试启动"
+	} else {
+		message = "配置更新成功，机器人已停止"
+	}
+
 	SuccessResponse(c, map[string]interface{}{
 		"success": true,
-		"message": "配置更新成功，机器人已尝试启动",
+		"message": message,
 	})
 }
 

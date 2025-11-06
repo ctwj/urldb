@@ -34,7 +34,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Request.Method, c.Request.URL.Path, clientIP, userAgent)
 
 		if authHeader == "" {
-			utils.Warn("AuthMiddleware - 未提供认证令牌 - IP: %s, Path: %s", clientIP, c.Request.URL.Path)
+			// utils.Warn("AuthMiddleware - 未提供认证令牌 - IP: %s, Path: %s", clientIP, c.Request.URL.Path)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未提供认证令牌"})
 			c.Abort()
 			return
@@ -59,8 +59,8 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		utils.Info("AuthMiddleware - 认证成功 - 用户: %s(ID:%d), 角色: %s, IP: %s",
-			claims.Username, claims.UserID, claims.Role, clientIP)
+		// utils.Info("AuthMiddleware - 认证成功 - 用户: %s(ID:%d), 角色: %s, IP: %s",
+		// 	claims.Username, claims.UserID, claims.Role, clientIP)
 
 		// 将用户信息存储到上下文中
 		c.Set("user_id", claims.UserID)
