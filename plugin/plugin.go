@@ -34,7 +34,7 @@ func InitPluginSystem(taskManager *task.TaskManager, repoManager *repo.Repositor
 	}
 
 	// Log initialization
-	utils.Info("Plugin system initialized")
+	utils.Info("Plugin system initialized with %d plugins", len(GlobalManager.ListPlugins()))
 }
 
 // GetPluginMonitor returns the global plugin monitor
@@ -54,4 +54,9 @@ func RegisterPlugin(plugin types.Plugin) error {
 // GetManager returns the global plugin manager
 func GetManager() *manager.SimpleManager {
 	return GlobalManager
+}
+
+// GetLogger returns the global logger instance
+func GetLogger() *utils.Logger {
+	return utils.GetLogger()
 }

@@ -222,15 +222,3 @@ func (p *PerformanceDemoPlugin) RunDemo(ctx types.PluginContext) {
 	// 演示数据存储优化功能
 	p.demoDataStorage(ctx)
 }
-
-// main 函数用于独立运行演示
-func main() {
-	plugin := NewPerformanceDemoPlugin()
-
-	// 在实际使用中，这里会由插件管理器提供上下文
-	// 由于这是演示代码，我们只打印插件信息
-	fmt.Printf("插件名称: %s\n", plugin.Name())
-	fmt.Printf("插件版本: %s\n", plugin.Version())
-	fmt.Printf("插件描述: %s\n", plugin.Description())
-	fmt.Printf("插件作者: %s\n", plugin.Author())
-}

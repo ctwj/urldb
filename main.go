@@ -15,6 +15,7 @@ import (
 	"github.com/ctwj/urldb/middleware"
 	"github.com/ctwj/urldb/monitor"
 	"github.com/ctwj/urldb/plugin"
+	_ "github.com/ctwj/urldb/plugin/demo" // 导入demo包以触发插件自动注册
 	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/task"
@@ -104,6 +105,9 @@ func main() {
 
 	// 初始化插件系统
 	plugin.InitPluginSystem(taskManager, repoManager)
+
+	// 注册demo插件
+	registerDemoPlugins()
 
 	// 初始化插件监控系统
 	// pluginMonitor := monitor.NewPluginMonitor()
@@ -498,4 +502,31 @@ func main() {
 
 	utils.Info("服务器启动在端口 %s", port)
 	r.Run(":" + port)
+}
+
+// registerDemoPlugins 注册demo插件
+func registerDemoPlugins() {
+	if plugin.GetManager() != nil {
+		utils.Info("Plugin manager is ready, registering demo plugins")
+		// 临时解决方案：直接在main中创建一些简单的插件
+		registerBuiltinPlugins()
+	}
+}
+
+// registerBuiltinPlugins 注册内置插件
+func registerBuiltinPlugins() {
+	utils.Info("Registering builtin plugins...")
+
+	if plugin.GetManager() != nil {
+		// 注册内置插件
+		builtinPlugin := NewBuiltinPlugin()
+		if err := plugin.GetManager().RegisterPlugin(builtinPlugin); err != nil {
+			utils.Error("Failed to register builtin plugin: %v", err)
+		} else {
+			utils.Info("Successfully registered builtin plugin: %s", builtinPlugin.Name())
+		}
+
+		pluginCount := len(plugin.GetManager().ListPlugins())
+		utils.Info("Plugin system now has %d plugins registered", pluginCount)
+	}
 }
