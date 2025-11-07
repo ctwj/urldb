@@ -111,57 +111,55 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 	s.config.ProxyUsername = ""
 	s.config.ProxyPassword = ""
 
+	// 统计配置项数量，用于汇总日志
+	configCount := 0
+
 	for _, config := range configs {
 		switch config.Key {
 		case entity.ConfigKeyTelegramBotEnabled:
 			s.config.Enabled = config.Value == "true"
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (Enabled: %v)", config.Key, config.Value, s.config.Enabled)
 		case entity.ConfigKeyTelegramBotApiKey:
 			s.config.ApiKey = config.Value
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = [HIDDEN]", config.Key)
 		case entity.ConfigKeyTelegramAutoReplyEnabled:
 			s.config.AutoReplyEnabled = config.Value == "true"
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (AutoReplyEnabled: %v)", config.Key, config.Value, s.config.AutoReplyEnabled)
 		case entity.ConfigKeyTelegramAutoReplyTemplate:
 			if config.Value != "" {
 				s.config.AutoReplyTemplate = config.Value
 			}
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, config.Value)
 		case entity.ConfigKeyTelegramAutoDeleteEnabled:
 			s.config.AutoDeleteEnabled = config.Value == "true"
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (AutoDeleteEnabled: %v)", config.Key, config.Value, s.config.AutoDeleteEnabled)
 		case entity.ConfigKeyTelegramAutoDeleteInterval:
 			if config.Value != "" {
 				fmt.Sscanf(config.Value, "%d", &s.config.AutoDeleteInterval)
 			}
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (AutoDeleteInterval: %d)", config.Key, config.Value, s.config.AutoDeleteInterval)
 		case entity.ConfigKeyTelegramProxyEnabled:
 			s.config.ProxyEnabled = config.Value == "true"
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyEnabled: %v)", config.Key, config.Value, s.config.ProxyEnabled)
 		case entity.ConfigKeyTelegramProxyType:
 			s.config.ProxyType = config.Value
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyType: %s)", config.Key, config.Value, s.config.ProxyType)
 		case entity.ConfigKeyTelegramProxyHost:
 			s.config.ProxyHost = config.Value
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
 		case entity.ConfigKeyTelegramProxyPort:
 			if config.Value != "" {
 				fmt.Sscanf(config.Value, "%d", &s.config.ProxyPort)
 			}
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s (ProxyPort: %d)", config.Key, config.Value, s.config.ProxyPort)
 		case entity.ConfigKeyTelegramProxyUsername:
 			s.config.ProxyUsername = config.Value
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
 		case entity.ConfigKeyTelegramProxyPassword:
 			s.config.ProxyPassword = config.Value
-			utils.Info("[TELEGRAM:CONFIG] 加载配置 %s = %s", config.Key, "[HIDDEN]")
 		default:
-			utils.Debug("未知配置: %s = %s", config.Key, config.Value)
+			utils.Debug("未知Telegram配置: %s", config.Key)
 		}
+		configCount++
 	}
 
-	utils.Info("[TELEGRAM:SERVICE] Telegram Bot 配置加载完成: Enabled=%v, AutoReplyEnabled=%v, ApiKey长度=%d",
-		s.config.Enabled, s.config.AutoReplyEnabled, len(s.config.ApiKey))
+	// 汇总输出配置加载结果，避免逐项日志
+	proxyStatus := "禁用"
+	if s.config.ProxyEnabled {
+		proxyStatus = "启用"
+	}
+
+	utils.TelegramInfo("配置加载完成 - Bot启用: %v, 自动回复: %v, 代理: %s, 配置项数: %d",
+		s.config.Enabled, s.config.AutoReplyEnabled, proxyStatus, configCount)
 	return nil
 }
 

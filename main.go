@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ctwj/urldb/config"
@@ -38,7 +40,7 @@ func main() {
 	}
 
 	// 初始化日志系统
-	if err := utils.InitLogger(nil); err != nil {
+	if err := utils.InitLogger(); err != nil {
 		log.Fatal("初始化日志系统失败:", err)
 	}
 
@@ -83,6 +85,8 @@ func main() {
 	if err := db.InitDB(); err != nil {
 		utils.Fatal("数据库连接失败: %v", err)
 	}
+
+	// 日志系统已简化，无需额外初始化
 
 	// 创建Repository管理器
 	repoManager := repo.NewRepositoryManager(db.DB)
@@ -463,6 +467,21 @@ func main() {
 		port = "8080"
 	}
 
-	utils.Info("服务器启动在端口 %s", port)
-	r.Run(":" + port)
+	// 设置优雅关闭
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// 在goroutine中启动服务器
+	go func() {
+		utils.Info("服务器启动在端口 %s", port)
+		if err := r.Run(":" + port); err != nil && err.Error() != "http: Server closed" {
+			utils.Fatal("服务器启动失败: %v", err)
+		}
+	}()
+
+	// 等待信号
+	<-quit
+	utils.Info("收到关闭信号，开始优雅关闭...")
+
+	utils.Info("服务器已优雅关闭")
 }

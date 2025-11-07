@@ -189,12 +189,22 @@ func (tm *TaskManager) StopTask(taskID uint) error {
 // processTask 处理任务
 func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, processor TaskProcessor) {
 	startTime := utils.GetCurrentTime()
+
+	// 记录任务开始
+	utils.Info("任务开始 - ID: %d, 类型: %s", task.ID, task.Type)
+
 	defer func() {
 		tm.mu.Lock()
 		delete(tm.running, task.ID)
 		tm.mu.Unlock()
+
 		elapsedTime := time.Since(startTime)
-		utils.Info("processTask: 任务 %d 处理完成，耗时: %v，清理资源", task.ID, elapsedTime)
+		// 使用业务事件记录任务完成，只有异常情况才输出详细日志
+		if elapsedTime > 30*time.Second {
+			utils.Warn("任务处理耗时较长 - ID: %d, 类型: %s, 耗时: %v", task.ID, task.Type, elapsedTime)
+		}
+
+		utils.Info("任务完成 - ID: %d, 类型: %s, 耗时: %v", task.ID, task.Type, elapsedTime)
 	}()
 
 	utils.InfoWithFields(map[string]interface{}{

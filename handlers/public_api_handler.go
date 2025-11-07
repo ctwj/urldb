@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -91,30 +92,9 @@ func (h *PublicAPIHandler) logAPIAccess(c *gin.Context, startTime time.Time, pro
 		}
 	}
 
-	// 异步记录日志，避免影响API响应时间
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				utils.Error("记录API访问日志时发生panic: %v", r)
-			}
-		}()
-
-		err := repoManager.APIAccessLogRepository.RecordAccess(
-			ip,
-			userAgent,
-			endpoint,
-			method,
-			requestParams,
-			c.Writer.Status(),
-			responseData,
-			processCount,
-			errorMessage,
-			processingTime,
-		)
-		if err != nil {
-			utils.Error("记录API访问日志失败: %v", err)
-		}
-	}()
+	// 记录API访问日志 - 使用简单日志记录
+	h.recordAPIAccessToDB(ip, userAgent, endpoint, method, requestParams,
+		c.Writer.Status(), responseData, processCount, errorMessage, processingTime)
 }
 
 // AddBatchResources godoc
@@ -465,4 +445,50 @@ func (h *PublicAPIHandler) GetHotDramas(c *gin.Context) {
 	}
 	h.logAPIAccess(c, startTime, len(hotDramaResponses), responseData, "")
 	SuccessResponse(c, responseData)
+}
+
+// recordAPIAccessToDB 记录API访问日志到数据库
+func (h *PublicAPIHandler) recordAPIAccessToDB(ip, userAgent, endpoint, method string,
+	requestParams interface{}, responseStatus int, responseData interface{},
+	processCount int, errorMessage string, processingTime int64) {
+
+	// 只记录重要的API访问（有错误或处理时间较长的）
+	if errorMessage == "" && processingTime < 1000 && responseStatus < 400 {
+		return // 跳过正常的快速请求
+	}
+
+	// 转换参数为JSON字符串
+	var requestParamsStr, responseDataStr string
+	if requestParams != nil {
+		if jsonBytes, err := json.Marshal(requestParams); err == nil {
+			requestParamsStr = string(jsonBytes)
+		}
+	}
+	if responseData != nil {
+		if jsonBytes, err := json.Marshal(responseData); err == nil {
+			responseDataStr = string(jsonBytes)
+		}
+	}
+
+	// 创建日志记录
+	logEntry := &entity.APIAccessLog{
+		IP:             ip,
+		UserAgent:      userAgent,
+		Endpoint:       endpoint,
+		Method:         method,
+		RequestParams:  requestParamsStr,
+		ResponseStatus: responseStatus,
+		ResponseData:   responseDataStr,
+		ProcessCount:   processCount,
+		ErrorMessage:   errorMessage,
+		ProcessingTime: processingTime,
+	}
+
+	// 异步保存到数据库（避免影响API性能）
+	go func() {
+		if err := repoManager.APIAccessLogRepository.Create(logEntry); err != nil {
+			// 记录失败只输出到系统日志，不影响API
+			utils.Error("保存API访问日志失败: %v", err)
+		}
+	}()
 }

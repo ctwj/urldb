@@ -209,7 +209,15 @@ func createIndexes(db *gorm.DB) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_tags_resource_id ON resource_tags(resource_id)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_tags_tag_id ON resource_tags(tag_id)")
 
-	utils.Info("数据库索引创建完成（已移除全文搜索索引，准备使用Meilisearch）")
+	// API访问日志表索引 - 高性能查询优化
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_api_access_logs_created_at ON api_access_logs(created_at DESC)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_api_access_logs_endpoint_status ON api_access_logs(endpoint, response_status)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_api_access_logs_ip_created ON api_access_logs(ip, created_at DESC)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_api_access_logs_method_endpoint ON api_access_logs(method, endpoint)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_api_access_logs_response_time ON api_access_logs(processing_time)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_api_access_logs_error_logs ON api_access_logs(response_status, created_at DESC) WHERE response_status >= 400")
+
+	utils.Info("数据库索引创建完成（已移除全文搜索索引，准备使用Meilisearch，新增API访问日志性能索引）")
 }
 
 // insertDefaultDataIfEmpty 只在数据库为空时插入默认数据

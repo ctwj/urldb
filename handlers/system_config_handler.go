@@ -145,27 +145,26 @@ func UpdateSystemConfig(c *gin.Context) {
 		utils.Info("当前配置数量: %d", len(currentConfigs))
 	}
 
-	// 验证参数 - 只验证提交的字段
-	utils.Info("开始验证参数")
+	// 验证参数 - 只验证提交的字段，仅在验证失败时记录日志
 	if req.SiteTitle != nil {
-		utils.Info("验证SiteTitle: '%s', 长度: %d", *req.SiteTitle, len(*req.SiteTitle))
 		if len(*req.SiteTitle) < 1 || len(*req.SiteTitle) > 100 {
+			utils.Warn("配置验证失败 - SiteTitle长度无效: %d", len(*req.SiteTitle))
 			ErrorResponse(c, "网站标题长度必须在1-100字符之间", http.StatusBadRequest)
 			return
 		}
 	}
 
 	if req.AutoProcessInterval != nil {
-		utils.Info("验证AutoProcessInterval: %d", *req.AutoProcessInterval)
 		if *req.AutoProcessInterval < 1 || *req.AutoProcessInterval > 1440 {
+			utils.Warn("配置验证失败 - AutoProcessInterval超出范围: %d", *req.AutoProcessInterval)
 			ErrorResponse(c, "自动处理间隔必须在1-1440分钟之间", http.StatusBadRequest)
 			return
 		}
 	}
 
 	if req.PageSize != nil {
-		utils.Info("验证PageSize: %d", *req.PageSize)
 		if *req.PageSize < 10 || *req.PageSize > 500 {
+			utils.Warn("配置验证失败 - PageSize超出范围: %d", *req.PageSize)
 			ErrorResponse(c, "每页显示数量必须在10-500之间", http.StatusBadRequest)
 			return
 		}
@@ -173,16 +172,16 @@ func UpdateSystemConfig(c *gin.Context) {
 
 	// 验证自动转存配置
 	if req.AutoTransferLimitDays != nil {
-		utils.Info("验证AutoTransferLimitDays: %d", *req.AutoTransferLimitDays)
 		if *req.AutoTransferLimitDays < 0 || *req.AutoTransferLimitDays > 365 {
+			utils.Warn("配置验证失败 - AutoTransferLimitDays超出范围: %d", *req.AutoTransferLimitDays)
 			ErrorResponse(c, "自动转存限制天数必须在0-365之间", http.StatusBadRequest)
 			return
 		}
 	}
 
 	if req.AutoTransferMinSpace != nil {
-		utils.Info("验证AutoTransferMinSpace: %d", *req.AutoTransferMinSpace)
 		if *req.AutoTransferMinSpace < 100 || *req.AutoTransferMinSpace > 1024 {
+			utils.Warn("配置验证失败 - AutoTransferMinSpace超出范围: %d", *req.AutoTransferMinSpace)
 			ErrorResponse(c, "最小存储空间必须在100-1024GB之间", http.StatusBadRequest)
 			return
 		}
@@ -190,18 +189,16 @@ func UpdateSystemConfig(c *gin.Context) {
 
 	// 验证公告相关字段
 	if req.Announcements != nil {
-		utils.Info("验证Announcements: '%s'", *req.Announcements)
-		// 可以在这里添加更详细的验证逻辑
+		// 简化验证，仅在需要时添加逻辑
 	}
 
 	// 转换为实体
 	configs := converter.RequestToSystemConfig(&req)
 	if configs == nil {
+		utils.Error("配置数据转换失败")
 		ErrorResponse(c, "数据转换失败", http.StatusInternalServerError)
 		return
 	}
-
-	utils.Info("准备更新配置，配置项数量: %d", len(configs))
 
 	// 保存配置
 	err = repoManager.SystemConfigRepository.UpsertConfigs(configs)
@@ -211,7 +208,7 @@ func UpdateSystemConfig(c *gin.Context) {
 		return
 	}
 
-	utils.Info("配置保存成功")
+	utils.Info("系统配置更新成功 - 更新项数: %d", len(configs))
 
 	// 安全刷新系统配置缓存
 	if err := repoManager.SystemConfigRepository.SafeRefreshConfigCache(); err != nil {
