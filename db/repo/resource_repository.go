@@ -279,6 +279,20 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 					db = db.Where("pan_id = ?", panEntity.ID)
 				}
 			}
+		case "exclude_ids": // 添加exclude_ids参数支持
+			if excludeIDs, ok := value.([]uint); ok && len(excludeIDs) > 0 {
+				// 限制排除ID的数量，避免SQL语句过长
+				maxExcludeIDs := 5000 // 限制排除ID数量，避免SQL语句过长
+				if len(excludeIDs) > maxExcludeIDs {
+					// 只取最近的maxExcludeIDs个ID进行排除
+					startIndex := len(excludeIDs) - maxExcludeIDs
+					truncatedExcludeIDs := excludeIDs[startIndex:]
+					db = db.Where("id NOT IN ?", truncatedExcludeIDs)
+					utils.Debug("SearchWithFilters: 排除ID数量过多，截取最近%d个ID", len(truncatedExcludeIDs))
+				} else {
+					db = db.Where("id NOT IN ?", excludeIDs)
+				}
+			}
 		}
 	}
 

@@ -1021,16 +1021,16 @@ func (s *TelegramBotServiceImpl) findResourcesForChannel(channel entity.Telegram
 func (s *TelegramBotServiceImpl) findLatestResources(channel entity.TelegramChannel, excludeResourceIDs []uint) []interface{} {
 	params := s.buildFilterParams(channel)
 
+	// 在数据库查询中排除已推送的资源
+	if len(excludeResourceIDs) > 0 {
+		params["exclude_ids"] = excludeResourceIDs
+	}
+
 	// 使用现有的搜索功能，按更新时间倒序获取最新资源
 	resources, _, err := s.resourceRepo.SearchWithFilters(params)
 	if err != nil {
 		utils.Error("[TELEGRAM:PUSH] 获取最新资源失败: %v", err)
-		return []interface{}{}
-	}
-
-	// 排除最近推送过的资源
-	if len(excludeResourceIDs) > 0 {
-		resources = s.excludePushedResources(resources, excludeResourceIDs)
+		return s.findRandomResources(channel, excludeResourceIDs) // 回退到随机策略
 	}
 
 	// 应用时间限制
@@ -1039,8 +1039,8 @@ func (s *TelegramBotServiceImpl) findLatestResources(channel entity.TelegramChan
 	}
 
 	if len(resources) == 0 {
-		utils.Info("[TELEGRAM:PUSH] 没有找到符合条件的最新资源")
-		return []interface{}{}
+		utils.Info("[TELEGRAM:PUSH] 没有找到符合条件的最新资源，尝试获取随机资源")
+		return s.findRandomResources(channel, excludeResourceIDs) // 回退到随机策略
 	}
 
 	// 返回最新资源（第一条）
@@ -1055,16 +1055,16 @@ func (s *TelegramBotServiceImpl) findTransferredResources(channel entity.Telegra
 	// 添加转存链接条件
 	params["has_save_url"] = true
 
+	// 在数据库查询中排除已推送的资源
+	if len(excludeResourceIDs) > 0 {
+		params["exclude_ids"] = excludeResourceIDs
+	}
+
 	// 优先获取有转存链接的资源
 	resources, _, err := s.resourceRepo.SearchWithFilters(params)
 	if err != nil {
 		utils.Error("[TELEGRAM:PUSH] 获取已转存资源失败: %v", err)
 		return []interface{}{}
-	}
-
-	// 排除最近推送过的资源
-	if len(excludeResourceIDs) > 0 {
-		resources = s.excludePushedResources(resources, excludeResourceIDs)
 	}
 
 	// 应用时间限制
@@ -1090,21 +1090,17 @@ func (s *TelegramBotServiceImpl) findRandomResources(channel entity.TelegramChan
 	// 如果是已转存优先策略但没有找到转存资源，这里会回退到随机策略
 	// 此时不需要额外的转存链接条件，让随机函数处理
 
-	// 先尝试获取候选资源列表，然后从中排除已推送的资源
-	var candidateResources []entity.Resource
-	var err error
+	// 在数据库查询中排除已推送的资源
+	if len(excludeResourceIDs) > 0 {
+		params["exclude_ids"] = excludeResourceIDs
+	}
 
 	// 使用搜索功能获取候选资源，然后过滤
 	params["limit"] = 100 // 获取更多候选资源
-	candidateResources, _, err = s.resourceRepo.SearchWithFilters(params)
+	candidateResources, _, err := s.resourceRepo.SearchWithFilters(params)
 	if err != nil {
 		utils.Error("[TELEGRAM:PUSH] 获取候选资源失败: %v", err)
 		return []interface{}{}
-	}
-
-	// 排除最近推送过的资源
-	if len(excludeResourceIDs) > 0 {
-		candidateResources = s.excludePushedResources(candidateResources, excludeResourceIDs)
 	}
 
 	// 应用时间限制
@@ -1775,11 +1771,12 @@ func (s *TelegramBotServiceImpl) addPushedResourceID(chatID int64, resourceID ui
 		history = []uint{}
 	}
 
-	// 检查是否已经超过100条记录
-	if len(history) >= 10000 {
-		// 清空历史记录，重新开始
-		history = []uint{}
-		utils.Info("[TELEGRAM:PUSH] 频道 %d 推送历史记录已满(10000条)，清空重置", chatID)
+	// 检查是否已经超过5000条记录
+	if len(history) >= 5000 {
+		// 移除旧的2500条记录，保留最新的2500条记录
+		startIndex := len(history) - 2500
+		history = history[startIndex:]
+		utils.Info("[TELEGRAM:PUSH] 频道 %d 推送历史记录已满(5000条)，移除旧的2500条记录，保留最新的2500条", chatID)
 	}
 
 	// 添加新的资源ID到历史记录
@@ -1862,10 +1859,11 @@ func (s *TelegramBotServiceImpl) loadPushHistory() error {
 			resourceIDs = append(resourceIDs, uint(resourceID))
 		}
 
-		// 只保留最多100条记录
-		if len(resourceIDs) > 100 {
-			// 保留最新的100条记录
-			resourceIDs = resourceIDs[len(resourceIDs)-100:]
+		// 只保留最多5000条记录
+		if len(resourceIDs) > 5000 {
+			// 保留最新的5000条记录
+			startIndex := len(resourceIDs) - 5000
+			resourceIDs = resourceIDs[startIndex:]
 		}
 
 		s.pushHistory[chatID] = resourceIDs
