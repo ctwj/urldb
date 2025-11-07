@@ -64,10 +64,11 @@ const injectRawScript = (rawScriptString: string) => {
     const container = document.createElement('div');
     container.innerHTML = rawScriptString.trim();
 
-    // 获取解析后的 script 元素
-    const script = container.querySelector('script');
+    // 获取解析后的所有 script 元素
+    const scripts = container.querySelectorAll('script');
 
-    if (script) {
+    // 遍历并注入所有脚本
+    scripts.forEach((script) => {
       // 创建新的 script 元素
       const newScript = document.createElement('script');
 
@@ -83,7 +84,7 @@ const injectRawScript = (rawScriptString: string) => {
 
       // 插入到 DOM
       document.head.appendChild(newScript);
-    }
+    });
   }
 };
 
