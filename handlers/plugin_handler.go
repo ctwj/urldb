@@ -3,6 +3,8 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/ctwj/urldb/plugin"
 	"github.com/ctwj/urldb/plugin/types"
@@ -55,10 +57,66 @@ func (ph *PluginHandler) GetPlugin(c *gin.Context) {
 	c.JSON(http.StatusOK, pluginInfo)
 }
 
-// InstallPlugin 安装插件（预留接口，具体实现依赖插件加载机制）
+// InstallPlugin 安装插件
 func (ph *PluginHandler) InstallPlugin(c *gin.Context) {
-	// TODO: 实现插件安装功能
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Plugin installation is not implemented yet"})
+	pluginName := c.Param("name")
+	if pluginName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Plugin name is required"})
+		return
+	}
+
+	manager := plugin.GetManager()
+	if manager == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Plugin manager not initialized"})
+		return
+	}
+
+	// 尝试从上传的文件安装
+	file, err := c.FormFile("file")
+	if err == nil {
+		// 保存上传的文件到临时位置
+		tempPath := filepath.Join(os.TempDir(), file.Filename)
+		if err := c.SaveUploadedFile(file, tempPath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save uploaded file: " + err.Error()})
+			return
+		}
+
+		// 安装插件
+		if err := manager.InstallPluginFromFile(tempPath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to install plugin: " + err.Error()})
+			return
+		}
+
+		// 清理临时文件
+		defer os.Remove(tempPath)
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Plugin installed successfully",
+			"name":    pluginName,
+			"file":    file.Filename,
+		})
+		return
+	}
+
+	// 如果没有上传文件，尝试从请求体中获取文件路径参数
+	filepath := c.PostForm("filepath")
+	if filepath == "" {
+		// 如果仍然没有文件路径参数，返回错误
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Either upload a file or provide a file path"})
+		return
+	}
+
+	// 安装插件
+	if err := manager.InstallPluginFromFile(filepath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to install plugin: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Plugin installed successfully",
+		"name":    pluginName,
+		"path":    filepath,
+	})
 }
 
 // UninstallPlugin 卸载插件

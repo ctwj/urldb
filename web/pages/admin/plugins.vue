@@ -203,12 +203,24 @@
       </template>
 
       <div class="space-y-4">
-        <n-alert type="info" title="提示">
-          插件安装功能将在后续版本中实现
-        </n-alert>
+        <n-form :model="installForm" ref="installFormRef">
+          <n-form-item label="插件文件" path="file">
+            <n-upload
+              v-model:file-list="installForm.fileList"
+              :max="1"
+              @change="handleFileChange"
+            >
+              <n-button>选择插件文件</n-button>
+            </n-upload>
+          </n-form-item>
+          <n-form-item label="插件名称" path="name">
+            <n-input v-model:value="installForm.name" placeholder="请输入插件名称" />
+          </n-form-item>
+        </n-form>
 
-        <div class="flex justify-end">
-          <n-button @click="showInstallModal = false">关闭</n-button>
+        <div class="flex justify-end space-x-3">
+          <n-button @click="showInstallModal = false">取消</n-button>
+          <n-button type="primary" @click="installPlugin" :loading="installingPlugin">安装</n-button>
         </div>
       </div>
     </n-modal>
@@ -240,10 +252,18 @@ const showDetailModal = ref(false)
 const showConfigModal = ref(false)
 const showInstallModal = ref(false)
 const savingConfig = ref(false)
+const installingPlugin = ref(false)
+const installFormRef = ref()
 
 // 配置表单
 const configForm = ref({
   configJson: ''
+})
+
+// 安装表单
+const installForm = ref({
+  fileList: [] as any[],
+  name: ''
 })
 
 // 分页
@@ -407,6 +427,7 @@ const formatDuration = (duration: number) => {
 const getActionOptions = (row: any) => {
   const options = []
 
+  // 根据状态显示相应的操作选项
   if (row.status === 'registered' || row.status === 'stopped') {
     options.push({
       label: '初始化',
@@ -414,10 +435,19 @@ const getActionOptions = (row: any) => {
     })
   }
 
+  // 如果插件已初始化或已停止，可以启动
   if (row.status === 'initialized' || row.status === 'stopped') {
     options.push({
       label: '启动',
       key: 'start'
+    })
+  }
+
+  // 如果插件已注册（但未初始化），提供直接启动选项（会自动初始化）
+  if (row.status === 'registered') {
+    options.push({
+      label: '启动（自动初始化）',
+      key: 'start-registered'
     })
   }
 
@@ -427,6 +457,12 @@ const getActionOptions = (row: any) => {
       key: 'stop'
     })
   }
+
+  // 添加更多操作
+  options.push({
+    label: '重新启动',
+    key: 'restart'
+  })
 
   options.push({
     label: '卸载',
@@ -541,12 +577,27 @@ const saveConfig = async () => {
 // 处理插件操作
 const handleAction = async (action: string, plugin: any) => {
   try {
-    // 添加确认对话框（除初始化外）
+    // 添加确认对话框
     if (action === 'uninstall') {
       const confirmed = await new Promise((resolve) => {
         $dialog.warning({
           title: '确认卸载',
           content: `确定要卸载插件 "${plugin.name}" 吗？此操作不可逆！`,
+          positiveText: '确定',
+          negativeText: '取消',
+          onPositiveClick: () => resolve(true),
+          onNegativeClick: () => resolve(false)
+        })
+      })
+
+      if (!confirmed) return
+    }
+
+    if (action === 'restart' || action === 'stop') {
+      const confirmed = await new Promise((resolve) => {
+        $dialog.warning({
+          title: '确认操作',
+          content: `确定要${action === 'restart' ? '重新启动' : '停止'}插件 "${plugin.name}" 吗？`,
           positiveText: '确定',
           negativeText: '取消',
           onPositiveClick: () => resolve(true),
@@ -567,6 +618,18 @@ const handleAction = async (action: string, plugin: any) => {
         break
 
       case 'start':
+      case 'start-registered':
+        // 如果是注册状态的插件，先初始化再启动
+        if (plugin.status === 'registered' && action === 'start-registered') {
+          // 先初始化
+          await useApiFetch(`/plugins/${plugin.name}/initialize`, {
+            method: 'POST',
+            body: JSON.stringify({})
+          }).then(parseApiResponse)
+          $message.success('插件初始化成功')
+        }
+
+        // 启动插件
         await useApiFetch(`/plugins/${plugin.name}/start`, {
           method: 'POST'
           // 空body
@@ -582,6 +645,23 @@ const handleAction = async (action: string, plugin: any) => {
         $message.success('插件停止成功')
         break
 
+      case 'restart':
+        // 先停止插件
+        try {
+          await useApiFetch(`/plugins/${plugin.name}/stop`, {
+            method: 'POST'
+          }).then(parseApiResponse)
+        } catch (e) {
+          // 忽略停止错误
+        }
+
+        // 重新启动插件
+        await useApiFetch(`/plugins/${plugin.name}/start`, {
+          method: 'POST'
+        }).then(parseApiResponse)
+        $message.success('插件重新启动成功')
+        break
+
       case 'uninstall':
         const force = false
         await useApiFetch(`/plugins/${plugin.name}?force=${force}`, {
@@ -589,6 +669,10 @@ const handleAction = async (action: string, plugin: any) => {
         }).then(parseApiResponse)
         $message.success('插件卸载成功')
         break
+
+      default:
+        $message.warning('未知操作')
+        return
     }
 
     // 刷新插件列表
@@ -614,6 +698,60 @@ const validateDependencies = async () => {
   } catch (error) {
     console.error('验证依赖失败:', error)
     $message.error('验证依赖失败: ' + (error as any).message)
+  }
+}
+
+// 处理文件变化
+const handleFileChange = (data: any) => {
+  if (data.fileList.length > 0) {
+    const file = data.fileList[0]
+    // 如果没有手动输入插件名称，则使用文件名作为插件名称
+    if (!installForm.value.name) {
+      const fileName = file.name
+      // 移除文件扩展名作为插件名称
+      installForm.value.name = fileName.replace(/\.[^/.]+$/, "")
+    }
+  }
+}
+
+// 安装插件
+const installPlugin = async () => {
+  if (!installForm.value.fileList || installForm.value.fileList.length === 0) {
+    $message.error('请选择插件文件')
+    return
+  }
+
+  if (!installForm.value.name) {
+    $message.error('请输入插件名称')
+    return
+  }
+
+  installingPlugin.value = true
+  try {
+    const file = installForm.value.fileList[0].file
+    const formData = new FormData()
+    formData.append('file', file)
+
+    // 发送安装请求
+    const response = await useApiFetch(`/plugins/${installForm.value.name}/install`, {
+      method: 'POST',
+      body: formData
+    }).then(parseApiResponse)
+
+    $message.success('插件安装成功')
+    showInstallModal.value = false
+
+    // 重置表单
+    installForm.value.fileList = []
+    installForm.value.name = ''
+
+    // 刷新插件列表
+    await fetchPlugins()
+  } catch (error) {
+    console.error('安装插件失败:', error)
+    $message.error('安装插件失败: ' + (error as any).message)
+  } finally {
+    installingPlugin.value = false
   }
 }
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"plugin"
+	"reflect"
 	"runtime"
 	"strings"
 
@@ -45,10 +46,22 @@ func (l *SimplePluginLoader) LoadPlugin(filename string) (types.Plugin, error) {
 		return nil, fmt.Errorf("plugin symbol not found in %s: %v", filename, err)
 	}
 
-	// 类型断言
+	// 尝试直接断言
 	pluginInstance, ok := sym.(types.Plugin)
 	if !ok {
-		return nil, fmt.Errorf("invalid plugin type in %s", filename)
+		// 如果直接断言失败，尝试使用反射来创建一个兼容的包装器
+		utils.Info("类型断言失败: %s，尝试使用反射创建包装器", filename)
+
+		// 使用反射来动态创建一个实现了types.Plugin接口的包装器
+		wrapper, err := l.createPluginWrapper(sym)
+		if err != nil {
+			utils.Error("创建插件包装器失败: %v", err)
+			return nil, fmt.Errorf("invalid plugin type in %s: %v", filename, err)
+		}
+
+		utils.Info("使用反射包装器加载插件: %s (名称: %s, 版本: %s)",
+			filename, wrapper.Name(), wrapper.Version())
+		return wrapper, nil
 	}
 
 	utils.Info("成功加载插件: %s (名称: %s, 版本: %s)",
@@ -59,6 +72,8 @@ func (l *SimplePluginLoader) LoadPlugin(filename string) (types.Plugin, error) {
 // LoadAllPlugins 加载所有插件
 func (l *SimplePluginLoader) LoadAllPlugins() ([]types.Plugin, error) {
 	var plugins []types.Plugin
+
+	utils.Info("开始从目录加载插件: %s", l.pluginDir)
 
 	// 确保插件目录存在
 	if err := os.MkdirAll(l.pluginDir, 0755); err != nil {
@@ -71,18 +86,25 @@ func (l *SimplePluginLoader) LoadAllPlugins() ([]types.Plugin, error) {
 		return nil, fmt.Errorf("failed to read plugin directory: %v", err)
 	}
 
+	utils.Info("插件目录中的文件数量: %d", len(files))
+
 	for _, file := range files {
+		utils.Info("检查文件: %s (是否为目录: %t)", file.Name(), file.IsDir())
 		if file.IsDir() {
 			continue
 		}
 
 		if l.isPluginFile(file.Name()) {
+			utils.Info("尝试加载插件文件: %s", file.Name())
 			pluginInstance, err := l.LoadPlugin(file.Name())
 			if err != nil {
 				utils.Error("加载插件 %s 失败: %v", file.Name(), err)
 				continue
 			}
 			plugins = append(plugins, pluginInstance)
+			utils.Info("成功加载插件: %s", pluginInstance.Name())
+		} else {
+			utils.Info("文件 %s 不是插件文件", file.Name())
 		}
 	}
 
@@ -130,6 +152,243 @@ func (l *SimplePluginLoader) GetPluginInfo(filename string) (map[string]interfac
 	}
 
 	return info, nil
+}
+
+// pluginWrapper 是一个使用反射来包装插件实例的结构体
+type pluginWrapper struct {
+	original interface{}
+	value    reflect.Value
+	methods  map[string]reflect.Value
+}
+
+// createPluginWrapper 创建一个插件包装器
+func (l *SimplePluginLoader) createPluginWrapper(plugin interface{}) (types.Plugin, error) {
+	pluginValue := reflect.ValueOf(plugin)
+
+	if pluginValue.Kind() != reflect.Ptr && pluginValue.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("plugin must be a pointer or struct")
+	}
+
+	// 获取所有方法
+	methods := make(map[string]reflect.Value)
+
+	// 获取方法列表
+	methodNames := []string{
+		"Name", "Version", "Description", "Author",
+		"Initialize", "Start", "Stop", "Cleanup",
+		"Dependencies", "CheckDependencies",
+	}
+
+	for _, methodName := range methodNames {
+		method := pluginValue.MethodByName(methodName)
+		if method.IsValid() {
+			methods[methodName] = method
+		} else if pluginValue.Kind() == reflect.Ptr && pluginValue.Elem().IsValid() {
+			// 如果是结构体指针，检查结构体本身是否有方法
+			method = pluginValue.Elem().MethodByName(methodName)
+			if method.IsValid() {
+				methods[methodName] = method
+			}
+		}
+	}
+
+	// 至少要有一些方法
+	if len(methods) == 0 {
+		return nil, fmt.Errorf("plugin has no valid methods")
+	}
+
+	wrapper := &pluginWrapper{
+		original: plugin,
+		value:    pluginValue,
+		methods:  methods,
+	}
+
+	// 验证包装器是否实现了所有必要的方法
+	if err := l.validatePluginWrapper(wrapper); err != nil {
+		return nil, fmt.Errorf("plugin does not implement required methods: %v", err)
+	}
+
+	return wrapper, nil
+}
+
+// validatePluginWrapper 验证包装器是否实现了所有必要的方法
+func (l *SimplePluginLoader) validatePluginWrapper(wrapper *pluginWrapper) error {
+	// 检查是否有所需的方法
+	methods := []string{
+		"Name", "Version", "Description", "Author",
+		"Initialize", "Start", "Stop", "Cleanup",
+		"Dependencies", "CheckDependencies",
+	}
+
+	for _, method := range methods {
+		// 优先检查缓存的方法
+		if _, exists := wrapper.methods[method]; exists {
+			continue
+		}
+
+		// 检查作为方法
+		if methodValue := wrapper.value.MethodByName(method); methodValue.IsValid() {
+			continue
+		}
+
+		// 如果作为方法不存在，检查是否可以直接调用（通过接口）
+		// 首先检查是否为指针类型
+		if wrapper.value.Kind() == reflect.Ptr && wrapper.value.Elem().IsValid() {
+			if field := wrapper.value.Elem().FieldByName(method); field.IsValid() && field.Kind() == reflect.Func {
+				continue
+			}
+		}
+
+		return fmt.Errorf("missing method: %s", method)
+	}
+
+	// 尝试调用Name方法，验证基本功能
+	name := wrapper.Name()
+	if name == "" || name == "unknown" {
+		return fmt.Errorf("Name method returned empty string or unknown")
+	}
+
+	return nil
+}
+
+// 为pluginWrapper实现types.Plugin接口的所有方法
+func (w *pluginWrapper) Name() string {
+	if method, exists := w.methods["Name"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			return results[0].String()
+		}
+	}
+	return "unknown"
+}
+
+func (w *pluginWrapper) Version() string {
+	if method, exists := w.methods["Version"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			return results[0].String()
+		}
+	}
+	return "unknown"
+}
+
+func (w *pluginWrapper) Description() string {
+	if method, exists := w.methods["Description"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			return results[0].String()
+		}
+	}
+	return "No description"
+}
+
+func (w *pluginWrapper) Author() string {
+	if method, exists := w.methods["Author"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			return results[0].String()
+		}
+	}
+	return "Unknown"
+}
+
+func (w *pluginWrapper) Initialize(ctx types.PluginContext) error {
+	if method, exists := w.methods["Initialize"]; exists && method.IsValid() {
+		// 检查参数类型是否兼容
+		if method.Type().NumIn() > 0 {
+			results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+			if len(results) > 0 {
+				// 假设返回的是error类型
+				if errVal := results[0].Interface(); errVal != nil {
+					if err, ok := errVal.(error); ok {
+						return err
+					}
+					return fmt.Errorf("initialization failed: %v", errVal)
+				}
+			}
+			return nil
+		}
+	}
+
+	return nil // 如果方法不存在，返回nil表示成功
+}
+
+func (w *pluginWrapper) Start() error {
+	if method, exists := w.methods["Start"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			// 假设返回的是error类型
+			if errVal := results[0].Interface(); errVal != nil {
+				if err, ok := errVal.(error); ok {
+					return err
+				}
+				return fmt.Errorf("start failed: %v", errVal)
+			}
+		}
+		return nil
+	}
+
+	return nil // 如果方法不存在，返回nil表示成功
+}
+
+func (w *pluginWrapper) Stop() error {
+	if method, exists := w.methods["Stop"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			// 假设返回的是error类型
+			if errVal := results[0].Interface(); errVal != nil {
+				if err, ok := errVal.(error); ok {
+					return err
+				}
+				return fmt.Errorf("stop failed: %v", errVal)
+			}
+		}
+		return nil
+	}
+
+	return nil // 如果方法不存在，返回nil表示成功
+}
+
+func (w *pluginWrapper) Cleanup() error {
+	if method, exists := w.methods["Cleanup"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			// 假设返回的是error类型
+			if errVal := results[0].Interface(); errVal != nil {
+				if err, ok := errVal.(error); ok {
+					return err
+				}
+				return fmt.Errorf("cleanup failed: %v", errVal)
+			}
+		}
+		return nil
+	}
+
+	return nil // 如果方法不存在，返回nil表示成功
+}
+
+func (w *pluginWrapper) Dependencies() []string {
+	if method, exists := w.methods["Dependencies"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			if deps, ok := results[0].Interface().([]string); ok {
+				return deps
+			}
+		}
+	}
+	return []string{}
+}
+
+func (w *pluginWrapper) CheckDependencies() map[string]bool {
+	if method, exists := w.methods["CheckDependencies"]; exists && method.IsValid() {
+		results := method.Call([]reflect.Value{})
+		if len(results) > 0 {
+			if checks, ok := results[0].Interface().(map[string]bool); ok {
+				return checks
+			}
+		}
+	}
+	return map[string]bool{}
 }
 
 // ListPluginFiles 列出所有插件文件及其信息

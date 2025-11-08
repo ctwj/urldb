@@ -56,7 +56,7 @@ cp env.example .env
 vim .env
 
 # 启动开发服务器
-go run main.go
+go run .
 ```
 
 ### 前端开发

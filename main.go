@@ -456,6 +456,17 @@ func main() {
 		api.GET("/plugins/load-order", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.GetPluginLoadOrder)
 		api.POST("/plugins/validate-dependencies", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginHandler.ValidatePluginDependencies)
 
+		// 管理员插件管理界面路由
+		admin := api.Group("/admin")
+		admin.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
+		{
+			admin.GET("/plugins", pluginHandler.GetPlugins)
+			admin.POST("/plugins/:name/start", pluginHandler.StartPlugin)
+			admin.POST("/plugins/:name/stop", pluginHandler.StopPlugin)
+			admin.POST("/plugins/:name/install", pluginHandler.InstallPlugin)
+			admin.DELETE("/plugins/:name/uninstall", pluginHandler.UninstallPlugin)
+		}
+
 		// 插件监控相关路由
 		pluginMonitorHandler := handlers.NewPluginMonitorHandler()
 		api.GET("/plugins/health/:name", middleware.AuthMiddleware(), middleware.AdminMiddleware(), pluginMonitorHandler.GetPluginHealth)

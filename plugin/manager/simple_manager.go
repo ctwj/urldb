@@ -2,6 +2,9 @@ package manager
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -285,8 +288,17 @@ func (sm *SimpleManager) GetEnabledPlugins() []types.Plugin {
 }
 
 // InstallPluginFromFile 从文件安装插件
-func (sm *SimpleManager) InstallPluginFromFile(filepath string) error {
-	return sm.pluginLoader.InstallPluginFromBytes(filepath, nil) // 需要先读取文件内容
+func (sm *SimpleManager) InstallPluginFromFile(pluginFilepath string) error {
+	data, err := ioutil.ReadFile(pluginFilepath)
+	if err != nil {
+		return fmt.Errorf("failed to read plugin file: %v", err)
+	}
+
+	filename := filepath.Base(pluginFilepath)
+	// 提取不带扩展名的文件名作为插件名
+	pluginName := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	return sm.pluginLoader.InstallPluginFromBytes(pluginName, data)
 }
 
 // LoadAllPluginsFromFilesystem 从文件系统加载所有.so文件
