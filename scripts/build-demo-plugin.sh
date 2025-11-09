@@ -13,7 +13,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
     # 构建演示插件
     echo "编译演示插件..."
-    go build -buildmode=plugin -o ./plugins/demo-plugin.so ./plugin/demo/demo_plugin.go
+    go build -buildmode=plugin -o ./plugins/demo-plugin.so ./examples/go-plugins/demo/demo.go
 
     if [ $? -eq 0 ]; then
         echo "演示插件构建成功！"
@@ -29,5 +29,5 @@ else
     # 提供Docker构建选项的说明
     echo ""
     echo "使用Docker构建插件的命令："
-    echo "docker run --rm -v \${PWD}:/usr/src/myapp -w /usr/src/myapp golang:1.19 go build -buildmode=plugin -o ./plugins/demo-plugin.so ./plugin/demo/demo_plugin.go"
+    echo "docker run --rm -v \${PWD}:/usr/src/myapp -w /usr/src/myapp golang:1.19 go build -buildmode=plugin -o ./plugins/demo-plugin.so ./examples/go-plugins/demo/demo.go"
 fi

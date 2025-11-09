@@ -2,6 +2,9 @@ package manager
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -9,6 +12,7 @@ import (
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/plugin/config"
 	"github.com/ctwj/urldb/plugin/concurrency"
+	"github.com/ctwj/urldb/plugin/loader"
 	"github.com/ctwj/urldb/plugin/monitor"
 	"github.com/ctwj/urldb/plugin/registry"
 	"github.com/ctwj/urldb/plugin/security"
@@ -28,6 +32,7 @@ type Manager struct {
 	configManager *config.ConfigManager
 	lazyLoader    *LazyLoader
 	concurrencyCtrl *concurrency.ConcurrencyController
+	pluginLoader  *PluginLoader
 	mutex         sync.RWMutex
 	taskManager   interface{} // Reference to the existing task manager
 	repoManager   *repo.RepositoryManager
@@ -57,7 +62,39 @@ func NewManager(taskManager interface{}, repoManager *repo.RepositoryManager, da
 	}
 	manager.depManager = NewDependencyManager(manager)
 	manager.lazyLoader = NewLazyLoader(manager)
+	manager.pluginLoader = NewPluginLoader(manager)
 	return manager
+}
+
+// LoadAllPluginsFromFilesystem 从文件系统加载所有插件
+func (m *Manager) LoadAllPluginsFromFilesystem() error {
+	// 创建一个简单的插件加载器来加载.so文件
+	simpleLoader := loader.NewSimplePluginLoader("./plugins")
+
+	plugins, err := simpleLoader.LoadAllPlugins()
+	if err != nil {
+		return fmt.Errorf("加载插件失败: %v", err)
+	}
+
+	for _, plugin := range plugins {
+		name := plugin.Name()
+		if name == "" {
+			utils.Error("发现插件名称为空，跳过: %v", plugin)
+			continue
+		}
+
+		m.mutex.Lock()
+		m.plugins[name] = plugin
+		// 同时注册到插件注册表中
+		if m.registry != nil {
+			m.registry.Register(plugin)
+		}
+		m.mutex.Unlock()
+
+		utils.Info("从文件系统加载插件: %s (版本: %s)", name, plugin.Version())
+	}
+
+	return nil
 }
 
 // GetLazyLoader returns the lazy loader
@@ -668,4 +705,50 @@ func (m *Manager) RevertToConfigVersion(pluginName, version string) (map[string]
 // ListConfigVersions lists all configuration versions for a plugin
 func (m *Manager) ListConfigVersions(pluginName string) ([]*config.ConfigVersion, error) {
 	return m.configManager.ListVersions(pluginName)
+}
+
+// InstallPluginFromFile installs a plugin from a file
+func (m *Manager) InstallPluginFromFile(pluginFilePath string) error {
+	// 创建一个简单的插件加载器来加载.so文件
+	simpleLoader := loader.NewSimplePluginLoader("./plugins")
+
+	// 读取文件内容
+	data, err := ioutil.ReadFile(pluginFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read plugin file: %v", err)
+	}
+
+	// 从文件名提取插件名
+	pluginName := strings.TrimSuffix(filepath.Base(pluginFilePath), filepath.Ext(pluginFilePath))
+
+	// 从字节数据安装插件
+	err = simpleLoader.InstallPluginFromBytes(pluginName, data)
+	if err != nil {
+		return fmt.Errorf("failed to install plugin from file: %v", err)
+	}
+
+	return nil
+}
+
+// GetPluginInstance gets a plugin instance by name
+func (m *Manager) GetPluginInstance(name string) (*types.PluginInstance, error) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	instance, exists := m.instances[name]
+	if !exists {
+		return nil, fmt.Errorf("plugin instance not found: %s", name)
+	}
+
+	return instance, nil
+}
+
+// InitializePluginWithDefault initializes a plugin with default configuration
+func (m *Manager) InitializePluginWithDefault(name string) error {
+	return m.InitializePlugin(name, make(map[string]interface{}))
+}
+
+// InitializePlugin initializes a plugin with default configuration (compatibility method with no config)
+func (m *Manager) InitializePluginForHandler(name string) error {
+	return m.InitializePlugin(name, make(map[string]interface{}))
 }

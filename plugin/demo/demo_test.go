@@ -85,7 +85,7 @@ func TestDemoPluginFunctionality(t *testing.T) {
 	}
 
 	// Execute the task function directly to test functionality
-	plugin.fetchAndLogResource()
+	plugin.FetchAndLogResource()
 
 	// Check that a resource was logged
 	logs := ctx.GetLogs()

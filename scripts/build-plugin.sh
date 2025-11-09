@@ -2,7 +2,7 @@
 
 # 插件构建脚本
 
-PLUGIN_DIR="./plugin/demo"
+PLUGIN_DIR="./examples/go-plugins/demo"
 OUTPUT_DIR="./plugins"
 
 # 创建输出目录

@@ -162,7 +162,7 @@ func (ph *PluginHandler) InitializePlugin(c *gin.Context) {
 		return
 	}
 
-	if err := manager.InitializePlugin(pluginName); err != nil {
+	if err := manager.InitializePluginForHandler(pluginName); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
