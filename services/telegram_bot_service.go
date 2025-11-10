@@ -52,6 +52,7 @@ type TelegramBotServiceImpl struct {
 	config           *TelegramBotConfig
 	pushHistory      map[int64][]uint // 每个频道的推送历史记录，最多100条
 	mu               sync.RWMutex     // 用于保护pushHistory的读写锁
+	stopChan         chan struct{}    // 用于停止消息循环的channel
 }
 
 type TelegramBotConfig struct {
@@ -84,6 +85,7 @@ func NewTelegramBotService(
 		cronScheduler:    cron.New(),
 		config:           &TelegramBotConfig{},
 		pushHistory:      make(map[int64][]uint),
+		stopChan:         make(chan struct{}),
 	}
 }
 
@@ -262,6 +264,9 @@ func (s *TelegramBotServiceImpl) Start() error {
 	s.bot = bot
 	s.isRunning = true
 
+	// 重置停止信号channel
+	s.stopChan = make(chan struct{})
+
 	utils.Info("[TELEGRAM:SERVICE] Telegram Bot (@%s) 已启动", s.GetBotUsername())
 
 	// 启动推送调度器
@@ -285,6 +290,15 @@ func (s *TelegramBotServiceImpl) Stop() error {
 	}
 
 	s.isRunning = false
+
+	// 安全地发送停止信号给消息循环
+	select {
+	case <-s.stopChan:
+		// channel 已经关闭
+	default:
+		// channel 未关闭，安全关闭
+		close(s.stopChan)
+	}
 
 	if s.cronScheduler != nil {
 		s.cronScheduler.Stop()
@@ -517,20 +531,34 @@ func (s *TelegramBotServiceImpl) messageLoop() {
 
 	utils.Info("[TELEGRAM:MESSAGE] 消息监听循环已启动，等待消息...")
 
-	for update := range updates {
-		if update.Message != nil {
-			utils.Info("[TELEGRAM:MESSAGE] 接收到新消息更新")
-			s.handleMessage(update.Message)
-		} else {
-			utils.Debug("[TELEGRAM:MESSAGE] 接收到其他类型更新: %v", update)
+	for {
+		select {
+		case <-s.stopChan:
+			utils.Info("[TELEGRAM:MESSAGE] 收到停止信号，退出消息监听循环")
+			return
+		case update, ok := <-updates:
+			if !ok {
+				utils.Info("[TELEGRAM:MESSAGE] updates channel 已关闭，退出消息监听循环")
+				return
+			}
+			if update.Message != nil {
+				utils.Info("[TELEGRAM:MESSAGE] 接收到新消息更新")
+				s.handleMessage(update.Message)
+			} else {
+				utils.Debug("[TELEGRAM:MESSAGE] 接收到其他类型更新: %v", update)
+			}
 		}
 	}
-
-	utils.Info("[TELEGRAM:MESSAGE] 消息监听循环已结束")
 }
 
 // handleMessage 处理接收到的消息
 func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
+	// 检查机器人是否正在运行且已启用
+	if !s.isRunning || !s.config.Enabled {
+		utils.Info("[TELEGRAM:MESSAGE] 机器人已停止或禁用，跳过消息处理: ChatID=%d", message.Chat.ID)
+		return
+	}
+
 	chatID := message.Chat.ID
 	text := strings.TrimSpace(message.Text)
 
@@ -1266,6 +1294,12 @@ func (s *TelegramBotServiceImpl) GetBotUsername() string {
 
 // SendMessage 发送消息（默认使用 HTML 格式）
 func (s *TelegramBotServiceImpl) SendMessage(chatID int64, text string, img string) error {
+	// 检查机器人是否正在运行且已启用
+	if !s.isRunning || !s.config.Enabled {
+		utils.Info("[TELEGRAM:MESSAGE] 机器人已停止或禁用，跳过发送消息: ChatID=%d", chatID)
+		return fmt.Errorf("机器人已停止或禁用")
+	}
+
 	if img == "" {
 		msg := tgbotapi.NewMessage(chatID, text)
 		msg.ParseMode = "HTML"
