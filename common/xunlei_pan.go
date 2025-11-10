@@ -3,6 +3,7 @@ package pan
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -262,7 +263,7 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 	}
 
 	captchaHeaders := map[string]string{
-		"Content-Type": "application/x-www-form-urlencoded",
+		"Content-Type": "application/json",
 		"User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
 	}
 
@@ -308,8 +309,8 @@ func (x *XunleiPanService) requestXunleiApi(url string, method string, data map[
 
 	// 检查是否是验证码初始化请求
 	if strings.Contains(url, "shield/captcha/init") {
-		// 对于验证码初始化，直接发送HTTP请求，不使用BasePanService，使用sendCaptchaRequest
-		return x.sendCaptchaRequest(url, data)
+		// 对于验证码初始化，直接发送HTTP请求，不使用BasePanService，使用sendCaptchaRequestForGeneralAPI
+		return x.sendCaptchaRequestForGeneralAPI(url, data)
 	}
 
 	// 先更新当前请求的 headers
@@ -894,6 +895,51 @@ func (x *XunleiPanService) Restore(shareID, passCodeToken string, fileIDs []stri
 		return nil, fmt.Errorf("解析转存响应失败: %v", err)
 	}
 	return &data, nil
+}
+
+// sendCaptchaRequestForGeneralAPI 发送验证码请求 - 用于非登录场景的验证码请求
+func (x *XunleiPanService) sendCaptchaRequestForGeneralAPI(url string, data map[string]interface{}) (map[string]interface{}, error) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("发送验证码请求URL: %s", url)
+	log.Printf("发送验证码请求数据: %s", string(jsonData))
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+	req.Header.Set("X-Client-Id", x.clientId)
+	req.Header.Set("X-Device-Id", x.deviceId)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("验证码响应状态码: %d", resp.StatusCode)
+	log.Printf("验证码响应内容: %s", string(body))
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("JSON 解析失败: %v, raw: %s", err, string(body))
+	}
+
+	log.Printf("解析后的响应: %+v", result)
+	return result, nil
 }
 
 // 结构体完全对齐 xunleix
