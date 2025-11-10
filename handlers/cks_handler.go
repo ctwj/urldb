@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -110,32 +111,81 @@ func CreateCks(c *gin.Context) {
 	}
 
 	var cks *entity.Cks
-	// 迅雷网盘，添加的时候 只获取token就好， 然后刷新的时候， 再补充用户信息等
+	// 迅雷网盘，使用账号密码登录
 	if serviceType == panutils.Xunlei {
-		xunleiService := service.(*panutils.XunleiPanService)
-		tokenData, err := xunleiService.GetAccessTokenByRefreshToken(req.Ck)
+		// 解析账号密码信息
+		credentials, err := panutils.ParseCredentialsFromCk(req.Ck)
 		if err != nil {
-			ErrorResponse(c, "无法获取有效token: "+err.Error(), http.StatusBadRequest)
+			ErrorResponse(c, "账号密码格式错误: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		// 验证账号密码
+		if credentials.Username == "" || credentials.Password == "" {
+			ErrorResponse(c, "请提供完整的账号和密码", http.StatusBadRequest)
+			return
+		}
+
+		var tokenData *panutils.XunleiTokenData
+		var username string
+
+		// 使用账号密码登录
+		xunleiService := service.(*panutils.XunleiPanService)
+		token, err := xunleiService.LoginWithCredentials(credentials.Username, credentials.Password)
+		if err != nil {
+			ErrorResponse(c, "账号密码登录失败: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		tokenData = &token
+		username = credentials.Username
+
+		// 构建extra数据
 		extra := panutils.XunleiExtraData{
-			Token:   &tokenData,
+			Token:   tokenData,
 			Captcha: &panutils.CaptchaData{},
 		}
+
+		// 如果有账号密码信息，保存到extra中
+		if credentials.Username != "" && credentials.Password != "" {
+			extra.Credentials = credentials
+		}
+
 		extraStr, _ := json.Marshal(extra)
+
+		// 声明userInfo变量
+		var userInfo *panutils.UserInfo
+
+		// 设置CKSRepository以便获取用户信息
+		xunleiService.SetCKSRepository(repoManager.CksRepository, entity.Cks{})
+
+		// 获取用户信息
+		userInfo, err = xunleiService.GetUserInfo(nil)
+		if err != nil {
+			log.Printf("获取迅雷用户信息失败，使用默认值: %v", err)
+			// 如果获取失败，使用默认值
+			userInfo = &panutils.UserInfo{
+				Username:    username,
+				VIPStatus:   false,
+				ServiceType: "xunlei",
+				TotalSpace:  0,
+				UsedSpace:   0,
+			}
+		}
+
+		leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
 
 		// 创建Cks实体
 		cks = &entity.Cks{
 			PanID:       req.PanID,
 			Idx:         req.Idx,
-			Ck:          tokenData.RefreshToken,
-			IsValid:     true, // 根据VIP状态设置有效性
-			Space:       0,
-			LeftSpace:   0,
-			UsedSpace:   0,
-			Username:    "-",
-			VipStatus:   false,
-			ServiceType: "xunlei",
+			Ck:          req.Ck, // 保持原始输入
+			IsValid:     userInfo.VIPStatus, // 根据VIP状态设置有效性
+			Space:       userInfo.TotalSpace,
+			LeftSpace:   leftSpaceBytes,
+			UsedSpace:   userInfo.UsedSpace,
+			Username:    userInfo.Username,
+			VipStatus:   userInfo.VIPStatus,
+			ServiceType: userInfo.ServiceType,
 			Extra:       string(extraStr),
 			Remark:      req.Remark,
 		}
@@ -388,14 +438,16 @@ func RefreshCapacity(c *gin.Context) {
 
 	var userInfo *panutils.UserInfo
 	service.SetCKSRepository(repoManager.CksRepository, *cks) // 迅雷需要初始化 token 后才能获取，
-	userInfo, err = service.GetUserInfo(&cks.Ck)
-	// switch s := service.(type) {
-	// case *panutils.XunleiPanService:
 
-	// 	userInfo, err = s.GetUserInfo(nil)
-	// default:
-	// 	userInfo, err = service.GetUserInfo(&cks.Ck)
-	// }
+	// 根据服务类型调用不同的GetUserInfo方法
+	switch s := service.(type) {
+	case *panutils.XunleiPanService:
+		// 迅雷网盘使用存储在extra中的token，不需要传递ck参数
+		userInfo, err = s.GetUserInfo(nil)
+	default:
+		// 其他网盘使用ck参数
+		userInfo, err = service.GetUserInfo(&cks.Ck)
+	}
 	if err != nil {
 		ErrorResponse(c, "无法获取用户信息，刷新失败: "+err.Error(), http.StatusBadRequest)
 		return

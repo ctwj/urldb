@@ -1,8 +1,12 @@
 package pan
 
 import (
+	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,6 +17,30 @@ import (
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 )
+
+// 新增常量定义
+const (
+	XLUSER_CLIENT_ID = "XW5SkOhLDjnOZP7J" // 登录
+	PAN_CLIENT_ID    = "Xqp0kJBXWhwaTpB6" // 获取文件列表
+	CLIENT_SECRET    = "Og9Vr1L8Ee6bh0olFxFDRg"
+	CLIENT_VERSION   = "1.92.9" // 更新为与xunlei_3项目相同的版本
+	PACKAG_ENAME     = "pan.xunlei.com"
+)
+
+var SALTS = []string{
+	"QG3/GhopO+5+T",
+	"1Sv94+ANND3lDmmw",
+	"q2eTxRva8b3B5d",
+	"m2",
+	"VIc5CZRBMU71ENfbOh0+RgWIuzLy",
+	"66M8Wpw6nkBEekOtL6e",
+	"N0rucK7S8W/vrRkfPto5urIJJS8dVY0S",
+	"oLAR7pdUVUAp9xcuHWzrU057aUhdCJrt",
+	"6lxcykBSsfI//GR9",
+	"r50cz+1I4gbU/fk8",
+	"tdwzrTc4SNFC4marNGTgf05flC85A",
+	"qvNVUDFjfsOMqvdi2gB8gCvtaJAIqxXs",
+}
 
 // CaptchaData 存储在数据库中的验证码令牌数据
 type CaptchaData struct {
@@ -32,8 +60,9 @@ type XunleiTokenData struct {
 }
 
 type XunleiExtraData struct {
-	Captcha *CaptchaData
-	Token   *XunleiTokenData
+	Captcha     *CaptchaData              `json:"captcha,omitempty"`
+	Token       *XunleiTokenData          `json:"token,omitempty"`
+	Credentials *XunleiAccountCredentials `json:"credentials,omitempty"` // 账号密码信息
 }
 
 type XunleiPanService struct {
@@ -65,8 +94,8 @@ func NewXunleiPanService(config *PanConfig) *XunleiPanService {
 	xunleiInstance := &XunleiPanService{
 		BasePanService: NewBasePanService(config),
 		clientId:       "Xqp0kJBXWhwaTpB6",
-		deviceId:       "925b7631473a13716b791d7f28289cad",
-		extra:          XunleiExtraData{}, // Initialize extra with zero values
+		deviceId:       "a0a4beea8f0db68a5b7ae95ce7dab335", // 使用与xunlei_3相同的设备ID
+		extra:          XunleiExtraData{},                  // Initialize extra with zero values
 	}
 	xunleiInstance.SetHeaders(map[string]string{
 		"Accept":             "*/;",
@@ -100,9 +129,19 @@ func (x *XunleiPanService) SetCKSRepository(cksRepo repo.CksRepository, entity e
 	x.cksRepo = cksRepo
 	x.entity = entity
 	var extra XunleiExtraData
-	if err := json.Unmarshal([]byte(x.entity.Extra), &extra); err != nil {
-		log.Printf("解析 extra 数据失败: %v，使用空数据", err)
+
+	// 解析extra字段
+	if x.entity.Extra != "" {
+		if err := json.Unmarshal([]byte(x.entity.Extra), &extra); err != nil {
+			log.Printf("解析 extra 数据失败: %v", err)
+		}
 	}
+
+	// 从ck字段解析账号密码
+	if credentials, err := ParseCredentialsFromCk(x.entity.Ck); err == nil {
+		extra.Credentials = credentials
+	}
+
 	x.extra = extra
 }
 
@@ -151,20 +190,51 @@ func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (Xu
 	return result, nil
 }
 
-// getAccessToken 获取 Access Token（内部包含缓存判断、刷新、保存）- 匹配 PHP 版本
+// getAccessToken 获取 Access Token（内部包含缓存判断、刷新、重新登录、保存）
 func (x *XunleiPanService) getAccessToken() (string, error) {
 	// 检查 Access Token 是否有效
 	currentTime := time.Now().Unix()
 	if x.extra.Token != nil && x.extra.Token.AccessToken != "" && x.extra.Token.ExpiresAt > currentTime {
 		return x.extra.Token.AccessToken, nil
 	}
-	newData, err := x.GetAccessTokenByRefreshToken(x.extra.Token.RefreshToken)
-	if err != nil {
-		return "", fmt.Errorf("获取 access_token 失败: %v", err)
+
+	// 尝试使用refresh_token刷新
+	var newData XunleiTokenData
+	var err error
+
+	if x.extra.Token != nil && x.extra.Token.RefreshToken != "" {
+		newData, err = x.GetAccessTokenByRefreshToken(x.extra.Token.RefreshToken)
+		if err != nil {
+			log.Printf("refresh_token刷新失败: %v，尝试使用账号密码重新登录", err)
+
+			// 如果refresh_token失效且有账号密码信息，尝试重新登录
+			if x.extra.Credentials != nil && x.extra.Credentials.Username != "" && x.extra.Credentials.Password != "" {
+				newData, err = x.reloginWithCredentials()
+				if err != nil {
+					return "", fmt.Errorf("重新登录失败: %v", err)
+				}
+			} else {
+				return "", fmt.Errorf("refresh_token失效且无账号密码信息，无法重新登录: %v", err)
+			}
+		}
+	} else {
+		return "", fmt.Errorf("无有效的refresh_token")
 	}
 
+	// 更新token信息
+	if x.extra.Token == nil {
+		x.extra.Token = &XunleiTokenData{}
+	}
 	x.extra.Token.AccessToken = newData.AccessToken
+	x.extra.Token.RefreshToken = newData.RefreshToken
 	x.extra.Token.ExpiresAt = newData.ExpiresAt
+	x.extra.Token.ExpiresIn = newData.ExpiresIn
+	x.extra.Token.Sub = newData.Sub
+	x.extra.Token.TokenType = newData.TokenType
+	x.extra.Token.UserId = newData.UserId
+
+	// 更新ck字段中的refresh_token（保持向后兼容）
+	x.entity.Ck = newData.RefreshToken
 
 	// 保存到数据库
 	extraBytes, err := json.Marshal(x.extra)
@@ -175,7 +245,126 @@ func (x *XunleiPanService) getAccessToken() (string, error) {
 	if err := x.cksRepo.UpdateWithAllFields(&x.entity); err != nil {
 		return "", fmt.Errorf("保存 access_token 到数据库失败: %v", err)
 	}
+
 	return newData.AccessToken, nil
+}
+
+// reloginWithCredentials 使用账号密码重新登录
+func (x *XunleiPanService) reloginWithCredentials() (XunleiTokenData, error) {
+	if x.extra.Credentials == nil {
+		return XunleiTokenData{}, fmt.Errorf("无账号密码信息")
+	}
+
+	tokenData, err := x.LoginWithCredentials(x.extra.Credentials.Username, x.extra.Credentials.Password)
+	if err != nil {
+		return XunleiTokenData{}, fmt.Errorf("账号密码登录失败: %v", err)
+	}
+
+	log.Printf("账号 %s 重新登录成功", x.extra.Credentials.Username)
+	return tokenData, nil
+}
+
+// getTimestamp 获取当前时间戳
+func (x *XunleiPanService) getTimestamp() int64 {
+	return time.Now().UnixMilli()
+}
+
+// captchaSign 生成验证码签名 - 完全复制自xunlei_3项目
+func (x *XunleiPanService) captchaSign(clientId string, deviceID string, timestamp string) string {
+	sign := clientId + CLIENT_VERSION + PACKAG_ENAME + deviceID + timestamp
+	log.Printf("urldb 签名基础字符串: %s", sign)
+	for _, salt := range SALTS { // salt =
+		hash := md5.Sum([]byte(sign + salt))
+		sign = hex.EncodeToString(hash[:])
+	}
+	log.Printf("urldb 最终签名: 1.%s", sign)
+	return fmt.Sprintf("1.%s", sign)
+}
+
+// LoginWithCredentials 使用账号密码登录
+func (x *XunleiPanService) LoginWithCredentials(username, password string) (XunleiTokenData, error) {
+	loginURL := "https://xluser-ssl.xunlei.com/v1/auth/signin"
+
+	// 初始化验证码 - 完全模仿xunlei_3的CaptchaInit方法
+	captchaURL := "https://xluser-ssl.xunlei.com/v1/shield/captcha/init"
+
+	// 构造meta参数（完全模仿xunlei_3，只包含phone_number）
+	meta := map[string]interface{}{
+		"phone_number": "+86" + username,
+	}
+
+	// 构造验证码请求（完全模仿xunlei_3）
+	captchaBody := map[string]interface{}{
+		"client_id": XLUSER_CLIENT_ID,
+		"action":    "POST:/v1/auth/signin",
+		"device_id": x.deviceId,
+		"meta":      meta,
+	}
+
+	log.Printf("发送验证码初始化请求: %+v", captchaBody)
+	resp, err := x.sendCaptchaRequest(captchaURL, captchaBody)
+	if err != nil {
+		return XunleiTokenData{}, fmt.Errorf("获取验证码失败: %v", err)
+	}
+
+	if resp["captcha_token"] == nil {
+		return XunleiTokenData{}, fmt.Errorf("获取验证码失败: 响应中没有captcha_token")
+	}
+
+	captchaToken, ok := resp["captcha_token"].(string)
+	if !ok {
+		return XunleiTokenData{}, fmt.Errorf("获取验证码失败: captcha_token格式错误")
+	}
+	log.Printf("成功获取captcha_token: %s", captchaToken)
+
+	// 构造登录请求数据
+	loginData := map[string]interface{}{
+		"client_id":     XLUSER_CLIENT_ID,
+		"client_secret": CLIENT_SECRET,
+		"password":      password,
+		"username":      "+86 " + username,
+		"captcha_token": captchaToken,
+	}
+
+	// 发送登录请求
+	userInfo, err := x.sendCaptchaRequest(loginURL, loginData)
+	if err != nil {
+		return XunleiTokenData{}, fmt.Errorf("登录请求失败: %v", err)
+	}
+
+	// 提取token信息
+	accessToken, ok := userInfo["access_token"].(string)
+	if !ok {
+		return XunleiTokenData{}, fmt.Errorf("登录响应中没有access_token")
+	}
+
+	refreshToken, ok := userInfo["refresh_token"].(string)
+	if !ok {
+		return XunleiTokenData{}, fmt.Errorf("登录响应中没有refresh_token")
+	}
+
+	sub, ok := userInfo["sub"].(string)
+	if !ok {
+		sub = ""
+	}
+
+	// 计算过期时间
+	expiresIn := int64(3600) // 默认1小时
+	if exp, ok := userInfo["expires_in"].(float64); ok {
+		expiresIn = int64(exp)
+	}
+	expiresAt := time.Now().Unix() + expiresIn - 60 // 减去60秒缓冲
+
+	log.Printf("登录成功，获取到token")
+	return XunleiTokenData{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    expiresIn,
+		ExpiresAt:    expiresAt,
+		Sub:          sub,
+		TokenType:    "Bearer",
+		UserId:       sub,
+	}, nil
 }
 
 // getCaptchaToken 获取 captcha_token - 匹配 PHP 版本
@@ -185,6 +374,10 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 	if x.extra.Captcha != nil && x.extra.Captcha.CaptchaToken != "" && x.extra.Captcha.ExpiresAt > currentTime {
 		return x.extra.Captcha.CaptchaToken, nil
 	}
+
+	// 生成动态时间戳和签名
+	timestamp := strconv.FormatInt(x.getTimestamp(), 10)
+	newCaptchaSign := x.captchaSign(x.clientId, x.deviceId, timestamp)
 
 	// 构造请求体
 	body := map[string]interface{}{
@@ -196,15 +389,15 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 			"phone_number":   "",
 			"email":          "",
 			"package_name":   "pan.xunlei.com",
-			"client_version": "1.45.0",
-			"captcha_sign":   "1.fe2108ad808a74c9ac0243309242726c",
-			"timestamp":      "1645241033384",
+			"client_version": CLIENT_VERSION,
+			"captcha_sign":   newCaptchaSign,
+			"timestamp":      timestamp,
 			"user_id":        "0",
 		},
 	}
 
 	captchaHeaders := map[string]string{
-		"Content-Type": "application/json",
+		"Content-Type": "application/x-www-form-urlencoded",
 		"User-Agent":   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
 	}
 
@@ -265,6 +458,12 @@ func (x *XunleiPanService) requestXunleiApi(url string, method string, data map[
 		}
 	}()
 
+	// 检查是否是验证码初始化请求
+	if strings.Contains(url, "shield/captcha/init") {
+		// 对于验证码初始化，直接发送HTTP请求，不使用BasePanService
+		return x.sendCaptchaRequest(url, data)
+	}
+
 	// 根据方法调用相应的 BasePanService 方法
 	if method == "GET" {
 		respData, err = x.HTTPGet(url, queryParams)
@@ -284,6 +483,85 @@ func (x *XunleiPanService) requestXunleiApi(url string, method string, data map[
 	}
 
 	return result, nil
+}
+
+// sendCaptchaRequest 发送验证码请求 - 完全复制xunlei_3的sendRequest实现
+func (x *XunleiPanService) sendCaptchaRequest(url string, data map[string]interface{}) (map[string]interface{}, error) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("发送验证码请求URL: %s", url)
+	log.Printf("发送验证码请求数据: %s", string(jsonData))
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+
+	// 完全复制xunlei_3的请求头设置
+	reqHeaders := x.getHeadersForRequest(nil)
+	// 添加特定的headers
+	reqHeaders["Content-Type"] = "application/x-www-form-urlencoded"
+	reqHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+
+	for k, v := range reqHeaders {
+		req.Header.Set(k, v)
+	}
+
+	// 检查是否需要添加X-Client-Id
+	if !strings.Contains(url, "shield/captcha/init") {
+		req.Header.Set("X-Client-Id", PAN_CLIENT_ID)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("验证码响应状态码: %d", resp.StatusCode)
+	log.Printf("验证码响应内容: %s", string(body))
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("JSON 解析失败: %v, raw: %s", err, string(body))
+	}
+
+	log.Printf("解析后的响应: %+v", result)
+	return result, nil
+}
+
+// getHeadersForRequest 获取请求头
+func (x *XunleiPanService) getHeadersForRequest(accessToken *string) map[string]string {
+	headers := map[string]string{
+		"Content-Type": "application/json; charset=utf-8",
+	}
+
+	// 这里我们简化处理，因为验证码请求不需要这些
+	// if x.CaptchaToken != nil {
+	// 	headers["User-Agent"] = x.buildCustomUserAgent()
+	// 	headers["X-Captcha-Token"] = *x.CaptchaToken
+	// } else {
+	headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+	// }
+
+	// if accessToken != nil {
+	// 	headers["Authorization"] = fmt.Sprintf("Bearer %s", *accessToken)
+	// }
+
+	// if x.DeviceID != "" {
+	// 	headers["X-Device-Id"] = x.DeviceID
+	// }
+
+	return headers
 }
 
 func (x *XunleiPanService) UpdateConfig(config *PanConfig) {
