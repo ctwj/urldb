@@ -167,9 +167,16 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 
 // Start 启动机器人服务
 func (s *TelegramBotServiceImpl) Start() error {
-	if s.isRunning {
+	// 确保机器人完全停止状态
+	if s.isRunning && s.bot != nil {
 		utils.Info("[TELEGRAM:SERVICE] Telegram Bot 服务已经在运行中")
 		return nil
+	}
+
+	// 如果isRunning为true但bot为nil，说明状态不一致，需要清理
+	if s.isRunning && s.bot == nil {
+		utils.Info("[TELEGRAM:SERVICE] 检测到不一致状态，清理残留资源")
+		s.isRunning = false
 	}
 
 	// 加载配置
@@ -289,6 +296,8 @@ func (s *TelegramBotServiceImpl) Stop() error {
 		return nil
 	}
 
+	utils.Info("[TELEGRAM:SERVICE] 开始停止 Telegram Bot 服务")
+
 	s.isRunning = false
 
 	// 安全地发送停止信号给消息循环
@@ -303,6 +312,9 @@ func (s *TelegramBotServiceImpl) Stop() error {
 	if s.cronScheduler != nil {
 		s.cronScheduler.Stop()
 	}
+
+	// 清理机器人实例以避免冲突
+	s.bot = nil
 
 	utils.Info("[TELEGRAM:SERVICE] Telegram Bot 服务已停止")
 	return nil
@@ -524,6 +536,12 @@ func (s *TelegramBotServiceImpl) setupWebhook() error {
 func (s *TelegramBotServiceImpl) messageLoop() {
 	utils.Info("[TELEGRAM:MESSAGE] 开始监听 Telegram 消息更新...")
 
+	// 确保机器人实例存在
+	if s.bot == nil {
+		utils.Error("[TELEGRAM:MESSAGE] 机器人实例为空，无法启动消息监听循环")
+		return
+	}
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
@@ -539,6 +557,11 @@ func (s *TelegramBotServiceImpl) messageLoop() {
 		case update, ok := <-updates:
 			if !ok {
 				utils.Info("[TELEGRAM:MESSAGE] updates channel 已关闭，退出消息监听循环")
+				return
+			}
+			// 在处理消息前检查机器人是否仍在运行
+			if !s.isRunning || s.bot == nil {
+				utils.Info("[TELEGRAM:MESSAGE] 机器人已停止，忽略接收到的消息")
 				return
 			}
 			if update.Message != nil {
