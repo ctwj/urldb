@@ -3,7 +3,6 @@ package pan
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -33,9 +32,8 @@ type XunleiTokenData struct {
 }
 
 type XunleiExtraData struct {
-	Captcha     *CaptchaData              `json:"captcha,omitempty"`
-	Token       *XunleiTokenData          `json:"token,omitempty"`
-	Credentials *XunleiAccountCredentials `json:"credentials,omitempty"` // 账号密码信息
+	Captcha *CaptchaData
+	Token   *XunleiTokenData
 }
 
 type XunleiPanService struct {
@@ -102,19 +100,9 @@ func (x *XunleiPanService) SetCKSRepository(cksRepo repo.CksRepository, entity e
 	x.cksRepo = cksRepo
 	x.entity = entity
 	var extra XunleiExtraData
-
-	// 解析extra字段
-	if x.entity.Extra != "" {
-		if err := json.Unmarshal([]byte(x.entity.Extra), &extra); err != nil {
-			log.Printf("解析 extra 数据失败: %v", err)
-		}
+	if err := json.Unmarshal([]byte(x.entity.Extra), &extra); err != nil {
+		log.Printf("解析 extra 数据失败: %v，使用空数据", err)
 	}
-
-	// 从ck字段解析账号密码
-	if credentials, err := ParseCredentialsFromCk(x.entity.Ck); err == nil {
-		extra.Credentials = credentials
-	}
-
 	x.extra = extra
 }
 
@@ -163,66 +151,20 @@ func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (Xu
 	return result, nil
 }
 
-// reloginWithCredentials 使用账号密码重新登录
-func (x *XunleiPanService) reloginWithCredentials() (XunleiTokenData, error) {
-	if x.extra.Credentials == nil {
-		return XunleiTokenData{}, fmt.Errorf("无账号密码信息")
-	}
-
-	tokenData, err := x.LoginWithCredentials(x.extra.Credentials.Username, x.extra.Credentials.Password)
-	if err != nil {
-		return XunleiTokenData{}, fmt.Errorf("账号密码登录失败: %v", err)
-	}
-
-	log.Printf("账号 %s 重新登录成功", x.extra.Credentials.Username)
-	return tokenData, nil
-}
-
-// getAccessToken 获取 Access Token（内部包含缓存判断、刷新、重新登录、保存）
+// getAccessToken 获取 Access Token（内部包含缓存判断、刷新、保存）- 匹配 PHP 版本
 func (x *XunleiPanService) getAccessToken() (string, error) {
 	// 检查 Access Token 是否有效
 	currentTime := time.Now().Unix()
 	if x.extra.Token != nil && x.extra.Token.AccessToken != "" && x.extra.Token.ExpiresAt > currentTime {
 		return x.extra.Token.AccessToken, nil
 	}
-
-	// 尝试使用refresh_token刷新
-	var newData XunleiTokenData
-	var err error
-
-	if x.extra.Token != nil && x.extra.Token.RefreshToken != "" {
-		newData, err = x.GetAccessTokenByRefreshToken(x.extra.Token.RefreshToken)
-		if err != nil {
-			log.Printf("refresh_token刷新失败: %v，尝试使用账号密码重新登录", err)
-
-			// 如果refresh_token失效且有账号密码信息，尝试重新登录
-			if x.extra.Credentials != nil && x.extra.Credentials.Username != "" && x.extra.Credentials.Password != "" {
-				newData, err = x.reloginWithCredentials()
-				if err != nil {
-					return "", fmt.Errorf("重新登录失败: %v", err)
-				}
-			} else {
-				return "", fmt.Errorf("refresh_token失效且无账号密码信息，无法重新登录: %v", err)
-			}
-		}
-	} else {
-		return "", fmt.Errorf("无有效的refresh_token")
+	newData, err := x.GetAccessTokenByRefreshToken(x.extra.Token.RefreshToken)
+	if err != nil {
+		return "", fmt.Errorf("获取 access_token 失败: %v", err)
 	}
 
-	// 更新token信息
-	if x.extra.Token == nil {
-		x.extra.Token = &XunleiTokenData{}
-	}
 	x.extra.Token.AccessToken = newData.AccessToken
-	x.extra.Token.RefreshToken = newData.RefreshToken
 	x.extra.Token.ExpiresAt = newData.ExpiresAt
-	x.extra.Token.ExpiresIn = newData.ExpiresIn
-	x.extra.Token.Sub = newData.Sub
-	x.extra.Token.TokenType = newData.TokenType
-	x.extra.Token.UserId = newData.UserId
-
-	// 更新ck字段中的refresh_token（保持向后兼容）
-	x.entity.Ck = newData.RefreshToken
 
 	// 保存到数据库
 	extraBytes, err := json.Marshal(x.extra)
@@ -233,7 +175,6 @@ func (x *XunleiPanService) getAccessToken() (string, error) {
 	if err := x.cksRepo.UpdateWithAllFields(&x.entity); err != nil {
 		return "", fmt.Errorf("保存 access_token 到数据库失败: %v", err)
 	}
-
 	return newData.AccessToken, nil
 }
 
@@ -306,12 +247,6 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 func (x *XunleiPanService) requestXunleiApi(url string, method string, data map[string]interface{}, queryParams map[string]string, headers map[string]string) (map[string]interface{}, error) {
 	var respData []byte
 	var err error
-
-	// 检查是否是验证码初始化请求
-	if strings.Contains(url, "shield/captcha/init") {
-		// 对于验证码初始化，直接发送HTTP请求，不使用BasePanService，使用sendCaptchaRequestForGeneralAPI
-		return x.sendCaptchaRequestForGeneralAPI(url, data)
-	}
 
 	// 先更新当前请求的 headers
 	originalHeaders := make(map[string]string)
@@ -895,51 +830,6 @@ func (x *XunleiPanService) Restore(shareID, passCodeToken string, fileIDs []stri
 		return nil, fmt.Errorf("解析转存响应失败: %v", err)
 	}
 	return &data, nil
-}
-
-// sendCaptchaRequestForGeneralAPI 发送验证码请求 - 用于非登录场景的验证码请求
-func (x *XunleiPanService) sendCaptchaRequestForGeneralAPI(url string, data map[string]interface{}) (map[string]interface{}, error) {
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Printf("发送验证码请求URL: %s", url)
-	log.Printf("发送验证码请求数据: %s", string(jsonData))
-
-	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonData)))
-	if err != nil {
-		return nil, err
-	}
-
-	// 设置请求头
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-	req.Header.Set("X-Client-Id", x.clientId)
-	req.Header.Set("X-Device-Id", x.deviceId)
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Printf("验证码响应状态码: %d", resp.StatusCode)
-	log.Printf("验证码响应内容: %s", string(body))
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("JSON 解析失败: %v, raw: %s", err, string(body))
-	}
-
-	log.Printf("解析后的响应: %+v", result)
-	return result, nil
 }
 
 // 结构体完全对齐 xunleix

@@ -180,9 +180,9 @@ func UpdateSystemConfig(c *gin.Context) {
 	}
 
 	if req.AutoTransferMinSpace != nil {
-		if *req.AutoTransferMinSpace < 100 || *req.AutoTransferMinSpace > 1024 {
+		if *req.AutoTransferMinSpace < 5 || *req.AutoTransferMinSpace > 1024 {
 			utils.Warn("配置验证失败 - AutoTransferMinSpace超出范围: %d", *req.AutoTransferMinSpace)
-			ErrorResponse(c, "最小存储空间必须在100-1024GB之间", http.StatusBadRequest)
+			ErrorResponse(c, "最小存储空间必须在5-1024GB之间", http.StatusBadRequest)
 			return
 		}
 	}

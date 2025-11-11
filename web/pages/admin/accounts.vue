@@ -218,10 +218,20 @@
       </div>
 
       <div v-if="isXunlei">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          refresh_token <span class="text-red-500">*</span>
-        </label>
-        <n-input v-model:value="form.ck" type="textarea" placeholder="请输入" :rows="4" required />
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              手机号 <span class="text-red-500">*</span>
+            </label>
+            <n-input v-model:value="xunleiForm.username" placeholder="请输入手机号（不需要+86前缀）" required />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              密码 <span class="text-red-500">*</span>
+            </label>
+            <n-input v-model:value="xunleiForm.password" type="password" placeholder="请输入密码" show-password-on="click" required />
+          </div>
+        </div>
       </div>
 
       <div>
@@ -278,6 +288,12 @@ const form = ref({
   ck: '',
   is_valid: true,
   remark: ''
+})
+
+// 迅雷专用表单数据
+const xunleiForm = ref({
+  username: '',
+  password: ''
 })
 
 const panEnables = ref(['quark', 'xunlei'])
@@ -533,6 +549,25 @@ const editCks = (cks) => {
     is_valid: cks.is_valid,
     remark: cks.remark || ''
   }
+
+  // 如果是迅雷账号，解析ck字段来设置表单
+  if (cks.pan?.name === 'xunlei') {
+    try {
+      // 解析JSON格式
+      const parsed = JSON.parse(cks.ck)
+      xunleiForm.value = {
+        username: parsed.username,
+        password: parsed.password
+      }
+    } catch (e) {
+      // 解析失败，清空表单
+      xunleiForm.value = {
+        username: '',
+        password: ''
+      }
+    }
+  }
+
   showEditModal.value = true
 }
 
@@ -547,10 +582,32 @@ const closeModal = () => {
     is_valid: true,
     remark: ''
   }
+  // 重置迅雷表单
+  xunleiForm.value = {
+    username: '',
+    password: ''
+  }
 }
 
 // 提交表单
 const handleSubmit = async () => {
+  // 如果是迅雷账号，需要构造账号密码的JSON格式
+  if (isXunlei.value) {
+    if (!xunleiForm.value.username || !xunleiForm.value.password) {
+      notification.error({
+        title: '失败',
+        content: '请填写完整的账号和密码',
+        duration: 3000
+      })
+      return
+    }
+    form.value.ck = JSON.stringify({
+      username: xunleiForm.value.username,
+      password: xunleiForm.value.password,
+      refresh_token: '' // 初始为空，登录后会填充
+    })
+  }
+
   if (showEditModal.value) {
     await updateCks()
   } else {
