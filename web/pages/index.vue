@@ -411,20 +411,53 @@ const pageKeywords = computed(() => {
   }
 })
 
-// 设置动态SEO - 修复useHead 500错误
-useHead(() => {
-  // 安全地获取标题，添加默认值
-  const safeTitle = pageTitle.value || '老九网盘资源数据库 - 首页'
-  const safeDescription = pageDescription.value || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享'
-  const safeKeywords = pageKeywords.value || '网盘资源,资源管理,数据库'
+// 设置动态SEO - 使用Nuxt3最佳实践
+useSeoMeta({
+  title: () => pageTitle.value || '老九网盘资源数据库 - 首页',
+  description: () => pageDescription.value || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享',
+  keywords: () => pageKeywords.value || '网盘资源,资源管理,数据库',
+  ogTitle: () => pageTitle.value,
+  ogDescription: () => pageDescription.value,
+  ogType: 'website',
+  ogImage: '/assets/images/logo.webp',
+  twitterCard: 'summary_large_image',
+  robots: 'index, follow'
+})
 
-  return {
-    title: safeTitle,
-    meta: [
-      { name: 'description', content: safeDescription },
-      { name: 'keywords', content: safeKeywords }
-    ]
-  }
+// 设置HTML属性
+useHead({
+  htmlAttrs: {
+    lang: 'zh-CN'
+  },
+  link: [
+    {
+      rel: 'canonical',
+      href: () => {
+        const baseUrl = 'https://yourdomain.com' // 应该从环境变量或配置中获取
+        const params = new URLSearchParams()
+        if (route.query.search) params.set('search', route.query.search as string)
+        if (route.query.platform) params.set('platform', route.query.platform as string)
+        const queryString = params.toString()
+        return queryString ? `${baseUrl}?${queryString}` : baseUrl
+      }
+    }
+  ]
+})
+
+// 添加结构化数据
+useHead({
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: () => JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": systemConfig.value?.site_title || '老九网盘资源数据库',
+        "description": systemConfig.value?.site_description || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享',
+        "url": "https://pan.l9.lc" // 应该从环境变量或配置中获取
+      })
+    }
+  ]
 })
 
 // 响应式数据

@@ -208,6 +208,9 @@ func main() {
 	// 创建Meilisearch处理器
 	meilisearchHandler := handlers.NewMeilisearchHandler(meilisearchManager)
 
+	// 创建OG图片处理器
+	ogImageHandler := handlers.NewOGImageHandler()
+
 	// API路由
 	api := r.Group("/api")
 	{
@@ -434,6 +437,9 @@ func main() {
 		api.GET("/wechat/bot-status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), wechatHandler.GetBotStatus)
 		api.POST("/wechat/callback", wechatHandler.HandleWechatMessage)
 		api.GET("/wechat/callback", wechatHandler.HandleWechatMessage)
+
+		// OG图片生成路由
+		api.GET("/og-image", ogImageHandler.GenerateOGImage)
 	}
 
 	// 设置监控系统

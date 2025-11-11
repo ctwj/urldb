@@ -459,12 +459,40 @@ definePageMeta({
   layout: 'default'
 })
 
-// 页面元数据
-useHead({
+// 页面元数据 - 使用Nuxt3 SEO最佳实践
+useSeoMeta({
   title: 'API文档 - 老九网盘资源数据库',
-  meta: [
-    { name: 'description', content: '老九网盘资源数据库的公开API接口文档' },
-    { name: 'keywords', content: 'API,接口文档,网盘资源管理' }
+  description: '老九网盘资源数据库的公开API接口文档，支持资源添加、搜索和热门剧获取等功能',
+  keywords: 'API,接口文档,网盘资源管理,资源搜索,批量添加',
+  ogTitle: 'API文档 - 老九网盘资源数据库',
+  ogDescription: '老九网盘资源数据库的公开API接口文档，支持资源添加、搜索和热门剧获取等功能',
+  ogType: 'website',
+  ogImage: '/assets/images/logo.webp',
+  twitterCard: 'summary_large_image',
+  robots: 'index, follow'
+})
+
+useHead({
+  htmlAttrs: {
+    lang: 'zh-CN'
+  },
+  link: [
+    {
+      rel: 'canonical',
+      href: 'https://yourdomain.com/api-docs'
+    }
+  ],
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "API文档 - 老九网盘资源数据库",
+        "description": "老九网盘资源数据库的公开API接口文档，支持资源添加、搜索和热门剧获取等功能",
+        "url": "https://yourdomain.com/api-docs"
+      })
+    }
   ]
 })
 </script>

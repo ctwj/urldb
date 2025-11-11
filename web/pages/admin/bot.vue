@@ -31,16 +31,6 @@
             <TelegramBotTab />
           </div>
         </n-tab-pane>
-
-        <n-tab-pane name="wechat_open" tab="微信开放平台">
-          <div class="tab-content-container">
-            <div class="text-center py-12">
-              <i class="fas fa-lock text-4xl text-gray-400 mb-4"></i>
-              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">功能暂未开放</h3>
-              <p class="text-gray-500 dark:text-gray-400">微信开放平台机器人功能正在开发中，敬请期待</p>
-            </div>
-          </div>
-        </n-tab-pane>
         </n-tabs>
 
       </div>

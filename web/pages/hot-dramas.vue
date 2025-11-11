@@ -166,10 +166,46 @@ definePageMeta({
   layout: 'default'
 })
 
+// 设置页面SEO元数据 - 使用Nuxt3 SEO最佳实践
+useSeoMeta({
+  title: '热播剧榜单 - 老九网盘资源数据库',
+  description: '实时获取豆瓣热门电影和电视剧榜单，包括热门电影、热门电视剧、热门综艺和豆瓣Top250等分类',
+  keywords: '热播剧,热门电影,热门电视剧,豆瓣榜单,Top250,影视推荐',
+  ogTitle: '热播剧榜单 - 老九网盘资源数据库',
+  ogDescription: '实时获取豆瓣热门电影和电视剧榜单',
+  ogType: 'website',
+  ogImage: '/assets/images/logo.webp',
+  twitterCard: 'summary_large_image',
+  robots: 'index, follow'
+})
+
+useHead({
+  htmlAttrs: {
+    lang: 'zh-CN'
+  },
+  link: [
+    {
+      rel: 'canonical',
+      href: 'https://yourdomain.com/hot-dramas'
+    }
+  ],
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "热播剧榜单 - 老九网盘资源数据库",
+        "description": "实时获取豆瓣热门电影和电视剧榜单，包括热门电影、热门电视剧、热门综艺和豆瓣Top250等分类"
+      })
+    }
+  ]
+})
+
 const hotDramaApi = useHotDramaApi()
 const { data: hotDramsaResponse, error } = await hotDramaApi.getHotDramas({
   page: 1,
-  page_size: 20 
+  page_size: 20
 })
 
 const { getPosterUrl } = hotDramaApi
