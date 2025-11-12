@@ -279,15 +279,17 @@ definePageMeta({
   ssr: false
 })
 
+// 设置页面SEO
+const { initSystemConfig, setRegisterSeo } = useGlobalSeo()
+
+onBeforeMount(async () => {
+  await initSystemConfig()
+  setRegisterSeo()
+})
+
 // 页面加载时获取系统配置
 onMounted(() => {
   fetchSystemConfig()
-})
-
-
-// 设置页面标题
-useHead({
-  title: '用户注册 - 老九网盘资源数据库'
 })
 </script>
 

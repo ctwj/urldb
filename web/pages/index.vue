@@ -1,5 +1,5 @@
   <template>
-  <div v-if="!systemConfig.maintenance_mode" class="min-h-screen bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-slate-100 flex flex-col">
+  <div v-if="!systemConfig?.maintenance_mode" class="min-h-screen bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-slate-100 flex flex-col">
     <!-- 全局加载状态 -->
     <div v-if="pageLoading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl">
@@ -282,7 +282,7 @@
     <!-- 悬浮按钮组件 -->
     <FloatButtons />
   </div>
-  <div v-if="systemConfig.maintenance_mode" class="fixed inset-0 z-[1000000] flex items-center justify-center bg-gradient-to-br from-yellow-100/80 via-gray-900/90 to-yellow-200/80 backdrop-blur-sm">
+  <div v-if="systemConfig?.maintenance_mode" class="fixed inset-0 z-[1000000] flex items-center justify-center bg-gradient-to-br from-yellow-100/80 via-gray-900/90 to-yellow-200/80 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl px-8 py-10 flex flex-col items-center max-w-xs w-full border border-yellow-200 dark:border-yellow-700">
       <i class="fas fa-tools text-yellow-500 text-5xl mb-6 animate-bounce-slow"></i>
       <h3 class="text-2xl font-extrabold text-yellow-600 dark:text-yellow-400 mb-2 tracking-wide drop-shadow">系统维护中</h3>
@@ -311,7 +311,7 @@ const statsApi = useStatsApi()
 const panApi = usePanApi()
 const publicSystemConfigApi = usePublicSystemConfigApi()
 
-// 获取路由参数 - 提前定义以避免初始化顺序问题
+// 路由参数已通过自动导入提供，直接使用
 const route = useRoute()
 const router = useRouter()
 
@@ -321,7 +321,8 @@ const { data: systemConfigData } = await useAsyncData('systemConfig', () => publ
 // 获取平台名称的辅助函数
 const getPlatformName = (platformId: string) => {
   if (!platformId) return ''
-  const platform = platforms.value.find((p: any) => p.id == platformId)
+  const platformList = (platforms.value || []) as any[]
+  const platform = platformList.find((p: any) => p.id == platformId)
   return platform?.name || ''
 }
 
@@ -331,10 +332,9 @@ const pageTitle = computed(() => {
     const config = systemConfigData.value as any
     const siteTitle = (config?.data?.site_title) ? config.data.site_title :
                       (config?.site_title) ? config.site_title : '老九网盘资源数据库'
-    const searchKeyword = (route.query && route.query.search) ? route.query.search as string : ''
-    const platformId = (route.query && route.query.platform) ? route.query.platform as string : ''
+    const searchKeyword = (route.query?.search) ? route.query.search as string : ''
+    const platformId = (route.query?.platform) ? route.query.platform as string : ''
     const platformName = getPlatformName(platformId)
-
     let title = siteTitle
 
     // 根据搜索条件组合标题
@@ -411,21 +411,67 @@ const pageKeywords = computed(() => {
   }
 })
 
-// 设置动态SEO - 修复useHead 500错误
-useHead(() => {
-  // 安全地获取标题，添加默认值
-  const safeTitle = pageTitle.value || '老九网盘资源数据库 - 首页'
-  const safeDescription = pageDescription.value || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享'
-  const safeKeywords = pageKeywords.value || '网盘资源,资源管理,数据库'
+// 设置页面SEO
+const { initSystemConfig, setPageSeo, systemConfig: seoSystemConfig } = useGlobalSeo()
 
-  return {
-    title: safeTitle,
-    meta: [
-      { name: 'description', content: safeDescription },
-      { name: 'keywords', content: safeKeywords }
+// 更新页面SEO的函数 - 合并所有SEO设置到一个函数中
+const updatePageSeo = () => {
+  // 使用动态计算的标题，而不是默认的"首页"
+  setPageSeo(pageTitle.value, {
+    description: pageDescription.value,
+    keywords: pageKeywords.value
+  })
+
+  // 设置HTML属性和canonical链接
+  const config = useRuntimeConfig()
+  const baseUrl = config.public.siteUrl || 'https://yourdomain.com' // 从环境变量获取
+  const params = new URLSearchParams()
+  if (route.query?.search) params.set('search', route.query.search as string)
+  if (route.query?.platform) params.set('platform', route.query.platform as string)
+  const queryString = params.toString()
+  const canonicalUrl = queryString ? `${baseUrl}?${queryString}` : baseUrl
+
+  useHead({
+    htmlAttrs: {
+      lang: 'zh-CN'
+    },
+    link: [
+      {
+        rel: 'canonical',
+        href: canonicalUrl
+      }
+    ],
+    script: [
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": (seoSystemConfig.value && seoSystemConfig.value.site_title) || '老九网盘资源数据库',
+          "description": pageDescription.value,
+          "url": canonicalUrl
+        })
+      }
     ]
-  }
+  })
+}
+
+onBeforeMount(async () => {
+  await initSystemConfig()
+  updatePageSeo()
 })
+
+// 监听路由变化和系统配置数据，当搜索条件或配置改变时更新SEO
+watch(
+  () => [route.query?.search, route.query?.platform, systemConfigData.value],
+  () => {
+    // 使用nextTick确保响应式数据已更新
+    nextTick(() => {
+      updatePageSeo()
+    })
+  },
+  { deep: true }
+)
 
 // 响应式数据
 const showLinkModal = ref(false)
@@ -474,10 +520,10 @@ const handleResourceImageError = (event: Event) => {
 
 // 使用 useAsyncData 获取资源数据
 const { data: resourcesData, pending, refresh } = await useAsyncData(
-  () => `resources-1-${route.query.search || ''}-${route.query.platform || ''}`,
+  () => `resources-1-${route.query?.search || ''}-${route.query?.platform || ''}`,
   async () => {
     // 如果有搜索关键词，使用带搜索参数的资源接口（后端会优先使用Meilisearch）
-    if (route.query.search) {
+    if (route.query?.search) {
       return await resourceApi.getResources({
         page: 1,
         page_size: 200,
@@ -489,7 +535,7 @@ const { data: resourcesData, pending, refresh } = await useAsyncData(
       return await resourceApi.getResources({
         page: 1,
         page_size: 200,
-        pan_id: route.query.platform as string || ''
+        pan_id: route.query?.platform as string || ''
       })
     }
   }
@@ -574,8 +620,8 @@ const safeLoading = computed(() => pending.value)
 
 
 // 从路由参数获取当前状态
-const searchQuery = ref(route.query.search as string || '')
-const selectedPlatform = computed(() => route.query.platform as string || '')
+const searchQuery = ref(route.query?.search as string || '')
+const selectedPlatform = computed(() => route.query?.platform as string || '')
 
 // 记录搜索统计的函数
 const recordSearchStats = (keyword: string) => {
@@ -607,11 +653,11 @@ const handleSearch = () => {
 onMounted(() => {
   // 初始化认证状态
   authInitialized.value = true
-  
+
   animateCounters()
-  
+
   // 页面挂载完成时，如果有搜索关键词，记录搜索统计
-  if (process.client && route.query.search) {
+  if (process.client && route.query?.search) {
     const searchKeyword = route.query.search as string
     recordSearchStats(searchKeyword)
   } else {

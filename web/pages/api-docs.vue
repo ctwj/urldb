@@ -459,13 +459,12 @@ definePageMeta({
   layout: 'default'
 })
 
-// 页面元数据
-useHead({
-  title: 'API文档 - 老九网盘资源数据库',
-  meta: [
-    { name: 'description', content: '老九网盘资源数据库的公开API接口文档' },
-    { name: 'keywords', content: 'API,接口文档,网盘资源管理' }
-  ]
+// 设置页面SEO
+const { initSystemConfig, setApiDocsSeo } = useGlobalSeo()
+
+onBeforeMount(async () => {
+  await initSystemConfig()
+  setApiDocsSeo()
 })
 </script>
 

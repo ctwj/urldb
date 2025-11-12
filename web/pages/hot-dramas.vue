@@ -166,10 +166,18 @@ definePageMeta({
   layout: 'default'
 })
 
+// 设置页面SEO
+const { initSystemConfig, setHotDramasSeo } = useGlobalSeo()
+
+onBeforeMount(async () => {
+  await initSystemConfig()
+  setHotDramasSeo()
+})
+
 const hotDramaApi = useHotDramaApi()
 const { data: hotDramsaResponse, error } = await hotDramaApi.getHotDramas({
   page: 1,
-  page_size: 20 
+  page_size: 20
 })
 
 const { getPosterUrl } = hotDramaApi

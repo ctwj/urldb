@@ -242,6 +242,14 @@ definePageMeta({
   layout: 'default'
 })
 
+// 设置页面SEO
+const { initSystemConfig, setMonitorSeo } = useGlobalSeo()
+
+onBeforeMount(async () => {
+  await initSystemConfig()
+  setMonitorSeo()
+})
+
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useMonitorApi } from '~/composables/useApi'
 const monitorApi = useMonitorApi()
