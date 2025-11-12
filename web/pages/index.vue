@@ -321,7 +321,8 @@ const { data: systemConfigData } = await useAsyncData('systemConfig', () => publ
 // 获取平台名称的辅助函数
 const getPlatformName = (platformId: string) => {
   if (!platformId) return ''
-  const platform = platforms.value.find((p: any) => p.id == platformId)
+  const platformList = (platforms.value || []) as any[]
+  const platform = platformList.find((p: any) => p.id == platformId)
   return platform?.name || ''
 }
 
@@ -412,13 +413,46 @@ const pageKeywords = computed(() => {
 })
 
 // 设置页面SEO
-const { initSystemConfig, setHomeSeo } = useGlobalSeo()
+const { initSystemConfig, setHomeSeo, systemConfig } = useGlobalSeo()
 
-// 更新页面SEO的函数
+// 更新页面SEO的函数 - 合并所有SEO设置到一个函数中
 const updatePageSeo = () => {
   setHomeSeo({
     description: pageDescription.value,
     keywords: pageKeywords.value
+  })
+
+  // 设置HTML属性和canonical链接
+  const config = useRuntimeConfig()
+  const baseUrl = config.public.siteUrl || 'https://yourdomain.com' // 从环境变量获取
+  const params = new URLSearchParams()
+  if (route.query.search) params.set('search', route.query.search as string)
+  if (route.query.platform) params.set('platform', route.query.platform as string)
+  const queryString = params.toString()
+  const canonicalUrl = queryString ? `${baseUrl}?${queryString}` : baseUrl
+
+  useHead({
+    htmlAttrs: {
+      lang: 'zh-CN'
+    },
+    link: [
+      {
+        rel: 'canonical',
+        href: canonicalUrl
+      }
+    ],
+    script: [
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": (systemConfig.value && systemConfig.value.site_title) || '老九网盘资源数据库',
+          "description": pageDescription.value,
+          "url": canonicalUrl
+        })
+      }
+    ]
   })
 }
 
@@ -438,42 +472,6 @@ watch(
   },
   { deep: true }
 )
-
-// 设置HTML属性
-useHead({
-  htmlAttrs: {
-    lang: 'zh-CN'
-  },
-  link: [
-    {
-      rel: 'canonical',
-      href: () => {
-        const baseUrl = 'https://yourdomain.com' // 应该从环境变量或配置中获取
-        const params = new URLSearchParams()
-        if (route.query.search) params.set('search', route.query.search as string)
-        if (route.query.platform) params.set('platform', route.query.platform as string)
-        const queryString = params.toString()
-        return queryString ? `${baseUrl}?${queryString}` : baseUrl
-      }
-    }
-  ]
-})
-
-// 添加结构化数据
-useHead({
-  script: [
-    {
-      type: 'application/ld+json',
-      innerHTML: () => JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": systemConfig.value?.site_title || '老九网盘资源数据库',
-        "description": systemConfig.value?.site_description || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享',
-        "url": "https://pan.l9.lc" // 应该从环境变量或配置中获取
-      })
-    }
-  ]
-})
 
 // 响应式数据
 const showLinkModal = ref(false)

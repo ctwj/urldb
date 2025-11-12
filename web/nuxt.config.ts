@@ -82,7 +82,9 @@ export default defineNuxtConfig({
       // 服务端API地址：通过环境变量配置，支持不同部署方式
       apiServer: process.env.NUXT_PUBLIC_API_SERVER || (process.env.NODE_ENV === 'production' ? 'http://backend:8080/api' : '/api'),
       // OG图片服务API地址（集成到主服务中）
-      ogApiUrl: process.env.NUXT_PUBLIC_OG_API_URL || (process.env.NODE_ENV === 'production' ? '/api/og-image' : '/api/og-image')
+      ogApiUrl: process.env.NUXT_PUBLIC_OG_API_URL || (process.env.NODE_ENV === 'production' ? '/api/og-image' : '/api/og-image'),
+      // 网站URL
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://yourdomain.com'
     }
   },
   build: {

@@ -38,7 +38,7 @@ export const useSeo = () => {
 
   // 生成页面标题
   const generateTitle = (pageTitle: string) => {
-    if (systemConfig.value?.site_title) {
+    if (systemConfig.value && systemConfig.value.site_title) {
       return `${systemConfig.value.site_title} - ${pageTitle}`
     }
     return `${pageTitle} - 老九网盘资源数据库`
@@ -47,10 +47,10 @@ export const useSeo = () => {
   // 生成页面元数据
   const generateMeta = (customMeta?: Record<string, string>) => {
     const defaultMeta = {
-      description: systemConfig.value?.site_description || '专业的老九网盘资源数据库',
-      keywords: systemConfig.value?.keywords || '网盘,资源管理,文件分享',
-      author: systemConfig.value?.author || '系统管理员',
-      copyright: systemConfig.value?.copyright || '© 2024 老九网盘资源数据库'
+      description: (systemConfig.value && systemConfig.value.site_description) || '专业的老九网盘资源数据库',
+      keywords: (systemConfig.value && systemConfig.value.keywords) || '网盘,资源管理,文件分享',
+      author: (systemConfig.value && systemConfig.value.author) || '系统管理员',
+      copyright: (systemConfig.value && systemConfig.value.copyright) || '© 2024 老九网盘资源数据库'
     }
 
     return {
@@ -75,7 +75,7 @@ export const useSeo = () => {
       params.set('description', trimmedDesc)
     }
 
-    params.set('site_name', systemConfig.value?.site_title || '老九网盘资源数据库')
+    params.set('site_name', (systemConfig.value && systemConfig.value.site_title) || '老九网盘资源数据库')
     params.set('theme', theme)
     params.set('width', '1200')
     params.set('height', '630')
@@ -148,42 +148,6 @@ export const useSeo = () => {
       ogImage: seoData.ogImage,
       twitterCard: seoData.twitterCard,
       robots: seoData.robots
-    })
-
-    // 设置canonical链接
-    const baseUrl = 'https://yourdomain.com' // 应该从环境变量或配置中获取
-    const params = new URLSearchParams()
-    if (routeQuery?.query?.search) params.set('search', routeQuery.query.search as string)
-    if (routeQuery?.query?.platform) params.set('platform', routeQuery.query.platform as string)
-    const queryString = params.toString()
-    const canonicalUrl = queryString ? `${baseUrl}?${queryString}` : baseUrl
-
-    useHead({
-      htmlAttrs: {
-        lang: 'zh-CN'
-      },
-      link: [
-        {
-          rel: 'canonical',
-          href: canonicalUrl
-        }
-      ]
-    })
-
-    // 添加结构化数据
-    useHead({
-      script: [
-        {
-          type: 'application/ld+json',
-          innerHTML: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "name": systemConfig.value?.site_title || '老九网盘资源数据库',
-            "description": seoData.description,
-            "url": canonicalUrl
-          })
-        }
-      ]
     })
   }
 
