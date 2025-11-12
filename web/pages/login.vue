@@ -172,9 +172,12 @@ definePageMeta({
   ssr: false
 })
 
-// 设置页面标题
-useHead({
-  title: '管理员登录 - 老九网盘资源数据库'
+// 设置页面SEO
+const { initSystemConfig, setLoginSeo } = useGlobalSeo()
+
+onBeforeMount(async () => {
+  await initSystemConfig()
+  setLoginSeo()
 })
 </script>
 

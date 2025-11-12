@@ -411,18 +411,33 @@ const pageKeywords = computed(() => {
   }
 })
 
-// 设置动态SEO - 使用Nuxt3最佳实践
-useSeoMeta({
-  title: () => pageTitle.value || '老九网盘资源数据库 - 首页',
-  description: () => pageDescription.value || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享',
-  keywords: () => pageKeywords.value || '网盘资源,资源管理,数据库',
-  ogTitle: () => pageTitle.value,
-  ogDescription: () => pageDescription.value,
-  ogType: 'website',
-  ogImage: '/assets/images/logo.webp',
-  twitterCard: 'summary_large_image',
-  robots: 'index, follow'
+// 设置页面SEO
+const { initSystemConfig, setHomeSeo } = useGlobalSeo()
+
+// 更新页面SEO的函数
+const updatePageSeo = () => {
+  setHomeSeo({
+    description: pageDescription.value,
+    keywords: pageKeywords.value
+  })
+}
+
+onBeforeMount(async () => {
+  await initSystemConfig()
+  updatePageSeo()
 })
+
+// 监听路由变化，当搜索条件改变时更新SEO
+watch(
+  () => [route.query.search, route.query.platform],
+  () => {
+    // 使用nextTick确保响应式数据已更新
+    nextTick(() => {
+      updatePageSeo()
+    })
+  },
+  { deep: true }
+)
 
 // 设置HTML属性
 useHead({
