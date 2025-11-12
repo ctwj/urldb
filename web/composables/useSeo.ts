@@ -18,12 +18,12 @@ interface SystemConfig {
 
 export const useSeo = () => {
   const systemConfig = ref<SystemConfig | null>(null)
-  const { getSystemConfig } = useSystemConfigApi()
+  const { getPublicSystemConfig } = usePublicSystemConfigApi()
 
   // 获取系统配置
   const fetchSystemConfig = async () => {
     try {
-      const response = await getSystemConfig() as any
+      const response = await getPublicSystemConfig() as any
       console.log('系统配置响应:', response)
       if (response && response.success && response.data) {
         systemConfig.value = response.data
@@ -95,8 +95,8 @@ export const useSeo = () => {
   }
 
   // 生成动态SEO元数据
-  const generateDynamicSeo = (pageTitle: string, customMeta?: Record<string, string>, routeQuery?: Record<string, any>) => {
-    const title = generateTitle(pageTitle)
+  const generateDynamicSeo = (pageTitle: string, customMeta?: Record<string, string>, routeQuery?: Record<string, any>, useRawTitle: boolean = false) => {
+    const title = useRawTitle ? pageTitle : generateTitle(pageTitle)
     const meta = generateMeta(customMeta)
     const route = routeQuery || useRoute()
 
@@ -129,6 +129,7 @@ export const useSeo = () => {
       ogDescription: dynamicDescription,
       ogType: 'website',
       ogImage: ogImageUrl,
+      ogSiteName: (systemConfig.value && systemConfig.value.site_title) || '老九网盘资源数据库',
       twitterCard: 'summary_large_image',
       robots: 'index, follow'
     }
@@ -136,7 +137,9 @@ export const useSeo = () => {
 
   // 设置页面SEO - 使用Nuxt3最佳实践
   const setPageSeo = (pageTitle: string, customMeta?: Record<string, string>, routeQuery?: Record<string, any>) => {
-    const seoData = generateDynamicSeo(pageTitle, customMeta, routeQuery)
+    // 检测标题是否已包含站点名（以避免重复）
+    const isTitleFormatted = systemConfig.value && pageTitle.includes(systemConfig.value.site_title || '');
+    const seoData = generateDynamicSeo(pageTitle, customMeta, routeQuery, isTitleFormatted)
 
     useSeoMeta({
       title: seoData.title,
@@ -146,6 +149,7 @@ export const useSeo = () => {
       ogDescription: seoData.ogDescription,
       ogType: seoData.ogType,
       ogImage: seoData.ogImage,
+      ogSiteName: seoData.ogSiteName,
       twitterCard: seoData.twitterCard,
       robots: seoData.robots
     })

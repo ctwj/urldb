@@ -58,6 +58,7 @@ export const useGlobalSeo = () => {
   return {
     initSystemConfig,
     systemConfig,
+    setPageSeo,
     setHomeSeo,
     setLoginSeo,
     setRegisterSeo,
