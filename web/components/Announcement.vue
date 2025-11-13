@@ -1,6 +1,7 @@
 <template>
   <div v-if="shouldShowAnnouncement" class="announcement-container px-3 py-1">
-    <div class="flex items-center justify-between min-h-[24px]">
+    <!-- 桌面端：显示完整公告内容 -->
+    <div v-if="!isMobile" class="flex items-center justify-between min-h-[24px]">
       <div class="flex items-center gap-2 flex-1 overflow-hidden">
         <i class="fas fa-bullhorn text-blue-600 dark:text-blue-400 text-sm flex-shrink-0"></i>
         <div class="announcement-content overflow-hidden">
@@ -16,6 +17,27 @@
         </button>
       </div>
     </div>
+
+    <!-- 移动端：使用 Marquee 滚动显示 -->
+    <div v-else class="flex items-center gap-2 min-h-[24px]">
+      <i class="fas fa-bullhorn text-blue-600 dark:text-blue-400 text-sm flex-shrink-0"></i>
+      <div class="flex-1 overflow-hidden">
+        <n-marquee
+          :speed="30"
+          :delay="0"
+          :loop="true"
+          :auto-play="true"
+          :pause-on-hover="true"
+        >
+          <span
+            v-for="(announcement, index) in validAnnouncements"
+            :key="index"
+            class="text-sm text-gray-700 dark:text-gray-300 inline-block mx-4"
+            v-html="announcement.content"
+          ></span>
+        </n-marquee>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -29,6 +51,25 @@ const systemConfig = computed(() => systemConfigStore.config)
 interface AnnouncementItem {
   content: string
   enabled: boolean
+}
+
+// 移动端检测
+const isMobile = ref(false)
+
+// 检测是否为移动端
+const checkMobile = () => {
+  if (process.client) {
+    // 检测屏幕宽度
+    isMobile.value = window.innerWidth < 768
+
+    // 也可以使用用户代理检测
+    const userAgent = navigator.userAgent.toLowerCase()
+    const mobileKeywords = ['android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone']
+    const isMobileDevice = mobileKeywords.some(keyword => userAgent.includes(keyword))
+
+    // 结合屏幕宽度和设备类型判断
+    isMobile.value = isMobile.value || isMobileDevice
+  }
 }
 
 const currentIndex = ref(0)
@@ -66,12 +107,14 @@ const nextAnnouncement = () => {
   currentIndex.value = (currentIndex.value + 1) % validAnnouncements.value.length
 }
 
-// 监听公告数据变化，重新开始自动切换
+// 监听公告数据变化，重新开始自动切换（仅桌面端）
 watch(() => validAnnouncements.value.length, (newLength) => {
   if (newLength > 0) {
     currentIndex.value = 0
     stopAutoSwitch()
-    startAutoSwitch()
+    if (!isMobile.value) {
+      startAutoSwitch()
+    }
   }
 })
 
@@ -84,13 +127,27 @@ const stopAutoSwitch = () => {
 }
 
 onMounted(() => {
-  if (shouldShowAnnouncement.value) {
+  // 初始化移动端检测
+  checkMobile()
+
+  // 监听窗口大小变化
+  if (process.client) {
+    window.addEventListener('resize', checkMobile)
+  }
+
+  if (shouldShowAnnouncement.value && !isMobile.value) {
+    // 桌面端才启动自动切换
     startAutoSwitch()
   }
 })
 
 onUnmounted(() => {
   stopAutoSwitch()
+
+  // 清理事件监听器
+  if (process.client) {
+    window.removeEventListener('resize', checkMobile)
+  }
 })
 </script>
 
@@ -111,8 +168,31 @@ onUnmounted(() => {
   transform: translateY(0);
 }
 
+/* 移动端 Marquee 样式优化 */
+@media (max-width: 767px) {
+  .announcement-container {
+    background: linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.05) 50%, transparent 100%);
+    border-radius: 6px;
+  }
+}
+
+/* Marquee 内文字样式 */
+:deep(.n-marquee) {
+  --n-bezier: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:deep(.n-marquee__content) {
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+}
+
 /* 暗色主题适配 */
 .dark-theme .announcement-container {
   background: transparent;
+}
+
+.dark .announcement-container {
+  background: linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.1) 50%, transparent 100%);
 }
 </style>
