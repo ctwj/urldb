@@ -526,7 +526,7 @@ const { data: resourcesData, pending, refresh } = await useAsyncData(
     if (route.query?.search) {
       return await resourceApi.getResources({
         page: 1,
-        page_size: 200,
+        page_size: 50,
         search: route.query.search as string,
         pan_id: route.query.platform as string || ''
       })
@@ -534,7 +534,7 @@ const { data: resourcesData, pending, refresh } = await useAsyncData(
       // 没有搜索关键词时，使用普通资源接口获取最新数据
       return await resourceApi.getResources({
         page: 1,
-        page_size: 200,
+        page_size: 50,
         pan_id: route.query?.platform as string || ''
       })
     }
