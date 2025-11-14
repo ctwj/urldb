@@ -32,7 +32,7 @@
             <n-input v-model:value="configForm.welcome_message" type="textarea" :rows="3" placeholder="新用户关注时发送的欢迎消息" />
           </n-form-item>
           <n-form-item label="搜索结果限制">
-            <n-input-number v-model:value="configForm.search_limit" :min="1" :max="10" placeholder="搜索结果返回数量" />
+            <n-input-number v-model:value="configForm.search_limit" :min="1" :max="100" placeholder="搜索结果返回数量" />
           </n-form-item>
         </n-form>
       </n-card>
