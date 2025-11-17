@@ -280,39 +280,27 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	return configs
 }
 
-// SystemConfigToPublicResponse 返回不含 api_token 的系统配置响应
+// SystemConfigToPublicResponse 返回不含敏感配置的系统配置响应
 func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]interface{} {
 	response := map[string]interface{}{
-		entity.ConfigResponseFieldID:                        0,
-		entity.ConfigResponseFieldCreatedAt:                 utils.GetCurrentTimeString(),
-		entity.ConfigResponseFieldUpdatedAt:                 utils.GetCurrentTimeString(),
-		entity.ConfigResponseFieldSiteTitle:                 entity.ConfigDefaultSiteTitle,
-		entity.ConfigResponseFieldSiteDescription:           entity.ConfigDefaultSiteDescription,
-		entity.ConfigResponseFieldKeywords:                  entity.ConfigDefaultKeywords,
-		entity.ConfigResponseFieldAuthor:                    entity.ConfigDefaultAuthor,
-		entity.ConfigResponseFieldCopyright:                 entity.ConfigDefaultCopyright,
-		"site_logo":                                         "",
-		entity.ConfigResponseFieldAutoProcessReadyResources: false,
-		entity.ConfigResponseFieldAutoProcessInterval:       30,
-		entity.ConfigResponseFieldAutoTransferEnabled:       false,
-		entity.ConfigResponseFieldAutoTransferLimitDays:     0,
-		entity.ConfigResponseFieldAutoTransferMinSpace:      100,
-		entity.ConfigResponseFieldAutoFetchHotDramaEnabled:  false,
-		entity.ConfigResponseFieldForbiddenWords:            "",
-		entity.ConfigResponseFieldAdKeywords:                "",
-		entity.ConfigResponseFieldAutoInsertAd:              "",
-		entity.ConfigResponseFieldPageSize:                  100,
-		entity.ConfigResponseFieldMaintenanceMode:           false,
-		entity.ConfigResponseFieldEnableRegister:            true, // 默认开启注册功能
-		entity.ConfigResponseFieldThirdPartyStatsCode:       "",
-		entity.ConfigResponseFieldMeilisearchEnabled:        false,
-		entity.ConfigResponseFieldMeilisearchHost:           "localhost",
-		entity.ConfigResponseFieldMeilisearchPort:           "7700",
-		entity.ConfigResponseFieldMeilisearchMasterKey:      "",
-		entity.ConfigResponseFieldMeilisearchIndexName:      "resources",
+		entity.ConfigResponseFieldID:                  0,
+		entity.ConfigResponseFieldCreatedAt:           utils.GetCurrentTimeString(),
+		entity.ConfigResponseFieldUpdatedAt:           utils.GetCurrentTimeString(),
+		entity.ConfigResponseFieldSiteTitle:           entity.ConfigDefaultSiteTitle,
+		entity.ConfigResponseFieldSiteDescription:     entity.ConfigDefaultSiteDescription,
+		entity.ConfigResponseFieldKeywords:            entity.ConfigDefaultKeywords,
+		entity.ConfigResponseFieldAuthor:              entity.ConfigDefaultAuthor,
+		entity.ConfigResponseFieldCopyright:           entity.ConfigDefaultCopyright,
+		"site_logo":                                   "",
+		entity.ConfigResponseFieldAdKeywords:          "",
+		entity.ConfigResponseFieldAutoInsertAd:        "",
+		entity.ConfigResponseFieldPageSize:            100,
+		entity.ConfigResponseFieldMaintenanceMode:     false,
+		entity.ConfigResponseFieldEnableRegister:      true, // 默认开启注册功能
+		entity.ConfigResponseFieldThirdPartyStatsCode: "",
 	}
 
-	// 将键值对转换为map
+	// 将键值对转换为map，过滤掉敏感配置
 	for _, config := range configs {
 		switch config.Key {
 		case entity.ConfigKeySiteTitle:
@@ -327,32 +315,6 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			response[entity.ConfigResponseFieldCopyright] = config.Value
 		case entity.ConfigKeySiteLogo:
 			response["site_logo"] = config.Value
-		case entity.ConfigKeyAutoProcessReadyResources:
-			if val, err := strconv.ParseBool(config.Value); err == nil {
-				response[entity.ConfigResponseFieldAutoProcessReadyResources] = val
-			}
-		case entity.ConfigKeyAutoProcessInterval:
-			if val, err := strconv.Atoi(config.Value); err == nil {
-				response[entity.ConfigResponseFieldAutoProcessInterval] = val
-			}
-		case entity.ConfigKeyAutoTransferEnabled:
-			if val, err := strconv.ParseBool(config.Value); err == nil {
-				response[entity.ConfigResponseFieldAutoTransferEnabled] = val
-			}
-		case entity.ConfigKeyAutoTransferLimitDays:
-			if val, err := strconv.Atoi(config.Value); err == nil {
-				response[entity.ConfigResponseFieldAutoTransferLimitDays] = val
-			}
-		case entity.ConfigKeyAutoTransferMinSpace:
-			if val, err := strconv.Atoi(config.Value); err == nil {
-				response[entity.ConfigResponseFieldAutoTransferMinSpace] = val
-			}
-		case entity.ConfigKeyAutoFetchHotDramaEnabled:
-			if val, err := strconv.ParseBool(config.Value); err == nil {
-				response[entity.ConfigResponseFieldAutoFetchHotDramaEnabled] = val
-			}
-		case entity.ConfigKeyForbiddenWords:
-			response[entity.ConfigResponseFieldForbiddenWords] = config.Value
 		case entity.ConfigKeyAdKeywords:
 			response[entity.ConfigResponseFieldAdKeywords] = config.Value
 		case entity.ConfigKeyAutoInsertAd:
@@ -371,18 +333,6 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			}
 		case entity.ConfigKeyThirdPartyStatsCode:
 			response[entity.ConfigResponseFieldThirdPartyStatsCode] = config.Value
-		case entity.ConfigKeyMeilisearchEnabled:
-			if val, err := strconv.ParseBool(config.Value); err == nil {
-				response[entity.ConfigResponseFieldMeilisearchEnabled] = val
-			}
-		case entity.ConfigKeyMeilisearchHost:
-			response[entity.ConfigResponseFieldMeilisearchHost] = config.Value
-		case entity.ConfigKeyMeilisearchPort:
-			response[entity.ConfigResponseFieldMeilisearchPort] = config.Value
-		case entity.ConfigKeyMeilisearchMasterKey:
-			response[entity.ConfigResponseFieldMeilisearchMasterKey] = config.Value
-		case entity.ConfigKeyMeilisearchIndexName:
-			response[entity.ConfigResponseFieldMeilisearchIndexName] = config.Value
 		case entity.ConfigKeyEnableAnnouncements:
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response["enable_announcements"] = val
@@ -403,6 +353,21 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			response["telegram_qr_image"] = config.Value
 		case entity.ConfigKeyQrCodeStyle:
 			response["qr_code_style"] = config.Value
+		// 跳过不需要返回给公众的配置
+		case entity.ConfigKeyAutoProcessReadyResources:
+		case entity.ConfigKeyAutoProcessInterval:
+		case entity.ConfigKeyAutoTransferEnabled:
+		case entity.ConfigKeyAutoTransferLimitDays:
+		case entity.ConfigKeyAutoTransferMinSpace:
+		case entity.ConfigKeyAutoFetchHotDramaEnabled:
+		case entity.ConfigKeyMeilisearchEnabled:
+		case entity.ConfigKeyMeilisearchHost:
+		case entity.ConfigKeyMeilisearchPort:
+		case entity.ConfigKeyMeilisearchMasterKey:
+		case entity.ConfigKeyMeilisearchIndexName:
+		case entity.ConfigKeyForbiddenWords:
+			// 这些配置不返回给公众
+			continue
 		}
 	}
 

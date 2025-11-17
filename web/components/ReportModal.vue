@@ -8,13 +8,6 @@
     class="max-w-md w-full"
     :style="{ maxWidth: '90vw' }"
   >
-    <template #header-extra>
-      <n-button size="small" circle @click="handleClose">
-        <template #icon>
-          <i class="fas fa-times"></i>
-        </template>
-      </n-button>
-    </template>
 
     <div class="space-y-4">
       <div class="text-gray-600 dark:text-gray-300 text-sm">

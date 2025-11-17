@@ -33,6 +33,7 @@ type ResourceResponse struct {
 	ErrorMsg            string        `json:"error_msg"`
 	SyncedToMeilisearch bool          `json:"synced_to_meilisearch"`
 	SyncedAt            *time.Time    `json:"synced_at"`
+	Pan                 *PanResponse  `json:"pan,omitempty"` // 平台信息
 	// 高亮字段
 	TitleHighlight       string   `json:"title_highlight,omitempty"`
 	DescriptionHighlight string   `json:"description_highlight,omitempty"`

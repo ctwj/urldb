@@ -37,6 +37,18 @@ func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 		response.CategoryName = resource.Category.Name
 	}
 
+	// 设置平台信息
+	if resource.Pan.ID != 0 {
+		panResponse := dto.PanResponse{
+			ID:     resource.Pan.ID,
+			Name:   resource.Pan.Name,
+			Key:    resource.Pan.Key,
+			Icon:   resource.Pan.Icon,
+			Remark: resource.Pan.Remark,
+		}
+		response.Pan = &panResponse
+	}
+
 	// 转换标签
 	response.Tags = make([]dto.TagResponse, len(resource.Tags))
 	for i, tag := range resource.Tags {

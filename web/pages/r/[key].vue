@@ -147,7 +147,7 @@
                       <span v-html="resource.pan?.icon" class="text-lg"></span>
                     </div>
                     <div>
-                      <div class="font-medium text-gray-900 dark:text-gray-100">{{ resource.pan?.name || '未知平台' }}</div>
+                      <div class="font-medium text-gray-900 dark:text-gray-100">{{ resource.pan?.remark || '未知平台' }}</div>
                       <div class="flex items-center gap-2 mt-1">
                         <span
                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"

@@ -2,6 +2,8 @@ package repo
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -241,6 +243,23 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 					// 通过中间表查找包含该标签的资源
 					db = db.Joins("JOIN resource_tags ON resources.id = resource_tags.resource_id").
 						Where("resource_tags.tag_id = ?", tagEntity.ID)
+				}
+			}
+		case "tag_ids": // 添加tag_ids参数支持（标签ID列表）
+			if tagIdsStr, ok := value.(string); ok && tagIdsStr != "" {
+				// 将逗号分隔的标签ID字符串转换为整数ID数组
+				tagIdStrs := strings.Split(tagIdsStr, ",")
+				var tagIds []uint
+				for _, idStr := range tagIdStrs {
+					idStr = strings.TrimSpace(idStr) // 去除空格
+					if id, err := strconv.ParseUint(idStr, 10, 32); err == nil {
+						tagIds = append(tagIds, uint(id))
+					}
+				}
+				if len(tagIds) > 0 {
+					// 通过中间表查找包含任一标签的资源
+					db = db.Joins("JOIN resource_tags ON resources.id = resource_tags.resource_id").
+						Where("resource_tags.tag_id IN ?", tagIds)
 				}
 			}
 		case "pan_id": // 添加pan_id参数支持
