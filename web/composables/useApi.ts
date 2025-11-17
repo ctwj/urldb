@@ -48,6 +48,7 @@ export const parseApiResponse = <T>(response: any): T => {
 export const useResourceApi = () => {
   const getResources = (params?: any) => useApiFetch('/resources', { params }).then(parseApiResponse)
   const getResource = (id: number) => useApiFetch(`/resources/${id}`).then(parseApiResponse)
+  const getResourcesByKey = (key: string) => useApiFetch(`/resources/key/${key}`).then(parseApiResponse)
   const createResource = (data: any) => useApiFetch('/resources', { method: 'POST', body: data }).then(parseApiResponse)
   const updateResource = (id: number, data: any) => useApiFetch(`/resources/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteResource = (id: number) => useApiFetch(`/resources/${id}`, { method: 'DELETE' }).then(parseApiResponse)
@@ -59,7 +60,7 @@ export const useResourceApi = () => {
   const batchDeleteResources = (ids: number[]) => useApiFetch('/resources/batch', { method: 'DELETE', body: { ids } }).then(parseApiResponse)
   // 新增：获取资源链接（智能转存）
   const getResourceLink = (id: number) => useApiFetch(`/resources/${id}/link`).then(parseApiResponse)
-  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink }
+  return { getResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink }
 }
 
 export const useAuthApi = () => {

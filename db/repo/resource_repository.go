@@ -46,6 +46,7 @@ type ResourceRepository interface {
 	GetRandomResourceWithFilters(categoryFilter, tagFilter string, isPushSavedInfo bool) (*entity.Resource, error)
 	DeleteRelatedResources(ckID uint) (int64, error)
 	CountResourcesByCkID(ckID uint) (int64, error)
+	FindByKey(key string) ([]entity.Resource, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -691,4 +692,16 @@ func (r *ResourceRepositoryImpl) CountResourcesByCkID(ckID uint) (int64, error) 
 		Where("ck_id = ?", ckID).
 		Count(&count).Error
 	return count, err
+}
+
+// FindByKey 根据Key查找资源（同一组资源）
+func (r *ResourceRepositoryImpl) FindByKey(key string) ([]entity.Resource, error) {
+	var resources []entity.Resource
+	err := r.db.Where("key = ?", key).
+		Preload("Category").
+		Preload("Pan").
+		Preload("Tags").
+		Order("pan_id ASC").
+		Find(&resources).Error
+	return resources, err
 }

@@ -162,6 +162,7 @@ func GetResources(c *gin.Context) {
 
 		resourceResponse := gin.H{
 			"id":          processedResource.ID,
+			"key":         processedResource.Key, // 添加key字段
 			"title":       forbiddenInfo.ProcessedTitle, // 使用处理后的标题
 			"url":         processedResource.URL,
 			"description": forbiddenInfo.ProcessedDesc, // 使用处理后的描述
@@ -221,6 +222,51 @@ func GetResourceByID(c *gin.Context) {
 
 	response := converter.ToResourceResponse(resource)
 	SuccessResponse(c, response)
+}
+
+// GetResourcesByKey 根据Key获取资源组
+func GetResourcesByKey(c *gin.Context) {
+	key := c.Param("key")
+	if key == "" {
+		ErrorResponse(c, "Key参数不能为空", http.StatusBadRequest)
+		return
+	}
+
+	resources, err := repoManager.ResourceRepository.FindByKey(key)
+	if err != nil {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	if len(resources) == 0 {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	// 转换为响应格式并处理违禁词
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{}
+	}
+
+	var responses []dto.ResourceResponse
+	for _, resource := range resources {
+		response := converter.ToResourceResponse(&resource)
+		// 检查违禁词
+		forbiddenInfo := utils.CheckResourceForbiddenWords(response.Title, response.Description, cleanWords)
+		response.HasForbiddenWords = forbiddenInfo.HasForbiddenWords
+		response.ForbiddenWords = forbiddenInfo.ForbiddenWords
+		responses = append(responses, response)
+	}
+
+	SuccessResponse(c, gin.H{
+		"resources": responses,
+		"total":     len(responses),
+		"key":       key,
+	})
 }
 
 // CheckResourceExists 检查资源是否存在（测试FindExists函数）

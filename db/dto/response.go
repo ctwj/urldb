@@ -13,6 +13,7 @@ type SearchResponse struct {
 // ResourceResponse 资源响应
 type ResourceResponse struct {
 	ID                  uint          `json:"id"`
+	Key                 string        `json:"key"`
 	Title               string        `json:"title"`
 	Description         string        `json:"description"`
 	URL                 string        `json:"url"`

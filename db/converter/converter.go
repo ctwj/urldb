@@ -12,6 +12,7 @@ import (
 func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 	response := dto.ResourceResponse{
 		ID:                  resource.ID,
+		Key:                 resource.Key,
 		Title:               resource.Title,
 		Description:         resource.Description,
 		URL:                 resource.URL,

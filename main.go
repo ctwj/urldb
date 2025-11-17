@@ -237,6 +237,7 @@ func main() {
 		api.PUT("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateResource)
 		api.DELETE("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteResource)
 		api.GET("/resources/:id", handlers.GetResourceByID)
+		api.GET("/resources/key/:key", handlers.GetResourcesByKey)
 		api.GET("/resources/check-exists", handlers.CheckResourceExists)
 		api.POST("/resources/:id/view", handlers.IncrementResourceViewCount)
 		api.GET("/resources/:id/link", handlers.GetResourceLink)

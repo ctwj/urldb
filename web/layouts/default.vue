@@ -19,7 +19,9 @@
  
     <n-notification-provider>
       <n-dialog-provider>
-        <NuxtPage />
+        <n-message-provider>
+          <NuxtPage />
+        </n-message-provider>
       </n-dialog-provider>
     </n-notification-provider>
 

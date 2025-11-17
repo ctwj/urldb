@@ -173,8 +173,9 @@
             <tr
               v-for="(resource, index) in safeResources"
               :key="resource.id"
-              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-500/10 bg-pink-50/30 dark:bg-pink-500/5' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50'"
+              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-500/10 bg-pink-50/30 dark:bg-pink-500/5 cursor-pointer' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer'"
               :data-index="index"
+              @click="navigateToDetail(resource.key)"
             >
               <td class="text-xs sm:text-sm w-20 pl-2 sm:pl-3">
                 <div class="flex justify-center">
@@ -229,23 +230,25 @@
                       </div>
                     </div>
                     <div class="flex-1 flex justify-end">
-                      <button
-                        class="mobile-link-btn flex items-center gap-1 text-xs"
-                        @click="toggleLink(resource)"
+                      <NuxtLink
+                        :to="`/r/${resource.key}`"
+                        class="mobile-link-btn flex items-center gap-1 text-xs no-underline"
+                        @click.stop
                       >
-                        <i class="fas fa-eye"></i> 显示链接
-                      </button>
+                        <i class="fas fa-eye"></i> 查看详情
+                      </NuxtLink>
                     </div>
                   </div>
                 </div>
               </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell w-32">
-                <button 
-                  class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn" 
-                  @click="toggleLink(resource)"
+                <NuxtLink
+                  :to="`/r/${resource.key}`"
+                  class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn"
+                  @click.stop
                 >
-                  <i class="fas fa-eye"></i> 显示链接
-                </button>
+                  <i class="fas fa-eye"></i> 查看详情
+                </NuxtLink>
               </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500 hidden sm:table-cell w-32" :title="resource.updated_at">
                 <span v-html="formatRelativeTime(resource.updated_at)"></span>
@@ -675,49 +678,14 @@ const getPlatformIcon = (panId: string | number) => {
 
 // 注意：链接访问统计已整合到 getResourceLink API 中
 
-// 切换链接显示
-const toggleLink = async (resource: any) => {
-  // 如果包含违禁词，直接显示禁止访问，不发送请求
-  if (resource.has_forbidden_words) {
-    selectedResource.value = {
-      ...resource,
-      forbidden: true,
-      error: '该资源包含违禁内容，无法访问',
-      forbidden_words: resource.forbidden_words || []
-    }
-    showLinkModal.value = true
-    return
-  }
+// 导航到详情页
+const navigateToDetail = (key: string) => {
+  router.push(`/r/${key}`)
+}
 
-  // 显示加载状态
-  selectedResource.value = { ...resource, loading: true }
-  showLinkModal.value = true
-  
-  try {
-    // 调用新的获取链接API（同时统计访问次数）
-    const linkData = await resourceApi.getResourceLink(resource.id) as any
-    console.log('获取到的链接数据:', linkData)
-    
-    // 更新资源信息，包含新的链接信息
-    selectedResource.value = {
-      ...resource,
-      url: linkData.url,
-      save_url: linkData.type === 'transferred' ? linkData.url : resource.save_url,
-      loading: false,
-      linkType: linkData.type,
-      platform: linkData.platform,
-      message: linkData.message
-    }
-  } catch (error: any) {
-    console.error('获取资源链接失败:', error)
-    
-    // 其他错误
-    selectedResource.value = {
-      ...resource,
-      loading: false,
-      error: '检测有效性失败，请自行验证'
-    }
-  }
+// 切换链接显示（保留用于其他可能的用途）
+const toggleLink = async (resource: any) => {
+  navigateToDetail(resource.key)
 }
 
 // 复制到剪贴板
