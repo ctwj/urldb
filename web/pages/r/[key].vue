@@ -234,11 +234,12 @@
               </div>
 
               <div v-else-if="displayRelatedResources.length > 0" class="space-y-3">
-                <div
+                <a
                   v-for="(resource, index) in displayRelatedResources"
                   :key="resource.id"
-                  class="group cursor-pointer"
-                  @click="navigateToResource(resource.key)"
+                  :href="`/r/${resource.key}`"
+                  class="group block cursor-pointer"
+                  @click.prevent="navigateToResource(resource.key)"
                 >
                   <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
                     <!-- 序号 -->
@@ -263,7 +264,7 @@
                       </p>
                     </div>
                   </div>
-                </div>
+                </a>
               </div>
 
               <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -282,73 +283,58 @@
               </h3>
 
               <!-- 热门资源列表 -->
-              <div v-if="hotResourcesLoading" class="space-y-4">
-                <div v-for="i in 5" :key="i" class="animate-pulse">
-                  <div class="flex gap-3">
-                    <div class="w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+              <div v-if="hotResourcesLoading" class="space-y-3">
+                <div v-for="i in 10" :key="i" class="animate-pulse">
+                  <div class="flex items-center gap-3 p-2 rounded-lg">
+                    <div class="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0"></div>
                     <div class="flex-1 space-y-2">
                       <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                       <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                      <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div v-else-if="hotResources.length > 0" class="space-y-4">
-                <div
+              <div v-else-if="hotResources.length > 0" class="space-y-3">
+                <a
                   v-for="(resource, index) in hotResources"
                   :key="resource.id"
-                  class="group cursor-pointer"
-                  @click="navigateToResource(resource.key)"
+                  :href="`/r/${resource.key}`"
+                  class="group block cursor-pointer"
+                  @click.prevent="navigateToResource(resource.key)"
                 >
-                  <div class="flex gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
                     <!-- 排名标识 -->
                     <div class="flex-shrink-0 flex items-center justify-center">
                       <div
-                        class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                        class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium"
                         :class="index < 3
-                          ? 'bg-gradient-to-br from-red-500 to-orange-500 shadow-lg'
-                          : 'bg-gray-400'"
+                          ? 'bg-red-500 text-white'
+                          : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'"
                       >
                         {{ index + 1 }}
                       </div>
                     </div>
 
-                    <!-- 封面图 -->
-                    <div class="flex-shrink-0">
-                      <img
-                        :src="getResourceImageUrl(resource)"
-                        :alt="resource.title"
-                        class="w-16 h-20 object-cover rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
-                        @error="handleResourceImageError"
-                      />
-                    </div>
-
                     <!-- 资源信息 -->
                     <div class="flex-1 min-w-0">
-                      <div class="flex items-start justify-between gap-2">
-                        <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex-1">
+                      <div class="flex items-center justify-between">
+                        <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors flex-1">
                           {{ resource.title }}
                         </h4>
-                        <div v-if="index < 3" class="flex-shrink-0">
-                          <i class="fas fa-crown text-yellow-500 text-xs"></i>
+                        <!-- 排名皇冠 -->
+                        <div class="flex items-center gap-1 flex-shrink-0 ml-2">
+                          <i v-if="index === 0" class="fas fa-crown text-yellow-500 text-xs" title="第一名"></i>
+                          <i v-else-if="index === 1" class="fas fa-crown text-gray-400 text-xs" title="第二名"></i>
+                          <i v-else-if="index === 2" class="fas fa-crown text-orange-600 text-xs" title="第三名"></i>
                         </div>
                       </div>
-                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
                         {{ resource.description }}
                       </p>
-                      <div class="flex items-center gap-2 mt-2">
-                        <span class="text-xs text-gray-400">
-                          <i class="fas fa-eye"></i> {{ resource.view_count || 0 }}
-                        </span>
-                        <span class="text-xs text-gray-400">
-                          <i class="fas fa-heart text-red-400"></i> {{ resource.like_count || 0 }}
-                        </span>
-                      </div>
                     </div>
                   </div>
-                </div>
+                </a>
               </div>
 
               <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -774,24 +760,22 @@ const fetchHotResources = async () => {
   try {
     hotResourcesLoading.value = true
 
-    // 获取按浏览量排序的热门资源
+    // 使用专门的热门资源API，保持10个热门资源
     const params = {
-      limit: 8,
-      is_public: true,
-      order_by: 'view_count',
-      order_dir: 'desc'
+      limit: 10
     }
 
-    const response = await resourceApi.getResources(params) as any
+    const response = await resourceApi.getHotResources(params) as any
 
     // 处理响应数据
-    const resources = Array.isArray(response) ? response : (response?.items || [])
+    const resources = Array.isArray(response?.data) ? response.data : []
 
-    // 为每个资源添加模拟的点赞数（如果API没有提供）
-    hotResources.value = resources.slice(0, 8).map((resource: any) => ({
-      ...resource,
-      like_count: Math.floor(Math.random() * 1000) + 100 // 模拟点赞数
-    }))
+    hotResources.value = resources.slice(0, 10)
+
+    console.log('获取热门资源成功:', {
+      count: hotResources.value.length,
+      params: params
+    })
 
   } catch (error) {
     console.error('获取热门资源失败:', error)

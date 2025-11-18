@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	pan "github.com/ctwj/urldb/common"
 	commonutils "github.com/ctwj/urldb/common/utils"
@@ -900,6 +901,118 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 		SaveURL: saveURL,
 		Fid:     fid,
 	}
+}
+
+// GetHotResources 获取热门资源
+func GetHotResources(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	utils.Info("获取热门资源请求 - limit: %d", limit)
+
+	// 限制最大请求数量
+	if limit > 20 {
+		limit = 20
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// 使用公共缓存机制
+	cacheKey := fmt.Sprintf("hot_resources_%d", limit)
+	ttl := time.Hour // 1小时缓存
+	cacheManager := utils.GetHotResourcesCache()
+
+	// 尝试从缓存获取
+	if cachedData, found := cacheManager.Get(cacheKey, ttl); found {
+		utils.Info("使用热门资源缓存 - key: %s", cacheKey)
+		c.Header("Cache-Control", "public, max-age=3600")
+		c.Header("ETag", fmt.Sprintf("hot-resources-%d", len(cachedData.([]gin.H))))
+
+		// 转换为正确的类型
+		if data, ok := cachedData.([]gin.H); ok {
+			SuccessResponse(c, gin.H{
+				"data":    data,
+				"total":   len(data),
+				"limit":   limit,
+				"cached":  true,
+			})
+		}
+		return
+	}
+
+	// 缓存未命中，从数据库获取
+	resources, err := repoManager.ResourceRepository.GetHotResources(limit)
+	if err != nil {
+		utils.Error("获取热门资源失败: %v", err)
+		ErrorResponse(c, "获取热门资源失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 获取违禁词配置
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{}
+	}
+
+	// 处理违禁词并转换为响应格式
+	var resourceResponses []gin.H
+	for _, resource := range resources {
+		// 检查违禁词
+		forbiddenInfo := utils.CheckResourceForbiddenWords(resource.Title, resource.Description, cleanWords)
+
+		resourceResponse := gin.H{
+			"id":          resource.ID,
+			"key":         resource.Key,
+			"title":       forbiddenInfo.ProcessedTitle,
+			"url":         resource.URL,
+			"description": forbiddenInfo.ProcessedDesc,
+			"pan_id":      resource.PanID,
+			"view_count":  resource.ViewCount,
+			"created_at":  resource.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  resource.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"cover":       resource.Cover,
+			"author":      resource.Author,
+			"file_size":   resource.FileSize,
+		}
+
+		// 添加违禁词标记
+		resourceResponse["has_forbidden_words"] = forbiddenInfo.HasForbiddenWords
+		resourceResponse["forbidden_words"] = forbiddenInfo.ForbiddenWords
+
+		// 添加标签信息
+		var tagResponses []gin.H
+		if len(resource.Tags) > 0 {
+			for _, tag := range resource.Tags {
+				tagResponse := gin.H{
+					"id":          tag.ID,
+					"name":        tag.Name,
+					"description": tag.Description,
+				}
+				tagResponses = append(tagResponses, tagResponse)
+			}
+		}
+		resourceResponse["tags"] = tagResponses
+
+		resourceResponses = append(resourceResponses, resourceResponse)
+	}
+
+	// 存储到缓存
+	cacheManager.Set(cacheKey, resourceResponses)
+	utils.Info("热门资源已缓存 - key: %s, count: %d", cacheKey, len(resourceResponses))
+
+	// 设置缓存头
+	c.Header("Cache-Control", "public, max-age=3600")
+	c.Header("ETag", fmt.Sprintf("hot-resources-%d", len(resourceResponses)))
+
+	SuccessResponse(c, gin.H{
+		"data":    resourceResponses,
+		"total":   len(resourceResponses),
+		"limit":   limit,
+		"cached":  false,
+	})
 }
 
 // GetRelatedResources 获取相关资源

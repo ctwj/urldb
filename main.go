@@ -233,6 +233,7 @@ func main() {
 
 		// 资源管理
 		api.GET("/resources", handlers.GetResources)
+		api.GET("/resources/hot", handlers.GetHotResources)
 		api.POST("/resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateResource)
 		api.PUT("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateResource)
 		api.DELETE("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteResource)

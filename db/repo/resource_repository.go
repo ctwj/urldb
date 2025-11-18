@@ -49,6 +49,7 @@ type ResourceRepository interface {
 	DeleteRelatedResources(ckID uint) (int64, error)
 	CountResourcesByCkID(ckID uint) (int64, error)
 	FindByKey(key string) ([]entity.Resource, error)
+	GetHotResources(limit int) ([]entity.Resource, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -355,12 +356,37 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 	// 计算偏移量
 	offset := (page - 1) * pageSize
 
-	// 获取分页数据，按更新时间倒序
+	// 处理排序参数
+	orderBy := "updated_at"
+	orderDir := "DESC"
+
+	if orderByVal, ok := params["order_by"].(string); ok && orderByVal != "" {
+		// 验证排序字段，防止SQL注入
+		validOrderByFields := map[string]bool{
+			"created_at":  true,
+			"updated_at":  true,
+			"view_count":  true,
+			"title":       true,
+			"id":          true,
+		}
+		if validOrderByFields[orderByVal] {
+			orderBy = orderByVal
+		}
+	}
+
+	if orderDirVal, ok := params["order_dir"].(string); ok && orderDirVal != "" {
+		// 验证排序方向
+		if orderDirVal == "ASC" || orderDirVal == "DESC" {
+			orderDir = orderDirVal
+		}
+	}
+
+	// 获取分页数据，应用排序
 	queryStart := utils.GetCurrentTime()
-	err := db.Order("updated_at DESC").Offset(offset).Limit(pageSize).Find(&resources).Error
+	err := db.Order(fmt.Sprintf("%s %s", orderBy, orderDir)).Offset(offset).Limit(pageSize).Find(&resources).Error
 	queryDuration := time.Since(queryStart)
 	totalDuration := time.Since(startTime)
-	utils.Debug("SearchWithFilters完成: 总数=%d, 当前页数据量=%d, 查询耗时=%v, 总耗时=%v", total, len(resources), queryDuration, totalDuration)
+	utils.Debug("SearchWithFilters完成: 总数=%d, 当前页数据量=%d, 排序=%s %s, 查询耗时=%v, 总耗时=%v", total, len(resources), orderBy, orderDir, queryDuration, totalDuration)
 	return resources, total, err
 }
 
@@ -723,4 +749,42 @@ func (r *ResourceRepositoryImpl) FindByKey(key string) ([]entity.Resource, error
 		Order("pan_id ASC").
 		Find(&resources).Error
 	return resources, err
+}
+
+// GetHotResources 获取热门资源（按查看次数排序，去重，限制数量）
+func (r *ResourceRepositoryImpl) GetHotResources(limit int) ([]entity.Resource, error) {
+	var resources []entity.Resource
+
+	// 按key分组，获取每个key中查看次数最高的资源，然后按查看次数排序
+	err := r.db.Table("resources").
+		Select(`
+			resources.*,
+			ROW_NUMBER() OVER (PARTITION BY key ORDER BY view_count DESC) as rn
+		`).
+		Where("is_public = ? AND view_count > 0", true).
+		Preload("Category").
+		Preload("Pan").
+		Preload("Tags").
+		Order("view_count DESC").
+		Limit(limit * 2). // 获取更多数据以确保去重后有足够的结果
+		Find(&resources).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 按key去重，保留每个key的第一个（即查看次数最高的）
+	seenKeys := make(map[string]bool)
+	var hotResources []entity.Resource
+	for _, resource := range resources {
+		if !seenKeys[resource.Key] {
+			seenKeys[resource.Key] = true
+			hotResources = append(hotResources, resource)
+			if len(hotResources) >= limit {
+				break
+			}
+		}
+	}
+
+	return hotResources, nil
 }

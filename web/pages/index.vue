@@ -422,7 +422,8 @@ const updatePageSeo = () => {
   // 使用动态计算的标题，而不是默认的"首页"
   setPageSeo(pageTitle.value, {
     description: pageDescription.value,
-    keywords: pageKeywords.value
+    keywords: pageKeywords.value,
+    ogImage: '/assets/images/og.webp'  // 使用默认的OG图片
   })
 
   // 设置HTML属性和canonical链接
@@ -444,6 +445,12 @@ const updatePageSeo = () => {
         href: canonicalUrl
       }
     ],
+    meta: [
+      {
+        property: 'og:image',
+        content: '/assets/images/og.webp'
+      }
+    ],
     script: [
       {
         type: 'application/ld+json',
@@ -452,7 +459,8 @@ const updatePageSeo = () => {
           "@type": "WebSite",
           "name": (seoSystemConfig.value && seoSystemConfig.value.site_title) || '老九网盘资源数据库',
           "description": pageDescription.value,
-          "url": canonicalUrl
+          "url": canonicalUrl,
+          "image": '/assets/images/og.webp'
         })
       }
     ]

@@ -127,9 +127,12 @@ export const useSeo = () => {
       dynamicKeywords = `${searchKeyword},${meta.keywords}`
     }
 
-    // 生成动态OG图片URL
-    const theme = searchKeyword ? 'blue' : platformId ? 'green' : 'default'
-    const ogImageUrl = generateOgImageUrl(title, dynamicDescription, theme)
+    // 生成动态OG图片URL，支持自定义OG图片
+    let ogImageUrl = customMeta?.ogImage
+    if (!ogImageUrl) {
+      const theme = searchKeyword ? 'blue' : platformId ? 'green' : 'default'
+      ogImageUrl = generateOgImageUrl(title, dynamicDescription, theme)
+    }
 
     return {
       title,

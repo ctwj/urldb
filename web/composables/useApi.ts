@@ -47,6 +47,7 @@ export const parseApiResponse = <T>(response: any): T => {
 
 export const useResourceApi = () => {
   const getResources = (params?: any) => useApiFetch('/resources', { params }).then(parseApiResponse)
+  const getHotResources = (params?: any) => useApiFetch('/resources/hot', { params }).then(parseApiResponse)
   const getResource = (id: number) => useApiFetch(`/resources/${id}`).then(parseApiResponse)
   const getResourcesByKey = (key: string) => useApiFetch(`/resources/key/${key}`).then(parseApiResponse)
   const createResource = (data: any) => useApiFetch('/resources', { method: 'POST', body: data }).then(parseApiResponse)
@@ -62,7 +63,7 @@ export const useResourceApi = () => {
   const getResourceLink = (id: number) => useApiFetch(`/resources/${id}/link`).then(parseApiResponse)
   // 新增：获取相关资源
   const getRelatedResources = (params?: any) => useApiFetch('/resources/related', { params }).then(parseApiResponse)
-  return { getResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink, getRelatedResources }
+  return { getResources, getHotResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink, getRelatedResources }
 }
 
 export const useAuthApi = () => {
