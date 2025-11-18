@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	pan "github.com/ctwj/urldb/common"
 	commonutils "github.com/ctwj/urldb/common/utils"
@@ -899,6 +900,203 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 		SaveURL: saveURL,
 		Fid:     fid,
 	}
+}
+
+// GetRelatedResources 获取相关资源
+func GetRelatedResources(c *gin.Context) {
+	// 获取查询参数
+	key := c.Query("key")                   // 当前资源的key
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "8"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+
+	utils.Info("获取相关资源请求 - key: %s, limit: %d", key, limit)
+
+	if key == "" {
+		ErrorResponse(c, "缺少资源key参数", http.StatusBadRequest)
+		return
+	}
+
+	// 首先通过key获取当前资源信息
+	currentResources, err := repoManager.ResourceRepository.FindByKey(key)
+	if err != nil {
+		utils.Error("获取当前资源失败: %v", err)
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	if len(currentResources) == 0 {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	currentResource := &currentResources[0] // 取第一个资源作为当前资源
+
+	var resources []entity.Resource
+	var total int64
+
+	// 获取当前资源的标签ID列表
+	var tagIDsList []string
+	if currentResource.Tags != nil {
+		for _, tag := range currentResource.Tags {
+			tagIDsList = append(tagIDsList, strconv.Itoa(int(tag.ID)))
+		}
+	}
+
+	utils.Info("当前资源标签: %v", tagIDsList)
+
+	// 1. 优先使用Meilisearch进行标签搜索
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() && len(tagIDsList) > 0 {
+		service := meilisearchManager.GetService()
+		if service != nil {
+			// 使用标签进行搜索
+			filters := make(map[string]interface{})
+			filters["tag_ids"] = tagIDsList
+
+			// 使用当前资源的标题作为搜索关键词，提高相关性
+			searchQuery := currentResource.Title
+			if searchQuery == "" {
+				searchQuery = strings.Join(tagIDsList, " ") // 如果没有标题，使用标签作为搜索词
+			}
+
+			docs, docTotal, err := service.Search(searchQuery, filters, page, limit)
+			if err == nil && len(docs) > 0 {
+				// 转换为Resource实体
+				for _, doc := range docs {
+					// 排除当前资源
+					if doc.Key == key {
+						continue
+					}
+					resource := entity.Resource{
+						ID:          doc.ID,
+						Title:       doc.Title,
+						Description: doc.Description,
+						URL:         doc.URL,
+						SaveURL:     doc.SaveURL,
+						FileSize:    doc.FileSize,
+						Key:         doc.Key,
+						PanID:       doc.PanID,
+						ViewCount:   0, // Meilisearch文档中没有ViewCount字段，设为默认值
+						CreatedAt:   doc.CreatedAt,
+						UpdatedAt:   doc.UpdatedAt,
+						Cover:       doc.Cover,
+						Author:      doc.Author,
+					}
+					resources = append(resources, resource)
+				}
+				total = docTotal
+				utils.Info("Meilisearch搜索到 %d 个相关资源", len(resources))
+			} else {
+				utils.Error("Meilisearch搜索失败，回退到标签搜索: %v", err)
+			}
+		}
+	}
+
+	// 2. 如果Meilisearch未启用、搜索失败或没有结果，使用数据库标签搜索
+	if len(resources) == 0 {
+		params := map[string]interface{}{
+			"page":      page,
+			"page_size": limit,
+			"is_public": true,
+			"order_by":  "updated_at",
+			"order_dir": "desc",
+		}
+
+		// 使用当前资源的标签进行搜索
+		if len(tagIDsList) > 0 {
+			params["tag_ids"] = strings.Join(tagIDsList, ",")
+		} else {
+			// 如果没有标签，使用当前资源的分类作为搜索条件
+			if currentResource.CategoryID != nil && *currentResource.CategoryID > 0 {
+				params["category_id"] = *currentResource.CategoryID
+			}
+		}
+
+		var err error
+		resources, total, err = repoManager.ResourceRepository.SearchWithFilters(params)
+		if err != nil {
+			utils.Error("搜索相关资源失败: %v", err)
+			ErrorResponse(c, "搜索相关资源失败", http.StatusInternalServerError)
+			return
+		}
+
+		// 排除当前资源
+		var filteredResources []entity.Resource
+		for _, resource := range resources {
+			if resource.Key != key {
+				filteredResources = append(filteredResources, resource)
+			}
+		}
+		resources = filteredResources
+		total = int64(len(filteredResources))
+	}
+
+	utils.Info("标签搜索到 %d 个相关资源", len(resources))
+
+	// 获取违禁词配置
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{}
+	}
+
+	// 处理违禁词并转换为响应格式
+	var resourceResponses []gin.H
+	for _, resource := range resources {
+		// 检查违禁词
+		forbiddenInfo := utils.CheckResourceForbiddenWords(resource.Title, resource.Description, cleanWords)
+
+		resourceResponse := gin.H{
+			"id":          resource.ID,
+			"key":         resource.Key,
+			"title":       forbiddenInfo.ProcessedTitle,
+			"url":         resource.URL,
+			"description": forbiddenInfo.ProcessedDesc,
+			"pan_id":      resource.PanID,
+			"view_count":  resource.ViewCount,
+			"created_at":  resource.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  resource.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"cover":       resource.Cover,
+			"author":      resource.Author,
+			"file_size":   resource.FileSize,
+		}
+
+		// 添加违禁词标记
+		resourceResponse["has_forbidden_words"] = forbiddenInfo.HasForbiddenWords
+		resourceResponse["forbidden_words"] = forbiddenInfo.ForbiddenWords
+
+		// 添加标签信息
+		var tagResponses []gin.H
+		if len(resource.Tags) > 0 {
+			for _, tag := range resource.Tags {
+				tagResponse := gin.H{
+					"id":          tag.ID,
+					"name":        tag.Name,
+					"description": tag.Description,
+				}
+				tagResponses = append(tagResponses, tagResponse)
+			}
+		}
+		resourceResponse["tags"] = tagResponses
+
+		resourceResponses = append(resourceResponses, resourceResponse)
+	}
+
+	// 构建响应数据
+	responseData := gin.H{
+		"data":      resourceResponses,
+		"total":     total,
+		"page":      page,
+		"page_size": limit,
+		"source":    "database",
+	}
+
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() && len(tagIDsList) > 0 {
+		responseData["source"] = "meilisearch"
+	}
+
+	SuccessResponse(c, responseData)
 }
 
 // getQuarkPanID 获取夸克网盘ID

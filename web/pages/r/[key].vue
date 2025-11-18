@@ -221,53 +221,46 @@
               </h3>
 
               <!-- 相关资源列表 -->
-              <div v-if="relatedResourcesLoading" class="space-y-4">
+              <div v-if="isRelatedResourcesLoading" class="space-y-3">
                 <div v-for="i in 5" :key="i" class="animate-pulse">
-                  <div class="flex gap-3">
-                    <div class="w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  <div class="flex items-center gap-3 p-2 rounded-lg">
+                    <div class="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0"></div>
                     <div class="flex-1 space-y-2">
                       <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                       <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                      <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div v-else-if="relatedResources.length > 0" class="space-y-4">
+              <div v-else-if="displayRelatedResources.length > 0" class="space-y-3">
                 <div
-                  v-for="resource in relatedResources"
+                  v-for="(resource, index) in displayRelatedResources"
                   :key="resource.id"
                   class="group cursor-pointer"
                   @click="navigateToResource(resource.key)"
                 >
-                  <div class="flex gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
-                    <!-- 封面图 -->
-                    <div class="flex-shrink-0">
-                      <img
-                        :src="getResourceImageUrl(resource)"
-                        :alt="resource.title"
-                        class="w-16 h-20 object-cover rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
-                        @error="handleResourceImageError"
-                      />
+                  <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <!-- 序号 -->
+                    <div class="flex-shrink-0 flex items-center justify-center">
+                      <div
+                        class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium"
+                        :class="index < 3
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'"
+                      >
+                        {{ index + 1 }}
+                      </div>
                     </div>
 
                     <!-- 资源信息 -->
                     <div class="flex-1 min-w-0">
-                      <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                         {{ resource.title }}
                       </h4>
-                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
                         {{ resource.description }}
                       </p>
-                      <div class="flex items-center gap-2 mt-2">
-                        <span class="text-xs text-gray-400">
-                          <i class="fas fa-eye"></i> {{ resource.view_count || 0 }}
-                        </span>
-                        <span class="text-xs text-gray-400">
-                          {{ formatDate(resource.updated_at) }}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -483,10 +476,60 @@ const { data: resourcesData, error: resourcesError } = await useAsyncData(
   }
 )
 
+// 获取相关资源（服务端渲染，用于SEO优化）
+const { data: relatedResourcesData } = await useAsyncData(
+  `related-resources-${resourceKey.value}`,
+  () => {
+    const params = {
+      key: resourceKey.value,
+      limit: 5
+    }
+    return resourceApi.getRelatedResources(params)
+  },
+  {
+    server: true,
+    default: () => ({ data: [] })
+  }
+)
+
 // 主要资源信息
 const mainResource = computed(() => {
   const resources = resourcesData.value?.resources
   return resources && resources.length > 0 ? resources[0] : null
+})
+
+// 服务端相关资源处理（去重）
+const serverRelatedResources = computed(() => {
+  const resources = Array.isArray(relatedResourcesData.value?.data) ? relatedResourcesData.value.data : []
+
+  // 根据key去重，避免显示重复资源
+  const uniqueResources = resources.filter((resource, index, self) =>
+    index === self.findIndex((r) => r.key === resource.key)
+  )
+
+  return uniqueResources.slice(0, 5) // 最多显示5个相关资源
+})
+
+// 合并服务端和客户端相关资源，优先显示服务端数据，支持SEO
+const displayRelatedResources = computed(() => {
+  // 如果有客户端数据（可能是更新的数据），使用客户端数据
+  if (relatedResources.value.length > 0) {
+    return relatedResources.value
+  }
+
+  // 否则使用服务端数据，确保SEO友好
+  return serverRelatedResources.value
+})
+
+// 相关资源加载状态
+const isRelatedResourcesLoading = computed(() => {
+  // 如果有服务端数据，不显示加载状态
+  if (serverRelatedResources.value.length > 0) {
+    return false
+  }
+
+  // 否则显示客户端加载状态
+  return relatedResourcesLoading.value
 })
 
 // 检测状态
@@ -681,32 +724,42 @@ const handleCopyrightSubmitted = () => {
   })
 }
 
-// 获取相关资源
+// 获取相关资源（客户端更新，用于交互优化）
 const fetchRelatedResources = async () => {
   if (!mainResource.value) return
+
+  // 如果已经有服务端数据，跳过客户端获取（SEO优化）
+  if (serverRelatedResources.value.length > 0) {
+    console.log('使用服务端相关资源数据，跳过客户端获取')
+    return
+  }
 
   try {
     relatedResourcesLoading.value = true
 
-    // 基于标签获取相关资源
-    const tagIds = mainResource.value.tags?.map((tag: any) => tag.id).slice(0, 3) // 取前3个标签
-    let params: any = { limit: 8, is_public: true }
-
-    if (tagIds && tagIds.length > 0) {
-      params.tag_ids = tagIds.join(',')
-    } else {
-      // 如果没有标签，获取最新资源作为推荐
-      params.order_by = 'updated_at'
-      params.order_dir = 'desc'
+    // 使用新的相关资源API，基于资源key查找相关资源
+    const params: any = {
+      key: resourceKey.value, // 使用当前资源的key
+      limit: 5,
     }
 
-    const response = await resourceApi.getResources(params) as any
+    const response = await resourceApi.getRelatedResources(params) as any
 
-    // 过滤掉当前显示的资源
-    const resources = Array.isArray(response) ? response : (response?.items || [])
-    relatedResources.value = resources
-      .filter((resource: any) => resource.key !== resourceKey.value)
-      .slice(0, 8) // 最多显示8个相关资源
+    // 处理响应数据
+    const resources = Array.isArray(response?.data) ? response.data : []
+
+    // 根据key去重，避免显示重复资源
+    const uniqueResources = resources.filter((resource, index, self) =>
+      index === self.findIndex((r) => r.key === resource.key)
+    )
+
+    relatedResources.value = uniqueResources.slice(0, 5) // 最多显示5个相关资源
+
+    console.log('获取相关资源成功:', {
+      source: response?.source,
+      count: relatedResources.value.length,
+      params: params
+    })
 
   } catch (error) {
     console.error('获取相关资源失败:', error)
@@ -775,6 +828,7 @@ onMounted(() => {
 
 // 设置页面SEO
 const { initSystemConfig, setPageSeo } = useGlobalSeo()
+const { generateOgImageUrl } = useSeo()
 
 // 动态生成页面SEO信息
 const pageSeo = computed(() => {
@@ -813,6 +867,9 @@ const updatePageSeo = () => {
   const baseUrl = config.public.siteUrl || 'https://yourdomain.com'
   const canonicalUrl = `${baseUrl}/r/${resourceKey.value}`
 
+  // 生成动态OG图片URL（使用新的key参数格式）
+  const ogImageUrl = generateOgImageUrl(resourceKey.value, '', 'blue')
+
   useHead({
     htmlAttrs: {
       lang: 'zh-CN'
@@ -843,7 +900,7 @@ const updatePageSeo = () => {
       },
       {
         property: 'og:image',
-        content: getResourceImageUrl(mainResource.value)
+        content: ogImageUrl
       },
       {
         property: 'og:site_name',
@@ -864,7 +921,7 @@ const updatePageSeo = () => {
       },
       {
         name: 'twitter:image',
-        content: getResourceImageUrl(mainResource.value)
+        content: ogImageUrl
       },
       // 其他元数据
       {
@@ -889,6 +946,7 @@ const updatePageSeo = () => {
           "name": title,
           "description": description,
           "url": canonicalUrl,
+          "image": ogImageUrl,
           "mainEntity": {
             "@type": "SoftwareApplication" || "DigitalDocument",
             "name": title,
@@ -899,6 +957,7 @@ const updatePageSeo = () => {
             },
             "dateModified": mainResource.value?.updated_at,
             "keywords": keywords,
+            "image": ogImageUrl,
             "offers": {
               "@type": "Offer",
               "price": "0",
@@ -908,7 +967,17 @@ const updatePageSeo = () => {
           "publisher": {
             "@type": "Organization",
             "name": systemConfig.value?.site_title || '老九网盘资源数据库'
-          }
+          },
+          "relatedContent": displayRelatedResources.value.map((resource, index) => ({
+            "@type": "SoftwareApplication" || "DigitalDocument",
+            "position": index + 1,
+            "name": resource.title,
+            "description": resource.description?.substring(0, 160) || '',
+            "url": `${baseUrl}/r/${resource.key}`,
+            "dateModified": resource.updated_at,
+            "keywords": resource.tags?.map((tag: any) => tag.name).join(', ') || '',
+            "image": generateOgImageUrl(resource.key, '', 'green')
+          }))
         })
       }
     ]

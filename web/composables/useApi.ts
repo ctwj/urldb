@@ -60,7 +60,9 @@ export const useResourceApi = () => {
   const batchDeleteResources = (ids: number[]) => useApiFetch('/resources/batch', { method: 'DELETE', body: { ids } }).then(parseApiResponse)
   // 新增：获取资源链接（智能转存）
   const getResourceLink = (id: number) => useApiFetch(`/resources/${id}/link`).then(parseApiResponse)
-  return { getResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink }
+  // 新增：获取相关资源
+  const getRelatedResources = (params?: any) => useApiFetch('/resources/related', { params }).then(parseApiResponse)
+  return { getResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink, getRelatedResources }
 }
 
 export const useAuthApi = () => {
