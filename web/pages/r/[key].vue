@@ -127,10 +127,20 @@
           <!-- 网盘资源链接列表 -->
           <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
             <div class="p-6">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <i class="fas fa-cloud-download-alt text-blue-500"></i>
-                网盘资源 ({{ resourcesData?.resources?.length || 0 }})
-              </h3>
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <i class="fas fa-cloud-download-alt text-blue-500"></i>
+                  网盘资源 ({{ resourcesData?.resources?.length || 0 }})
+                </h3>
+
+                <!-- 分享按钮 -->
+                <ShareButtons
+                  :title="mainResource?.title"
+                  :description="mainResource?.description"
+                  :url="`/r/${mainResource?.key}`"
+                  :tags="mainResource?.tags?.map(tag => tag.name)"
+                />
+              </div>
 
               <div class="space-y-3">
                 <div
