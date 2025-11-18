@@ -211,6 +211,10 @@ func main() {
 	// 创建OG图片处理器
 	ogImageHandler := handlers.NewOGImageHandler()
 
+	// 创建举报和版权申述处理器
+	reportHandler := handlers.NewReportHandler(repoManager.ReportRepository)
+	copyrightClaimHandler := handlers.NewCopyrightClaimHandler(repoManager.CopyrightClaimRepository)
+
 	// API路由
 	api := r.Group("/api")
 	{
@@ -443,6 +447,21 @@ func main() {
 
 		// OG图片生成路由
 		api.GET("/og-image", ogImageHandler.GenerateOGImage)
+
+		// 举报和版权申述路由
+		api.POST("/reports", reportHandler.CreateReport)
+		api.GET("/reports/:id", reportHandler.GetReport)
+		api.GET("/reports", middleware.AuthMiddleware(), middleware.AdminMiddleware(), reportHandler.ListReports)
+		api.PUT("/reports/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), reportHandler.UpdateReport)
+		api.DELETE("/reports/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), reportHandler.DeleteReport)
+		api.GET("/reports/resource/:resource_key", reportHandler.GetReportByResource)
+
+		api.POST("/copyright-claims", copyrightClaimHandler.CreateCopyrightClaim)
+		api.GET("/copyright-claims/:id", copyrightClaimHandler.GetCopyrightClaim)
+		api.GET("/copyright-claims", middleware.AuthMiddleware(), middleware.AdminMiddleware(), copyrightClaimHandler.ListCopyrightClaims)
+		api.PUT("/copyright-claims/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), copyrightClaimHandler.UpdateCopyrightClaim)
+		api.DELETE("/copyright-claims/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), copyrightClaimHandler.DeleteCopyrightClaim)
+		api.GET("/copyright-claims/resource/:resource_key", copyrightClaimHandler.GetCopyrightClaimByResource)
 	}
 
 	// 设置监控系统

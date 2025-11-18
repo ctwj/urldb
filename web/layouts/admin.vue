@@ -479,6 +479,18 @@ const dataManagementItems = ref([
     label: '文件管理',
     icon: 'fas fa-file-upload',
     active: (route: any) => route.path.startsWith('/admin/files')
+  },
+  {
+    to: '/admin/reports',
+    label: '举报管理',
+    icon: 'fas fa-flag',
+    active: (route: any) => route.path.startsWith('/admin/reports')
+  },
+  {
+    to: '/admin/copyright-claims',
+    label: '版权申述',
+    icon: 'fas fa-balance-scale',
+    active: (route: any) => route.path.startsWith('/admin/copyright-claims')
   }
 ])
 
@@ -559,7 +571,7 @@ const autoExpandCurrentGroup = () => {
   const currentPath = useRoute().path
   
   // 检查当前页面属于哪个分组并展开
-  if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts') || currentPath.startsWith('/admin/files')) {
+  if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts') || currentPath.startsWith('/admin/files') || currentPath.startsWith('/admin/reports') || currentPath.startsWith('/admin/copyright-claims')) {
     expandedGroups.value.dataManagement = true
   } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users') || currentPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
@@ -581,7 +593,7 @@ watch(() => useRoute().path, (newPath) => {
   }
   
   // 根据新路径展开对应分组
-  if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts') || newPath.startsWith('/admin/files')) {
+  if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts') || newPath.startsWith('/admin/files') || newPath.startsWith('/admin/reports') || newPath.startsWith('/admin/copyright-claims')) {
     expandedGroups.value.dataManagement = true
   } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users') || newPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true

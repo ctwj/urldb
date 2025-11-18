@@ -74,6 +74,9 @@
 
 <script setup lang="ts">
 import { useMessage } from 'naive-ui'
+import { useResourceApi } from '~/composables/useApi'
+
+const resourceApi = useResourceApi()
 
 interface Props {
   visible: boolean
@@ -152,25 +155,30 @@ const handleSubmit = async () => {
     await formRef.value?.validate()
     submitting.value = true
 
-    // 这里可以调用实际的举报API
-    // const reportData = {
-    //   resource_key: props.resourceKey,
-    //   reason: formData.value.reason,
-    //   description: formData.value.description,
-    //   contact: formData.value.contact,
-    //   user_agent: navigator.userAgent,
-    //   ip_address: await getClientIP()
-    // }
-    // await reportApi.submitReport(reportData)
+    // 调用实际的举报API
+    const reportData = {
+      resource_key: props.resourceKey,
+      reason: formData.value.reason,
+      description: formData.value.description,
+      contact: formData.value.contact,
+      user_agent: navigator.userAgent,
+      ip_address: '' // 服务端获取IP
+    }
 
-    // 模拟提交过程
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    const result = await resourceApi.submitReport(reportData)
+    console.log('举报提交结果:', result)
 
     message.success('举报提交成功，我们会尽快核实处理')
-    emit('submitted')
-  } catch (error) {
+    emit('submitted') // 发送提交事件
+  } catch (error: any) {
     console.error('提交举报失败:', error)
-    message.error('提交失败，请重试')
+    let errorMessage = '提交失败，请重试'
+    if (error && typeof error === 'object' && error.data) {
+      errorMessage = error.data.message || errorMessage
+    } else if (error && typeof error === 'object' && error.message) {
+      errorMessage = error.message
+    }
+    message.error(errorMessage)
   } finally {
     submitting.value = false
   }

@@ -137,7 +137,7 @@
                 <ShareButtons
                   :title="mainResource?.title"
                   :description="mainResource?.description"
-                  :url="`/r/${mainResource?.key}`"
+                  :url="getResourceUrl"
                   :tags="mainResource?.tags?.map(tag => tag.name)"
                 />
               </div>
@@ -494,6 +494,27 @@ const mainResource = computed(() => {
   return resources && resources.length > 0 ? resources[0] : null
 })
 
+// 生成完整的资源URL
+const getResourceUrl = computed(() => {
+  const config = useRuntimeConfig()
+  const key = mainResource.value?.key
+  if (!key) return ''
+
+  // 优先使用配置中的站点URL，如果未设置则使用当前页面的origin
+  let siteUrl = config.public.siteUrl
+  if (!siteUrl || siteUrl === 'https://yourdomain.com') {
+    // 在客户端使用当前页面的origin
+    if (typeof window !== 'undefined') {
+      siteUrl = window.location.origin
+    } else {
+      // 在服务端渲染时，使用默认值（这应该在部署时被环境变量覆盖）
+      siteUrl = process.env.NUXT_PUBLIC_SITE_URL || 'https://yourdomain.com'
+    }
+  }
+
+  return `${siteUrl}/r/${key}`
+})
+
 // 服务端相关资源处理（去重）
 const serverRelatedResources = computed(() => {
   const resources = Array.isArray(relatedResourcesData.value?.data) ? relatedResourcesData.value.data : []
@@ -690,11 +711,15 @@ const copyToClipboard = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text)
     // 显示复制成功提示
-    const notification = useNotification()
-    notification.success({
-      content: '已复制到剪贴板',
-      duration: 2000
-    })
+    if (process.client) {
+      const notification = useNotification()
+      if (notification) {
+        notification.success({
+          content: '已复制到剪贴板',
+          duration: 2000
+        })
+      }
+    }
   } catch (error) {
     console.error('复制失败:', error)
   }
@@ -703,21 +728,29 @@ const copyToClipboard = async (text: string) => {
 // 处理举报提交
 const handleReportSubmitted = () => {
   showReportModal.value = false
-  const notification = useNotification()
-  notification.success({
-    content: '举报已提交，感谢您的反馈',
-    duration: 3000
-  })
+  if (process.client) {
+    const notification = useNotification()
+    if (notification) {
+      notification.success({
+        content: '举报已提交，感谢您的反馈',
+        duration: 3000
+      })
+    }
+  }
 }
 
 // 处理版权申述提交
 const handleCopyrightSubmitted = () => {
   showCopyrightModal.value = false
-  const notification = useNotification()
-  notification.success({
-    content: '版权申述已提交，我们会尽快处理',
-    duration: 3000
-  })
+  if (process.client) {
+    const notification = useNotification()
+    if (notification) {
+      notification.success({
+        content: '版权申述已提交，我们会尽快处理',
+        duration: 3000
+      })
+    }
+  }
 }
 
 // 获取相关资源（客户端更新，用于交互优化）

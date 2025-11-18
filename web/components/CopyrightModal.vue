@@ -129,6 +129,9 @@
 
 <script setup lang="ts">
 import { useMessage } from 'naive-ui'
+import { useResourceApi } from '~/composables/useApi'
+
+const resourceApi = useResourceApi()
 
 interface Props {
   visible: boolean
@@ -248,28 +251,41 @@ const handleSubmit = async () => {
 
     submitting.value = true
 
-    // 这里可以调用实际的版权申述API
-    // const copyrightData = {
-    //   resource_key: props.resourceKey,
-    //   identity: formData.value.identity,
-    //   proof_type: formData.value.proof_type,
-    //   reason: formData.value.reason,
-    //   contact_info: formData.value.contact_info,
-    //   claimant_name: formData.value.claimant_name,
-    //   proof_files: formData.value.proof_files,
-    //   user_agent: navigator.userAgent,
-    //   ip_address: await getClientIP()
-    // }
-    // await copyrightApi.submitCopyrightClaim(copyrightData)
+    // 构建证明文件数组（从文件列表转换为字符串）
+    const proofFilesArray = formData.value.proof_files.map((file: any) => ({
+      id: file.id,
+      name: file.name,
+      status: file.status,
+      percentage: file.percentage
+    }))
 
-    // 模拟提交过程
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // 调用实际的版权申述API
+    const copyrightData = {
+      resource_key: props.resourceKey,
+      identity: formData.value.identity,
+      proof_type: formData.value.proof_type,
+      reason: formData.value.reason,
+      contact_info: formData.value.contact_info,
+      claimant_name: formData.value.claimant_name,
+      proof_files: JSON.stringify(proofFilesArray), // 将文件信息转换为JSON字符串
+      user_agent: navigator.userAgent,
+      ip_address: '' // 服务端获取IP
+    }
+
+    const result = await resourceApi.submitCopyrightClaim(copyrightData)
+    console.log('版权申述提交结果:', result)
 
     message.success('版权申述提交成功，我们会在24小时内处理并回复')
-    emit('submitted')
-  } catch (error) {
+    emit('submitted') // 发送提交事件
+  } catch (error: any) {
     console.error('提交版权申述失败:', error)
-    message.error('提交失败，请重试')
+    let errorMessage = '提交失败，请重试'
+    if (error && typeof error === 'object' && error.data) {
+      errorMessage = error.data.message || errorMessage
+    } else if (error && typeof error === 'object' && error.message) {
+      errorMessage = error.message
+    }
+    message.error(errorMessage)
   } finally {
     submitting.value = false
   }

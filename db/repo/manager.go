@@ -22,6 +22,8 @@ type RepositoryManager struct {
 	FileRepository            FileRepository
 	TelegramChannelRepository TelegramChannelRepository
 	APIAccessLogRepository    APIAccessLogRepository
+	ReportRepository          ReportRepository
+	CopyrightClaimRepository  CopyrightClaimRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -43,5 +45,7 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		FileRepository:            NewFileRepository(db),
 		TelegramChannelRepository: NewTelegramChannelRepository(db),
 		APIAccessLogRepository:    NewAPIAccessLogRepository(db),
+		ReportRepository:          NewReportRepository(db),
+		CopyrightClaimRepository:  NewCopyrightClaimRepository(db),
 	}
 }
