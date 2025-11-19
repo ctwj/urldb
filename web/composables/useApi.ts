@@ -69,7 +69,8 @@ export const useResourceApi = () => {
   const submitCopyrightClaim = (data: any) => useApiFetch('/copyright-claims', { method: 'POST', body: data }).then(parseApiResponse)
 
   // 新增：管理后台举报相关API
-  const getReports = (params?: any) => useApiFetch('/reports', { params }).then(parseApiResponse)
+  const getReportsRaw = (params?: any) => useApiFetch('/reports', { params })
+  const getReports = (params?: any) => getReportsRaw(params).then(parseApiResponse)
   const getReport = (id: number) => useApiFetch(`/reports/${id}`).then(parseApiResponse)
   const updateReport = (id: number, data: any) => useApiFetch(`/reports/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteReport = (id: number) => useApiFetch(`/reports/${id}`, { method: 'DELETE' }).then(parseApiResponse)
@@ -83,7 +84,7 @@ export const useResourceApi = () => {
   return {
     getResources, getHotResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink, getRelatedResources,
     submitReport, submitCopyrightClaim,
-    getReports, getReport, updateReport, deleteReport,
+    getReports, getReport, updateReport, deleteReport, getReportsRaw,
     getCopyrightClaims, getCopyrightClaim, updateCopyrightClaim, deleteCopyrightClaim
   }
 }

@@ -212,7 +212,7 @@ func main() {
 	ogImageHandler := handlers.NewOGImageHandler()
 
 	// 创建举报和版权申述处理器
-	reportHandler := handlers.NewReportHandler(repoManager.ReportRepository)
+	reportHandler := handlers.NewReportHandler(repoManager.ReportRepository, repoManager.ResourceRepository)
 	copyrightClaimHandler := handlers.NewCopyrightClaimHandler(repoManager.CopyrightClaimRepository)
 
 	// API路由

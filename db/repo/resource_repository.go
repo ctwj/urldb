@@ -48,6 +48,7 @@ type ResourceRepository interface {
 	GetRandomResourceWithFilters(categoryFilter, tagFilter string, isPushSavedInfo bool) (*entity.Resource, error)
 	DeleteRelatedResources(ckID uint) (int64, error)
 	CountResourcesByCkID(ckID uint) (int64, error)
+	FindByResourceKey(key string) ([]entity.Resource, error)
 	FindByKey(key string) ([]entity.Resource, error)
 	GetHotResources(limit int) ([]entity.Resource, error)
 }
@@ -787,4 +788,14 @@ func (r *ResourceRepositoryImpl) GetHotResources(limit int) ([]entity.Resource, 
 	}
 
 	return hotResources, nil
+}
+
+// FindByResourceKey 根据资源Key查找资源
+func (r *ResourceRepositoryImpl) FindByResourceKey(key string) ([]entity.Resource, error) {
+	var resources []entity.Resource
+	err := r.GetDB().Where("key = ?", key).Find(&resources).Error
+	if err != nil {
+		return nil, err
+	}
+	return resources, nil
 }

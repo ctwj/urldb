@@ -192,54 +192,77 @@ const columns = [
   {
     title: 'ID',
     key: 'id',
-    width: 80,
+    width: 30,
     render: (row: any) => {
       return h('span', { class: 'font-medium' }, row.id)
     }
   },
   {
-    title: '资源Key',
+    title: '资源',
     key: 'resource_key',
     width: 200,
     render: (row: any) => {
-      return h('n-tag', {
-        type: 'info',
-        size: 'small',
-        class: 'truncate max-w-xs'
-      }, { default: () => row.resource_key })
+      const resourceInfo = getResourceInfo(row);
+      return h('div', { class: 'space-y-1' }, [
+        // 第一行：标题（单行，省略号）
+        h('div', {
+          class: 'font-medium text-sm truncate max-w-[200px]',
+          style: { maxWidth: '200px' },
+          title: resourceInfo.title // 鼠标hover显示完整标题
+        }, resourceInfo.title),
+        // 第二行：详情（单行，省略号）
+        h('div', {
+          class: 'text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]',
+          style: { maxWidth: '200px' },
+          title: resourceInfo.description // 鼠标hover显示完整描述
+        }, resourceInfo.description),
+        // 第三行：分类图片和链接数
+        h('div', { class: 'flex items-center gap-1' }, [
+          h('i', {
+            class: `fas fa-${getCategoryIcon(resourceInfo.category)} text-blue-500 text-xs`,
+            // 鼠标hover显示第一个资源的链接地址
+            title: resourceInfo.resources.length > 0 ? `链接地址: ${resourceInfo.resources[0].save_url || resourceInfo.resources[0].url}` : `资源链接地址: ${row.resource_key}`
+          }),
+          h('span', { class: 'text-xs text-gray-400' }, `链接数: ${resourceInfo.resources.length}`)
+        ])
+      ])
     }
   },
   {
     title: '举报原因',
     key: 'reason',
-    width: 150,
+    width: 100,
     render: (row: any) => {
-      return h('span', null, getReasonLabel(row.reason))
-    }
-  },
-  {
-    title: '描述',
-    key: 'description',
-    width: 250,
-    render: (row: any) => {
-      return h('span', {
-        class: 'line-clamp-2 text-sm',
-        title: row.description
-      }, row.description)
-    }
-  },
-  {
-    title: '联系方式',
-    key: 'contact',
-    width: 150,
-    render: (row: any) => {
-      return h('span', null, row.contact || '未提供')
+      return h('div', { class: 'space-y-1' }, [
+        // 举报原因和描述提示
+        h('div', {
+          class: 'flex items-center gap-1 truncate max-w-[80px]',
+          style: { maxWidth: '80px' }
+        }, [
+          h('span', null, getReasonLabel(row.reason)),
+          // 添加描述提示图片
+          h('i', {
+            class: 'fas fa-info-circle text-blue-400 cursor-pointer text-xs ml-1',
+            title: row.description  // 鼠标hover显示描述
+          })
+        ]),
+        // 举报时间
+        h('div', {
+          class: 'text-xs text-gray-400 truncate max-w-[80px]',
+          style: { maxWidth: '80px' }
+        }, `举报时间: ${formatDateTime(row.created_at)}`),
+        // 联系方式
+        h('div', {
+          class: 'text-xs text-gray-500 dark:text-gray-400 truncate max-w-[80px]',
+          style: { maxWidth: '80px' }
+        }, `联系方式: ${row.contact || '未提供'}`)
+      ])
     }
   },
   {
     title: '状态',
     key: 'status',
-    width: 120,
+    width: 50,
     render: (row: any) => {
       const type = getStatusType(row.status)
       return h('n-tag', {
@@ -247,14 +270,6 @@ const columns = [
         size: 'small',
         bordered: false
       }, { default: () => getStatusLabel(row.status) })
-    }
-  },
-  {
-    title: '提交时间',
-    key: 'created_at',
-    width: 180,
-    render: (row: any) => {
-      return h('span', null, formatDateTime(row.created_at))
     }
   },
   {
@@ -320,9 +335,20 @@ const fetchReports = async () => {
     if (filters.value.status) params.status = filters.value.status
     if (filters.value.resourceKey) params.resource_key = filters.value.resourceKey
 
-    const response = await resourceApi.getReports(params)
-    reports.value = response.items || []
-    pagination.value.total = response.total || 0
+    // 使用原始API调用以获取完整的分页信息
+    const rawResponse = await resourceApi.getReportsRaw(params)
+    console.log(rawResponse)
+
+    // 检查响应格式并处理
+    if (rawResponse && rawResponse.data && rawResponse.data.list !== undefined) {
+      // 如果后端返回了分页格式，使用正确的字段
+      reports.value = rawResponse.data.list || []
+      pagination.value.total = rawResponse.data.total || 0
+    } else {
+      // 如果是其他格式，尝试直接使用响应
+      reports.value = rawResponse || []
+      pagination.value.total = rawResponse.length || 0
+    }
   } catch (error) {
     console.error('获取举报列表失败:', error)
     // 显示错误提示
@@ -474,6 +500,56 @@ const formatDateTime = (dateString: string) => {
   if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleString('zh-CN')
+}
+
+// 获取分类图标
+const getCategoryIcon = (category: string) => {
+  if (!category) return 'folder';
+
+  // 根据分类名称返回对应的图标
+  const categoryMap: Record<string, string> = {
+    '文档': 'file-alt',
+    '文档资料': 'file-alt',
+    '压缩包': 'file-archive',
+    '图片': 'images',
+    '视频': 'film',
+    '音乐': 'music',
+    '电子书': 'book',
+    '软件': 'cogs',
+    '应用': 'mobile-alt',
+    '游戏': 'gamepad',
+    '资料': 'folder',
+    '其他': 'file',
+    'folder': 'folder',
+    'file': 'file'
+  };
+
+  return categoryMap[category] || 'folder';
+}
+
+// 获取资源信息显示
+const getResourceInfo = (row: any) => {
+  // 从后端返回的资源列表中获取信息
+  const resources = row.resources || [];
+
+  if (resources.length > 0) {
+    // 如果有多个资源，可以选择第一个或合并信息
+    const resource = resources[0];
+    return {
+      title: resource.title || `资源: ${row.resource_key}`,
+      description: resource.description || `资源详情: ${row.resource_key}`,
+      category: resource.category || 'folder',
+      resources: resources // 返回所有资源用于显示链接数量等
+    }
+  } else {
+    // 如果没有关联资源，使用默认值
+    return {
+      title: `资源: ${row.resource_key}`,
+      description: `资源详情: ${row.resource_key}`,
+      category: 'folder',
+      resources: []
+    }
+  }
 }
 
 // 初始化数据

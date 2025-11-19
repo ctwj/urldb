@@ -14,14 +14,16 @@ import (
 )
 
 type ReportHandler struct {
-	reportRepo repo.ReportRepository
-	validate   *validator.Validate
+	reportRepo    repo.ReportRepository
+	resourceRepo  repo.ResourceRepository
+	validate      *validator.Validate
 }
 
-func NewReportHandler(reportRepo repo.ReportRepository) *ReportHandler {
+func NewReportHandler(reportRepo repo.ReportRepository, resourceRepo repo.ResourceRepository) *ReportHandler {
 	return &ReportHandler{
-		reportRepo: reportRepo,
-		validate:   validator.New(),
+		reportRepo:   reportRepo,
+		resourceRepo: resourceRepo,
+		validate:     validator.New(),
 	}
 }
 
@@ -142,7 +144,39 @@ func (h *ReportHandler) ListReports(c *gin.Context) {
 		return
 	}
 
-	PageResponse(c, converter.ReportsToResponse(reports), total, req.Page, req.PageSize)
+	// 获取每个举报关联的资源
+	var reportResponses []*dto.ReportResponse
+	for _, report := range reports {
+		// 通过资源key查找关联的资源
+		resources, err := h.getResourcesByResourceKey(report.ResourceKey)
+		if err != nil {
+			// 如果获取资源失败，仍然返回基本的举报信息
+			reportResponses = append(reportResponses, converter.ReportToResponse(report))
+		} else {
+			// 使用包含资源详情的转换函数
+			response := converter.ReportToResponseWithResources(report, resources)
+			reportResponses = append(reportResponses, response)
+		}
+	}
+
+	PageResponse(c, reportResponses, total, req.Page, req.PageSize)
+}
+
+// getResourcesByResourceKey 根据资源key获取关联的资源列表
+func (h *ReportHandler) getResourcesByResourceKey(resourceKey string) ([]*entity.Resource, error) {
+	// 从资源仓库获取与key关联的所有资源
+	resources, err := h.resourceRepo.FindByResourceKey(resourceKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// 将 []entity.Resource 转换为 []*entity.Resource
+	var resourcePointers []*entity.Resource
+	for i := range resources {
+		resourcePointers = append(resourcePointers, &resources[i])
+	}
+
+	return resourcePointers, nil
 }
 
 // UpdateReport 更新举报状态
@@ -261,8 +295,8 @@ func (h *ReportHandler) GetReportByResource(c *gin.Context) {
 }
 
 // RegisterReportRoutes 注册举报相关路由
-func RegisterReportRoutes(router *gin.RouterGroup, reportRepo repo.ReportRepository) {
-	handler := NewReportHandler(reportRepo)
+func RegisterReportRoutes(router *gin.RouterGroup, reportRepo repo.ReportRepository, resourceRepo repo.ResourceRepository) {
+	handler := NewReportHandler(reportRepo, resourceRepo)
 
 	reports := router.Group("/reports")
 	{

@@ -16,19 +16,35 @@ type ReportUpdateRequest struct {
 	Note   string `json:"note" validate:"omitempty,max=1000"`
 }
 
+// ResourceInfo 资源信息
+type ResourceInfo struct {
+	ID          uint   `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	URL         string `json:"url"`
+	SaveURL     string `json:"save_url"`
+	FileSize    string `json:"file_size"`
+	Category    string `json:"category"`
+	PanName     string `json:"pan_name"`
+	ViewCount   int    `json:"view_count"`
+	IsValid     bool   `json:"is_valid"`
+	CreatedAt   string `json:"created_at"`
+}
+
 // ReportResponse 举报响应
 type ReportResponse struct {
-	ID          uint   `json:"id"`
-	ResourceKey string `json:"resource_key"`
-	Reason      string `json:"reason"`
-	Description string `json:"description"`
-	Contact     string `json:"contact"`
-	UserAgent   string `json:"user_agent"`
-	IPAddress   string `json:"ip_address"`
-	Status      string `json:"status"`
-	Note        string `json:"note"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID          uint           `json:"id"`
+	ResourceKey string         `json:"resource_key"`
+	Reason      string         `json:"reason"`
+	Description string         `json:"description"`
+	Contact     string         `json:"contact"`
+	UserAgent   string         `json:"user_agent"`
+	IPAddress   string         `json:"ip_address"`
+	Status      string         `json:"status"`
+	Note        string         `json:"note"`
+	CreatedAt   string         `json:"created_at"`
+	UpdatedAt   string         `json:"updated_at"`
+	Resources   []ResourceInfo `json:"resources"` // 关联的资源列表
 }
 
 // ReportListRequest 举报列表请求
