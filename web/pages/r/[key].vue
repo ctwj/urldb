@@ -128,10 +128,19 @@
           <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
             <div class="p-6">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <i class="fas fa-cloud-download-alt text-blue-500"></i>
-                  网盘资源 ({{ resourcesData?.resources?.length || 0 }})
-                </h3>
+                <div class="flex items-center gap-3">
+                  <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <i class="fas fa-cloud-download-alt text-blue-500"></i>
+                    网盘资源 ({{ resourcesData?.resources?.length || 0 }})
+                  </h3>
+
+                  <!-- 检测状态总览 -->
+                  <div v-if="resourcesData?.resources?.length > 0" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium" :class="detectionStatus.text + ' bg-opacity-10 ' + detectionStatus.text.replace('text', 'bg')">
+                    <i :class="detectionStatus.icon"></i>
+                    <span>{{ detectionStatus.label }}</span>
+                    <span v-if="detectionStatus.detectedCount > 0" class="ml-1 opacity-75">({{ detectionStatus.detectedCount }}已检测)</span>
+                  </div>
+                </div>
 
                 <!-- 分享按钮 -->
                 <ShareButtons
@@ -175,16 +184,45 @@
                     </div>
                   </div>
 
-                  <!-- 右侧：操作按钮 -->
+                  <!-- 右侧：检测状态和操作按钮 -->
                   <div class="flex items-center gap-2">
+                    <!-- 检测状态标签（放在最前面） -->
+                    <div v-if="detectionMethods[resource.id]" class="flex items-center gap-1">
+                      <!-- 检测方法标识 -->
+                      <span
+                        class="px-1.5 py-0.5 rounded text-xs font-medium"
+                        :class="getDetectionMethodClass(detectionMethods[resource.id])"
+                        :title="getDetectionMethodTitle(detectionMethods[resource.id], resource)"
+                      >
+                        {{ getDetectionMethodLabel(detectionMethods[resource.id]) }}
+                      </span>
+
+                      <!-- 不支持检测的三角感叹号提示 -->
+                      <span v-if="detectionMethods[resource.id] === 'unsupported'" class="text-amber-600 dark:text-amber-400" title="当前网盘暂不支持自动检测，建议您点击链接自行验证">
+                        <i class="fas fa-exclamation-triangle"></i>
+                      </span>
+                    </div>
+
                     <!-- 检测中状态 -->
-                    <div v-if="isDetecting && !detectionResults[resource.id]" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                    <div v-if="isDetecting && !detectionResults[resource.id]" class="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 dark:text-blue-400">
                       <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      <span>检测中</span>
+                      <span>检测中... ({{ Object.keys(detectionResults).length }}/{{ resourcesData?.resources?.length }})</span>
                     </div>
 
                     <!-- 检测完成后的按钮 -->
                     <template v-else>
+                      <!-- 重新检测按钮 -->
+                      <button
+                        class="px-3 py-1.5 text-xs font-medium rounded-lg border border-green-200 dark:border-green-400/30 bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors flex items-center gap-1 disabled:opacity-50"
+                        :disabled="isDetecting"
+                        @click="smartDetectResourceValidity(true)"
+                        title="重新检测链接有效性"
+                      >
+                        <i class="fas" :class="isDetecting ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
+                        <span class="hidden sm:inline">{{ isDetecting ? '检测中' : '重测' }}</span>
+                      </button>
+
+                      <!-- 获取链接按钮 -->
                       <button
                         class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-200 dark:border-blue-400/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors flex items-center gap-2 disabled:opacity-50"
                         :disabled="resource.forbidden || loadingStates[resource.id]"
@@ -194,6 +232,7 @@
                         {{ resource.forbidden ? '受限' : (loadingStates[resource.id] ? '获取中' : '获取链接') }}
                       </button>
 
+                      <!-- 复制转存链接按钮 -->
                       <button
                         v-if="resource.save_url && !resource.forbidden"
                         class="p-2 text-sm rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
@@ -453,6 +492,9 @@ const selectedResource = ref<any>(null)
 const loadingStates = ref<Record<number, boolean>>({})
 const isDetecting = ref(false)
 const detectionResults = ref<Record<number, boolean>>({})
+const detectionErrors = ref<Record<number, string>>({})
+const detectionMethods = ref<Record<number, string>>({})
+const detectionNotes = ref<Record<number, string>>({})
 const relatedResources = ref<any[]>([])
 const relatedResourcesLoading = ref(true)
 const hotResources = ref<any[]>([])
@@ -496,23 +538,16 @@ const mainResource = computed(() => {
 
 // 生成完整的资源URL
 const getResourceUrl = computed(() => {
-  const config = useRuntimeConfig()
   const key = mainResource.value?.key
   if (!key) return ''
 
-  // 优先使用配置中的站点URL，如果未设置则使用当前页面的origin
-  let siteUrl = config.public.siteUrl
-  if (!siteUrl || siteUrl === 'https://yourdomain.com') {
-    // 在客户端使用当前页面的origin
-    if (typeof window !== 'undefined') {
-      siteUrl = window.location.origin
-    } else {
-      // 在服务端渲染时，使用默认值（这应该在部署时被环境变量覆盖）
-      siteUrl = process.env.NUXT_PUBLIC_SITE_URL || 'https://yourdomain.com'
-    }
+  // 在客户端直接使用当前页面的origin
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/r/${key}`
   }
 
-  return `${siteUrl}/r/${key}`
+  // 在服务端渲染时返回相对路径（客户端会自动补全）
+  return `/r/${key}`
 })
 
 // 服务端相关资源处理（去重）
@@ -555,7 +590,8 @@ const detectionStatus = computed(() => {
     return {
       icon: 'fas fa-spinner fa-spin text-blue-600',
       text: 'text-blue-600',
-      label: '检测中'
+      label: '检测中',
+      detectedCount: 0
     }
   }
 
@@ -564,30 +600,49 @@ const detectionStatus = computed(() => {
     return {
       icon: 'fas fa-question-circle text-gray-400',
       text: 'text-gray-400',
-      label: '未知状态'
+      label: '未知状态',
+      detectedCount: 0
     }
   }
 
-  const validCount = resources.filter(r => detectionResults.value[r.id] !== false && (detectionResults.value[r.id] || r.is_valid)).length
-  const totalCount = resources.length
+  // 统计有效和已检测的资源（只统计真正有检测结果的）
+  const detectedResources = resources.filter(r => detectionResults.value[r.id] !== undefined)
+  const validCount = detectedResources.filter(r => detectionResults.value[r.id] === true).length
 
+  const totalCount = detectedResources.length
+  const undetectedCount = resources.length - detectedResources.length
+
+  // 如果没有检测任何资源，显示未检测状态
+  if (detectedResources.length === 0) {
+    return {
+      icon: 'fas fa-question-circle text-gray-400',
+      text: 'text-gray-400',
+      label: '未检测',
+      detectedCount: 0
+    }
+  }
+
+  // 基于已检测的资源显示状态
   if (validCount === totalCount) {
     return {
       icon: 'fas fa-check-circle text-green-600',
       text: 'text-green-600',
-      label: '全部有效'
+      label: '全部有效',
+      detectedCount: detectedResources.length
     }
   } else if (validCount === 0) {
     return {
       icon: 'fas fa-times-circle text-red-600',
       text: 'text-red-600',
-      label: '全部无效'
+      label: '全部无效',
+      detectedCount: detectedResources.length
     }
   } else {
     return {
       icon: 'fas fa-exclamation-triangle text-orange-600',
       text: 'text-orange-600',
-      label: `${validCount}/${totalCount} 有效`
+      label: `${validCount}/${totalCount} 有效`,
+      detectedCount: detectedResources.length
     }
   }
 })
@@ -643,27 +698,76 @@ const detectResourceValidity = async () => {
 
   isDetecting.value = true
   detectionResults.value = {} // 重置检测结果
+  detectionErrors.value = {} // 重置错误信息
+  detectionMethods.value = {} // 重置检测方法
+  detectionNotes.value = {} // 重置检测提示
 
   try {
-    // 逐个检测每个资源
-    for (const resource of resourcesData.value.resources) {
-      try {
-        // 这里可以添加实际的检测逻辑
-        // const result = await resourceApi.checkResourceValidity(resource.id)
-        // detectionResults.value[resource.id] = result.isValid
+    // 提取所有资源ID
+    const resourceIds = resourcesData.value.resources.map(r => r.id)
 
-        // 暂时使用现有的is_valid字段，但添加随机延迟模拟真实检测
-        await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
-        detectionResults.value[resource.id] = resource.is_valid
-      } catch (error) {
-        console.error(`检测资源 ${resource.id} 失败:`, error)
-        detectionResults.value[resource.id] = false
-      }
+    // 批量检测所有资源
+    const response = await resourceApi.batchCheckResourceValidity(resourceIds) as any
+
+    // 处理检测结果
+    if (response && response.results) {
+      response.results.forEach((result: any) => {
+        // 只有真正进行了检测的资源才设置检测结果
+        if (result.detection_method !== 'unsupported') {
+          detectionResults.value[result.resource_id] = result.is_valid
+        }
+        detectionMethods.value[result.resource_id] = result.detection_method || 'unknown'
+
+        // 保存错误信息
+        if (result.error) {
+          detectionErrors.value[result.resource_id] = result.error
+        }
+
+        // 保存检测提示
+        if (result.note) {
+          detectionNotes.value[result.resource_id] = result.note
+        }
+
+        // 显示缓存状态
+        if (result.cached) {
+          console.log(`资源 ${result.resource_id} 使用缓存检测结果`)
+        }
+      })
     }
   } finally {
     isDetecting.value = false
   }
 }
+
+// 智能检测：避免频繁重复检测
+const smartDetectResourceValidity = async (force = false) => {
+  if (!resourcesData.value?.resources) return
+
+  // 如果正在检测，不重复执行
+  if (isDetecting.value) {
+    console.log('检测正在进行中，跳过重复请求')
+    return
+  }
+
+  // 如果不是强制检测且已有检测结果，跳过
+  if (!force && Object.keys(detectionResults.value).length > 0) {
+    const lastDetectionTime = lastDetectionTimestamp.value
+    const now = Date.now()
+    const timeSinceLastDetection = now - lastDetectionTime
+
+    // 5分钟内不重复检测
+    if (timeSinceLastDetection < 5 * 60 * 1000) {
+      console.log('距离上次检测时间不足5分钟，跳过重复检测')
+      return
+    }
+  }
+
+  await detectResourceValidity()
+  lastDetectionTimestamp.value = Date.now()
+}
+
+// 添加最后检测时间戳
+const lastDetectionTimestamp = ref(0)
 
 // 切换链接显示
 const toggleLink = async (resource: any) => {
@@ -833,15 +937,39 @@ const navigateToResource = (key: string) => {
   navigateTo(`/r/${key}`)
 }
 
-// 页面加载完成后开始检测
-onMounted(() => {
-  // 开始检测资源有效性
-  nextTick(() => {
-    if (resourcesData.value?.resources) {
-      detectResourceValidity()
-    }
-  })
+// 检测方法相关函数
+const getDetectionMethodLabel = (method: string) => {
+  const labels: Record<string, string> = {
+    'quark_deep': '深度检测',
+    'unsupported': '未检测',
+    'unknown': '未知方法',
+    'error': '检测错误'
+  }
+  return labels[method] || '未知'
+}
 
+const getDetectionMethodClass = (method: string) => {
+  const classes: Record<string, string> = {
+    'quark_deep': 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-100',
+    'unsupported': 'bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
+    'unknown': 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-100',
+    'error': 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-100'
+  }
+  return classes[method] || 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-100'
+}
+
+const getDetectionMethodTitle = (method: string, resource: any) => {
+  const titles: Record<string, string> = {
+    'quark_deep': '使用深度检测（通过实际网盘操作验证）',
+    'unsupported': `${resource.pan?.remark || '未知网盘'} 暂不支持深度检测`,
+    'unknown': '检测方法未知',
+    'error': '检测过程中发生错误'
+  }
+  return titles[method] || '未知检测方法'
+}
+
+// 页面加载完成后
+onMounted(() => {
   // 获取相关资源
   nextTick(() => {
     fetchRelatedResources()
@@ -891,8 +1019,13 @@ const updatePageSeo = () => {
   })
 
   // 设置更详细的HTML元数据
-  const baseUrl = config.public.siteUrl || 'https://yourdomain.com'
-  const canonicalUrl = `${baseUrl}/r/${resourceKey.value}`
+  let canonicalUrl
+  if (typeof window !== 'undefined') {
+    canonicalUrl = `${window.location.origin}/r/${resourceKey.value}`
+  } else {
+    // 在服务端渲染时使用相对路径
+    canonicalUrl = `/r/${resourceKey.value}`
+  }
 
   // 生成动态OG图片URL（使用新的key参数格式）
   const ogImageUrl = generateOgImageUrl(resourceKey.value, '', 'blue')

@@ -63,6 +63,10 @@ export const useResourceApi = () => {
   const getResourceLink = (id: number) => useApiFetch(`/resources/${id}/link`).then(parseApiResponse)
   // 新增：获取相关资源
   const getRelatedResources = (params?: any) => useApiFetch('/resources/related', { params }).then(parseApiResponse)
+  // 新增：检查资源有效性
+  const checkResourceValidity = (id: number) => useApiFetch(`/resources/${id}/validity`).then(parseApiResponse)
+  // 新增：批量检查资源有效性
+  const batchCheckResourceValidity = (ids: number[]) => useApiFetch('/resources/validity/batch', { method: 'POST', body: { ids } }).then(parseApiResponse)
   // 新增：提交举报
   const submitReport = (data: any) => useApiFetch('/reports', { method: 'POST', body: data }).then(parseApiResponse)
   // 新增：提交版权申述
@@ -82,7 +86,7 @@ export const useResourceApi = () => {
   const deleteCopyrightClaim = (id: number) => useApiFetch(`/copyright-claims/${id}`, { method: 'DELETE' }).then(parseApiResponse)
 
   return {
-    getResources, getHotResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink, getRelatedResources,
+    getResources, getHotResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink, getRelatedResources, checkResourceValidity, batchCheckResourceValidity,
     submitReport, submitCopyrightClaim,
     getReports, getReport, updateReport, deleteReport, getReportsRaw,
     getCopyrightClaims, getCopyrightClaim, updateCopyrightClaim, deleteCopyrightClaim

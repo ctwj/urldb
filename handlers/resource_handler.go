@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pan "github.com/ctwj/urldb/common"
+	panutils "github.com/ctwj/urldb/common"
 	commonutils "github.com/ctwj/urldb/common/utils"
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
@@ -1210,6 +1211,282 @@ func GetRelatedResources(c *gin.Context) {
 	}
 
 	SuccessResponse(c, responseData)
+}
+
+// CheckResourceValidity 检查资源链接有效性
+func CheckResourceValidity(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的资源ID", http.StatusBadRequest)
+		return
+	}
+
+	// 查询资源信息
+	resource, err := repoManager.ResourceRepository.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	utils.Info("开始检测资源有效性 - ID: %d, URL: %s", resource.ID, resource.URL)
+
+	// 检查缓存
+	cacheKey := fmt.Sprintf("resource_validity_%d", resource.ID)
+	cacheManager := utils.GetResourceValidityCache()
+	ttl := 5 * time.Minute // 5分钟缓存
+
+	if cachedData, found := cacheManager.Get(cacheKey, ttl); found {
+		if result, ok := cachedData.(gin.H); ok {
+			utils.Info("使用资源有效性缓存 - ID: %d", resource.ID)
+			result["cached"] = true
+			SuccessResponse(c, result)
+			return
+		}
+	}
+
+	// 执行检测：只使用深度检测实现
+	isValid, detectionMethod, err := performAdvancedValidityCheck(resource)
+
+	if err != nil {
+		utils.Error("深度检测资源链接失败 - ID: %d, Error: %v", resource.ID, err)
+
+		// 深度检测失败，但不标记为无效（用户可自行验证）
+		result := gin.H{
+			"resource_id":      resource.ID,
+			"url":             resource.URL,
+			"is_valid":        resource.IsValid, // 保持原始状态
+			"last_checked":    time.Now().Format(time.RFC3339),
+			"error":           err.Error(),
+			"detection_method": detectionMethod,
+			"cached":          false,
+			"note":            "当前网盘暂不支持自动检测，建议用户自行验证",
+		}
+		cacheManager.Set(cacheKey, result)
+		SuccessResponse(c, result)
+		return
+	}
+
+	// 只有明确检测出无效的资源才更新数据库状态
+	// 如果检测成功且结果与数据库状态不同，则更新
+	if detectionMethod == "quark_deep" && isValid != resource.IsValid {
+		resource.IsValid = isValid
+		updateErr := repoManager.ResourceRepository.Update(resource)
+		if updateErr != nil {
+			utils.Error("更新资源有效性状态失败 - ID: %d, Error: %v", resource.ID, updateErr)
+		} else {
+			utils.Info("更新资源有效性状态 - ID: %d, Status: %v, Method: %s", resource.ID, isValid, detectionMethod)
+		}
+	}
+
+	// 构建检测结果
+	result := gin.H{
+		"resource_id":      resource.ID,
+		"url":             resource.URL,
+		"is_valid":        isValid,
+		"last_checked":    time.Now().Format(time.RFC3339),
+		"detection_method": detectionMethod,
+		"cached":          false,
+	}
+
+	// 缓存检测结果
+	cacheManager.Set(cacheKey, result)
+
+	utils.Info("资源有效性检测完成 - ID: %d, Valid: %v, Method: %s", resource.ID, isValid, detectionMethod)
+	SuccessResponse(c, result)
+}
+
+// performAdvancedValidityCheck 执行深度检测（只使用具体网盘服务）
+func performAdvancedValidityCheck(resource *entity.Resource) (bool, string, error) {
+	// 提取分享ID和服务类型
+	shareID, serviceType := panutils.ExtractShareId(resource.URL)
+	if serviceType == panutils.NotFound {
+		return false, "unsupported", fmt.Errorf("不支持的网盘服务: %s", resource.URL)
+	}
+
+	utils.Info("开始深度检测 - Service: %s, ShareID: %s", serviceType.String(), shareID)
+
+	// 根据服务类型选择检测策略
+	switch serviceType {
+	case panutils.Quark:
+		return performQuarkValidityCheck(resource, shareID)
+	case panutils.Alipan:
+		return performAlipanValidityCheck(resource, shareID)
+	case panutils.BaiduPan, panutils.UC, panutils.Xunlei, panutils.Tianyi, panutils.Pan123, panutils.Pan115:
+		// 这些网盘暂未实现深度检测，返回不支持提示
+		return false, "unsupported", fmt.Errorf("当前网盘类型 %s 暂不支持深度检测，请等待后续更新", serviceType.String())
+	default:
+		return false, "unsupported", fmt.Errorf("未知的网盘服务类型: %s", serviceType.String())
+	}
+}
+
+// performQuarkValidityCheck 夸克网盘深度检测
+func performQuarkValidityCheck(resource *entity.Resource, shareID string) (bool, string, error) {
+	// 获取夸克网盘账号
+	panID, err := getQuarkPanID()
+	if err != nil {
+		return false, "quark_failed", fmt.Errorf("获取夸克平台ID失败: %v", err)
+	}
+
+	accounts, err := repoManager.CksRepository.FindByPanID(panID)
+	if err != nil {
+		return false, "quark_failed", fmt.Errorf("获取夸克网盘账号失败: %v", err)
+	}
+
+	if len(accounts) == 0 {
+		return false, "quark_failed", fmt.Errorf("没有可用的夸克网盘账号")
+	}
+
+	// 选择第一个有效账号
+	var selectedAccount *entity.Cks
+	for _, account := range accounts {
+		if account.IsValid {
+			selectedAccount = &account
+			break
+		}
+	}
+
+	if selectedAccount == nil {
+		return false, "quark_failed", fmt.Errorf("没有有效的夸克网盘账号")
+	}
+
+	// 创建网盘服务配置
+	config := &pan.PanConfig{
+		URL:         resource.URL,
+		Code:        "",
+		IsType:      1, // 只获取基本信息，不转存
+		ExpiredType: 1,
+		AdFid:       "",
+		Stoken:      "",
+		Cookie:      selectedAccount.Ck,
+	}
+
+	// 创建夸克网盘服务
+	factory := pan.NewPanFactory()
+	panService, err := factory.CreatePanService(resource.URL, config)
+	if err != nil {
+		return false, "quark_failed", fmt.Errorf("创建夸克网盘服务失败: %v", err)
+	}
+
+	// 执行深度检测（Transfer方法）
+	utils.Info("执行夸克网盘深度检测 - ShareID: %s", shareID)
+	result, err := panService.Transfer(shareID)
+	if err != nil {
+		return false, "quark_failed", fmt.Errorf("夸克网盘检测失败: %v", err)
+	}
+
+	if !result.Success {
+		return false, "quark_failed", fmt.Errorf("夸克网盘链接无效: %s", result.Message)
+	}
+
+	utils.Info("夸克网盘深度检测成功 - ShareID: %s", shareID)
+	return true, "quark_deep", nil
+}
+
+// performAlipanValidityCheck 阿里云盘深度检测
+func performAlipanValidityCheck(resource *entity.Resource, shareID string) (bool, string, error) {
+	// 阿里云盘深度检测暂未实现
+	utils.Info("阿里云盘暂不支持深度检测 - ShareID: %s", shareID)
+	return false, "unsupported", fmt.Errorf("阿里云盘暂不支持深度检测，请等待后续更新")
+}
+
+
+// BatchCheckResourceValidity 批量检查资源链接有效性
+func BatchCheckResourceValidity(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(req.IDs) == 0 {
+		ErrorResponse(c, "ID列表不能为空", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.IDs) > 20 {
+		ErrorResponse(c, "单次最多检测20个资源", http.StatusBadRequest)
+		return
+	}
+
+	utils.Info("开始批量检测资源有效性 - Count: %d", len(req.IDs))
+
+	cacheManager := utils.GetResourceValidityCache()
+	ttl := 5 * time.Minute
+	results := make([]gin.H, 0, len(req.IDs))
+
+	for _, id := range req.IDs {
+		// 查询资源信息
+		resource, err := repoManager.ResourceRepository.FindByID(id)
+		if err != nil {
+			results = append(results, gin.H{
+				"resource_id": id,
+				"is_valid":    false,
+				"error":       "资源不存在",
+				"cached":      false,
+			})
+			continue
+		}
+
+		// 检查缓存
+		cacheKey := fmt.Sprintf("resource_validity_%d", id)
+		if cachedData, found := cacheManager.Get(cacheKey, ttl); found {
+			if result, ok := cachedData.(gin.H); ok {
+				result["cached"] = true
+				results = append(results, result)
+				continue
+			}
+		}
+
+		// 执行深度检测
+		isValid, detectionMethod, err := performAdvancedValidityCheck(resource)
+
+		if err != nil {
+			// 深度检测失败，但不标记为无效（用户可自行验证）
+			result := gin.H{
+				"resource_id":      id,
+				"url":             resource.URL,
+				"is_valid":        resource.IsValid, // 保持原始状态
+				"last_checked":    time.Now().Format(time.RFC3339),
+				"error":           err.Error(),
+				"detection_method": detectionMethod,
+				"cached":          false,
+				"note":            "当前网盘暂不支持自动检测，建议用户自行验证",
+			}
+			cacheManager.Set(cacheKey, result)
+			results = append(results, result)
+			continue
+		}
+
+		// 只有明确检测出无效的资源才更新数据库状态
+		if detectionMethod == "quark_deep" && isValid != resource.IsValid {
+			resource.IsValid = isValid
+			updateErr := repoManager.ResourceRepository.Update(resource)
+			if updateErr != nil {
+				utils.Error("更新资源有效性状态失败 - ID: %d, Error: %v", id, updateErr)
+			}
+		}
+
+		result := gin.H{
+			"resource_id":      id,
+			"url":             resource.URL,
+			"is_valid":        isValid,
+			"last_checked":    time.Now().Format(time.RFC3339),
+			"detection_method": detectionMethod,
+			"cached":          false,
+		}
+
+		cacheManager.Set(cacheKey, result)
+		results = append(results, result)
+	}
+
+	utils.Info("批量检测资源有效性完成 - Count: %d", len(results))
+	SuccessResponse(c, gin.H{
+		"results": results,
+		"total":   len(results),
+	})
 }
 
 // getQuarkPanID 获取夸克网盘ID

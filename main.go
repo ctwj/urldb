@@ -247,6 +247,8 @@ func main() {
 		api.GET("/resources/related", handlers.GetRelatedResources)
 		api.POST("/resources/:id/view", handlers.IncrementResourceViewCount)
 		api.GET("/resources/:id/link", handlers.GetResourceLink)
+		api.GET("/resources/:id/validity", handlers.CheckResourceValidity)
+		api.POST("/resources/validity/batch", handlers.BatchCheckResourceValidity)
 		api.DELETE("/resources/batch", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.BatchDeleteResources)
 
 		// 分类管理

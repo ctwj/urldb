@@ -143,6 +143,9 @@ var (
 
 	// 标签缓存
 	TagsCache = NewCacheManager()
+
+	// 资源有效性检测缓存
+	ResourceValidityCache = NewCacheManager()
 )
 
 // GetHotResourcesCache 获取热门资源缓存管理器
@@ -170,6 +173,11 @@ func GetTagsCache() *CacheManager {
 	return TagsCache
 }
 
+// GetResourceValidityCache 获取资源有效性检测缓存管理器
+func GetResourceValidityCache() *CacheManager {
+	return ResourceValidityCache
+}
+
 // ClearAllCaches 清空所有全局缓存
 func ClearAllCaches() {
 	HotResourcesCache.Clear()
@@ -177,6 +185,7 @@ func ClearAllCaches() {
 	SystemConfigCache.Clear()
 	CategoriesCache.Clear()
 	TagsCache.Clear()
+	ResourceValidityCache.Clear()
 }
 
 // CleanAllExpiredCaches 清理所有过期缓存
@@ -187,6 +196,7 @@ func CleanAllExpiredCaches(ttl time.Duration) {
 	totalCleaned += SystemConfigCache.CleanExpired(ttl)
 	totalCleaned += CategoriesCache.CleanExpired(ttl)
 	totalCleaned += TagsCache.CleanExpired(ttl)
+	totalCleaned += ResourceValidityCache.CleanExpired(ttl)
 
 	if totalCleaned > 0 {
 		Info("清理过期缓存完成，共清理 %d 个缓存项", totalCleaned)
