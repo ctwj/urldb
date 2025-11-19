@@ -21,20 +21,21 @@ type CopyrightClaimUpdateRequest struct {
 
 // CopyrightClaimResponse 版权申述响应
 type CopyrightClaimResponse struct {
-	ID           uint   `json:"id"`
-	ResourceKey  string `json:"resource_key"`
-	Identity     string `json:"identity"`
-	ProofType    string `json:"proof_type"`
-	Reason       string `json:"reason"`
-	ContactInfo  string `json:"contact_info"`
-	ClaimantName string `json:"claimant_name"`
-	ProofFiles   string `json:"proof_files"`
-	UserAgent    string `json:"user_agent"`
-	IPAddress    string `json:"ip_address"`
-	Status       string `json:"status"`
-	Note         string `json:"note"`
-	CreatedAt    string `json:"created_at"`
-	UpdatedAt    string `json:"updated_at"`
+	ID           uint          `json:"id"`
+	ResourceKey  string        `json:"resource_key"`
+	Identity     string        `json:"identity"`
+	ProofType    string        `json:"proof_type"`
+	Reason       string        `json:"reason"`
+	ContactInfo  string        `json:"contact_info"`
+	ClaimantName string        `json:"claimant_name"`
+	ProofFiles   string        `json:"proof_files"`
+	UserAgent    string        `json:"user_agent"`
+	IPAddress    string        `json:"ip_address"`
+	Status       string        `json:"status"`
+	Note         string        `json:"note"`
+	CreatedAt    string        `json:"created_at"`
+	UpdatedAt    string        `json:"updated_at"`
+	Resources    []ResourceInfo `json:"resources"`
 }
 
 // CopyrightClaimListRequest 版权申述列表请求

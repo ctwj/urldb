@@ -7,6 +7,7 @@ import (
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
+	"github.com/ctwj/urldb/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -15,12 +16,14 @@ import (
 
 type CopyrightClaimHandler struct {
 	copyrightClaimRepo repo.CopyrightClaimRepository
+	resourceRepo       repo.ResourceRepository
 	validate           *validator.Validate
 }
 
-func NewCopyrightClaimHandler(copyrightClaimRepo repo.CopyrightClaimRepository) *CopyrightClaimHandler {
+func NewCopyrightClaimHandler(copyrightClaimRepo repo.CopyrightClaimRepository, resourceRepo repo.ResourceRepository) *CopyrightClaimHandler {
 	return &CopyrightClaimHandler{
 		copyrightClaimRepo: copyrightClaimRepo,
+		resourceRepo:       resourceRepo,
 		validate:           validator.New(),
 	}
 }
@@ -144,7 +147,38 @@ func (h *CopyrightClaimHandler) ListCopyrightClaims(c *gin.Context) {
 		return
 	}
 
-	PageResponse(c, converter.CopyrightClaimsToResponse(claims), total, req.Page, req.PageSize)
+	// 转换为包含资源信息的响应
+	var responses []*dto.CopyrightClaimResponse
+	for _, claim := range claims {
+		// 查询关联的资源信息
+		resources, err := h.getResourcesByResourceKey(claim.ResourceKey)
+		if err != nil {
+			// 如果查询资源失败，使用空资源列表
+			responses = append(responses, converter.CopyrightClaimToResponse(claim))
+		} else {
+			// 使用包含资源详情的转换函数
+			responses = append(responses, converter.CopyrightClaimToResponseWithResources(claim, resources))
+		}
+	}
+
+	PageResponse(c, responses, total, req.Page, req.PageSize)
+}
+
+// getResourcesByResourceKey 根据资源key获取关联的资源列表
+func (h *CopyrightClaimHandler) getResourcesByResourceKey(resourceKey string) ([]*entity.Resource, error) {
+	// 从资源仓库获取与key关联的所有资源
+	resources, err := h.resourceRepo.FindByResourceKey(resourceKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// 将 []entity.Resource 转换为 []*entity.Resource
+	var resourcePointers []*entity.Resource
+	for i := range resources {
+		resourcePointers = append(resourcePointers, &resources[i])
+	}
+
+	return resourcePointers, nil
 }
 
 // UpdateCopyrightClaim 更新版权申述状态
@@ -263,16 +297,16 @@ func (h *CopyrightClaimHandler) GetCopyrightClaimByResource(c *gin.Context) {
 }
 
 // RegisterCopyrightClaimRoutes 注册版权申述相关路由
-func RegisterCopyrightClaimRoutes(router *gin.RouterGroup, copyrightClaimRepo repo.CopyrightClaimRepository) {
-	handler := NewCopyrightClaimHandler(copyrightClaimRepo)
+func RegisterCopyrightClaimRoutes(router *gin.RouterGroup, copyrightClaimRepo repo.CopyrightClaimRepository, resourceRepo repo.ResourceRepository) {
+	handler := NewCopyrightClaimHandler(copyrightClaimRepo, resourceRepo)
 
 	claims := router.Group("/copyright-claims")
 	{
 		claims.POST("", handler.CreateCopyrightClaim)                    // 创建版权申述
 		claims.GET("/:id", handler.GetCopyrightClaim)                    // 获取版权申述详情
-		claims.GET("", handler.ListCopyrightClaims)                      // 获取版权申述列表
-		claims.PUT("/:id", handler.UpdateCopyrightClaim)                 // 更新版权申述状态
-		claims.DELETE("/:id", handler.DeleteCopyrightClaim)              // 删除版权申述
+		claims.GET("", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handler.ListCopyrightClaims)                      // 获取版权申述列表
+		claims.PUT("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handler.UpdateCopyrightClaim)                 // 更新版权申述状态
+		claims.DELETE("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handler.DeleteCopyrightClaim)              // 删除版权申述
 		claims.GET("/resource/:resource_key", handler.GetCopyrightClaimByResource) // 获取资源版权申述列表
 	}
 }

@@ -213,7 +213,7 @@ func main() {
 
 	// 创建举报和版权申述处理器
 	reportHandler := handlers.NewReportHandler(repoManager.ReportRepository, repoManager.ResourceRepository)
-	copyrightClaimHandler := handlers.NewCopyrightClaimHandler(repoManager.CopyrightClaimRepository)
+	copyrightClaimHandler := handlers.NewCopyrightClaimHandler(repoManager.CopyrightClaimRepository, repoManager.ResourceRepository)
 
 	// API路由
 	api := r.Group("/api")
