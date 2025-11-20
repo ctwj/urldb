@@ -56,22 +56,18 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// logRequest 记录请求日志 - 优化后仅记录异常和关键请求
+// logRequest 记录请求日志 - 恢复正常请求日志记录
 func logRequest(r *http.Request, rw *responseWriter, duration time.Duration, requestBody []byte) {
 	// 获取客户端IP
 	clientIP := getClientIP(r)
 
-	// 判断是否需要记录日志的条件
-	shouldLog := rw.statusCode >= 400 || // 错误状态码
+	// 判断是否需要详细记录日志的条件
+	shouldDetailLog := rw.statusCode >= 400 || // 错误状态码
 		duration > 5*time.Second || // 耗时过长
 		shouldLogPath(r.URL.Path) || // 关键路径
 		isAdminPath(r.URL.Path) // 管理员路径
 
-	if !shouldLog {
-		return // 正常请求不记录日志，减少日志噪音
-	}
-
-	// 简化的日志格式，移除User-Agent以减少噪音
+	// 所有API请求都记录基本信息，但详细日志只记录重要请求
 	if rw.statusCode >= 400 {
 		// 错误请求记录详细信息
 		utils.Error("HTTP异常 - %s %s - IP: %s - 状态码: %d - 耗时: %v",
@@ -85,10 +81,14 @@ func logRequest(r *http.Request, rw *responseWriter, duration time.Duration, req
 		// 慢请求警告
 		utils.Warn("HTTP慢请求 - %s %s - IP: %s - 耗时: %v",
 			r.Method, r.URL.Path, clientIP, duration)
-	} else {
+	} else if shouldDetailLog {
 		// 关键路径的正常请求
 		utils.Info("HTTP关键请求 - %s %s - IP: %s - 状态码: %d - 耗时: %v",
 			r.Method, r.URL.Path, clientIP, rw.statusCode, duration)
+	} else {
+		// 普通API请求记录简化日志 - 使用Info级别确保能被看到
+		// utils.Info("HTTP请求 - %s %s - 状态码: %d - 耗时: %v",
+		// 	r.Method, r.URL.Path, rw.statusCode, duration)
 	}
 }
 
@@ -100,6 +100,13 @@ func shouldLogPath(path string) bool {
 		"/api/admin/config",
 		"/api/admin/users",
 		"/telegram/webhook",
+		"/api/resources",
+		"/api/version",
+		"/api/cks",
+		"/api/pans",
+		"/api/categories",
+		"/api/tags",
+		"/api/tasks",
 	}
 
 	for _, keyPath := range keyPaths {
@@ -113,7 +120,7 @@ func shouldLogPath(path string) bool {
 // isAdminPath 判断是否为管理员路径
 func isAdminPath(path string) bool {
 	return strings.HasPrefix(path, "/api/admin/") ||
-		   strings.HasPrefix(path, "/admin/")
+		strings.HasPrefix(path, "/admin/")
 }
 
 // getClientIP 获取客户端真实IP地址

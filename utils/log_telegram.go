@@ -28,23 +28,40 @@ func GetTelegramLogs(startTime *time.Time, endTime *time.Time, limit int) ([]Tel
 		return []TelegramLogEntry{}, nil
 	}
 
-	files, err := filepath.Glob(filepath.Join(logDir, "app_*.log"))
+	// 查找所有日志文件，包括当前的app.log和历史日志文件
+	allFiles, err := filepath.Glob(filepath.Join(logDir, "*.log"))
 	if err != nil {
 		return nil, fmt.Errorf("查找日志文件失败: %v", err)
 	}
 
-	if len(files) == 0 {
+	if len(allFiles) == 0 {
 		return []TelegramLogEntry{}, nil
 	}
 
-	// 按时间排序，最近的在前面
-	sort.Sort(sort.Reverse(sort.StringSlice(files)))
+	// 将app.log放在最前面，其他文件按时间排序
+	var files []string
+	var otherFiles []string
+
+	for _, file := range allFiles {
+		if filepath.Base(file) == "app.log" {
+			files = append(files, file) // 当前日志文件优先
+		} else {
+			otherFiles = append(otherFiles, file)
+		}
+	}
+
+	// 其他文件按时间排序，最近的在前面
+	sort.Sort(sort.Reverse(sort.StringSlice(otherFiles)))
+	files = append(files, otherFiles...)
+
+	// files现在已经是app.log优先，然后是其他文件按时间倒序排列
 
 	var allEntries []TelegramLogEntry
 
 	// 编译Telegram相关的正则表达式
 	telegramRegex := regexp.MustCompile(`(?i)(\[TELEGRAM.*?\])`)
-	messageRegex := regexp.MustCompile(`\[(\w+)\]\s+(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[.*?\]\s+(.*)`)
+	// 修正正则表达式以匹配实际的日志格式: 2025/01/20 14:30:15 [INFO] [file:line] [TELEGRAM] message
+	messageRegex := regexp.MustCompile(`(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\s+\[(\w+)\]\s+\[.*?:\d+\]\s+\[TELEGRAM.*?\]\s+(.*)`)
 
 	for _, file := range files {
 		entries, err := parseTelegramLogsFromFile(file, telegramRegex, messageRegex, startTime, endTime)
@@ -119,18 +136,23 @@ func parseTelegramLogsFromFile(filePath string, telegramRegex, messageRegex *reg
 
 // parseLogLine 解析单行日志
 func parseLogLine(line string, messageRegex *regexp.Regexp) (TelegramLogEntry, error) {
-	// 匹配日志格式: [LEVEL] 2006/01/02 15:04:05 [file:line] message
+	// 匹配日志格式: 2006/01/02 15:04:05 [LEVEL] [file:line] [TELEGRAM] message
 	matches := messageRegex.FindStringSubmatch(line)
 	if len(matches) < 4 {
 		return TelegramLogEntry{}, fmt.Errorf("无法解析日志行: %s", line)
 	}
 
-	level := matches[1]
-	timeStr := matches[2]
+	timeStr := matches[1]
+	level := matches[2]
 	message := matches[3]
 
-	// 解析时间
-	timestamp, err := time.Parse("2006/01/02 15:04:05", timeStr)
+	// 解析时间（使用本地时区）
+	location, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return TelegramLogEntry{}, fmt.Errorf("加载时区失败: %v", err)
+	}
+
+	timestamp, err := time.ParseInLocation("2006/01/02 15:04:05", timeStr, location)
 	if err != nil {
 		return TelegramLogEntry{}, fmt.Errorf("时间解析失败: %v", err)
 	}
@@ -203,7 +225,7 @@ func ClearOldTelegramLogs(daysToKeep int) error {
 		return nil // 日志目录不存在，无需清理
 	}
 
-	files, err := filepath.Glob(filepath.Join(logDir, "app_*.log"))
+	files, err := filepath.Glob(filepath.Join(logDir, "*.log"))
 	if err != nil {
 		return fmt.Errorf("查找日志文件失败: %v", err)
 	}

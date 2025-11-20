@@ -154,14 +154,7 @@
                     <i class="fas" :class="isDetecting ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
                     <span class="hidden sm:inline">{{ isDetecting ? '检测中' : '链接检测' }}</span>
                   </button>
-                  <!-- 分享按钮 -->
-                  <ShareButtons
-                    :title="mainResource?.title"
-                    :description="mainResource?.description"
-                    :url="getResourceUrl"
-                    :tags="mainResource?.tags?.map(tag => tag.name)"
-                  />
-                </div>
+                                  </div>
               </div>
 
               <div class="space-y-3">
