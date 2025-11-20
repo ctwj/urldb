@@ -301,25 +301,35 @@
       </div>
     </div>
   </div>
+
+  <!-- 开发环境缓存信息组件 -->
+  <SystemConfigCacheInfo />
 </template>
 
 <script setup lang="ts">
 // 获取运行时配置
 const config = useRuntimeConfig()
 
-import { useResourceApi, useStatsApi, usePanApi, useSystemConfigApi, usePublicSystemConfigApi, useSearchStatsApi } from '~/composables/useApi'
+import { useResourceApi, useStatsApi, usePanApi, useSearchStatsApi } from '~/composables/useApi'
+import SystemConfigCacheInfo from '~/components/SystemConfigCacheInfo.vue'
 
 const resourceApi = useResourceApi()
 const statsApi = useStatsApi()
 const panApi = usePanApi()
-const publicSystemConfigApi = usePublicSystemConfigApi()
 
 // 路由参数已通过自动导入提供，直接使用
 const route = useRoute()
 const router = useRouter()
 
-// 页面元数据 - 使用系统配置的标题
-const { data: systemConfigData } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
+// 使用系统配置Store（带缓存支持）
+const { useSystemConfigStore } = await import('~/stores/systemConfig')
+const systemConfigStore = useSystemConfigStore()
+
+// 初始化系统配置（会自动使用缓存）
+await systemConfigStore.initConfig()
+
+// 检查并自动刷新即将过期的缓存
+await systemConfigStore.checkAndRefreshCache()
 
 // 获取平台名称的辅助函数
 const getPlatformName = (platformId: string) => {
@@ -329,12 +339,11 @@ const getPlatformName = (platformId: string) => {
   return platform?.name || ''
 }
 
-// 动态生成页面标题和meta信息 - 修复安全访问问题
+// 动态生成页面标题和meta信息 - 使用缓存的系统配置
 const pageTitle = computed(() => {
   try {
-    const config = systemConfigData.value as any
-    const siteTitle = (config?.data?.site_title) ? config.data.site_title :
-                      (config?.site_title) ? config.site_title : '老九网盘资源数据库'
+    const config = systemConfigStore.config
+    const siteTitle = config?.site_title || '老九网盘资源数据库'
     const searchKeyword = (route.query?.search) ? route.query.search as string : ''
     const platformId = (route.query?.platform) ? route.query.platform as string : ''
     const platformName = getPlatformName(platformId)
@@ -360,9 +369,8 @@ const pageTitle = computed(() => {
 
 const pageDescription = computed(() => {
   try {
-    const config = systemConfigData.value as any
-    const baseDescription = (config?.data?.site_description) ? config.data.site_description :
-                           (config?.site_description) ? config.site_description : '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘'
+    const config = systemConfigStore.config
+    const baseDescription = config?.site_description || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘'
 
     const searchKeyword = (route.query && route.query.search) ? route.query.search as string : ''
     const platformId = (route.query && route.query.platform) ? route.query.platform as string : ''
@@ -388,9 +396,8 @@ const pageDescription = computed(() => {
 
 const pageKeywords = computed(() => {
   try {
-    const config = systemConfigData.value as any
-    const baseKeywords = (config?.data?.keywords) ? config.data.keywords :
-                        (config?.keywords) ? config.keywords : '网盘资源,资源管理,数据库'
+    const config = systemConfigStore.config
+    const baseKeywords = config?.keywords || '网盘资源,资源管理,数据库'
 
     const searchKeyword = (route.query && route.query.search) ? route.query.search as string : ''
     const platformId = (route.query && route.query.platform) ? route.query.platform as string : ''
@@ -474,7 +481,7 @@ onBeforeMount(async () => {
 
 // 监听路由变化和系统配置数据，当搜索条件或配置改变时更新SEO
 watch(
-  () => [route.query?.search, route.query?.platform, systemConfigData.value],
+  () => [route.query?.search, route.query?.platform, systemConfigStore.config],
   () => {
     // 使用nextTick确保响应式数据已更新
     nextTick(() => {
@@ -626,7 +633,7 @@ const safeResources = computed(() => {
 })
 const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_resources: 0 })
 const platforms = computed(() => (platformsData.value as any) || [])
-const systemConfig = computed(() => (systemConfigData.value as any)?.data || { site_title: '老九网盘资源数据库' })
+const systemConfig = computed(() => systemConfigStore.config || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
 
 

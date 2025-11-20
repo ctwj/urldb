@@ -353,10 +353,16 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			response["telegram_qr_image"] = config.Value
 		case entity.ConfigKeyQrCodeStyle:
 			response["qr_code_style"] = config.Value
-		// 跳过不需要返回给公众的配置
 		case entity.ConfigKeyAutoProcessReadyResources:
-		case entity.ConfigKeyAutoProcessInterval:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response["auto_process_ready_resources"] = val
+			}
 		case entity.ConfigKeyAutoTransferEnabled:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response["auto_transfer_enabled"] = val
+			}
+		// 跳过不需要返回给公众的配置
+		case entity.ConfigKeyAutoProcessInterval:
 		case entity.ConfigKeyAutoTransferLimitDays:
 		case entity.ConfigKeyAutoTransferMinSpace:
 		case entity.ConfigKeyAutoFetchHotDramaEnabled:

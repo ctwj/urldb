@@ -483,6 +483,9 @@
       </div>
     </div>
   </div>
+
+  <!-- 开发环境缓存信息组件 -->
+  <SystemConfigCacheInfo />
 </template>
 
 <script setup lang="ts">
@@ -495,6 +498,7 @@ import { useNotification } from 'naive-ui'
 
 // 导入API
 import { useResourceApi } from '~/composables/useApi'
+import SystemConfigCacheInfo from '~/components/SystemConfigCacheInfo.vue'
 
 // 导入组件
 import SearchButton from '~/components/SearchButton.vue'
@@ -527,8 +531,17 @@ const hotResources = ref<any[]>([])
 const hotResourcesLoading = ref(true)
 
 // 获取系统配置
-const { data: systemConfigData } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
-const systemConfig = computed(() => (systemConfigData.value as any)?.data || { site_title: '老九网盘资源数据库' })
+// 使用系统配置Store（带缓存支持）
+const { useSystemConfigStore } = await import('~/stores/systemConfig')
+const systemConfigStore = useSystemConfigStore()
+
+// 初始化系统配置（会自动使用缓存）
+await systemConfigStore.initConfig()
+
+// 检查并自动刷新即将过期的缓存
+await systemConfigStore.checkAndRefreshCache()
+
+const systemConfig = computed(() => systemConfigStore.config || { site_title: '老九网盘资源数据库' })
 
 // 获取资源数据
 const { data: resourcesData, error: resourcesError } = await useAsyncData(
