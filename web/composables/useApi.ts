@@ -47,7 +47,9 @@ export const parseApiResponse = <T>(response: any): T => {
 
 export const useResourceApi = () => {
   const getResources = (params?: any) => useApiFetch('/resources', { params }).then(parseApiResponse)
+  const getHotResources = (params?: any) => useApiFetch('/resources/hot', { params }).then(parseApiResponse)
   const getResource = (id: number) => useApiFetch(`/resources/${id}`).then(parseApiResponse)
+  const getResourcesByKey = (key: string) => useApiFetch(`/resources/key/${key}`).then(parseApiResponse)
   const createResource = (data: any) => useApiFetch('/resources', { method: 'POST', body: data }).then(parseApiResponse)
   const updateResource = (id: number, data: any) => useApiFetch(`/resources/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteResource = (id: number) => useApiFetch(`/resources/${id}`, { method: 'DELETE' }).then(parseApiResponse)
@@ -59,7 +61,36 @@ export const useResourceApi = () => {
   const batchDeleteResources = (ids: number[]) => useApiFetch('/resources/batch', { method: 'DELETE', body: { ids } }).then(parseApiResponse)
   // 新增：获取资源链接（智能转存）
   const getResourceLink = (id: number) => useApiFetch(`/resources/${id}/link`).then(parseApiResponse)
-  return { getResources, getResource, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink }
+  // 新增：获取相关资源
+  const getRelatedResources = (params?: any) => useApiFetch('/resources/related', { params }).then(parseApiResponse)
+  // 新增：检查资源有效性
+  const checkResourceValidity = (id: number) => useApiFetch(`/resources/${id}/validity`).then(parseApiResponse)
+  // 新增：批量检查资源有效性
+  const batchCheckResourceValidity = (ids: number[]) => useApiFetch('/resources/validity/batch', { method: 'POST', body: { ids } }).then(parseApiResponse)
+  // 新增：提交举报
+  const submitReport = (data: any) => useApiFetch('/reports', { method: 'POST', body: data }).then(parseApiResponse)
+  // 新增：提交版权申述
+  const submitCopyrightClaim = (data: any) => useApiFetch('/copyright-claims', { method: 'POST', body: data }).then(parseApiResponse)
+
+  // 新增：管理后台举报相关API
+  const getReportsRaw = (params?: any) => useApiFetch('/reports', { params })
+  const getReports = (params?: any) => getReportsRaw(params).then(parseApiResponse)
+  const getReport = (id: number) => useApiFetch(`/reports/${id}`).then(parseApiResponse)
+  const updateReport = (id: number, data: any) => useApiFetch(`/reports/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteReport = (id: number) => useApiFetch(`/reports/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+
+  // 新增：管理后台版权申述相关API
+  const getCopyrightClaims = (params?: any) => useApiFetch('/copyright-claims', { params }).then(parseApiResponse)
+  const getCopyrightClaim = (id: number) => useApiFetch(`/copyright-claims/${id}`).then(parseApiResponse)
+  const updateCopyrightClaim = (id: number, data: any) => useApiFetch(`/copyright-claims/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deleteCopyrightClaim = (id: number) => useApiFetch(`/copyright-claims/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+
+  return {
+    getResources, getHotResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink, getRelatedResources, checkResourceValidity, batchCheckResourceValidity,
+    submitReport, submitCopyrightClaim,
+    getReports, getReport, updateReport, deleteReport, getReportsRaw,
+    getCopyrightClaims, getCopyrightClaim, updateCopyrightClaim, deleteCopyrightClaim
+  }
 }
 
 export const useAuthApi = () => {
@@ -368,5 +399,30 @@ export const useWechatApi = () => {
     updateBotConfig,
     getBotStatus,
     uploadVerifyFile
+  }
+}
+
+// 统一API访问函数
+export const useApi = () => {
+  return {
+    resourceApi: useResourceApi(),
+    authApi: useAuthApi(),
+    categoryApi: useCategoryApi(),
+    panApi: usePanApi(),
+    cksApi: useCksApi(),
+    tagApi: useTagApi(),
+    readyResourceApi: useReadyResourceApi(),
+    statsApi: useStatsApi(),
+    searchStatsApi: useSearchStatsApi(),
+    systemConfigApi: useSystemConfigApi(),
+    hotDramaApi: useHotDramaApi(),
+    monitorApi: useMonitorApi(),
+    userApi: useUserApi(),
+    taskApi: useTaskApi(),
+    telegramApi: useTelegramApi(),
+    meilisearchApi: useMeilisearchApi(),
+    apiAccessLogApi: useApiAccessLogApi(),
+    systemLogApi: useSystemLogApi(),
+    wechatApi: useWechatApi()
   }
 }

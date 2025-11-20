@@ -26,6 +26,9 @@ importers:
       '@vicons/ionicons5':
         specifier: ^0.12.0
         version: 0.12.0
+      '@vueuse/core':
+        specifier: ^14.0.0
+        version: 14.0.0(vue@3.5.18(typescript@5.8.3))
       chart.js:
         specifier: ^4.5.0
         version: 4.5.0
@@ -74,7 +77,7 @@ importers:
         version: 5.8.3
       unplugin-auto-import:
         specifier: ^19.3.0
-        version: 19.3.0(@nuxt/kit@3.17.7(magicast@0.3.5))
+        version: 19.3.0(@nuxt/kit@3.17.7(magicast@0.3.5))(@vueuse/core@14.0.0(vue@3.5.18(typescript@5.8.3)))
       unplugin-vue-components:
         specifier: ^28.8.0
         version: 28.8.0(@babel/parser@7.28.0)(@nuxt/kit@3.17.7(magicast@0.3.5))(vue@3.5.18(typescript@5.8.3))
@@ -1265,6 +1268,9 @@ packages:
   '@types/uglify-js@3.17.5':
     resolution: {integrity: sha512-TU+fZFBTBcXj/GpDpDaBmgWk/gn96kMZ+uocaFUlV2f8a6WdMzzI44QBCmGcCiYR0Y6ZlNRiyUyKKt5nl/lbzQ==}
 
+  '@types/web-bluetooth@0.0.21':
+    resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
+
   '@types/webpack-bundle-analyzer@3.9.5':
     resolution: {integrity: sha512-QlyDyX7rsOIJHASzXWlih8DT9fR+XCG9cwIV/4pKrtScdHv4XFshdEf/7iiqLqG0lzWcoBdzG8ylMHQ5XLNixw==}
 
@@ -1400,6 +1406,19 @@ packages:
 
   '@vue/shared@3.5.18':
     resolution: {integrity: sha512-cZy8Dq+uuIXbxCZpuLd2GJdeSO/lIzIspC2WtkqIpje5QyFbvLaI5wZtdUjLHjGZrlVX6GilejatWwVYYRc8tA==}
+
+  '@vueuse/core@14.0.0':
+    resolution: {integrity: sha512-d6tKRWkZE8IQElX2aHBxXOMD478fHIYV+Dzm2y9Ag122ICBpNKtGICiXKOhWU3L1kKdttDD9dCMS4bGP3jhCTQ==}
+    peerDependencies:
+      vue: ^3.5.0
+
+  '@vueuse/metadata@14.0.0':
+    resolution: {integrity: sha512-6yoGqbJcMldVCevkFiHDBTB1V5Hq+G/haPlGIuaFZHpXC0HADB0EN1ryQAAceiW+ryS3niUwvdFbGiqHqBrfVA==}
+
+  '@vueuse/shared@14.0.0':
+    resolution: {integrity: sha512-mTCA0uczBgurRlwVaQHfG0Ja7UdGe4g9mwffiJmvLiTtp1G4AQyIjej6si/k8c8pUwTfVpNufck+23gXptPAkw==}
+    peerDependencies:
+      vue: ^3.5.0
 
   '@webassemblyjs/ast@1.14.1':
     resolution: {integrity: sha512-nuBEDgQfm1ccRp/8bCQrx1frohyufl4JlbMMZ4P1wpeOfDhF6FQkxZJ1b/e+PLwr6X1Nhw6OLme5usuBWYBvuQ==}
@@ -5904,6 +5923,8 @@ snapshots:
     dependencies:
       source-map: 0.6.1
 
+  '@types/web-bluetooth@0.0.21': {}
+
   '@types/webpack-bundle-analyzer@3.9.5':
     dependencies:
       '@types/webpack': 4.41.40
@@ -6132,6 +6153,19 @@ snapshots:
       vue: 3.5.18(typescript@5.8.3)
 
   '@vue/shared@3.5.18': {}
+
+  '@vueuse/core@14.0.0(vue@3.5.18(typescript@5.8.3))':
+    dependencies:
+      '@types/web-bluetooth': 0.0.21
+      '@vueuse/metadata': 14.0.0
+      '@vueuse/shared': 14.0.0(vue@3.5.18(typescript@5.8.3))
+      vue: 3.5.18(typescript@5.8.3)
+
+  '@vueuse/metadata@14.0.0': {}
+
+  '@vueuse/shared@14.0.0(vue@3.5.18(typescript@5.8.3))':
+    dependencies:
+      vue: 3.5.18(typescript@5.8.3)
 
   '@webassemblyjs/ast@1.14.1':
     dependencies:
@@ -9257,7 +9291,7 @@ snapshots:
     dependencies:
       normalize-path: 2.1.1
 
-  unplugin-auto-import@19.3.0(@nuxt/kit@3.17.7(magicast@0.3.5)):
+  unplugin-auto-import@19.3.0(@nuxt/kit@3.17.7(magicast@0.3.5))(@vueuse/core@14.0.0(vue@3.5.18(typescript@5.8.3))):
     dependencies:
       local-pkg: 1.1.1
       magic-string: 0.30.17
@@ -9267,6 +9301,7 @@ snapshots:
       unplugin-utils: 0.2.4
     optionalDependencies:
       '@nuxt/kit': 3.17.7(magicast@0.3.5)
+      '@vueuse/core': 14.0.0(vue@3.5.18(typescript@5.8.3))
 
   unplugin-utils@0.2.4:
     dependencies:

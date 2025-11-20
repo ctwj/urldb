@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useRoute } from '#imports'
+import { usePublicSystemConfigApi } from './useApi'
 
 interface SystemConfig {
   id: number
@@ -60,19 +61,28 @@ export const useSeo = () => {
   }
 
   // 生成动态OG图片URL
-  const generateOgImageUrl = (title: string, description?: string, theme: string = 'default') => {
+  const generateOgImageUrl = (keyOrTitle: string, descriptionOrEmpty: string = '', theme: string = 'default') => {
     // 获取运行时配置
     const config = useRuntimeConfig()
     const ogApiUrl = config.public.ogApiUrl || '/api/og-image'
 
     // 构建URL参数
     const params = new URLSearchParams()
-    params.set('title', title)
 
-    if (description) {
-      // 限制描述长度
-      const trimmedDesc = description.length > 200 ? description.substring(0, 200) + '...' : description
-      params.set('description', trimmedDesc)
+    // 检测第一个参数是key还是title（通过长度和格式判断）
+    // 如果是较短的字符串且符合key格式（通常是字母数字组合），则当作key处理
+    if (keyOrTitle.length <= 50 && /^[a-zA-Z0-9_-]+$/.test(keyOrTitle)) {
+      // 作为key参数使用
+      params.set('key', keyOrTitle)
+    } else {
+      // 作为title参数使用
+      params.set('title', keyOrTitle)
+
+      if (descriptionOrEmpty) {
+        // 限制描述长度
+        const trimmedDesc = descriptionOrEmpty.length > 200 ? descriptionOrEmpty.substring(0, 200) + '...' : descriptionOrEmpty
+        params.set('description', trimmedDesc)
+      }
     }
 
     params.set('site_name', (systemConfig.value && systemConfig.value.site_title) || '老九网盘资源数据库')
@@ -117,9 +127,12 @@ export const useSeo = () => {
       dynamicKeywords = `${searchKeyword},${meta.keywords}`
     }
 
-    // 生成动态OG图片URL
-    const theme = searchKeyword ? 'blue' : platformId ? 'green' : 'default'
-    const ogImageUrl = generateOgImageUrl(title, dynamicDescription, theme)
+    // 生成动态OG图片URL，支持自定义OG图片
+    let ogImageUrl = customMeta?.ogImage
+    if (!ogImageUrl) {
+      const theme = searchKeyword ? 'blue' : platformId ? 'green' : 'default'
+      ogImageUrl = generateOgImageUrl(title, dynamicDescription, theme)
+    }
 
     return {
       title,

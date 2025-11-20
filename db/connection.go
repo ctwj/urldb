@@ -109,6 +109,8 @@ func InitDB() error {
 			&entity.APIAccessLog{},
 			&entity.APIAccessLogStats{},
 			&entity.APIAccessLogSummary{},
+			&entity.Report{},
+			&entity.CopyrightClaim{},
 		)
 		if err != nil {
 			utils.Fatal("数据库迁移失败: %v", err)

@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	pan "github.com/ctwj/urldb/common"
+	panutils "github.com/ctwj/urldb/common"
 	commonutils "github.com/ctwj/urldb/common/utils"
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
@@ -162,6 +165,7 @@ func GetResources(c *gin.Context) {
 
 		resourceResponse := gin.H{
 			"id":          processedResource.ID,
+			"key":         processedResource.Key, // 添加key字段
 			"title":       forbiddenInfo.ProcessedTitle, // 使用处理后的标题
 			"url":         processedResource.URL,
 			"description": forbiddenInfo.ProcessedDesc, // 使用处理后的描述
@@ -221,6 +225,51 @@ func GetResourceByID(c *gin.Context) {
 
 	response := converter.ToResourceResponse(resource)
 	SuccessResponse(c, response)
+}
+
+// GetResourcesByKey 根据Key获取资源组
+func GetResourcesByKey(c *gin.Context) {
+	key := c.Param("key")
+	if key == "" {
+		ErrorResponse(c, "Key参数不能为空", http.StatusBadRequest)
+		return
+	}
+
+	resources, err := repoManager.ResourceRepository.FindByKey(key)
+	if err != nil {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	if len(resources) == 0 {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	// 转换为响应格式并处理违禁词
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{}
+	}
+
+	var responses []dto.ResourceResponse
+	for _, resource := range resources {
+		response := converter.ToResourceResponse(&resource)
+		// 检查违禁词
+		forbiddenInfo := utils.CheckResourceForbiddenWords(response.Title, response.Description, cleanWords)
+		response.HasForbiddenWords = forbiddenInfo.HasForbiddenWords
+		response.ForbiddenWords = forbiddenInfo.ForbiddenWords
+		responses = append(responses, response)
+	}
+
+	SuccessResponse(c, gin.H{
+		"resources": responses,
+		"total":     len(responses),
+		"key":       key,
+	})
 }
 
 // CheckResourceExists 检查资源是否存在（测试FindExists函数）
@@ -853,6 +902,591 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 		SaveURL: saveURL,
 		Fid:     fid,
 	}
+}
+
+// GetHotResources 获取热门资源
+func GetHotResources(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	utils.Info("获取热门资源请求 - limit: %d", limit)
+
+	// 限制最大请求数量
+	if limit > 20 {
+		limit = 20
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// 使用公共缓存机制
+	cacheKey := fmt.Sprintf("hot_resources_%d", limit)
+	ttl := time.Hour // 1小时缓存
+	cacheManager := utils.GetHotResourcesCache()
+
+	// 尝试从缓存获取
+	if cachedData, found := cacheManager.Get(cacheKey, ttl); found {
+		utils.Info("使用热门资源缓存 - key: %s", cacheKey)
+		c.Header("Cache-Control", "public, max-age=3600")
+		c.Header("ETag", fmt.Sprintf("hot-resources-%d", len(cachedData.([]gin.H))))
+
+		// 转换为正确的类型
+		if data, ok := cachedData.([]gin.H); ok {
+			SuccessResponse(c, gin.H{
+				"data":    data,
+				"total":   len(data),
+				"limit":   limit,
+				"cached":  true,
+			})
+		}
+		return
+	}
+
+	// 缓存未命中，从数据库获取
+	resources, err := repoManager.ResourceRepository.GetHotResources(limit)
+	if err != nil {
+		utils.Error("获取热门资源失败: %v", err)
+		ErrorResponse(c, "获取热门资源失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 获取违禁词配置
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{}
+	}
+
+	// 处理违禁词并转换为响应格式
+	var resourceResponses []gin.H
+	for _, resource := range resources {
+		// 检查违禁词
+		forbiddenInfo := utils.CheckResourceForbiddenWords(resource.Title, resource.Description, cleanWords)
+
+		resourceResponse := gin.H{
+			"id":          resource.ID,
+			"key":         resource.Key,
+			"title":       forbiddenInfo.ProcessedTitle,
+			"url":         resource.URL,
+			"description": forbiddenInfo.ProcessedDesc,
+			"pan_id":      resource.PanID,
+			"view_count":  resource.ViewCount,
+			"created_at":  resource.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  resource.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"cover":       resource.Cover,
+			"author":      resource.Author,
+			"file_size":   resource.FileSize,
+		}
+
+		// 添加违禁词标记
+		resourceResponse["has_forbidden_words"] = forbiddenInfo.HasForbiddenWords
+		resourceResponse["forbidden_words"] = forbiddenInfo.ForbiddenWords
+
+		// 添加标签信息
+		var tagResponses []gin.H
+		if len(resource.Tags) > 0 {
+			for _, tag := range resource.Tags {
+				tagResponse := gin.H{
+					"id":          tag.ID,
+					"name":        tag.Name,
+					"description": tag.Description,
+				}
+				tagResponses = append(tagResponses, tagResponse)
+			}
+		}
+		resourceResponse["tags"] = tagResponses
+
+		resourceResponses = append(resourceResponses, resourceResponse)
+	}
+
+	// 存储到缓存
+	cacheManager.Set(cacheKey, resourceResponses)
+	utils.Info("热门资源已缓存 - key: %s, count: %d", cacheKey, len(resourceResponses))
+
+	// 设置缓存头
+	c.Header("Cache-Control", "public, max-age=3600")
+	c.Header("ETag", fmt.Sprintf("hot-resources-%d", len(resourceResponses)))
+
+	SuccessResponse(c, gin.H{
+		"data":    resourceResponses,
+		"total":   len(resourceResponses),
+		"limit":   limit,
+		"cached":  false,
+	})
+}
+
+// GetRelatedResources 获取相关资源
+func GetRelatedResources(c *gin.Context) {
+	// 获取查询参数
+	key := c.Query("key")                   // 当前资源的key
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "8"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+
+	utils.Info("获取相关资源请求 - key: %s, limit: %d", key, limit)
+
+	if key == "" {
+		ErrorResponse(c, "缺少资源key参数", http.StatusBadRequest)
+		return
+	}
+
+	// 首先通过key获取当前资源信息
+	currentResources, err := repoManager.ResourceRepository.FindByKey(key)
+	if err != nil {
+		utils.Error("获取当前资源失败: %v", err)
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	if len(currentResources) == 0 {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	currentResource := &currentResources[0] // 取第一个资源作为当前资源
+
+	var resources []entity.Resource
+	var total int64
+
+	// 获取当前资源的标签ID列表
+	var tagIDsList []string
+	if currentResource.Tags != nil {
+		for _, tag := range currentResource.Tags {
+			tagIDsList = append(tagIDsList, strconv.Itoa(int(tag.ID)))
+		}
+	}
+
+	utils.Info("当前资源标签: %v", tagIDsList)
+
+	// 1. 优先使用Meilisearch进行标签搜索
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() && len(tagIDsList) > 0 {
+		service := meilisearchManager.GetService()
+		if service != nil {
+			// 使用标签进行搜索
+			filters := make(map[string]interface{})
+			filters["tag_ids"] = tagIDsList
+
+			// 使用当前资源的标题作为搜索关键词，提高相关性
+			searchQuery := currentResource.Title
+			if searchQuery == "" {
+				searchQuery = strings.Join(tagIDsList, " ") // 如果没有标题，使用标签作为搜索词
+			}
+
+			docs, docTotal, err := service.Search(searchQuery, filters, page, limit)
+			if err == nil && len(docs) > 0 {
+				// 转换为Resource实体
+				for _, doc := range docs {
+					// 排除当前资源
+					if doc.Key == key {
+						continue
+					}
+					resource := entity.Resource{
+						ID:          doc.ID,
+						Title:       doc.Title,
+						Description: doc.Description,
+						URL:         doc.URL,
+						SaveURL:     doc.SaveURL,
+						FileSize:    doc.FileSize,
+						Key:         doc.Key,
+						PanID:       doc.PanID,
+						ViewCount:   0, // Meilisearch文档中没有ViewCount字段，设为默认值
+						CreatedAt:   doc.CreatedAt,
+						UpdatedAt:   doc.UpdatedAt,
+						Cover:       doc.Cover,
+						Author:      doc.Author,
+					}
+					resources = append(resources, resource)
+				}
+				total = docTotal
+				utils.Info("Meilisearch搜索到 %d 个相关资源", len(resources))
+			} else {
+				utils.Error("Meilisearch搜索失败，回退到标签搜索: %v", err)
+			}
+		}
+	}
+
+	// 2. 如果Meilisearch未启用、搜索失败或没有结果，使用数据库标签搜索
+	if len(resources) == 0 {
+		params := map[string]interface{}{
+			"page":      page,
+			"page_size": limit,
+			"is_public": true,
+			"order_by":  "updated_at",
+			"order_dir": "desc",
+		}
+
+		// 使用当前资源的标签进行搜索
+		if len(tagIDsList) > 0 {
+			params["tag_ids"] = strings.Join(tagIDsList, ",")
+		} else {
+			// 如果没有标签，使用当前资源的分类作为搜索条件
+			if currentResource.CategoryID != nil && *currentResource.CategoryID > 0 {
+				params["category_id"] = *currentResource.CategoryID
+			}
+		}
+
+		var err error
+		resources, total, err = repoManager.ResourceRepository.SearchWithFilters(params)
+		if err != nil {
+			utils.Error("搜索相关资源失败: %v", err)
+			ErrorResponse(c, "搜索相关资源失败", http.StatusInternalServerError)
+			return
+		}
+
+		// 排除当前资源
+		var filteredResources []entity.Resource
+		for _, resource := range resources {
+			if resource.Key != key {
+				filteredResources = append(filteredResources, resource)
+			}
+		}
+		resources = filteredResources
+		total = int64(len(filteredResources))
+	}
+
+	utils.Info("标签搜索到 %d 个相关资源", len(resources))
+
+	// 获取违禁词配置
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("获取违禁词配置失败: %v", err)
+		cleanWords = []string{}
+	}
+
+	// 处理违禁词并转换为响应格式
+	var resourceResponses []gin.H
+	for _, resource := range resources {
+		// 检查违禁词
+		forbiddenInfo := utils.CheckResourceForbiddenWords(resource.Title, resource.Description, cleanWords)
+
+		resourceResponse := gin.H{
+			"id":          resource.ID,
+			"key":         resource.Key,
+			"title":       forbiddenInfo.ProcessedTitle,
+			"url":         resource.URL,
+			"description": forbiddenInfo.ProcessedDesc,
+			"pan_id":      resource.PanID,
+			"view_count":  resource.ViewCount,
+			"created_at":  resource.CreatedAt.Format("2006-01-02 15:04:05"),
+			"updated_at":  resource.UpdatedAt.Format("2006-01-02 15:04:05"),
+			"cover":       resource.Cover,
+			"author":      resource.Author,
+			"file_size":   resource.FileSize,
+		}
+
+		// 添加违禁词标记
+		resourceResponse["has_forbidden_words"] = forbiddenInfo.HasForbiddenWords
+		resourceResponse["forbidden_words"] = forbiddenInfo.ForbiddenWords
+
+		// 添加标签信息
+		var tagResponses []gin.H
+		if len(resource.Tags) > 0 {
+			for _, tag := range resource.Tags {
+				tagResponse := gin.H{
+					"id":          tag.ID,
+					"name":        tag.Name,
+					"description": tag.Description,
+				}
+				tagResponses = append(tagResponses, tagResponse)
+			}
+		}
+		resourceResponse["tags"] = tagResponses
+
+		resourceResponses = append(resourceResponses, resourceResponse)
+	}
+
+	// 构建响应数据
+	responseData := gin.H{
+		"data":      resourceResponses,
+		"total":     total,
+		"page":      page,
+		"page_size": limit,
+		"source":    "database",
+	}
+
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() && len(tagIDsList) > 0 {
+		responseData["source"] = "meilisearch"
+	}
+
+	SuccessResponse(c, responseData)
+}
+
+// CheckResourceValidity 检查资源链接有效性
+func CheckResourceValidity(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的资源ID", http.StatusBadRequest)
+		return
+	}
+
+	// 查询资源信息
+	resource, err := repoManager.ResourceRepository.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	utils.Info("开始检测资源有效性 - ID: %d, URL: %s", resource.ID, resource.URL)
+
+	// 检查缓存
+	cacheKey := fmt.Sprintf("resource_validity_%d", resource.ID)
+	cacheManager := utils.GetResourceValidityCache()
+	ttl := 5 * time.Minute // 5分钟缓存
+
+	if cachedData, found := cacheManager.Get(cacheKey, ttl); found {
+		if result, ok := cachedData.(gin.H); ok {
+			utils.Info("使用资源有效性缓存 - ID: %d", resource.ID)
+			result["cached"] = true
+			SuccessResponse(c, result)
+			return
+		}
+	}
+
+	// 执行检测：只使用深度检测实现
+	isValid, detectionMethod, err := performAdvancedValidityCheck(resource)
+
+	if err != nil {
+		utils.Error("深度检测资源链接失败 - ID: %d, Error: %v", resource.ID, err)
+
+		// 深度检测失败，但不标记为无效（用户可自行验证）
+		result := gin.H{
+			"resource_id":      resource.ID,
+			"url":             resource.URL,
+			"is_valid":        resource.IsValid, // 保持原始状态
+			"last_checked":    time.Now().Format(time.RFC3339),
+			"error":           err.Error(),
+			"detection_method": detectionMethod,
+			"cached":          false,
+			"note":            "当前网盘暂不支持自动检测，建议用户自行验证",
+		}
+		cacheManager.Set(cacheKey, result)
+		SuccessResponse(c, result)
+		return
+	}
+
+	// 只有明确检测出无效的资源才更新数据库状态
+	// 如果检测成功且结果与数据库状态不同，则更新
+	if detectionMethod == "quark_deep" && isValid != resource.IsValid {
+		resource.IsValid = isValid
+		updateErr := repoManager.ResourceRepository.Update(resource)
+		if updateErr != nil {
+			utils.Error("更新资源有效性状态失败 - ID: %d, Error: %v", resource.ID, updateErr)
+		} else {
+			utils.Info("更新资源有效性状态 - ID: %d, Status: %v, Method: %s", resource.ID, isValid, detectionMethod)
+		}
+	}
+
+	// 构建检测结果
+	result := gin.H{
+		"resource_id":      resource.ID,
+		"url":             resource.URL,
+		"is_valid":        isValid,
+		"last_checked":    time.Now().Format(time.RFC3339),
+		"detection_method": detectionMethod,
+		"cached":          false,
+	}
+
+	// 缓存检测结果
+	cacheManager.Set(cacheKey, result)
+
+	utils.Info("资源有效性检测完成 - ID: %d, Valid: %v, Method: %s", resource.ID, isValid, detectionMethod)
+	SuccessResponse(c, result)
+}
+
+// performAdvancedValidityCheck 执行深度检测（只使用具体网盘服务）
+func performAdvancedValidityCheck(resource *entity.Resource) (bool, string, error) {
+	// 提取分享ID和服务类型
+	shareID, serviceType := panutils.ExtractShareId(resource.URL)
+	if serviceType == panutils.NotFound {
+		return false, "unsupported", fmt.Errorf("不支持的网盘服务: %s", resource.URL)
+	}
+
+	utils.Info("开始深度检测 - Service: %s, ShareID: %s", serviceType.String(), shareID)
+
+	// 根据服务类型选择检测策略
+	switch serviceType {
+	case panutils.Quark:
+		return performQuarkValidityCheck(resource, shareID)
+	case panutils.Alipan:
+		return performAlipanValidityCheck(resource, shareID)
+	case panutils.BaiduPan, panutils.UC, panutils.Xunlei, panutils.Tianyi, panutils.Pan123, panutils.Pan115:
+		// 这些网盘暂未实现深度检测，返回不支持提示
+		return false, "unsupported", fmt.Errorf("当前网盘类型 %s 暂不支持深度检测，请等待后续更新", serviceType.String())
+	default:
+		return false, "unsupported", fmt.Errorf("未知的网盘服务类型: %s", serviceType.String())
+	}
+}
+
+// performQuarkValidityCheck 夸克网盘深度检测
+func performQuarkValidityCheck(resource *entity.Resource, shareID string) (bool, string, error) {
+	// 获取夸克网盘账号
+	panID, err := getQuarkPanID()
+	if err != nil {
+		return false, "quark_failed", fmt.Errorf("获取夸克平台ID失败: %v", err)
+	}
+
+	accounts, err := repoManager.CksRepository.FindByPanID(panID)
+	if err != nil {
+		return false, "quark_failed", fmt.Errorf("获取夸克网盘账号失败: %v", err)
+	}
+
+	if len(accounts) == 0 {
+		return false, "quark_failed", fmt.Errorf("没有可用的夸克网盘账号")
+	}
+
+	// 选择第一个有效账号
+	var selectedAccount *entity.Cks
+	for _, account := range accounts {
+		if account.IsValid {
+			selectedAccount = &account
+			break
+		}
+	}
+
+	if selectedAccount == nil {
+		return false, "quark_failed", fmt.Errorf("没有有效的夸克网盘账号")
+	}
+
+	// 创建网盘服务配置
+	config := &pan.PanConfig{
+		URL:         resource.URL,
+		Code:        "",
+		IsType:      1, // 只获取基本信息，不转存
+		ExpiredType: 1,
+		AdFid:       "",
+		Stoken:      "",
+		Cookie:      selectedAccount.Ck,
+	}
+
+	// 创建夸克网盘服务
+	factory := pan.NewPanFactory()
+	panService, err := factory.CreatePanService(resource.URL, config)
+	if err != nil {
+		return false, "quark_failed", fmt.Errorf("创建夸克网盘服务失败: %v", err)
+	}
+
+	// 执行深度检测（Transfer方法）
+	utils.Info("执行夸克网盘深度检测 - ShareID: %s", shareID)
+	result, err := panService.Transfer(shareID)
+	if err != nil {
+		return false, "quark_failed", fmt.Errorf("夸克网盘检测失败: %v", err)
+	}
+
+	if !result.Success {
+		return false, "quark_failed", fmt.Errorf("夸克网盘链接无效: %s", result.Message)
+	}
+
+	utils.Info("夸克网盘深度检测成功 - ShareID: %s", shareID)
+	return true, "quark_deep", nil
+}
+
+// performAlipanValidityCheck 阿里云盘深度检测
+func performAlipanValidityCheck(resource *entity.Resource, shareID string) (bool, string, error) {
+	// 阿里云盘深度检测暂未实现
+	utils.Info("阿里云盘暂不支持深度检测 - ShareID: %s", shareID)
+	return false, "unsupported", fmt.Errorf("阿里云盘暂不支持深度检测，请等待后续更新")
+}
+
+
+// BatchCheckResourceValidity 批量检查资源链接有效性
+func BatchCheckResourceValidity(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(req.IDs) == 0 {
+		ErrorResponse(c, "ID列表不能为空", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.IDs) > 20 {
+		ErrorResponse(c, "单次最多检测20个资源", http.StatusBadRequest)
+		return
+	}
+
+	utils.Info("开始批量检测资源有效性 - Count: %d", len(req.IDs))
+
+	cacheManager := utils.GetResourceValidityCache()
+	ttl := 5 * time.Minute
+	results := make([]gin.H, 0, len(req.IDs))
+
+	for _, id := range req.IDs {
+		// 查询资源信息
+		resource, err := repoManager.ResourceRepository.FindByID(id)
+		if err != nil {
+			results = append(results, gin.H{
+				"resource_id": id,
+				"is_valid":    false,
+				"error":       "资源不存在",
+				"cached":      false,
+			})
+			continue
+		}
+
+		// 检查缓存
+		cacheKey := fmt.Sprintf("resource_validity_%d", id)
+		if cachedData, found := cacheManager.Get(cacheKey, ttl); found {
+			if result, ok := cachedData.(gin.H); ok {
+				result["cached"] = true
+				results = append(results, result)
+				continue
+			}
+		}
+
+		// 执行深度检测
+		isValid, detectionMethod, err := performAdvancedValidityCheck(resource)
+
+		if err != nil {
+			// 深度检测失败，但不标记为无效（用户可自行验证）
+			result := gin.H{
+				"resource_id":      id,
+				"url":             resource.URL,
+				"is_valid":        resource.IsValid, // 保持原始状态
+				"last_checked":    time.Now().Format(time.RFC3339),
+				"error":           err.Error(),
+				"detection_method": detectionMethod,
+				"cached":          false,
+				"note":            "当前网盘暂不支持自动检测，建议用户自行验证",
+			}
+			cacheManager.Set(cacheKey, result)
+			results = append(results, result)
+			continue
+		}
+
+		// 只有明确检测出无效的资源才更新数据库状态
+		if detectionMethod == "quark_deep" && isValid != resource.IsValid {
+			resource.IsValid = isValid
+			updateErr := repoManager.ResourceRepository.Update(resource)
+			if updateErr != nil {
+				utils.Error("更新资源有效性状态失败 - ID: %d, Error: %v", id, updateErr)
+			}
+		}
+
+		result := gin.H{
+			"resource_id":      id,
+			"url":             resource.URL,
+			"is_valid":        isValid,
+			"last_checked":    time.Now().Format(time.RFC3339),
+			"detection_method": detectionMethod,
+			"cached":          false,
+		}
+
+		cacheManager.Set(cacheKey, result)
+		results = append(results, result)
+	}
+
+	utils.Info("批量检测资源有效性完成 - Count: %d", len(results))
+	SuccessResponse(c, gin.H{
+		"results": results,
+		"total":   len(results),
+	})
 }
 
 // getQuarkPanID 获取夸克网盘ID

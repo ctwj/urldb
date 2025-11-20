@@ -66,6 +66,7 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#3b82f6' },
         { property: 'og:site_name', content: '老九网盘资源数据库' },
         { property: 'og:type', content: 'website' },
+        { property: 'og:image', content: '/assets/images/og.webp' },
         { name: 'twitter:card', content: 'summary_large_image' }
       ],
       link: [

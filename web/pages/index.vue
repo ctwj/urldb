@@ -173,8 +173,9 @@
             <tr
               v-for="(resource, index) in safeResources"
               :key="resource.id"
-              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-500/10 bg-pink-50/30 dark:bg-pink-500/5' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50'"
+              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-500/10 bg-pink-50/30 dark:bg-pink-500/5 cursor-pointer' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer'"
               :data-index="index"
+              @click="navigateToDetail(resource.key)"
             >
               <td class="text-xs sm:text-sm w-20 pl-2 sm:pl-3">
                 <div class="flex justify-center">
@@ -229,23 +230,25 @@
                       </div>
                     </div>
                     <div class="flex-1 flex justify-end">
-                      <button
-                        class="mobile-link-btn flex items-center gap-1 text-xs"
-                        @click="toggleLink(resource)"
+                      <NuxtLink
+                        :to="`/r/${resource.key}`"
+                        class="mobile-link-btn flex items-center gap-1 text-xs no-underline"
+                        @click.stop
                       >
-                        <i class="fas fa-eye"></i> 显示链接
-                      </button>
+                        <i class="fas fa-eye"></i> 查看详情
+                      </NuxtLink>
                     </div>
                   </div>
                 </div>
               </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm hidden sm:table-cell w-32">
-                <button 
-                  class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn" 
-                  @click="toggleLink(resource)"
+                <NuxtLink
+                  :to="`/r/${resource.key}`"
+                  class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn"
+                  @click.stop
                 >
-                  <i class="fas fa-eye"></i> 显示链接
-                </button>
+                  <i class="fas fa-eye"></i> 查看详情
+                </NuxtLink>
               </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500 hidden sm:table-cell w-32" :title="resource.updated_at">
                 <span v-html="formatRelativeTime(resource.updated_at)"></span>
@@ -298,25 +301,35 @@
       </div>
     </div>
   </div>
+
+  <!-- 开发环境缓存信息组件 -->
+  <SystemConfigCacheInfo />
 </template>
 
 <script setup lang="ts">
 // 获取运行时配置
 const config = useRuntimeConfig()
 
-import { useResourceApi, useStatsApi, usePanApi, useSystemConfigApi, usePublicSystemConfigApi, useSearchStatsApi } from '~/composables/useApi'
+import { useResourceApi, useStatsApi, usePanApi, useSearchStatsApi } from '~/composables/useApi'
+import SystemConfigCacheInfo from '~/components/SystemConfigCacheInfo.vue'
 
 const resourceApi = useResourceApi()
 const statsApi = useStatsApi()
 const panApi = usePanApi()
-const publicSystemConfigApi = usePublicSystemConfigApi()
 
 // 路由参数已通过自动导入提供，直接使用
 const route = useRoute()
 const router = useRouter()
 
-// 页面元数据 - 使用系统配置的标题
-const { data: systemConfigData } = await useAsyncData('systemConfig', () => publicSystemConfigApi.getPublicSystemConfig())
+// 使用系统配置Store（带缓存支持）
+const { useSystemConfigStore } = await import('~/stores/systemConfig')
+const systemConfigStore = useSystemConfigStore()
+
+// 初始化系统配置（会自动使用缓存）
+await systemConfigStore.initConfig()
+
+// 检查并自动刷新即将过期的缓存
+await systemConfigStore.checkAndRefreshCache()
 
 // 获取平台名称的辅助函数
 const getPlatformName = (platformId: string) => {
@@ -326,12 +339,11 @@ const getPlatformName = (platformId: string) => {
   return platform?.name || ''
 }
 
-// 动态生成页面标题和meta信息 - 修复安全访问问题
+// 动态生成页面标题和meta信息 - 使用缓存的系统配置
 const pageTitle = computed(() => {
   try {
-    const config = systemConfigData.value as any
-    const siteTitle = (config?.data?.site_title) ? config.data.site_title :
-                      (config?.site_title) ? config.site_title : '老九网盘资源数据库'
+    const config = systemConfigStore.config
+    const siteTitle = config?.site_title || '老九网盘资源数据库'
     const searchKeyword = (route.query?.search) ? route.query.search as string : ''
     const platformId = (route.query?.platform) ? route.query.platform as string : ''
     const platformName = getPlatformName(platformId)
@@ -357,9 +369,8 @@ const pageTitle = computed(() => {
 
 const pageDescription = computed(() => {
   try {
-    const config = systemConfigData.value as any
-    const baseDescription = (config?.data?.site_description) ? config.data.site_description :
-                           (config?.site_description) ? config.site_description : '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘'
+    const config = systemConfigStore.config
+    const baseDescription = config?.site_description || '老九网盘资源管理系统， 一个现代化的网盘资源数据库，支持多网盘自动化转存分享，支持百度网盘，阿里云盘，夸克网盘， 天翼云盘，迅雷云盘，123云盘，115网盘，UC网盘'
 
     const searchKeyword = (route.query && route.query.search) ? route.query.search as string : ''
     const platformId = (route.query && route.query.platform) ? route.query.platform as string : ''
@@ -385,9 +396,8 @@ const pageDescription = computed(() => {
 
 const pageKeywords = computed(() => {
   try {
-    const config = systemConfigData.value as any
-    const baseKeywords = (config?.data?.keywords) ? config.data.keywords :
-                        (config?.keywords) ? config.keywords : '网盘资源,资源管理,数据库'
+    const config = systemConfigStore.config
+    const baseKeywords = config?.keywords || '网盘资源,资源管理,数据库'
 
     const searchKeyword = (route.query && route.query.search) ? route.query.search as string : ''
     const platformId = (route.query && route.query.platform) ? route.query.platform as string : ''
@@ -419,7 +429,8 @@ const updatePageSeo = () => {
   // 使用动态计算的标题，而不是默认的"首页"
   setPageSeo(pageTitle.value, {
     description: pageDescription.value,
-    keywords: pageKeywords.value
+    keywords: pageKeywords.value,
+    ogImage: '/assets/images/og.webp'  // 使用默认的OG图片
   })
 
   // 设置HTML属性和canonical链接
@@ -441,6 +452,12 @@ const updatePageSeo = () => {
         href: canonicalUrl
       }
     ],
+    meta: [
+      {
+        property: 'og:image',
+        content: '/assets/images/og.webp'
+      }
+    ],
     script: [
       {
         type: 'application/ld+json',
@@ -449,7 +466,8 @@ const updatePageSeo = () => {
           "@type": "WebSite",
           "name": (seoSystemConfig.value && seoSystemConfig.value.site_title) || '老九网盘资源数据库',
           "description": pageDescription.value,
-          "url": canonicalUrl
+          "url": canonicalUrl,
+          "image": '/assets/images/og.webp'
         })
       }
     ]
@@ -463,7 +481,7 @@ onBeforeMount(async () => {
 
 // 监听路由变化和系统配置数据，当搜索条件或配置改变时更新SEO
 watch(
-  () => [route.query?.search, route.query?.platform, systemConfigData.value],
+  () => [route.query?.search, route.query?.platform, systemConfigStore.config],
   () => {
     // 使用nextTick确保响应式数据已更新
     nextTick(() => {
@@ -615,7 +633,7 @@ const safeResources = computed(() => {
 })
 const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_resources: 0 })
 const platforms = computed(() => (platformsData.value as any) || [])
-const systemConfig = computed(() => (systemConfigData.value as any)?.data || { site_title: '老九网盘资源数据库' })
+const systemConfig = computed(() => systemConfigStore.config || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
 
 
@@ -675,49 +693,14 @@ const getPlatformIcon = (panId: string | number) => {
 
 // 注意：链接访问统计已整合到 getResourceLink API 中
 
-// 切换链接显示
-const toggleLink = async (resource: any) => {
-  // 如果包含违禁词，直接显示禁止访问，不发送请求
-  if (resource.has_forbidden_words) {
-    selectedResource.value = {
-      ...resource,
-      forbidden: true,
-      error: '该资源包含违禁内容，无法访问',
-      forbidden_words: resource.forbidden_words || []
-    }
-    showLinkModal.value = true
-    return
-  }
+// 导航到详情页
+const navigateToDetail = (key: string) => {
+  router.push(`/r/${key}`)
+}
 
-  // 显示加载状态
-  selectedResource.value = { ...resource, loading: true }
-  showLinkModal.value = true
-  
-  try {
-    // 调用新的获取链接API（同时统计访问次数）
-    const linkData = await resourceApi.getResourceLink(resource.id) as any
-    console.log('获取到的链接数据:', linkData)
-    
-    // 更新资源信息，包含新的链接信息
-    selectedResource.value = {
-      ...resource,
-      url: linkData.url,
-      save_url: linkData.type === 'transferred' ? linkData.url : resource.save_url,
-      loading: false,
-      linkType: linkData.type,
-      platform: linkData.platform,
-      message: linkData.message
-    }
-  } catch (error: any) {
-    console.error('获取资源链接失败:', error)
-    
-    // 其他错误
-    selectedResource.value = {
-      ...resource,
-      loading: false,
-      error: '检测有效性失败，请自行验证'
-    }
-  }
+// 切换链接显示（保留用于其他可能的用途）
+const toggleLink = async (resource: any) => {
+  navigateToDetail(resource.key)
 }
 
 // 复制到剪贴板

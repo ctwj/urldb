@@ -12,6 +12,7 @@ import (
 func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 	response := dto.ResourceResponse{
 		ID:                  resource.ID,
+		Key:                 resource.Key,
 		Title:               resource.Title,
 		Description:         resource.Description,
 		URL:                 resource.URL,
@@ -34,6 +35,18 @@ func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 	// 设置分类名称
 	if resource.Category.ID != 0 {
 		response.CategoryName = resource.Category.Name
+	}
+
+	// 设置平台信息
+	if resource.Pan.ID != 0 {
+		panResponse := dto.PanResponse{
+			ID:     resource.Pan.ID,
+			Name:   resource.Pan.Name,
+			Key:    resource.Pan.Key,
+			Icon:   resource.Pan.Icon,
+			Remark: resource.Pan.Remark,
+		}
+		response.Pan = &panResponse
 	}
 
 	// 转换标签

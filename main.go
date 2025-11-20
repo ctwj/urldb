@@ -211,6 +211,10 @@ func main() {
 	// 创建OG图片处理器
 	ogImageHandler := handlers.NewOGImageHandler()
 
+	// 创建举报和版权申述处理器
+	reportHandler := handlers.NewReportHandler(repoManager.ReportRepository, repoManager.ResourceRepository)
+	copyrightClaimHandler := handlers.NewCopyrightClaimHandler(repoManager.CopyrightClaimRepository, repoManager.ResourceRepository)
+
 	// API路由
 	api := r.Group("/api")
 	{
@@ -233,13 +237,18 @@ func main() {
 
 		// 资源管理
 		api.GET("/resources", handlers.GetResources)
+		api.GET("/resources/hot", handlers.GetHotResources)
 		api.POST("/resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateResource)
 		api.PUT("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateResource)
 		api.DELETE("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteResource)
 		api.GET("/resources/:id", handlers.GetResourceByID)
+		api.GET("/resources/key/:key", handlers.GetResourcesByKey)
 		api.GET("/resources/check-exists", handlers.CheckResourceExists)
+		api.GET("/resources/related", handlers.GetRelatedResources)
 		api.POST("/resources/:id/view", handlers.IncrementResourceViewCount)
 		api.GET("/resources/:id/link", handlers.GetResourceLink)
+		api.GET("/resources/:id/validity", handlers.CheckResourceValidity)
+		api.POST("/resources/validity/batch", handlers.BatchCheckResourceValidity)
 		api.DELETE("/resources/batch", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.BatchDeleteResources)
 
 		// 分类管理
@@ -440,6 +449,21 @@ func main() {
 
 		// OG图片生成路由
 		api.GET("/og-image", ogImageHandler.GenerateOGImage)
+
+		// 举报和版权申述路由
+		api.POST("/reports", reportHandler.CreateReport)
+		api.GET("/reports/:id", reportHandler.GetReport)
+		api.GET("/reports", middleware.AuthMiddleware(), middleware.AdminMiddleware(), reportHandler.ListReports)
+		api.PUT("/reports/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), reportHandler.UpdateReport)
+		api.DELETE("/reports/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), reportHandler.DeleteReport)
+		api.GET("/reports/resource/:resource_key", reportHandler.GetReportByResource)
+
+		api.POST("/copyright-claims", copyrightClaimHandler.CreateCopyrightClaim)
+		api.GET("/copyright-claims/:id", copyrightClaimHandler.GetCopyrightClaim)
+		api.GET("/copyright-claims", middleware.AuthMiddleware(), middleware.AdminMiddleware(), copyrightClaimHandler.ListCopyrightClaims)
+		api.PUT("/copyright-claims/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), copyrightClaimHandler.UpdateCopyrightClaim)
+		api.DELETE("/copyright-claims/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), copyrightClaimHandler.DeleteCopyrightClaim)
+		api.GET("/copyright-claims/resource/:resource_key", copyrightClaimHandler.GetCopyrightClaimByResource)
 	}
 
 	// 设置监控系统
