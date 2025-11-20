@@ -148,3 +148,56 @@ func (gs *GlobalScheduler) UpdateSchedulerStatusWithAutoTransfer(autoFetchHotDra
 	}
 
 }
+
+// StartSitemapScheduler 启动Sitemap调度任务
+func (gs *GlobalScheduler) StartSitemapScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if gs.manager.IsSitemapRunning() {
+		utils.Debug("Sitemap定时任务已在运行中")
+		return
+	}
+
+	gs.manager.StartSitemapScheduler()
+	utils.Debug("全局调度器已启动Sitemap定时任务")
+}
+
+// StopSitemapScheduler 停止Sitemap调度任务
+func (gs *GlobalScheduler) StopSitemapScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if !gs.manager.IsSitemapRunning() {
+		utils.Debug("Sitemap定时任务未在运行")
+		return
+	}
+
+	gs.manager.StopSitemapScheduler()
+	utils.Debug("全局调度器已停止Sitemap定时任务")
+}
+
+// IsSitemapSchedulerRunning 检查Sitemap定时任务是否在运行
+func (gs *GlobalScheduler) IsSitemapSchedulerRunning() bool {
+	gs.mutex.RLock()
+	defer gs.mutex.RUnlock()
+	return gs.manager.IsSitemapRunning()
+}
+
+// UpdateSitemapConfig 更新Sitemap配置
+func (gs *GlobalScheduler) UpdateSitemapConfig(enabled bool) error {
+	return gs.manager.UpdateSitemapConfig(enabled)
+}
+
+// GetSitemapConfig 获取Sitemap配置
+func (gs *GlobalScheduler) GetSitemapConfig() (bool, error) {
+	return gs.manager.GetSitemapConfig()
+}
+
+// TriggerSitemapGeneration 手动触发sitemap生成
+func (gs *GlobalScheduler) TriggerSitemapGeneration() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	gs.manager.TriggerSitemapGeneration()
+}

@@ -44,7 +44,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
         // 检查缓存是否过期
         const isValid = (now - timestamp) < CACHE_DURATION
 
-        console.log(`[SystemConfig] 缓存检查: ${isValid ? '有效' : '已过期'}, 剩余时间: ${Math.max(0, CACHE_DURATION - (now - timestamp)) / 1000 / 60}分钟`)
+        // console.log(`[SystemConfig] 缓存检查: ${isValid ? '有效' : '已过期'}, 剩余时间: ${Math.max(0, CACHE_DURATION - (now - timestamp)) / 1000 / 60}分钟`)
 
         return isValid
       } catch (error) {
@@ -61,7 +61,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
         const cacheData = localStorage.getItem(CACHE_KEY)
         if (cacheData) {
           const parsed = JSON.parse(cacheData) as CacheData
-          console.log('[SystemConfig] 使用缓存数据')
+          // console.log('[SystemConfig] 使用缓存数据')
           return parsed.config
         }
       } catch (error) {
@@ -99,7 +99,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
       try {
         localStorage.removeItem(CACHE_KEY)
         localStorage.removeItem(CACHE_TIMESTAMP_KEY)
-        console.log('[SystemConfig] 缓存已清除')
+        // console.log('[SystemConfig] 缓存已清除')
       } catch (error) {
         console.error('[SystemConfig] 清除缓存失败:', error)
       }
@@ -119,7 +119,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
         localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
         localStorage.setItem(CACHE_TIMESTAMP_KEY, cacheData.timestamp.toString())
 
-        console.log('[SystemConfig] 配置已缓存，有效期30分钟')
+        // console.log('[SystemConfig] 配置已缓存，有效期30分钟')
       } catch (error) {
         console.error('[SystemConfig] 保存缓存失败:', error)
       }
@@ -142,7 +142,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
           this.lastFetchTime = Date.now()
         }
 
-        console.log('[SystemConfig] 从缓存加载配置成功')
+        // console.log('[SystemConfig] 从缓存加载配置成功')
         return true
       }
 
@@ -153,7 +153,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
     async initConfig(force = false, useAdminApi = false) {
       // 如果已经初始化且不强制刷新，直接返回
       if (this.initialized && !force) {
-        console.log('[SystemConfig] 配置已初始化，直接返回')
+        // console.log('[SystemConfig] 配置已初始化，直接返回')
         return
       }
 
@@ -164,7 +164,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
 
       // 防止重复请求
       if (this.isLoading) {
-        console.log('[SystemConfig] 正在加载中，等待完成...')
+        // console.log('[SystemConfig] 正在加载中，等待完成...')
         return
       }
 

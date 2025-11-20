@@ -404,6 +404,27 @@ export const useWechatApi = () => {
   }
 }
 
+// Sitemap管理API
+export const useSitemapApi = () => {
+  const getSitemapConfig = () => useApiFetch('/sitemap/config').then(parseApiResponse)
+  const updateSitemapConfig = (data: any) => useApiFetch('/sitemap/config', { method: 'POST', body: data }).then(parseApiResponse)
+  const generateSitemap = () => useApiFetch('/sitemap/generate', { method: 'POST' }).then(parseApiResponse)
+  const getSitemapStatus = () => useApiFetch('/sitemap/status').then(parseApiResponse)
+  const fullGenerateSitemap = () => useApiFetch('/sitemap/full-generate', { method: 'POST' }).then(parseApiResponse)
+  const getSitemapIndex = () => useApiFetch('/sitemap.xml')
+  const getSitemapPage = (page: number) => useApiFetch(`/sitemap-${page}.xml`)
+
+  return {
+    getSitemapConfig,
+    updateSitemapConfig,
+    generateSitemap,
+    getSitemapStatus,
+    fullGenerateSitemap,
+    getSitemapIndex,
+    getSitemapPage
+  }
+}
+
 // 统一API访问函数
 export const useApi = () => {
   return {
@@ -425,6 +446,7 @@ export const useApi = () => {
     meilisearchApi: useMeilisearchApi(),
     apiAccessLogApi: useApiAccessLogApi(),
     systemLogApi: useSystemLogApi(),
-    wechatApi: useWechatApi()
+    wechatApi: useWechatApi(),
+    sitemapApi: useSitemapApi()
   }
 }

@@ -274,6 +274,125 @@
       </div>
     </div>
   </n-tab-pane>
+
+  <n-tab-pane name="sitemap" tab="Sitemap管理">
+    <div class="tab-content-container">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="mb-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Sitemap管理</h3>
+          <p class="text-gray-600 dark:text-gray-400">管理和生成网站sitemap文件，提升搜索引擎收录效果</p>
+        </div>
+
+        <!-- Sitemap配置 -->
+        <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="font-medium text-gray-900 dark:text-white mb-2">自动生成功能</h4>
+              <p class="text-sm text-gray-600 dark:text-gray-400">
+                开启后系统将定期自动生成sitemap文件
+              </p>
+            </div>
+            <n-switch
+              v-model:value="sitemapConfig.autoGenerate"
+              @update:value="updateSitemapConfig"
+              :loading="configLoading"
+              size="large"
+            >
+              <template #checked>已开启</template>
+              <template #unchecked>已关闭</template>
+            </n-switch>
+          </div>
+        </div>
+
+        <!-- Sitemap统计 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+            <div class="flex items-center">
+              <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <i class="fas fa-database text-blue-600 dark:text-blue-400"></i>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-gray-600 dark:text-gray-400">资源总数</p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">{{ sitemapStats.total_resources }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+            <div class="flex items-center">
+              <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                <i class="fas fa-file-code text-green-600 dark:text-green-400"></i>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-gray-600 dark:text-gray-400">Sitemap数量</p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">{{ sitemapStats.total_pages }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+            <div class="flex items-center">
+              <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                <i class="fas fa-history text-purple-600 dark:text-purple-400"></i>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-gray-600 dark:text-gray-400">最后生成</p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">{{ sitemapStats.last_generate || '从未' }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="flex flex-wrap gap-3 mb-6">
+          <n-button
+            type="primary"
+            @click="generateSitemap"
+            :loading="isGenerating"
+            size="large"
+          >
+            <template #icon>
+              <i class="fas fa-cogs"></i>
+            </template>
+            手动生成Sitemap
+          </n-button>
+
+          <n-button
+            type="default"
+            @click="viewSitemap"
+            size="large"
+          >
+            <template #icon>
+              <i class="fas fa-external-link-alt"></i>
+            </template>
+            查看Sitemap
+          </n-button>
+
+          <n-button
+            type="info"
+            @click="refreshSitemapStatus"
+            size="large"
+          >
+            <template #icon>
+              <i class="fas fa-sync-alt"></i>
+            </template>
+            刷新状态
+          </n-button>
+        </div>
+
+        <!-- 生成状态 -->
+        <div v-if="generateStatus" class="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+          <div class="flex items-start">
+            <i class="fas fa-info-circle text-yellow-600 dark:text-yellow-400 mt-0.5 mr-2"></i>
+            <div>
+              <h4 class="font-medium text-yellow-800 dark:text-yellow-200 mb-1">生成状态</h4>
+              <p class="text-sm text-yellow-700 dark:text-yellow-300">{{ generateStatus }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </n-tab-pane>
       </n-tabs>
     </div>
   </template>
@@ -503,9 +622,104 @@ const deleteLink = (row: any) => {
   message.warning(`删除外链: ${row.title}`)
 }
 
+// Sitemap管理相关
+const sitemapConfig = ref({
+  autoGenerate: false,
+  lastGenerate: '',
+  lastUpdate: ''
+})
+
+const sitemapStats = ref({
+  total_resources: 0,
+  total_pages: 0,
+  last_generate: ''
+})
+
+const configLoading = ref(false)
+const isGenerating = ref(false)
+const generateStatus = ref('')
+
+// 获取Sitemap配置
+const loadSitemapConfig = async () => {
+  try {
+    const sitemapApi = useSitemapApi()
+    const response = await sitemapApi.getSitemapConfig()
+    if (response) {
+      sitemapConfig.value = response
+    }
+  } catch (error) {
+    message.error('获取Sitemap配置失败')
+  }
+}
+
+// 更新Sitemap配置
+const updateSitemapConfig = async (value: boolean) => {
+  configLoading.value = true
+  try {
+    const sitemapApi = useSitemapApi()
+    await sitemapApi.updateSitemapConfig({
+      autoGenerate: value,
+      lastGenerate: sitemapConfig.value.lastGenerate,
+      lastUpdate: new Date().toISOString()
+    })
+    message.success(value ? '自动生成功能已开启' : '自动生成功能已关闭')
+  } catch (error) {
+    message.error('更新配置失败')
+    // 恢复之前的值
+    sitemapConfig.value.autoGenerate = !value
+  } finally {
+    configLoading.value = false
+  }
+}
+
+// 生成Sitemap
+const generateSitemap = async () => {
+  isGenerating.value = true
+  generateStatus.value = '正在启动生成任务...'
+
+  try {
+    const sitemapApi = useSitemapApi()
+    const response = await sitemapApi.generateSitemap()
+
+    if (response) {
+      generateStatus.value = response.message || '生成任务已启动'
+      message.success('Sitemap生成任务已启动')
+      // 更新统计信息
+      sitemapStats.value.total_resources = response.total_resources || 0
+      sitemapStats.value.total_pages = response.total_pages || 0
+    }
+  } catch (error: any) {
+    generateStatus.value = '生成失败: ' + (error.message || '未知错误')
+    message.error('Sitemap生成失败')
+  } finally {
+    isGenerating.value = false
+  }
+}
+
+// 刷新Sitemap状态
+const refreshSitemapStatus = async () => {
+  try {
+    const sitemapApi = useSitemapApi()
+    const response = await sitemapApi.getSitemapStatus()
+    if (response) {
+      sitemapStats.value = response
+      generateStatus.value = '状态已刷新'
+    }
+  } catch (error) {
+    message.error('刷新状态失败')
+  }
+}
+
+// 查看Sitemap
+const viewSitemap = () => {
+  window.open('/sitemap.xml', '_blank')
+}
+
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   loadLinkList()
+  await loadSitemapConfig()
+  await refreshSitemapStatus()
 })
 </script>
 

@@ -74,6 +74,14 @@ const (
 	ConfigKeyWechatSearchImage   = "wechat_search_image"
 	ConfigKeyTelegramQrImage     = "telegram_qr_image"
 	ConfigKeyQrCodeStyle         = "qr_code_style"
+
+	// Sitemap配置
+	ConfigKeySitemapConfig              = "sitemap_config"
+	ConfigKeySitemapLastGenerateTime    = "sitemap_last_generate_time"
+	ConfigKeySitemapAutoGenerateEnabled = "sitemap_auto_generate_enabled"
+
+	// 网站URL配置
+	ConfigKeyWebsiteURL = "website_url"
 )
 
 // ConfigType 配置类型常量

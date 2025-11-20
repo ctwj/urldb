@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -159,6 +160,18 @@ func main() {
 	// 将Repository管理器注入到services中
 	services.SetRepositoryManager(repoManager)
 
+	// 设置Sitemap处理器依赖
+	handlers.SetSitemapDependencies(
+		repoManager.ResourceRepository,
+		repoManager.SystemConfigRepository,
+		repoManager.HotDramaRepository,
+		repoManager.ReadyResourceRepository,
+		repoManager.PanRepository,
+		repoManager.CksRepository,
+		repoManager.TagRepository,
+		repoManager.CategoryRepository,
+	)
+
 	// 设置Meilisearch管理器到handlers中
 	handlers.SetMeilisearchManager(meilisearchManager)
 
@@ -184,12 +197,21 @@ func main() {
 	autoFetchHotDrama, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoFetchHotDramaEnabled)
 	autoProcessReadyResources, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)
 	autoTransferEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
+	autoSitemapEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeySitemapAutoGenerateEnabled)
 
 	globalScheduler.UpdateSchedulerStatusWithAutoTransfer(
 		autoFetchHotDrama,
 		autoProcessReadyResources,
 		autoTransferEnabled,
 	)
+
+	// 根据系统配置启动Sitemap调度器
+	if autoSitemapEnabled {
+		globalScheduler.StartSitemapScheduler()
+		utils.Info("系统配置启用Sitemap自动生成功能，启动定时任务")
+	} else {
+		utils.Info("系统配置禁用Sitemap自动生成功能")
+	}
 
 	utils.Info("调度器初始化完成")
 
@@ -465,6 +487,40 @@ func main() {
 		api.PUT("/copyright-claims/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), copyrightClaimHandler.UpdateCopyrightClaim)
 		api.DELETE("/copyright-claims/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), copyrightClaimHandler.DeleteCopyrightClaim)
 		api.GET("/copyright-claims/resource/:resource_key", copyrightClaimHandler.GetCopyrightClaimByResource)
+
+		// Sitemap静态文件服务（优先于API路由）
+		// 提供生成的sitemap.xml索引文件
+		r.StaticFile("/sitemap.xml", "./data/sitemap/sitemap.xml")
+		// 提供生成的sitemap分页文件，使用通配符路由
+		r.GET("/sitemap-:page", func(c *gin.Context) {
+			page := c.Param("page")
+			if !strings.HasSuffix(page, ".xml") {
+				c.JSON(http.StatusNotFound, gin.H{"error": "文件不存在"})
+				return
+			}
+			c.File("./data/sitemap/sitemap-" + page)
+		})
+
+		// Sitemap静态文件API路由（API兼容）
+		api.GET("/sitemap.xml", func(c *gin.Context) {
+			c.File("./data/sitemap/sitemap.xml")
+		})
+		// 提供生成的sitemap分页文件，使用API路径
+		api.GET("/sitemap-:page", func(c *gin.Context) {
+			page := c.Param("page")
+			if !strings.HasSuffix(page, ".xml") {
+				c.JSON(http.StatusNotFound, gin.H{"error": "文件不存在"})
+				return
+			}
+			c.File("./data/sitemap/sitemap-" + page)
+		})
+
+		// Sitemap管理API（通过管理员接口进行管理）
+		api.GET("/sitemap/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSitemapConfig)
+		api.POST("/sitemap/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSitemapConfig)
+		api.POST("/sitemap/generate", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GenerateSitemap)
+		api.GET("/sitemap/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSitemapStatus)
+		api.POST("/sitemap/full-generate", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GenerateFullSitemap)
 	}
 
 	// 设置监控系统

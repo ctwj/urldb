@@ -12,6 +12,7 @@ type BaseRepository[T any] interface {
 	Update(entity *T) error
 	Delete(id uint) error
 	FindWithPagination(page, limit int) ([]T, int64, error)
+	GetDB() *gorm.DB
 }
 
 // BaseRepositoryImpl 基础Repository实现
