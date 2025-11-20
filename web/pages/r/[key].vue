@@ -25,9 +25,9 @@
         </h1>
 
         <!-- 右侧导航按钮 -->
-        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-2 right-4 top-0 absolute">
+        <nav class="mt-4 flex flex-row justify-center gap-2 right-4 top-0 absolute">
           <!-- 返回首页按钮 -->
-          <NuxtLink to="/" class="hidden sm:flex">
+          <NuxtLink to="/" class="flex">
             <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
               <i class="fas fa-arrow-left text-xs"></i>
               <span class="ml-1">返回首页</span>
