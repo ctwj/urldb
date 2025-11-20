@@ -26,12 +26,15 @@
 
         <!-- 右侧导航按钮 -->
         <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-2 right-4 top-0 absolute">
+          <!-- 返回首页按钮 -->
           <NuxtLink to="/" class="hidden sm:flex">
             <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
               <i class="fas fa-arrow-left text-xs"></i>
               <span class="ml-1">返回首页</span>
             </n-button>
           </NuxtLink>
+          <!-- 搜索按钮 -->
+          <SearchButton />
         </nav>
       </div>
 
@@ -456,6 +459,7 @@
       @submitted="handleCopyrightSubmitted"
     />
 
+    
     <!-- 页脚 -->
     <AppFooter />
 
@@ -482,17 +486,26 @@
 </template>
 
 <script setup lang="ts">
-// 获取运行时配置
-const config = useRuntimeConfig()
+// 导入必要的 Vue 函数
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { navigateTo } from '#app/composables'
+import { useAsyncData } from '#app/composables'
+import { useNotification } from 'naive-ui'
+
+// 导入API
+import { useResourceApi } from '~/composables/useApi'
+
+// 导入组件
+import SearchButton from '~/components/SearchButton.vue'
+
+
+// 运行时配置已移除，因为未使用
 const route = useRoute()
 const router = useRouter()
 
 // 获取资源key参数
 const resourceKey = computed(() => route.params.key as string)
-
-// 导入API
-import { useResourceApi, usePublicSystemConfigApi } from '~/composables/useApi'
-import { useNotification } from 'naive-ui'
 
 const resourceApi = useResourceApi()
 const publicSystemConfigApi = usePublicSystemConfigApi()
@@ -930,6 +943,7 @@ const handleCopyrightSubmitted = () => {
   }
 }
 
+
 // 获取相关资源（客户端更新，用于交互优化）
 const fetchRelatedResources = async () => {
   if (!mainResource.value) return
@@ -1151,7 +1165,8 @@ onMounted(() => {
   nextTick(() => {
     smartDetectResourceValidity(false)
   })
-})
+
+  })
 
 // 设置页面SEO
 const { initSystemConfig, setPageSeo } = useGlobalSeo()
