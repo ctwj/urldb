@@ -435,6 +435,7 @@ func main() {
 		api.GET("/telegram/logs/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.GetTelegramLogStats)
 		api.POST("/telegram/logs/clear", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.ClearTelegramLogs)
 		api.POST("/telegram/webhook", telegramHandler.HandleWebhook)
+		api.POST("/telegram/manual-push/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), telegramHandler.ManualPushToChannel)
 
 		// 微信公众号相关路由
 		wechatHandler := handlers.NewWechatHandler(

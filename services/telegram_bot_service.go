@@ -39,6 +39,7 @@ type TelegramBotService interface {
 	IsChannelRegistered(chatID int64) bool
 	HandleWebhookUpdate(c interface{})
 	CleanupDuplicateChannels() error
+	ManualPushToChannel(channelID uint) error
 }
 
 type TelegramBotServiceImpl struct {
@@ -1072,6 +1073,10 @@ func (s *TelegramBotServiceImpl) findResourcesForChannel(channel entity.Telegram
 func (s *TelegramBotServiceImpl) findLatestResources(channel entity.TelegramChannel, excludeResourceIDs []uint) []interface{} {
 	params := s.buildFilterParams(channel)
 
+	// 添加按创建时间倒序的排序参数，确保获取最新资源
+	params["order_by"] = "created_at"
+	params["order_dir"] = "DESC"
+
 	// 在数据库查询中排除已推送的资源
 	if len(excludeResourceIDs) > 0 {
 		params["exclude_ids"] = excludeResourceIDs
@@ -1330,15 +1335,23 @@ func (s *TelegramBotServiceImpl) SendMessage(chatID int64, text string, img stri
 	} else {
 		// 如果 img 以 http 开头，则为图片URL，否则为文件remote_id
 		if strings.HasPrefix(img, "http") {
-			// 发送图片URL
-			photoMsg := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(img))
-			photoMsg.Caption = text
-			photoMsg.ParseMode = "HTML"
-			_, err := s.bot.Send(photoMsg)
-			if err != nil {
-				utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送图片消息失败: %v", err)
+			// 发送图片URL前先验证URL是否可访问并返回有效的图片格式
+			if s.isValidImageURL(img) {
+				photoMsg := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(img))
+				photoMsg.Caption = text
+				photoMsg.ParseMode = "HTML"
+				_, err := s.bot.Send(photoMsg)
+				if err != nil {
+					utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送图片消息失败: %v", err)
+					// 如果URL方式失败，尝试将URL作为普通文本发送
+					return s.sendTextMessage(chatID, text)
+				}
+				return err
+			} else {
+				utils.Warn("[TELEGRAM:MESSAGE:WARNING] 图片URL无效，仅发送文本消息: %s", img)
+				// URL无效时只发送文本消息
+				return s.sendTextMessage(chatID, text)
 			}
-			return err
 		} else {
 			// imgUrl := s.GetImgUrl(img)
 			//todo  判断 imgUrl 是否可用
@@ -1349,10 +1362,83 @@ func (s *TelegramBotServiceImpl) SendMessage(chatID int64, text string, img stri
 			_, err := s.bot.Send(photoMsg)
 			if err != nil {
 				utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送图片消息失败: %v", err)
+				// 如果文件ID方式失败，尝试将URL作为普通文本发送
+				return s.sendTextMessage(chatID, text)
 			}
 			return err
 		}
 	}
+}
+
+// isValidImageURL 验证图片URL是否有效
+func (s *TelegramBotServiceImpl) isValidImageURL(imageURL string) bool {
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	// 如果配置了代理，设置代理
+	if s.config.ProxyEnabled && s.config.ProxyHost != "" {
+		var proxyClient *http.Client
+		if s.config.ProxyType == "socks5" {
+			auth := &proxy.Auth{}
+			if s.config.ProxyUsername != "" {
+				auth.User = s.config.ProxyUsername
+				auth.Password = s.config.ProxyPassword
+			}
+			dialer, proxyErr := proxy.SOCKS5("tcp", fmt.Sprintf("%s:%d", s.config.ProxyHost, s.config.ProxyPort), auth, proxy.Direct)
+			if proxyErr != nil {
+				utils.Warn("[TELEGRAM:IMAGE] 代理配置错误: %v", proxyErr)
+				return false
+			}
+			proxyClient = &http.Client{
+				Transport: &http.Transport{
+					Dial: dialer.Dial,
+				},
+				Timeout: 10 * time.Second,
+			}
+		} else {
+			proxyURL := &url.URL{
+				Scheme: s.config.ProxyType,
+				Host:   fmt.Sprintf("%s:%d", s.config.ProxyHost, s.config.ProxyPort),
+			}
+			if s.config.ProxyUsername != "" {
+				proxyURL.User = url.UserPassword(s.config.ProxyUsername, s.config.ProxyPassword)
+			}
+			proxyClient = &http.Client{
+				Transport: &http.Transport{
+					Proxy: http.ProxyURL(proxyURL),
+				},
+				Timeout: 10 * time.Second,
+			}
+		}
+		client = proxyClient
+	}
+
+	resp, err := client.Head(imageURL)
+	if err != nil {
+		utils.Warn("[TELEGRAM:IMAGE] 检查图片URL失败: %v, URL: %s", err, imageURL)
+		return false
+	}
+	defer resp.Body.Close()
+
+	// 检查Content-Type是否为图片格式
+	contentType := resp.Header.Get("Content-Type")
+	isImage := strings.HasPrefix(contentType, "image/")
+	if !isImage {
+		utils.Warn("[TELEGRAM:IMAGE] URL不是图片格式: %s, Content-Type: %s", imageURL, contentType)
+	}
+	return isImage
+}
+
+// sendTextMessage 仅发送文本消息的辅助方法
+func (s *TelegramBotServiceImpl) sendTextMessage(chatID int64, text string) error {
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
+	_, err := s.bot.Send(msg)
+	if err != nil {
+		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送文本消息失败: %v", err)
+	}
+	return err
 }
 
 // DeleteMessage 删除消息
@@ -2016,4 +2102,26 @@ func (s *TelegramBotServiceImpl) isChannelInPushTimeRange(channel entity.Telegra
 		// 跨天时间段，例如 22:00 - 06:00
 		return currentTime >= startTime || currentTime <= endTime
 	}
+}
+
+// ManualPushToChannel 手动推送内容到指定频道
+func (s *TelegramBotServiceImpl) ManualPushToChannel(channelID uint) error {
+	// 获取指定频道信息
+	channel, err := s.channelRepo.FindByID(channelID)
+	if err != nil {
+		return fmt.Errorf("找不到指定的频道: %v", err)
+	}
+
+	utils.Info("[TELEGRAM:MANUAL_PUSH] 开始手动推送到频道: %s (ID: %d)", channel.ChatName, channel.ChatID)
+
+	// 检查频道是否启用推送
+	if !channel.PushEnabled {
+		return fmt.Errorf("频道 %s 未启用推送功能", channel.ChatName)
+	}
+
+	// 推送内容到频道，使用频道配置的策略
+	s.pushToChannel(*channel)
+
+	utils.Info("[TELEGRAM:MANUAL_PUSH] 手动推送请求已提交: %s (ID: %d)", channel.ChatName, channel.ChatID)
+	return nil
 }

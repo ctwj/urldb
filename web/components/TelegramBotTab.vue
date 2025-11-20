@@ -279,6 +279,16 @@
                 <n-tag :type="channel.is_active ? 'success' : 'warning'" size="small">
                   {{ channel.is_active ? '活跃' : '非活跃' }}
                 </n-tag>
+                <n-button
+                  v-if="channel.push_enabled"
+                  size="small"
+                  @click="manualPushToChannel(channel)"
+                  :loading="manualPushingChannel === channel.id"
+                  title="手动推送">
+                  <template #icon>
+                    <i class="fas fa-paper-plane"></i>
+                  </template>
+                </n-button>
                 <n-button size="small" @click="editChannel(channel)">
                   <template #icon>
                     <i class="fas fa-edit"></i>
@@ -715,6 +725,8 @@ const loadingLogs = ref(false)
 const logHours = ref(24)
 const editingChannel = ref<any>(null)
 const savingChannel = ref(false)
+const testingPush = ref(false)
+const manualPushingChannel = ref<number | null>(null)
 
 // 机器人状态相关变量
 const botStatus = ref<any>(null)
@@ -1466,6 +1478,55 @@ const refreshBotStatus = async () => {
     })
   } finally {
     statusRefreshing.value = false
+  }
+}
+
+// 手动推送内容到频道
+const manualPushToChannel = async (channel: any) => {
+  if (!channel || !channel.id) {
+    notification.warning({
+      content: '频道信息不完整',
+      duration: 2000
+    })
+    return
+  }
+
+  if (!telegramBotConfig.value.bot_enabled) {
+    notification.warning({
+      content: '请先启用机器人并配置API Key',
+      duration: 3000
+    })
+    return
+  }
+
+  manualPushingChannel.value = channel.id
+  try {
+    await telegramApi.manualPushToChannel(channel.id)
+
+    notification.success({
+      content: `手动推送请求已提交至频道 "${channel.chat_name}"`,
+      duration: 3000
+    })
+
+    // 更新频道推送时间
+    const updatedChannels = telegramChannels.value.map(c => {
+      if (c.id === channel.id) {
+        c.last_push_at = new Date().toISOString()
+      }
+      return c
+    })
+    telegramChannels.value = updatedChannels
+  } catch (error: any) {
+    console.error('手动推送失败:', error)
+    notification.error({
+      content: `手动推送失败: ${error?.message || '请稍后重试'}`,
+      duration: 3000
+    })
+  } finally {
+    // 只有当当前频道ID与推送中的频道ID匹配时才清除状态
+    if (manualPushingChannel.value === channel.id) {
+      manualPushingChannel.value = null
+    }
   }
 }
 

@@ -172,7 +172,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
       this.error = null
 
       try {
-        console.log(`[SystemConfig] 开始获取配置 (force: ${force}, useAdminApi: ${useAdminApi})`)
+        // console.log(`[SystemConfig] 开始获取配置 (force: ${force}, useAdminApi: ${useAdminApi})`)
 
         // 根据上下文选择API：管理员页面使用管理员API，其他页面使用公开API
         const apiUrl = useAdminApi ? '/system/config' : '/public/system-config'
@@ -189,14 +189,14 @@ export const useSystemConfigStore = defineStore('systemConfig', {
         // 保存到缓存（仅在客户端）
         this.saveToCache(data)
 
-        console.log('[SystemConfig] 配置获取并缓存成功')
-        console.log('[SystemConfig] 自动处理状态:', data.auto_process_ready_resources)
-        console.log('[SystemConfig] 自动转存状态:', data.auto_transfer_enabled)
+        // console.log('[SystemConfig] 配置获取并缓存成功')
+        // console.log('[SystemConfig] 自动处理状态:', data.auto_process_ready_resources)
+        // console.log('[SystemConfig] 自动转存状态:', data.auto_transfer_enabled)
 
       } catch (error) {
         this.isLoading = false
         this.error = error instanceof Error ? error.message : '获取配置失败'
-        console.error('[SystemConfig] 获取系统配置失败:', error)
+        // console.error('[SystemConfig] 获取系统配置失败:', error)
 
         // 如果网络请求失败，尝试使用过期的缓存作为降级方案
         if (!force) {

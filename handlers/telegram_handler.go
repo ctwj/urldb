@@ -511,6 +511,27 @@ func (h *TelegramHandler) GetTelegramLogStats(c *gin.Context) {
 	})
 }
 
+// ManualPushToChannel 手动推送到频道
+func (h *TelegramHandler) ManualPushToChannel(c *gin.Context) {
+	idStr := c.Param("id")
+	channelID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的频道ID", http.StatusBadRequest)
+		return
+	}
+
+	err = h.telegramBotService.ManualPushToChannel(uint(channelID))
+	if err != nil {
+		ErrorResponse(c, "手动推送失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"success": true,
+		"message": "手动推送请求已提交",
+	})
+}
+
 // ClearTelegramLogs 清理旧的Telegram日志
 func (h *TelegramHandler) ClearTelegramLogs(c *gin.Context) {
 	daysStr := c.DefaultQuery("days", "30")
