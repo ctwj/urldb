@@ -452,9 +452,16 @@ func (h *PublicAPIHandler) recordAPIAccessToDB(ip, userAgent, endpoint, method s
 	requestParams interface{}, responseStatus int, responseData interface{},
 	processCount int, errorMessage string, processingTime int64) {
 
-	// 只记录重要的API访问（有错误或处理时间较长的）
-	if errorMessage == "" && processingTime < 1000 && responseStatus < 400 {
-		return // 跳过正常的快速请求
+	// 判断是否为关键端点，需要强制记录日志
+	isKeyEndpoint := strings.Contains(endpoint, "/api/public/resources/batch-add") ||
+		strings.Contains(endpoint, "/api/admin/") ||
+		strings.Contains(endpoint, "/telegram/webhook") ||
+		strings.Contains(endpoint, "/api/public/resources/search") ||
+		strings.Contains(endpoint, "/api/public/hot-drama")
+
+	// 只记录重要的API访问（有错误或处理时间较长的）或者是关键端点
+	if errorMessage == "" && processingTime < 1000 && responseStatus < 400 && !isKeyEndpoint {
+		return // 跳过正常的快速请求，但记录关键端点
 	}
 
 	// 转换参数为JSON字符串
