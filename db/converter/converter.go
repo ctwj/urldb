@@ -96,7 +96,7 @@ func ToResourceResponseFromMeilisearch(doc interface{}) dto.ResourceResponse {
 		response.FileSize = fileSizeField.String()
 	}
 	if keyField := docValue.FieldByName("Key"); keyField.IsValid() {
-		// Key字段在ResourceResponse中不存在，跳过
+		response.Key = keyField.String()
 	}
 	if categoryField := docValue.FieldByName("Category"); categoryField.IsValid() {
 		response.CategoryName = categoryField.String()
