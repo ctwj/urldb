@@ -112,6 +112,8 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			response.TelegramQrImage = config.Value
 		case entity.ConfigKeyQrCodeStyle:
 			response.QrCodeStyle = config.Value
+		case entity.ConfigKeyWebsiteURL:
+			response.SiteURL = config.Value
 		}
 	}
 
@@ -271,6 +273,10 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyQrCodeStyle, Value: *req.QrCodeStyle, Type: entity.ConfigTypeString})
 		updatedKeys = append(updatedKeys, entity.ConfigKeyQrCodeStyle)
 	}
+	if req.SiteURL != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyWebsiteURL, Value: *req.SiteURL, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyWebsiteURL)
+	}
 
 	// 记录更新的配置项
 	if len(updatedKeys) > 0 {
@@ -298,6 +304,7 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		entity.ConfigResponseFieldMaintenanceMode:     false,
 		entity.ConfigResponseFieldEnableRegister:      true, // 默认开启注册功能
 		entity.ConfigResponseFieldThirdPartyStatsCode: "",
+		entity.ConfigResponseFieldWebsiteURL:          "",
 	}
 
 	// 将键值对转换为map，过滤掉敏感配置
@@ -353,6 +360,8 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			response["telegram_qr_image"] = config.Value
 		case entity.ConfigKeyQrCodeStyle:
 			response["qr_code_style"] = config.Value
+		case entity.ConfigKeyWebsiteURL:
+			response[entity.ConfigResponseFieldWebsiteURL] = config.Value
 		case entity.ConfigKeyAutoProcessReadyResources:
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response["auto_process_ready_resources"] = val
@@ -420,5 +429,6 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		WechatSearchImage:         entity.ConfigDefaultWechatSearchImage,
 		TelegramQrImage:           entity.ConfigDefaultTelegramQrImage,
 		QrCodeStyle:               entity.ConfigDefaultQrCodeStyle,
+		SiteURL:                   entity.ConfigDefaultWebsiteURL,
 	}
 }

@@ -203,9 +203,6 @@
                             ? (detectionMethods[resource.id] === 'unsupported' ? '不支持检测' : (detectionResults[resource.id] ? '有效' : '无效'))
                             : '不支持检测' }}
                         </span>
-                        <span v-if="resource.save_url" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-100">
-                          已转存
-                        </span>
                       </div>
                     </div>
                   </div>

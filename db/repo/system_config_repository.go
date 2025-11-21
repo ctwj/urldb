@@ -143,6 +143,7 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyWechatSearchImage, Value: entity.ConfigDefaultWechatSearchImage, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyQrCodeStyle, Value: entity.ConfigDefaultQrCodeStyle, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyWebsiteURL, Value: entity.ConfigDefaultWebsiteURL, Type: entity.ConfigTypeString},
 		}
 
 		createStart := utils.GetCurrentTime()
@@ -189,6 +190,7 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		entity.ConfigKeyEnableFloatButtons:        {Key: entity.ConfigKeyEnableFloatButtons, Value: entity.ConfigDefaultEnableFloatButtons, Type: entity.ConfigTypeBool},
 		entity.ConfigKeyWechatSearchImage:         {Key: entity.ConfigKeyWechatSearchImage, Value: entity.ConfigDefaultWechatSearchImage, Type: entity.ConfigTypeString},
 		entity.ConfigKeyTelegramQrImage:           {Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
+		entity.ConfigKeyWebsiteURL:                {Key: entity.ConfigKeyWebsiteURL, Value: entity.ConfigDefaultWebsiteURL, Type: entity.ConfigTypeString},
 	}
 
 	// 检查现有配置中是否有缺失的配置项

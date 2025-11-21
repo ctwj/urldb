@@ -431,7 +431,7 @@ const getCategoryName = (categoryId: number) => {
 
 // 获取平台名称
 const getPlatformName = (platformId: number) => {
-  console.log('platformId', platformId, platformsData.value)
+  // console.log('platformId', platformId, platformsData.value)
   const platform = (platformsData.value as any)?.find((plat: any) => plat.id === platformId)
   return platform?.remark || platform?.name || '未知平台'
 }
@@ -449,22 +449,22 @@ const fetchData = async () => {
     // 添加分类筛选
     if (selectedCategory.value) {
       params.category_id = selectedCategory.value
-      console.log('添加分类筛选:', selectedCategory.value)
+      // console.log('添加分类筛选:', selectedCategory.value)
     }
     
     // 添加平台筛选
     if (selectedPlatform.value) {
       params.pan_id = selectedPlatform.value
-      console.log('添加平台筛选:', selectedPlatform.value)
+      // console.log('添加平台筛选:', selectedPlatform.value)
     }
     
-    console.log('请求参数:', params)
-    console.log('pageSize:', pageSize.value)
-    console.log('selectedCategory:', selectedCategory.value)
-    console.log('selectedPlatform:', selectedPlatform.value)
+    // console.log('请求参数:', params)
+    // console.log('pageSize:', pageSize.value)
+    // console.log('selectedCategory:', selectedCategory.value)
+    // console.log('selectedPlatform:', selectedPlatform.value)
     const response = await resourceApi.getResources(params) as any
-    console.log('API响应:', response)
-    console.log('返回的资源数量:', response?.data?.length || 0)
+    // console.log('API响应:', response)
+    // console.log('返回的资源数量:', response?.data?.length || 0)
     
     if (response && response.data) {
       // 处理嵌套的data结构：{data: {data: [...], total: ...}}

@@ -124,3 +124,10 @@ dist/
 
 # Air live reload
 tmp/ 
+
+#
+data/
+.claude/
+main
+output.zip
+CLAUDE.md

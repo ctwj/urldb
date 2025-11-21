@@ -608,24 +608,39 @@ watch(systemConfigError, (error) => {
 // 从 SSR 数据中获取值
 const safeResources = computed(() => {
   const data = resourcesData.value as any
-  // console.log('原始API数据结构:', JSON.stringify(data, null, 2))
+  let resources: any[] = []
 
   // 处理嵌套的data结构：{data: {data: [...], total: ...}}
   if (data?.data?.data && Array.isArray(data.data.data)) {
-    const resources = data.data.data
+    resources = data.data.data
     console.log('第一层嵌套资源:', resources)
-    return resources
   }
   // 处理直接的data结构：{data: [...], total: ...}
-  if (data?.data && Array.isArray(data.data)) {
-    const resources = data.data
+  else if (data?.data && Array.isArray(data.data)) {
+    resources = data.data
     // console.log('第二层嵌套资源:', resources)
-    return resources
   }
   // 处理直接的数组结构
-  if (Array.isArray(data)) {
+  else if (Array.isArray(data)) {
+    resources = data
     // console.log('直接数组结构:', data)
-    return data
+  }
+
+  // 根据 key 字段去重
+  if (resources.length > 0) {
+    const keyMap = new Map()
+    const deduplicatedResources: any[] = []
+
+    for (const resource of resources) {
+      const key = resource.key
+      if (!keyMap.has(key)) {
+        keyMap.set(key, true)
+        deduplicatedResources.push(resource)
+      }
+    }
+
+    // console.log(`去重前: ${resources.length} 个资源, 去重后: ${deduplicatedResources.length} 个资源`)
+    return deduplicatedResources
   }
 
   // console.log('未匹配到任何数据结构')

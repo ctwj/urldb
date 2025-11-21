@@ -50,6 +50,9 @@ type SystemConfigRequest struct {
 	WechatSearchImage   *string   `json:"wechat_search_image,omitempty"`
 	TelegramQrImage     *string   `json:"telegram_qr_image,omitempty"`
 	QrCodeStyle         *string   `json:"qr_code_style,omitempty"`
+
+	// 网站URL配置
+	SiteURL *string `json:"site_url,omitempty"`
 }
 
 // SystemConfigResponse 系统配置响应
@@ -106,6 +109,9 @@ type SystemConfigResponse struct {
 	WechatSearchImage   string   `json:"wechat_search_image"`
 	TelegramQrImage     string   `json:"telegram_qr_image"`
 	QrCodeStyle         string   `json:"qr_code_style"`
+
+	// 网站URL配置
+	SiteURL string `json:"site_url"`
 }
 
 // SystemConfigItem 单个配置项

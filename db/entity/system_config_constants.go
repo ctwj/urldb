@@ -170,6 +170,9 @@ const (
 	ConfigResponseFieldWechatSearchImage   = "wechat_search_image"
 	ConfigResponseFieldTelegramQrImage     = "telegram_qr_image"
 	ConfigResponseFieldQrCodeStyle         = "qr_code_style"
+
+	// 网站URL配置字段
+	ConfigResponseFieldWebsiteURL = "site_url"
 )
 
 // ConfigDefaultValue 配置默认值常量
@@ -245,4 +248,7 @@ const (
 	ConfigDefaultWechatSearchImage   = ""
 	ConfigDefaultTelegramQrImage     = ""
 	ConfigDefaultQrCodeStyle         = "Plain"
+
+	// 网站URL配置默认值
+	ConfigDefaultWebsiteURL = ""
 )

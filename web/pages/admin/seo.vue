@@ -285,7 +285,7 @@
 
         <!-- Sitemap配置 -->
         <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between mb-4">
             <div>
               <h4 class="font-medium text-gray-900 dark:text-white mb-2">自动生成功能</h4>
               <p class="text-sm text-gray-600 dark:text-gray-400">
@@ -301,6 +301,29 @@
               <template #checked>已开启</template>
               <template #unchecked>已关闭</template>
             </n-switch>
+          </div>
+
+          <!-- 站点URL显示 -->
+          <div class="border-t border-gray-200 dark:border-gray-600 pt-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h5 class="font-medium text-gray-900 dark:text-white mb-1">当前站点URL</h5>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Sitemap生成时将使用此URL作为基础域名
+                </p>
+              </div>
+              <div class="text-right">
+                <div v-if="systemConfig?.site_url" class="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                  {{ systemConfig.site_url }}
+                </div>
+                <div v-else class="text-sm text-yellow-600 dark:text-yellow-400 mb-2">
+                  未配置
+                </div>
+                <NuxtLink to="/admin/site-config" class="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline">
+                  前往配置
+                </NuxtLink>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -678,12 +701,20 @@ const generateSitemap = async () => {
   generateStatus.value = '正在启动生成任务...'
 
   try {
+    // 使用已经加载的系统配置
+    const siteUrl = systemConfig.value?.site_url || ''
+    if (!siteUrl) {
+      message.warning('请先在站点配置中设置站点URL，然后再生成Sitemap')
+      isGenerating.value = false
+      return
+    }
+
     const sitemapApi = useSitemapApi()
-    const response = await sitemapApi.generateSitemap()
+    const response = await sitemapApi.generateSitemap({ site_url: siteUrl })
 
     if (response) {
       generateStatus.value = response.message || '生成任务已启动'
-      message.success('Sitemap生成任务已启动')
+      message.success(`Sitemap生成任务已启动，使用站点URL: ${siteUrl}`)
       // 更新统计信息
       sitemapStats.value.total_resources = response.total_resources || 0
       sitemapStats.value.total_pages = response.total_pages || 0
@@ -715,8 +746,24 @@ const viewSitemap = () => {
   window.open('/sitemap.xml', '_blank')
 }
 
+// 获取系统配置
+const systemConfig = ref<any>(null)
+
+// 加载系统配置
+const loadSystemConfig = async () => {
+  try {
+    const { useSystemConfigStore } = await import('~/stores/systemConfig')
+    const systemConfigStore = useSystemConfigStore()
+    await systemConfigStore.initConfig(true, true)
+    systemConfig.value = systemConfigStore.config
+  } catch (error) {
+    console.error('获取系统配置失败:', error)
+  }
+}
+
 // 初始化
 onMounted(async () => {
+  await loadSystemConfig()
   loadLinkList()
   await loadSitemapConfig()
   await refreshSitemapStatus()
