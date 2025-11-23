@@ -132,3 +132,32 @@ type SearchRequest struct {
 	Page       int    `json:"page"`
 	Limit      int    `json:"limit"`
 }
+
+// CreateTaskRequest 创建任务请求
+type CreateTaskRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	TaskType    string `json:"task_type" binding:"required"`
+	ConfigID    *uint  `json:"config_id"`
+}
+
+// CreateTaskItemRequest 创建任务项请求
+type CreateTaskItemRequest struct {
+	URL       string                 `json:"url"`
+	InputData map[string]interface{} `json:"input_data"`
+}
+
+// QueryTaskRequest 查询任务请求
+type QueryTaskRequest struct {
+	Page     int    `json:"page" form:"page"`
+	PageSize int    `json:"page_size" form:"page_size"`
+	Status   string `json:"status" form:"status"`
+	Type     string `json:"type" form:"type"`
+}
+
+// QueryTaskItemRequest 查询任务项请求
+type QueryTaskItemRequest struct {
+	Page     int    `json:"page" form:"page"`
+	PageSize int    `json:"page_size" form:"page_size"`
+	Status   string `json:"status" form:"status"`
+}

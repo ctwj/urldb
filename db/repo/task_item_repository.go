@@ -12,6 +12,7 @@ import (
 type TaskItemRepository interface {
 	GetByID(id uint) (*entity.TaskItem, error)
 	Create(item *entity.TaskItem) error
+	Update(item *entity.TaskItem) error
 	Delete(id uint) error
 	DeleteByTaskID(taskID uint) error
 	GetByTaskIDAndStatus(taskID uint, status string) ([]*entity.TaskItem, error)
@@ -47,6 +48,33 @@ func (r *TaskItemRepositoryImpl) GetByID(id uint) (*entity.TaskItem, error) {
 // Create 创建任务项
 func (r *TaskItemRepositoryImpl) Create(item *entity.TaskItem) error {
 	return r.db.Create(item).Error
+}
+
+// Update 更新任务项
+func (r *TaskItemRepositoryImpl) Update(item *entity.TaskItem) error {
+	startTime := utils.GetCurrentTime()
+	err := r.db.Model(&entity.TaskItem{}).Where("id = ?", item.ID).Updates(map[string]interface{}{
+		"status":           item.Status,
+		"error_message":    item.ErrorMessage,
+		"index_status":     item.IndexStatus,
+		"mobile_friendly":  item.MobileFriendly,
+		"last_crawled":     item.LastCrawled,
+		"status_code":      item.StatusCode,
+		"input_data":       item.InputData,
+		"output_data":      item.OutputData,
+		"process_log":      item.ProcessLog,
+		"url":              item.URL,
+		"inspect_result":   item.InspectResult,
+		"processed_at":     item.ProcessedAt,
+		"updated_at":       time.Now(),
+	}).Error
+	updateDuration := time.Since(startTime)
+	if err != nil {
+		utils.Error("Update任务项失败: ID=%d, 错误=%v, 更新耗时=%v", item.ID, err, updateDuration)
+		return err
+	}
+	utils.Debug("Update任务项成功: ID=%d, 更新耗时=%v", item.ID, updateDuration)
+	return nil
 }
 
 // Delete 删除任务项

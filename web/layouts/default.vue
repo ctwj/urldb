@@ -32,6 +32,20 @@
 import { lightTheme } from 'naive-ui'
 import { ref, onMounted } from 'vue'
 
+// 动态添加Google站点验证meta标签
+const { data: verificationData } = await $fetch('/api/public/site-verification').catch(() => ({ data: {} }))
+
+useHead({
+  meta: verificationData?.google_site_verification_code
+    ? [
+        {
+          name: 'google-site-verification',
+          content: verificationData.google_site_verification_code
+        }
+      ]
+    : []
+})
+
 const theme = lightTheme
 const isDark = ref(false)
 
