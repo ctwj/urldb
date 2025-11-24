@@ -144,6 +144,16 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyQrCodeStyle, Value: entity.ConfigDefaultQrCodeStyle, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyWebsiteURL, Value: entity.ConfigDefaultWebsiteURL, Type: entity.ConfigTypeString},
+			// Google索引配置
+			{Key: entity.GoogleIndexConfigKeyEnabled, Value: "false", Type: entity.ConfigTypeBool},
+						{Key: entity.GoogleIndexConfigKeySiteName, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},
+			{Key: entity.GoogleIndexConfigKeyCheckInterval, Value: "60", Type: entity.ConfigTypeInt},
+			{Key: entity.GoogleIndexConfigKeyBatchSize, Value: "10", Type: entity.ConfigTypeInt},
+			{Key: entity.GoogleIndexConfigKeyConcurrency, Value: "2", Type: entity.ConfigTypeInt},
+			{Key: entity.GoogleIndexConfigKeyRetryAttempts, Value: "3", Type: entity.ConfigTypeInt},
+			{Key: entity.GoogleIndexConfigKeyRetryDelay, Value: "2", Type: entity.ConfigTypeInt},
+			{Key: entity.GoogleIndexConfigKeyAutoSitemap, Value: "false", Type: entity.ConfigTypeBool},
+			{Key: entity.GoogleIndexConfigKeySitemapPath, Value: "/sitemap.xml", Type: entity.ConfigTypeString},
 		}
 
 		createStart := utils.GetCurrentTime()
@@ -191,6 +201,16 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		entity.ConfigKeyWechatSearchImage:         {Key: entity.ConfigKeyWechatSearchImage, Value: entity.ConfigDefaultWechatSearchImage, Type: entity.ConfigTypeString},
 		entity.ConfigKeyTelegramQrImage:           {Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
 		entity.ConfigKeyWebsiteURL:                {Key: entity.ConfigKeyWebsiteURL, Value: entity.ConfigDefaultWebsiteURL, Type: entity.ConfigTypeString},
+		// Google索引配置
+		entity.GoogleIndexConfigKeyEnabled:        {Key: entity.GoogleIndexConfigKeyEnabled, Value: "false", Type: entity.ConfigTypeBool},
+		entity.GoogleIndexConfigKeySiteName:       {Key: entity.GoogleIndexConfigKeySiteName, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},
+		entity.GoogleIndexConfigKeyCheckInterval:  {Key: entity.GoogleIndexConfigKeyCheckInterval, Value: "60", Type: entity.ConfigTypeInt},
+		entity.GoogleIndexConfigKeyBatchSize:      {Key: entity.GoogleIndexConfigKeyBatchSize, Value: "10", Type: entity.ConfigTypeInt},
+		entity.GoogleIndexConfigKeyConcurrency:    {Key: entity.GoogleIndexConfigKeyConcurrency, Value: "2", Type: entity.ConfigTypeInt},
+		entity.GoogleIndexConfigKeyRetryAttempts:  {Key: entity.GoogleIndexConfigKeyRetryAttempts, Value: "3", Type: entity.ConfigTypeInt},
+		entity.GoogleIndexConfigKeyRetryDelay:     {Key: entity.GoogleIndexConfigKeyRetryDelay, Value: "2", Type: entity.ConfigTypeInt},
+		entity.GoogleIndexConfigKeyAutoSitemap:    {Key: entity.GoogleIndexConfigKeyAutoSitemap, Value: "false", Type: entity.ConfigTypeBool},
+		entity.GoogleIndexConfigKeySitemapPath:    {Key: entity.GoogleIndexConfigKeySitemapPath, Value: "/sitemap.xml", Type: entity.ConfigTypeString},
 	}
 
 	// 检查现有配置中是否有缺失的配置项
@@ -304,6 +324,9 @@ func (r *SystemConfigRepositoryImpl) ValidateConfigIntegrity() error {
 		entity.ConfigKeyMaintenanceMode,
 		entity.ConfigKeyEnableRegister,
 		entity.ConfigKeyThirdPartyStatsCode,
+		// Google索引配置
+		entity.GoogleIndexConfigKeyEnabled,
+				entity.GoogleIndexConfigKeySiteName,
 	}
 
 	existingKeys := make(map[string]bool)

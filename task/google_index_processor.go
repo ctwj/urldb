@@ -213,9 +213,9 @@ func (gip *GoogleIndexProcessor) initGoogleClient() (*google.Client, error) {
 	}
 
 	// 从配置中获取网站URL
-	siteURL, err := gip.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySiteURL)
-	if err != nil || siteURL == "" {
-		return nil, fmt.Errorf("未配置网站URL: %v", err)
+	siteURL, err := gip.repoMgr.SystemConfigRepository.GetConfigValue(entity.ConfigKeyWebsiteURL)
+	if err != nil || siteURL == "" || siteURL == "https://example.com" {
+		return nil, fmt.Errorf("未配置网站URL或在站点配置中设置了默认值")
 	}
 
 	config := &google.Config{

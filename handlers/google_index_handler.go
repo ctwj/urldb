@@ -48,7 +48,7 @@ func (h *GoogleIndexHandler) GetAllConfig(c *gin.Context) {
 	}
 	enabled := enabledStr == "true" || enabledStr == "1"
 
-	siteURL, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySiteURL)
+	siteURL, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.ConfigKeyWebsiteURL)
 	if err != nil {
 		siteURL = ""
 	}
@@ -203,7 +203,7 @@ func (h *GoogleIndexHandler) GetConfig(c *gin.Context) {
 	}
 	enabled := enabledStr == "true" || enabledStr == "1"
 
-	siteURL, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySiteURL)
+	siteURL, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.ConfigKeyWebsiteURL)
 	if err != nil {
 		siteURL = ""
 	}
@@ -315,12 +315,7 @@ func (h *GoogleIndexHandler) UpdateConfig(c *gin.Context) {
 			Value: strconv.FormatBool(req.General.Enabled),
 			Type:  entity.ConfigTypeBool,
 		},
-		{
-			Key:   entity.GoogleIndexConfigKeySiteURL,
-			Value: req.General.SiteURL,
-			Type:  entity.ConfigTypeString,
-		},
-		{
+				{
 			Key:   entity.GoogleIndexConfigKeySiteName,
 			Value: req.General.SiteName,
 			Type:  entity.ConfigTypeString,
@@ -775,7 +770,7 @@ func (h *GoogleIndexHandler) GetStatus(c *gin.Context) {
 	}
 	enabled := enabledStr == "true" || enabledStr == "1"
 
-	siteURL, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySiteURL)
+	siteURL, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.ConfigKeyWebsiteURL)
 	if err != nil {
 		siteURL = ""
 	}
@@ -910,8 +905,7 @@ func (h *GoogleIndexHandler) UpdateGoogleIndexConfig(c *gin.Context) {
 			// 存储各个字段
 			generalConfigs := []entity.SystemConfig{
 				{Key: entity.GoogleIndexConfigKeyEnabled, Value: strconv.FormatBool(generalConfig.Enabled), Type: entity.ConfigTypeBool},
-				{Key: entity.GoogleIndexConfigKeySiteURL, Value: generalConfig.SiteURL, Type: entity.ConfigTypeString},
-				{Key: entity.GoogleIndexConfigKeySiteName, Value: generalConfig.SiteName, Type: entity.ConfigTypeString},
+								{Key: entity.GoogleIndexConfigKeySiteName, Value: generalConfig.SiteName, Type: entity.ConfigTypeString},
 			}
 			err := h.repoMgr.SystemConfigRepository.UpsertConfigs(generalConfigs)
 			if err != nil {

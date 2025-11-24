@@ -32,7 +32,7 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">站点URL</label>
               <n-input
-                :value="systemConfig?.site_url || '站点URL未配置'"
+                :value="getSiteUrlDisplay()"
                 :disabled="true"
                 placeholder="请先在站点配置中设置站点URL"
               >
@@ -481,12 +481,12 @@ const updateGoogleIndexConfig = async () => {
 // 提交网站地图
 const submitSitemap = async () => {
   const siteUrl = props.systemConfig?.site_url || ''
-  if (!siteUrl) {
-    message.warning('请先在站点配置中设置站点URL')
+  if (!siteUrl || siteUrl === 'https://example.com') {
+    message.warning('请先在站点配置中设置正确的站点URL')
     return
   }
 
-  const sitemapUrl = siteUrl + '/sitemap.xml'
+  const sitemapUrl = siteUrl.endsWith('/') ? siteUrl + 'sitemap.xml' : siteUrl + '/sitemap.xml'
 
   try {
     const api = useApi()
@@ -500,9 +500,10 @@ const submitSitemap = async () => {
       message.success('网站地图提交任务已创建')
       emit('refresh-status')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('提交网站地图失败:', error)
-    message.error('提交网站地图失败')
+    const errorMsg = error?.response?.data?.message || error?.message || '提交网站地图失败'
+    message.error('提交网站地图失败: ' + errorMsg)
   }
 }
 
@@ -527,6 +528,18 @@ const getAnalyticsUrl = () => {
 
   // 跳转到Google Analytics
   return 'https://analytics.google.com/'
+}
+
+// 获取站点URL显示文本
+const getSiteUrlDisplay = () => {
+  const siteUrl = props.systemConfig?.site_url || ''
+  if (!siteUrl) {
+    return '站点URL未配置'
+  }
+  if (siteUrl === 'https://example.com') {
+    return '请配置正确的站点URL'
+  }
+  return siteUrl
 }
 </script>
 

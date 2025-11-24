@@ -680,9 +680,10 @@ const confirmManualCheckURLs = async () => {
       urlCheckModal.value.show = false
       await refreshGoogleIndexStatus()
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('手动检查URL失败:', error)
-    message.error('手动检查URL失败')
+    const errorMsg = error?.response?.data?.message || error?.message || '手动检查URL失败'
+    message.error('手动检查URL失败: ' + errorMsg)
   } finally {
     manualCheckLoading.value = false
   }
@@ -694,17 +695,39 @@ const viewTaskItems = async (taskId: number) => {
     const api = useApi()
     const response = await api.googleIndexApi.getGoogleIndexTaskItems(taskId)
     if (response) {
-      // 在新窗口中打开任务详情
       const items = response.items || []
-      const content = `任务 ${taskId} 详情:\n\n` +
-        items.map((item: any) =>
-          `URL: ${item.URL}\n状态: ${item.status}\n索引状态: ${item.indexStatus}\n错误信息: ${item.errorMessage}\n---\n`
-        ).join('')
-      alert(content)
+
+      // 创建任务详情内容
+      let content = `任务 ${taskId} 详情:\n\n`
+
+      if (items.length === 0) {
+        content += '暂无任务项'
+      } else {
+        items.forEach((item: any, index: number) => {
+          content += `--- 任务项 ${index + 1} ---\n`
+          content += `URL: ${item.URL || 'N/A'}\n`
+          content += `状态: ${item.status || 'N/A'}\n`
+          content += `索引状态: ${item.indexStatus || 'N/A'}\n`
+          content += `移动友好: ${item.mobileFriendly ? '是' : '否'}\n`
+          content += `状态码: ${item.statusCode || 'N/A'}\n`
+          content += `最后抓取: ${item.lastCrawled ? new Date(item.lastCrawled).toLocaleString('zh-CN') : 'N/A'}\n`
+
+          // 错误信息处理
+          const errorMsg = item.errorMessage || item.outputData?.error || '无'
+          content += `错误信息: ${errorMsg}\n`
+          content += '\n'
+        })
+      }
+
+      // 使用更好的显示方式
+      if (window.confirm(content + '\n\n点击确定关闭此窗口')) {
+        // 用户确认后关闭
+      }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取任务详情失败:', error)
-    message.error('获取任务详情失败')
+    const errorMsg = error?.response?.data?.message || error?.message || '获取任务详情失败'
+    message.error('获取任务详情失败: ' + errorMsg)
   }
 }
 
@@ -717,9 +740,10 @@ const startTask = async (taskId: number) => {
       message.success('任务已启动')
       await loadGoogleIndexTasks()
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('启动任务失败:', error)
-    message.error('启动任务失败')
+    const errorMsg = error?.response?.data?.message || error?.message || '启动任务失败'
+    message.error('启动任务失败: ' + errorMsg)
   }
 }
 
@@ -763,8 +787,9 @@ const refreshSitemapStatus = async () => {
       sitemapStats.value = response
       generateStatus.value = '状态已刷新'
     }
-  } catch (error) {
-    message.error('刷新状态失败')
+  } catch (error: any) {
+    const errorMsg = error?.response?.data?.message || error?.message || '刷新状态失败'
+    message.error('刷新状态失败: ' + errorMsg)
   }
 }
 

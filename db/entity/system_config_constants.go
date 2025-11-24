@@ -250,5 +250,5 @@ const (
 	ConfigDefaultQrCodeStyle         = "Plain"
 
 	// 网站URL配置默认值
-	ConfigDefaultWebsiteURL = ""
+	ConfigDefaultWebsiteURL = "https://example.com"
 )

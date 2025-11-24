@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -142,10 +143,10 @@ func (s *GoogleIndexScheduler) initGoogleClient() error {
 		return fmt.Errorf("获取凭据文件路径失败: %v", err)
 	}
 
-	// 获取站点URL
-	siteURL, err := s.systemConfigRepo.GetConfigValue(entity.GoogleIndexConfigKeySiteURL)
-	if err != nil {
-		return fmt.Errorf("获取站点URL失败: %v", err)
+	// 获取站点URL，使用通用站点URL配置
+	siteURL, err := s.systemConfigRepo.GetConfigValue(entity.ConfigKeyWebsiteURL)
+	if err != nil || siteURL == "" || siteURL == "https://example.com" {
+		siteURL = "https://pan.l9.lc" // 默认站点URL
 	}
 
 	// 创建Google客户端配置
@@ -176,20 +177,49 @@ func (s *GoogleIndexScheduler) performScheduledTasks() {
 		utils.Error("清理旧记录失败: %v", err)
 	}
 
-	// 任务1: 扫描未索引的URL并自动提交
-	if err := s.scanAndSubmitUnindexedURLs(ctx); err != nil {
-		utils.Error("扫描未索引URL失败: %v", err)
+	// 任务1: 定期提交sitemap给Google
+	if err := s.submitSitemapToGoogle(ctx); err != nil {
+		utils.Error("提交sitemap失败: %v", err)
 	}
 
-	// 任务2: 定期检查已索引URL的状态
-	if err := s.checkIndexedURLsStatus(ctx); err != nil {
-		utils.Error("检查索引状态失败: %v", err)
-	}
-
-	// 任务3: 刷新待处理的URL结果
+	// 任务2: 刷新待处理的URL结果
 	s.flushURLResults()
 
 	utils.Debug("Google索引调度任务执行完成")
+}
+
+// submitSitemapToGoogle 提交sitemap给Google
+func (s *GoogleIndexScheduler) submitSitemapToGoogle(ctx context.Context) error {
+	utils.Info("开始提交sitemap给Google...")
+
+	// 获取站点URL构建sitemap URL
+	siteURL, err := s.systemConfigRepo.GetConfigValue(entity.ConfigKeyWebsiteURL)
+	if err != nil || siteURL == "" || siteURL == "https://example.com" {
+		siteURL = "https://pan.l9.lc" // 默认站点URL
+	}
+
+	sitemapURL := siteURL
+	if !strings.HasSuffix(sitemapURL, "/") {
+		sitemapURL += "/"
+	}
+	sitemapURL += "sitemap.xml"
+
+	utils.Info("提交sitemap: %s", sitemapURL)
+
+	// 验证sitemapURL不为空
+	if sitemapURL == "" || sitemapURL == "/sitemap.xml" {
+		return fmt.Errorf("网站地图URL不能为空")
+	}
+
+	// 提交sitemap给Google
+	err = s.googleClient.SubmitSitemap(sitemapURL)
+	if err != nil {
+		utils.Error("提交sitemap失败: %s, 错误: %v", sitemapURL, err)
+		return fmt.Errorf("提交sitemap失败: %v", err)
+	}
+
+	utils.Info("sitemap提交成功: %s", sitemapURL)
+	return nil
 }
 
 // scanAndSubmitUnindexedURLs 扫描并提交未索引的URL
@@ -216,9 +246,16 @@ func (s *GoogleIndexScheduler) scanAndSubmitUnindexedURLs(ctx context.Context) e
 	}
 
 	for _, resource := range resources {
-		if resource.IsPublic && resource.IsValid && resource.URL != "" {
-			if !indexedURLSet[resource.URL] {
-				unindexedURLs = append(unindexedURLs, resource.URL)
+		if resource.IsPublic && resource.IsValid && resource.Key != "" {
+			// 构建本站URL，而不是使用原始的外链URL
+			siteURL, _ := s.systemConfigRepo.GetConfigValue(entity.ConfigKeyWebsiteURL)
+			if siteURL == "" {
+				siteURL = "https://pan.l9.lc" // 默认站点URL
+			}
+			localURL := fmt.Sprintf("%s/r/%s", siteURL, resource.Key)
+
+			if !indexedURLSet[localURL] {
+				unindexedURLs = append(unindexedURLs, localURL)
 			}
 		}
 	}
