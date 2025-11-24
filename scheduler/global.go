@@ -201,3 +201,39 @@ func (gs *GlobalScheduler) TriggerSitemapGeneration() {
 
 	gs.manager.TriggerSitemapGeneration()
 }
+
+// StartGoogleIndexScheduler 启动Google索引调度任务
+func (gs *GlobalScheduler) StartGoogleIndexScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if gs.manager.IsGoogleIndexRunning() {
+		utils.Debug("Google索引调度任务已在运行中")
+		return
+	}
+
+	gs.manager.StartGoogleIndexScheduler()
+	utils.Info("Google索引调度任务已启动")
+}
+
+// StopGoogleIndexScheduler 停止Google索引调度任务
+func (gs *GlobalScheduler) StopGoogleIndexScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if !gs.manager.IsGoogleIndexRunning() {
+		utils.Debug("Google索引调度任务未在运行")
+		return
+	}
+
+	gs.manager.StopGoogleIndexScheduler()
+	utils.Info("Google索引调度任务已停止")
+}
+
+// IsGoogleIndexSchedulerRunning 检查Google索引调度任务是否在运行
+func (gs *GlobalScheduler) IsGoogleIndexSchedulerRunning() bool {
+	gs.mutex.RLock()
+	defer gs.mutex.RUnlock()
+
+	return gs.manager.IsGoogleIndexRunning()
+}

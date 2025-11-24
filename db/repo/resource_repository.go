@@ -51,6 +51,8 @@ type ResourceRepository interface {
 	FindByResourceKey(key string) ([]entity.Resource, error)
 	FindByKey(key string) ([]entity.Resource, error)
 	GetHotResources(limit int) ([]entity.Resource, error)
+	GetTotalCount() (int64, error)
+	GetAllValidResources() ([]entity.Resource, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -798,4 +800,19 @@ func (r *ResourceRepositoryImpl) FindByResourceKey(key string) ([]entity.Resourc
 		return nil, err
 	}
 	return resources, nil
+}
+
+// GetTotalCount 获取资源总数
+func (r *ResourceRepositoryImpl) GetTotalCount() (int64, error) {
+	var count int64
+	err := r.GetDB().Model(&entity.Resource{}).Count(&count).Error
+	return count, err
+}
+
+// GetAllValidResources 获取所有有效的公开资源
+func (r *ResourceRepositoryImpl) GetAllValidResources() ([]entity.Resource, error) {
+	var resources []entity.Resource
+	err := r.GetDB().Where("is_valid = ? AND is_public = ?", true, true).
+		Find(&resources).Error
+	return resources, err
 }

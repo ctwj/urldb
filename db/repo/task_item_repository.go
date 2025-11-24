@@ -20,6 +20,7 @@ type TaskItemRepository interface {
 	UpdateStatus(id uint, status string) error
 	UpdateStatusAndOutput(id uint, status, outputData string) error
 	GetStatsByTaskID(taskID uint) (map[string]int, error)
+	GetIndexStats() (map[string]int, error)
 	ResetProcessingItems(taskID uint) error
 }
 
@@ -209,4 +210,31 @@ func (r *TaskItemRepositoryImpl) ResetProcessingItems(taskID uint) error {
 	}
 	utils.Debug("ResetProcessingItems成功: 任务ID=%d, 更新耗时=%v", taskID, updateDuration)
 	return nil
+}
+
+// GetIndexStats 获取索引统计信息
+func (r *TaskItemRepositoryImpl) GetIndexStats() (map[string]int, error) {
+	stats := make(map[string]int)
+
+	// 统计各种状态的数量
+	statuses := []string{"completed", "failed", "pending"}
+
+	for _, status := range statuses {
+		var count int64
+		err := r.db.Model(&entity.TaskItem{}).Where("status = ?", status).Count(&count).Error
+		if err != nil {
+			return nil, err
+		}
+
+		switch status {
+		case "completed":
+			stats["indexed"] = int(count)
+		case "failed":
+			stats["error"] = int(count)
+		case "pending":
+			stats["not_indexed"] = int(count)
+		}
+	}
+
+	return stats, nil
 }
