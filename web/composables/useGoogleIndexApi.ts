@@ -105,7 +105,7 @@ export interface GoogleIndexTaskItemPageResponse {
 export const useGoogleIndexApi = () => {
   // 配置管理API
   const getGoogleIndexConfig = (params?: any) =>
-    useApiFetch('/google-index/config', { params }).then(parseApiResponse<GoogleIndexConfig[]>)
+    useApiFetch('/google-index/config-all', { params }).then(parseApiResponse<GoogleIndexConfig[]>)
 
   const getGoogleIndexConfigByKey = (key: string) =>
     useApiFetch(`/google-index/config/${key}`).then(parseApiResponse<GoogleIndexConfig>)

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
@@ -36,7 +37,162 @@ func NewGoogleIndexHandler(
 	}
 }
 
-// GetConfig 获取Google索引配置
+// GetAllConfig 获取所有Google索引配置（以分组形式返回）
+func (h *GoogleIndexHandler) GetAllConfig(c *gin.Context) {
+	// 获取通用配置
+	enabledStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyEnabled)
+	if err != nil {
+		enabledStr = "false"
+	}
+	enabled := enabledStr == "true" || enabledStr == "1"
+
+	siteURL, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySiteURL)
+	if err != nil {
+		siteURL = ""
+	}
+
+	siteName, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySiteName)
+	if err != nil {
+		siteName = ""
+	}
+
+	// 获取调度配置
+	checkIntervalStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyCheckInterval)
+	if err != nil {
+		checkIntervalStr = "60"
+	}
+	checkInterval, _ := strconv.Atoi(checkIntervalStr)
+
+	batchSizeStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyBatchSize)
+	if err != nil {
+		batchSizeStr = "100"
+	}
+	batchSize, _ := strconv.Atoi(batchSizeStr)
+
+	concurrencyStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyConcurrency)
+	if err != nil {
+		concurrencyStr = "5"
+	}
+	concurrency, _ := strconv.Atoi(concurrencyStr)
+
+	retryAttemptsStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyRetryAttempts)
+	if err != nil {
+		retryAttemptsStr = "3"
+	}
+	retryAttempts, _ := strconv.Atoi(retryAttemptsStr)
+
+	retryDelayStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyRetryDelay)
+	if err != nil {
+		retryDelayStr = "2"
+	}
+	retryDelay, _ := strconv.Atoi(retryDelayStr)
+
+	// 获取网站地图配置
+	autoSitemapStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyAutoSitemap)
+	if err != nil {
+		autoSitemapStr = "false"
+	}
+	autoSitemap := autoSitemapStr == "true" || autoSitemapStr == "1"
+
+	sitemapPath, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySitemapPath)
+	if err != nil {
+		sitemapPath = "/sitemap.xml"
+	}
+
+	sitemapSchedule, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySitemapSchedule)
+	if err != nil {
+		sitemapSchedule = "@daily"
+	}
+
+	// 获取认证配置
+	credentialsFile, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyCredentialsFile)
+	if err != nil {
+		credentialsFile = ""
+	}
+
+	clientEmail, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyClientEmail)
+	if err != nil {
+		clientEmail = ""
+	}
+
+	clientID, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyClientID)
+	if err != nil {
+		clientID = ""
+	}
+
+	privateKey, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyPrivateKey)
+	if err != nil {
+		privateKey = ""
+	}
+
+	token, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyToken)
+	if err != nil {
+		token = ""
+	}
+
+	// 构建各组配置
+	generalConfig := dto.GoogleIndexConfigGeneral{
+		Enabled:  enabled,
+		SiteURL:  siteURL,
+		SiteName: siteName,
+	}
+
+	authConfig := dto.GoogleIndexConfigAuth{
+		CredentialsFile: credentialsFile,
+		ClientEmail:     clientEmail,
+		ClientID:        clientID,
+		PrivateKey:      privateKey,
+		Token:           token,
+	}
+
+	scheduleConfig := dto.GoogleIndexConfigSchedule{
+		CheckInterval: checkInterval,
+		BatchSize:     batchSize,
+		Concurrency:   concurrency,
+		RetryAttempts: retryAttempts,
+		RetryDelay:    retryDelay,
+	}
+
+	sitemapConfig := dto.GoogleIndexConfigSitemap{
+		AutoSitemap:     autoSitemap,
+		SitemapPath:     sitemapPath,
+		SitemapSchedule: sitemapSchedule,
+	}
+
+	// 将配置对象转换为JSON字符串
+	generalConfigJSON, _ := json.Marshal(generalConfig)
+	authConfigJSON, _ := json.Marshal(authConfig)
+	scheduleConfigJSON, _ := json.Marshal(scheduleConfig)
+	sitemapConfigJSON, _ := json.Marshal(sitemapConfig)
+
+	// 以数组格式返回所有配置组
+	configs := []gin.H{
+		{
+			"group": "general",
+			"key":   "general",
+			"value": string(generalConfigJSON),
+		},
+		{
+			"group": "auth",
+			"key":   "credentials_file", // 使用具体的键名
+			"value": string(authConfigJSON),
+		},
+		{
+			"group": "schedule",
+			"key":   "schedule",
+			"value": string(scheduleConfigJSON),
+		},
+		{
+			"group": "sitemap",
+			"key":   "sitemap",
+			"value": string(sitemapConfigJSON),
+		},
+	}
+
+	SuccessResponse(c, configs)
+}
+
+// GetConfig 获取Google索引配置（原有接口，为保持兼容性）
 func (h *GoogleIndexHandler) GetConfig(c *gin.Context) {
 	// 获取通用配置
 	enabledStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyEnabled)
@@ -607,6 +763,53 @@ func (h *GoogleIndexHandler) ValidateCredentials(c *gin.Context) {
 	SuccessResponse(c, response)
 }
 
+// GetStatus 获取Google索引状态
+func (h *GoogleIndexHandler) GetStatus(c *gin.Context) {
+	// 获取通用配置
+	enabledStr, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyEnabled)
+	if err != nil {
+		enabledStr = "false"
+	}
+	enabled := enabledStr == "true" || enabledStr == "1"
+
+	siteURL, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySiteURL)
+	if err != nil {
+		siteURL = ""
+	}
+
+	// 获取认证配置
+	credentialsFile, err := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyCredentialsFile)
+	if err != nil {
+		credentialsFile = ""
+	}
+
+	// 验证凭据是否有效
+	authValid := false
+	if credentialsFile != "" {
+		if _, err := os.Stat(credentialsFile); !os.IsNotExist(err) {
+			// 检查凭据文件是否存在且可读
+			authValid = true
+		}
+	}
+
+	// 获取统计信息（从任务管理器或数据库获取相关统计）
+	// 这里简化处理，返回一个基本的状态响应
+	// 在实际实现中，可能需要查询数据库获取更详细的统计信息
+	statusResponse := dto.GoogleIndexStatusResponse{
+		Enabled:           enabled,
+		SiteURL:           siteURL,
+		LastCheckTime:     time.Now(),
+		TotalURLs:         0,
+		IndexedURLs:       0,
+		NotIndexedURLs:    0,
+		ErrorURLs:         0,
+		LastSitemapSubmit: time.Time{},
+		AuthValid:         authValid,
+	}
+
+	SuccessResponse(c, statusResponse)
+}
+
 // loadCredentials 从文件加载凭据
 func (h *GoogleIndexHandler) loadCredentials(credentialsFile string) (*google.Config, error) {
 	// 从pkg/google/client.go导入的Config
@@ -640,40 +843,6 @@ func (h *GoogleIndexHandler) loadCredentials(credentialsFile string) (*google.Co
 
 // getValidToken 获取有效的token
 
-// GetConfigByKey 根据键获取Google索引配置
-func (h *GoogleIndexHandler) GetConfigByKey(c *gin.Context) {
-	// 从URL参数获取配置键
-	key := c.Param("key")
-	if key == "" {
-		ErrorResponse(c, "配置键不能为空", http.StatusBadRequest)
-		return
-	}
-
-	username, _ := c.Get("username")
-	clientIP, _ := c.Get("client_ip")
-	utils.Info("GoogleIndexHandler.GetConfigByKey - 获取Google索引配置 - 用户: %s, 键: %s, IP: %s", username, key, clientIP)
-
-	// 根据键查找配置
-	config, err := h.repoMgr.SystemConfigRepository.FindByKey(key)
-	if err != nil {
-		// 如果配置不存在，返回默认值或空值
-		SuccessResponse(c, map[string]interface{}{
-			"group": "verification",
-			"key":   key,
-			"value": "",
-			"type":  "string",
-		})
-		return
-	}
-
-	// 返回配置项
-	SuccessResponse(c, map[string]interface{}{
-		"group": "verification",
-		"key":   config.Key,
-		"value": config.Value,
-		"type":  config.Type,
-	})
-}
 
 // UpdateGoogleIndexConfig 更新Google索引配置（支持分组配置）
 func (h *GoogleIndexHandler) UpdateGoogleIndexConfig(c *gin.Context) {
@@ -789,31 +958,7 @@ func (h *GoogleIndexHandler) UpdateGoogleIndexConfig(c *gin.Context) {
 			ErrorResponse(c, "未知的网站地图配置键: "+req.Key, http.StatusBadRequest)
 			return
 		}
-	case "verification":
-		switch req.Key {
-		case "google_site_verification":
-			// 解析验证配置
-			var verificationConfig struct {
-				Code string `json:"code"`
-			}
-			if err := json.Unmarshal([]byte(req.Value), &verificationConfig); err != nil {
-				ErrorResponse(c, "验证配置格式错误: "+err.Error(), http.StatusBadRequest)
-				return
-			}
-			// 存储验证字符串
-			verificationConfigs := []entity.SystemConfig{
-				{Key: "google_site_verification_code", Value: verificationConfig.Code, Type: entity.ConfigTypeString},
-			}
-			err := h.repoMgr.SystemConfigRepository.UpsertConfigs(verificationConfigs)
-			if err != nil {
-				ErrorResponse(c, "保存验证配置失败: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
 		default:
-			ErrorResponse(c, "未知的验证配置键: "+req.Key, http.StatusBadRequest)
-			return
-		}
-	default:
 		ErrorResponse(c, "未知的配置组: "+req.Group, http.StatusBadRequest)
 		return
 	}

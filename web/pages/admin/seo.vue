@@ -707,35 +707,47 @@
 <!-- 所有权验证模态框 -->
 <n-modal v-model:show="showVerificationModal" preset="card" title="站点所有权验证" style="max-width: 600px;">
   <div class="space-y-6">
-    <p class="text-gray-600 dark:text-gray-400">
-      为了验证网站所有权，请将以下验证字符串添加到网站的HTML头部中：
-    </p>
-
-    <div class="space-y-4">
-      <div class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">验证字符串</label>
-        <n-input
-          v-model:value="verificationCode"
-          type="textarea"
-          :autosize="{ minRows: 2, maxRows: 4 }"
-          placeholder="输入Google Search Console或其他搜索引擎提供的验证字符串"
-        />
-      </div>
-
-      <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-        <label class="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">在页面中添加的代码</label>
-        <div class="bg-white dark:bg-gray-800 p-3 rounded border">
-          <code class="text-sm text-gray-800 dark:text-gray-200">
-            &lt;meta name="google-site-verification" content="<span class="text-blue-600 dark:text-blue-400">{{ verificationCode || '验证字符串' }}</span>" /&gt;
-          </code>
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <i class="fas fa-info-circle text-blue-500 dark:text-blue-400 text-xl"></i>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">DNS方式验证</h3>
+          <div class="mt-2 text-sm text-blue-700 dark:text-blue-300">
+            <p>推荐使用DNS方式验证站点所有权，这是最安全和可靠的方法：</p>
+            <ol class="list-decimal list-inside mt-2 space-y-1">
+              <li>登录您的域名注册商或DNS管理平台</li>
+              <li>添加一条TXT记录</li>
+              <li>在Google Search Console中输入您的验证字符串</li>
+              <li>验证DNS TXT记录是否生效</li>
+            </ol>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="flex justify-end space-x-3 pt-2">
-      <n-button @click="showVerificationModal = false">取消</n-button>
-      <n-button type="primary" @click="saveVerificationCode" :loading="verificationCodeSaving">
-        保存
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <i class="fas fa-exclamation-triangle text-yellow-500 dark:text-yellow-400 text-xl"></i>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">注意事项</h3>
+          <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+            <ul class="list-disc list-inside space-y-1">
+              <li>DNS验证比HTML标签更安全，不易被其他网站复制</li>
+              <li>验证成功后，Google会自动检测您的站点所有权</li>
+              <li>如果您的域名服务商不支持TXT记录，请联系客服寻求帮助</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end pt-2">
+      <n-button type="primary" @click="showVerificationModal = false">
+        确定
       </n-button>
     </div>
   </div>
@@ -1204,22 +1216,6 @@ const showCredentialsGuide = ref(false)
 
 // 所有权验证相关
 const showVerificationModal = ref(false)
-const verificationCode = ref('')
-const verificationCodeSaving = ref(false)
-
-// 获取已保存的验证代码
-const loadVerificationCode = async () => {
-  try {
-    const api = useApi()
-    const response = await api.googleIndexApi.getGoogleIndexConfigByKey('google_site_verification')
-    if (response?.data?.value) {
-      verificationCode.value = response.data.value
-    }
-  } catch (error) {
-    // 如果配置不存在，使用空值
-    verificationCode.value = ''
-  }
-}
 
 // Google索引统计
 const googleIndexStats = ref({
@@ -1425,16 +1421,30 @@ const handleCredentialsFileSelect = async (event: Event) => {
     const api = useApi()
     const response = await api.googleIndexApi.uploadCredentials(file)
 
-    if (response?.filePath) {
-      googleIndexConfig.value.credentialsFile = response.filePath
-      message.success('凭据文件上传成功，请验证凭据')
+    // 检查API是否成功（success字段为true）且包含有效的文件路径
+    if (response?.success === true && response?.data?.file_path) {
+      googleIndexConfig.value.credentialsFile = response.data.file_path
+      message.success(response.data.message || '凭据文件上传成功，请验证凭据')
 
       // 清空文件输入以允许重新选择相同文件
       if (credentialsFileInput.value) {
         credentialsFileInput.value.value = ''
       }
+
+      // 上传成功后立即更新后端配置并重新加载配置
+      await api.googleIndexApi.updateGoogleIndexGroupConfig({
+        group: 'auth',
+        key: 'credentials_file',
+        value: JSON.stringify({
+          credentialsFile: googleIndexConfig.value.credentialsFile
+        })
+      })
+
+      // 重新加载配置以确保UI状态与后端同步
+      await loadGoogleIndexConfig()
     } else {
-      message.error('上传响应格式错误')
+      // 如果API调用成功但返回的数据有问题，或者API调用失败
+      message.error(response?.message || '上传响应格式错误')
     }
   } catch (error: any) {
     console.error('凭据文件上传失败:', error)
@@ -1691,41 +1701,6 @@ const viewTaskItems = async (taskId: number) => {
   }
 }
 
-// 监听验证弹窗显示状态
-watch(showVerificationModal, (show) => {
-  if (show) {
-    loadVerificationCode()
-  }
-})
-
-// 保存验证字符串
-const saveVerificationCode = async () => {
-  if (!verificationCode.value.trim()) {
-    message.warning('请输入验证字符串')
-    return
-  }
-
-  verificationCodeSaving.value = true
-  try {
-    const api = useApi()
-    // 使用分组配置API保存验证字符串
-    await api.googleIndexApi.updateGoogleIndexGroupConfig({
-      group: 'verification',
-      key: 'google_site_verification',
-      value: JSON.stringify({
-        code: verificationCode.value.trim()
-      })
-    })
-
-    message.success('验证字符串保存成功')
-    showVerificationModal.value = false
-  } catch (error) {
-    console.error('保存验证字符串失败:', error)
-    message.error('保存验证字符串失败')
-  } finally {
-    verificationCodeSaving.value = false
-  }
-}
 
 // 启动任务
 const startTask = async (taskId: number) => {

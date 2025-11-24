@@ -305,8 +305,7 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		entity.ConfigResponseFieldEnableRegister:      true, // 默认开启注册功能
 		entity.ConfigResponseFieldThirdPartyStatsCode: "",
 		entity.ConfigResponseFieldWebsiteURL:          "",
-		"google_site_verification_code":               "",
-	}
+			}
 
 	// 将键值对转换为map，过滤掉敏感配置
 	for _, config := range configs {
@@ -363,8 +362,6 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 			response["qr_code_style"] = config.Value
 		case entity.ConfigKeyWebsiteURL:
 			response[entity.ConfigResponseFieldWebsiteURL] = config.Value
-		case "google_site_verification_code":
-			response["google_site_verification_code"] = config.Value
 		case entity.ConfigKeyAutoProcessReadyResources:
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response["auto_process_ready_resources"] = val

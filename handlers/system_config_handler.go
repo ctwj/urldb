@@ -281,30 +281,6 @@ func GetPublicSystemConfig(c *gin.Context) {
 	SuccessResponse(c, configResponse)
 }
 
-// 新增：获取网站验证代码（公开访问）
-func GetSiteVerificationCode(c *gin.Context) {
-	// 获取所有系统配置
-	configs, err := repoManager.SystemConfigRepository.GetOrCreateDefault()
-	if err != nil {
-		ErrorResponse(c, "获取系统配置失败", http.StatusInternalServerError)
-		return
-	}
-
-	// 转换为公共响应格式
-	configResponse := converter.SystemConfigToPublicResponse(configs)
-
-	// 只返回验证代码，确保安全性
-	verificationCode := ""
-	if verificationCodeVal, exists := configResponse["google_site_verification_code"]; exists {
-		if codeStr, ok := verificationCodeVal.(string); ok {
-			verificationCode = codeStr
-		}
-	}
-
-	SuccessResponse(c, gin.H{
-		"google_site_verification_code": verificationCode,
-	})
-}
 
 // 新增：配置监控端点
 func GetConfigStatus(c *gin.Context) {
