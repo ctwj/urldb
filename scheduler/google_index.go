@@ -2,11 +2,13 @@ package scheduler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/pkg/google"
 	"github.com/ctwj/urldb/utils"
 )
@@ -20,14 +22,23 @@ type GoogleIndexScheduler struct {
 	enabled       bool
 	checkInterval time.Duration
 	googleClient  *google.Client
+	taskItemRepo  repo.TaskItemRepository
+	taskRepo      repo.TaskRepository
+
+	// 批量处理相关
+	pendingURLResults []*repo.URLStatusResult
+	currentTaskID     uint
 }
 
 // NewGoogleIndexScheduler 创建Google索引调度器
-func NewGoogleIndexScheduler(baseScheduler *BaseScheduler) *GoogleIndexScheduler {
+func NewGoogleIndexScheduler(baseScheduler *BaseScheduler, taskItemRepo repo.TaskItemRepository, taskRepo repo.TaskRepository) *GoogleIndexScheduler {
 	return &GoogleIndexScheduler{
-		BaseScheduler: baseScheduler,
-		stopChan:      make(chan bool),
-		isRunning:     false,
+		BaseScheduler:     baseScheduler,
+		taskItemRepo:      taskItemRepo,
+		taskRepo:          taskRepo,
+		stopChan:          make(chan bool),
+		isRunning:         false,
+		pendingURLResults: make([]*repo.URLStatusResult, 0),
 	}
 }
 
@@ -160,6 +171,11 @@ func (s *GoogleIndexScheduler) performScheduledTasks() {
 
 	ctx := context.Background()
 
+	// 任务0: 清理旧记录
+	if err := s.taskItemRepo.CleanupOldRecords(); err != nil {
+		utils.Error("清理旧记录失败: %v", err)
+	}
+
 	// 任务1: 扫描未索引的URL并自动提交
 	if err := s.scanAndSubmitUnindexedURLs(ctx); err != nil {
 		utils.Error("扫描未索引URL失败: %v", err)
@@ -169,6 +185,9 @@ func (s *GoogleIndexScheduler) performScheduledTasks() {
 	if err := s.checkIndexedURLsStatus(ctx); err != nil {
 		utils.Error("检查索引状态失败: %v", err)
 	}
+
+	// 任务3: 刷新待处理的URL结果
+	s.flushURLResults()
 
 	utils.Debug("Google索引调度任务执行完成")
 }
@@ -218,10 +237,7 @@ func (s *GoogleIndexScheduler) scanAndSubmitUnindexedURLs(ctx context.Context) e
 
 // getIndexedURLs 获取已索引的URL列表
 func (s *GoogleIndexScheduler) getIndexedURLs() ([]string, error) {
-	// 这里需要通过TaskItemRepository获取已索引的URL
-	// 由于BaseScheduler没有TaskItemRepository，我们暂时返回空列表
-	// 后续可以通过扩展BaseScheduler或创建专门的方法来处理
-	return []string{}, nil
+	return s.taskItemRepo.GetDistinctProcessedURLs()
 }
 
 // batchSubmitURLs 批量提交URL
@@ -364,9 +380,24 @@ func (s *GoogleIndexScheduler) checkIndexedURLsStatus(ctx context.Context) error
 
 // recordURLStatus 记录URL索引状态
 func (s *GoogleIndexScheduler) recordURLStatus(url string, result *google.URLInspectionResult) {
-	// 暂时只记录日志，不保存到数据库
-	// TODO: 后续通过扩展BaseScheduler来支持TaskItemRepository以保存状态
-	utils.Debug("记录URL状态: %s - %s", url, result.IndexStatusResult.IndexingState)
+	// 构造结果对象
+	urlResult := &repo.URLStatusResult{
+		URL:            url,
+		IndexStatus:    result.IndexStatusResult.IndexingState,
+		InspectResult:  s.formatInspectResult(result),
+		MobileFriendly: s.getMobileFriendly(result),
+		StatusCode:     s.getStatusCode(result),
+		LastCrawled:    s.parseLastCrawled(result),
+		ErrorMessage:   s.getErrorMessage(result),
+	}
+
+	// 暂存到批量处理列表，定期批量写入
+	s.pendingURLResults = append(s.pendingURLResults, urlResult)
+
+	// 达到批量大小时写入数据库
+	if len(s.pendingURLResults) >= 50 {
+		s.flushURLResults()
+	}
 }
 
 // updateURLStatus 更新URL状态
@@ -374,6 +405,97 @@ func (s *GoogleIndexScheduler) updateURLStatus(taskItem *entity.TaskItem, result
 	// 暂时只记录日志，不保存到数据库
 	// TODO: 后续通过扩展BaseScheduler来支持TaskItemRepository以保存状态
 	utils.Debug("更新URL状态: %s - %s", taskItem.URL, result.IndexStatusResult.IndexingState)
+}
+
+// flushURLResults 批量写入URL结果
+func (s *GoogleIndexScheduler) flushURLResults() {
+	if len(s.pendingURLResults) == 0 {
+		return
+	}
+
+	// 如果没有当前任务，创建一个汇总任务
+	if s.currentTaskID == 0 {
+		task := &entity.Task{
+			Title:       fmt.Sprintf("自动索引检查 - %s", time.Now().Format("2006-01-02 15:04:05")),
+			Type:        entity.TaskTypeGoogleIndex,
+			Status:      entity.TaskStatusCompleted,
+			Description: fmt.Sprintf("自动检查并更新 %d 个URL的索引状态", len(s.pendingURLResults)),
+			TotalItems:  len(s.pendingURLResults),
+			Progress:    100.0,
+		}
+
+		if err := s.taskRepo.Create(task); err != nil {
+			utils.Error("创建汇总任务失败: %v", err)
+			return
+		}
+		s.currentTaskID = task.ID
+	}
+
+	// 批量写入URL状态
+	if err := s.taskItemRepo.UpsertURLStatusRecords(s.currentTaskID, s.pendingURLResults); err != nil {
+		utils.Error("批量写入URL状态失败: %v", err)
+	} else {
+		utils.Info("批量写入URL状态成功: %d 个", len(s.pendingURLResults))
+	}
+
+	// 清空待处理列表
+	s.pendingURLResults = s.pendingURLResults[:0]
+}
+
+// 辅助方法：格式化检查结果
+func (s *GoogleIndexScheduler) formatInspectResult(result *google.URLInspectionResult) string {
+	if result == nil {
+		return ""
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+	return string(data)
+}
+
+// 辅助方法：获取移动友好状态
+func (s *GoogleIndexScheduler) getMobileFriendly(result *google.URLInspectionResult) bool {
+	if result != nil {
+		return result.MobileUsabilityResult.MobileFriendly
+	}
+	return false
+}
+
+// 辅助方法：获取状态码
+func (s *GoogleIndexScheduler) getStatusCode(result *google.URLInspectionResult) int {
+	if result != nil {
+		// 这里可以根据实际的Google API响应结构来获取状态码
+		// 暂时返回200表示成功
+		return 200
+	}
+	return 0
+}
+
+// 辅助方法：解析最后抓取时间
+func (s *GoogleIndexScheduler) parseLastCrawled(result *google.URLInspectionResult) *time.Time {
+	if result != nil && result.IndexStatusResult.LastCrawled != "" {
+		// 这里需要根据实际的Google API响应结构来解析时间
+		// 暂时返回当前时间
+		now := time.Now()
+		return &now
+	}
+	return nil
+}
+
+// 辅助方法：获取错误信息
+func (s *GoogleIndexScheduler) getErrorMessage(result *google.URLInspectionResult) string {
+	if result != nil {
+		// 根据索引状态判断是否有错误
+		if result.IndexStatusResult.IndexingState == "ERROR" {
+			return "索引状态错误"
+		}
+		if result.IndexStatusResult.IndexingState == "NOT_FOUND" {
+			return "页面未找到"
+		}
+	}
+	return ""
 }
 
 // SetRunning 设置运行状态

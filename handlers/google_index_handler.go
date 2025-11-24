@@ -405,7 +405,7 @@ func (h *GoogleIndexHandler) CreateTask(c *gin.Context) {
 	var taskItems []*entity.TaskItem
 
 	switch req.Type {
-	case "url_indexing", "status_check", "batch_index":
+	case "url_indexing", "status_check", "batch_index", "manual_check":
 		// 为每个URL创建任务项
 		for _, url := range req.URLs {
 			itemData := map[string]interface{}{
@@ -444,7 +444,14 @@ func (h *GoogleIndexHandler) CreateTask(c *gin.Context) {
 		return
 	}
 
-	utils.Info("Google索引任务创建完成: %d, 任务类型: %s", task.ID, req.Type)
+	// 更新任务的总项目数
+	err = h.repoMgr.TaskRepository.UpdateTotalItems(task.ID, len(taskItems))
+	if err != nil {
+		utils.Error("更新任务总项目数失败: %v", err)
+		// 不返回错误，因为任务和任务项已经创建成功
+	}
+
+	utils.Info("Google索引任务创建完成: %d, 任务类型: %s, 总项目数: %d", task.ID, req.Type, len(taskItems))
 	SuccessResponse(c, gin.H{
 		"task_id":     task.ID,
 		"total_items": len(taskItems),

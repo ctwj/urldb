@@ -24,6 +24,8 @@ func NewManager(
 	cksRepo repo.CksRepository,
 	tagRepo repo.TagRepository,
 	categoryRepo repo.CategoryRepository,
+	taskItemRepo repo.TaskItemRepository,
+	taskRepo repo.TaskRepository,
 ) *Manager {
 	// 创建基础调度器
 	baseScheduler := NewBaseScheduler(
@@ -41,7 +43,7 @@ func NewManager(
 	hotDramaScheduler := NewHotDramaScheduler(baseScheduler)
 	readyResourceScheduler := NewReadyResourceScheduler(baseScheduler)
 	sitemapScheduler := NewSitemapScheduler(baseScheduler)
-	googleIndexScheduler := NewGoogleIndexScheduler(baseScheduler)
+	googleIndexScheduler := NewGoogleIndexScheduler(baseScheduler, taskItemRepo, taskRepo)
 
 	return &Manager{
 		baseScheduler:          baseScheduler,

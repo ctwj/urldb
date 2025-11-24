@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -64,22 +65,43 @@ func NewClient(config *Config) (*Client, error) {
 		return nil, fmt.Errorf("读取认证文件失败: %v", err)
 	}
 
-	// 创建OAuth2配置
-	oauthConfig, err := google.ConfigFromJSON(credentials, searchconsole.WebmastersScope)
-	if err != nil {
-		return nil, fmt.Errorf("创建OAuth配置失败: %v", err)
+	// 检查凭据类型
+	var credentialsMap map[string]interface{}
+	if err := json.Unmarshal(credentials, &credentialsMap); err != nil {
+		return nil, fmt.Errorf("解析凭据失败: %v", err)
 	}
 
-	// 尝试从文件读取token
-	token, err := tokenFromFile(config.TokenFile)
-	if err != nil {
-		// 如果没有token，启动web认证流程
-		token = getTokenFromWeb(oauthConfig)
-		saveToken(config.TokenFile, token)
+	// 根据凭据类型创建不同的配置
+	credType, ok := credentialsMap["type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("未知的凭据类型")
 	}
 
-	// 创建HTTP客户端
-	client := oauthConfig.Client(ctx, token)
+	var client *http.Client
+	if credType == "service_account" {
+		// 服务账号凭据
+		jwtConfig, err := google.JWTConfigFromJSON(credentials, searchconsole.WebmastersScope)
+		if err != nil {
+			return nil, fmt.Errorf("创建JWT配置失败: %v", err)
+		}
+		client = jwtConfig.Client(ctx)
+	} else {
+		// OAuth2客户端凭据
+		oauthConfig, err := google.ConfigFromJSON(credentials, searchconsole.WebmastersScope)
+		if err != nil {
+			return nil, fmt.Errorf("创建OAuth配置失败: %v", err)
+		}
+
+		// 尝试从文件读取token
+		token, err := tokenFromFile(config.TokenFile)
+		if err != nil {
+			// 如果没有token，启动web认证流程
+			token = getTokenFromWeb(oauthConfig)
+			saveToken(config.TokenFile, token)
+		}
+
+		client = oauthConfig.Client(ctx, token)
+	}
 
 	// 创建Search Console服务
 	service, err := searchconsole.NewService(ctx, option.WithHTTPClient(client))

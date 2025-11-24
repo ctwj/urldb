@@ -191,6 +191,8 @@ func main() {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 
 	// 根据系统配置启动相应的调度任务

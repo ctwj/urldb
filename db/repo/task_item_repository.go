@@ -22,6 +22,23 @@ type TaskItemRepository interface {
 	GetStatsByTaskID(taskID uint) (map[string]int, error)
 	GetIndexStats() (map[string]int, error)
 	ResetProcessingItems(taskID uint) error
+
+	// Google索引专用方法
+	GetDistinctProcessedURLs() ([]string, error)
+	GetLatestURLStatus(url string) (*entity.TaskItem, error)
+	UpsertURLStatusRecords(taskID uint, urlResults []*URLStatusResult) error
+	CleanupOldRecords() error
+}
+
+// URLStatusResult 用于批量处理的结果
+type URLStatusResult struct {
+	URL            string
+	IndexStatus    string
+	InspectResult  string
+	MobileFriendly bool
+	StatusCode     int
+	LastCrawled    *time.Time
+	ErrorMessage   string
 }
 
 // TaskItemRepositoryImpl 任务项仓库实现
@@ -237,4 +254,154 @@ func (r *TaskItemRepositoryImpl) GetIndexStats() (map[string]int, error) {
 	}
 
 	return stats, nil
+}
+
+// GetDistinctProcessedURLs 获取所有已处理的URL（去重）
+func (r *TaskItemRepositoryImpl) GetDistinctProcessedURLs() ([]string, error) {
+	startTime := utils.GetCurrentTime()
+	var urls []string
+
+	// 只返回成功处理的URL，避免处理失败的URL重复尝试
+	err := r.db.Model(&entity.TaskItem{}).
+		Where("status = ? AND url != ?", "completed", "").
+		Distinct("url").
+		Pluck("url", &urls).Error
+
+	queryDuration := time.Since(startTime)
+	if err != nil {
+		utils.Error("GetDistinctProcessedURLs失败: 错误=%v, 查询耗时=%v", err, queryDuration)
+		return nil, err
+	}
+
+	utils.Debug("GetDistinctProcessedURLs成功: URL数量=%d, 查询耗时=%v", len(urls), queryDuration)
+	return urls, nil
+}
+
+// GetLatestURLStatus 获取URL的最新处理状态
+func (r *TaskItemRepositoryImpl) GetLatestURLStatus(url string) (*entity.TaskItem, error) {
+	startTime := utils.GetCurrentTime()
+	var item entity.TaskItem
+
+	err := r.db.Where("url = ?", url).
+		Order("created_at DESC").
+		First(&item).Error
+
+	queryDuration := time.Since(startTime)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			utils.Debug("GetLatestURLStatus: URL未找到=%s, 查询耗时=%v", url, queryDuration)
+			return nil, nil
+		}
+		utils.Error("GetLatestURLStatus失败: URL=%s, 错误=%v, 查询耗时=%v", url, err, queryDuration)
+		return nil, err
+	}
+
+	utils.Debug("GetLatestURLStatus成功: URL=%s, 状态=%s, 查询耗时=%v", url, item.Status, queryDuration)
+	return &item, nil
+}
+
+// UpsertURLStatusRecords 批量创建或更新URL状态
+func (r *TaskItemRepositoryImpl) UpsertURLStatusRecords(taskID uint, urlResults []*URLStatusResult) error {
+	startTime := utils.GetCurrentTime()
+
+	if len(urlResults) == 0 {
+		return nil
+	}
+
+	// 批量操作，减少数据库查询次数
+	for _, result := range urlResults {
+		// 查找现有记录
+		existing, err := r.GetLatestURLStatus(result.URL)
+
+		if err != nil && err != gorm.ErrRecordNotFound {
+			utils.Error("UpsertURLStatusRecords查询失败: URL=%s, 错误=%v", result.URL, err)
+			continue
+		}
+
+		now := time.Now()
+
+		if existing != nil && existing.ID > 0 {
+			// 更新现有记录（只更新状态变化的）
+			if existing.IndexStatus != result.IndexStatus || existing.StatusCode != result.StatusCode {
+				existing.IndexStatus = result.IndexStatus
+				existing.InspectResult = result.InspectResult
+				existing.MobileFriendly = result.MobileFriendly
+				existing.StatusCode = result.StatusCode
+				existing.LastCrawled = result.LastCrawled
+				existing.ErrorMessage = result.ErrorMessage
+				existing.ProcessedAt = &now
+
+				if err := r.Update(existing); err != nil {
+					utils.Error("UpsertURLStatusRecords更新失败: URL=%s, 错误=%v", result.URL, err)
+					continue
+				}
+			}
+		} else {
+			// 创建新记录
+			newItem := &entity.TaskItem{
+				TaskID:         taskID,
+				URL:            result.URL,
+				Status:         "completed",
+				IndexStatus:    result.IndexStatus,
+				InspectResult:  result.InspectResult,
+				MobileFriendly: result.MobileFriendly,
+				StatusCode:     result.StatusCode,
+				LastCrawled:    result.LastCrawled,
+				ErrorMessage:   result.ErrorMessage,
+				ProcessedAt:    &now,
+			}
+
+			if err := r.Create(newItem); err != nil {
+				utils.Error("UpsertURLStatusRecords创建失败: URL=%s, 错误=%v", result.URL, err)
+				continue
+			}
+		}
+	}
+
+	totalDuration := time.Since(startTime)
+	utils.Info("UpsertURLStatusRecords完成: 数量=%d, 耗时=%v", len(urlResults), totalDuration)
+	return nil
+}
+
+// CleanupOldRecords 清理旧记录，保留每个URL的最新记录
+func (r *TaskItemRepositoryImpl) CleanupOldRecords() error {
+	startTime := utils.GetCurrentTime()
+
+	// 1. 找出每个URL的最新记录ID
+	var latestIDs []uint
+	err := r.db.Table("task_items").
+		Select("MAX(id) as id").
+		Where("url != '' AND status = ?", "completed").
+		Group("url").
+		Pluck("id", &latestIDs).Error
+
+	if err != nil {
+		utils.Error("CleanupOldRecords获取最新ID失败: 错误=%v", err)
+		return err
+	}
+
+	// 2. 删除所有非最新的已完成记录
+	deleteResult := r.db.Where("status = ? AND id NOT IN (?)", "completed", latestIDs).
+		Delete(&entity.TaskItem{})
+
+	if deleteResult.Error != nil {
+		utils.Error("CleanupOldRecords删除旧记录失败: 错误=%v", deleteResult.Error)
+		return deleteResult.Error
+	}
+
+	// 3. 清理失败的旧记录（保留1周）
+	failureCutoff := time.Now().AddDate(0, 0, -7)
+	failureDeleteResult := r.db.Where("status = ? AND created_at < ?", "failed", failureCutoff).
+		Delete(&entity.TaskItem{})
+
+	if failureDeleteResult.Error != nil {
+		utils.Error("CleanupOldRecords删除失败记录失败: 错误=%v", failureDeleteResult.Error)
+		return failureDeleteResult.Error
+	}
+
+	totalDuration := time.Since(startTime)
+	utils.Info("CleanupOldRecords完成: 删除完成记录=%d, 删除失败记录=%d, 耗时=%v",
+		deleteResult.RowsAffected, failureDeleteResult.RowsAffected, totalDuration)
+
+	return nil
 }

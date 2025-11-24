@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -51,6 +52,10 @@ type GoogleIndexTaskOutput struct {
 func NewGoogleIndexProcessor(repoMgr *repo.RepositoryManager) *GoogleIndexProcessor {
 	return &GoogleIndexProcessor{
 		repoMgr: repoMgr,
+		config: &GoogleIndexProcessorConfig{
+			RetryAttempts: 3,
+			RetryDelay:    2 * time.Second,
+		},
 	}
 }
 
@@ -199,12 +204,15 @@ func (gip *GoogleIndexProcessor) processStatusCheck(ctx context.Context, client 
 
 // initGoogleClient 初始化Google客户端
 func (gip *GoogleIndexProcessor) initGoogleClient() (*google.Client, error) {
-	// 从配置中获取Google认证信息
-	credentialsFile, err := gip.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeyCredentialsFile)
-	if err != nil || credentialsFile == "" {
-		return nil, fmt.Errorf("未配置Google认证文件: %v", err)
+	// 使用固定的凭据文件路径，与验证逻辑保持一致
+	credentialsFile := "data/google_credentials.json"
+
+	// 检查凭据文件是否存在
+	if _, err := os.Stat(credentialsFile); os.IsNotExist(err) {
+		return nil, fmt.Errorf("Google凭据文件不存在: %s", credentialsFile)
 	}
 
+	// 从配置中获取网站URL
 	siteURL, err := gip.repoMgr.SystemConfigRepository.GetConfigValue(entity.GoogleIndexConfigKeySiteURL)
 	if err != nil || siteURL == "" {
 		return nil, fmt.Errorf("未配置网站URL: %v", err)
@@ -213,7 +221,7 @@ func (gip *GoogleIndexProcessor) initGoogleClient() (*google.Client, error) {
 	config := &google.Config{
 		CredentialsFile: credentialsFile,
 		SiteURL:         siteURL,
-		TokenFile:       "google_token.json", // 使用固定token文件名
+		TokenFile:       "data/google_token.json", // 使用固定token文件名，放在data目录下
 	}
 
 	client, err := google.NewClient(config)
