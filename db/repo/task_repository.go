@@ -20,6 +20,7 @@ type TaskRepository interface {
 	UpdateTaskStats(id uint, processed, success, failed int) error
 	UpdateStartedAt(id uint) error
 	UpdateCompletedAt(id uint) error
+	UpdateTotalItems(id uint, totalItems int) error
 }
 
 // TaskRepositoryImpl 任务仓库实现
@@ -241,5 +242,18 @@ func (r *TaskRepositoryImpl) UpdateCompletedAt(id uint) error {
 		return err
 	}
 	utils.Debug("UpdateCompletedAt成功: ID=%d, 更新耗时=%v", id, updateDuration)
+	return nil
+}
+
+// UpdateTotalItems 更新任务总项目数
+func (r *TaskRepositoryImpl) UpdateTotalItems(id uint, totalItems int) error {
+	startTime := utils.GetCurrentTime()
+	err := r.db.Model(&entity.Task{}).Where("id = ?", id).Update("total_items", totalItems).Error
+	updateDuration := time.Since(startTime)
+	if err != nil {
+		utils.Error("UpdateTotalItems失败: ID=%d, 总项目数=%d, 错误=%v, 更新耗时=%v", id, totalItems, err, updateDuration)
+		return err
+	}
+	utils.Debug("UpdateTotalItems成功: ID=%d, 总项目数=%d, 更新耗时=%v", id, totalItems, updateDuration)
 	return nil
 }

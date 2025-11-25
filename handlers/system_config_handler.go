@@ -240,6 +240,8 @@ func UpdateSystemConfig(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	if scheduler != nil {
 		// 只更新被设置的配置
@@ -280,6 +282,7 @@ func GetPublicSystemConfig(c *gin.Context) {
 	configResponse := converter.SystemConfigToPublicResponse(configs)
 	SuccessResponse(c, configResponse)
 }
+
 
 // 新增：配置监控端点
 func GetConfigStatus(c *gin.Context) {
@@ -366,6 +369,8 @@ func ToggleAutoProcess(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	if scheduler != nil {
 		// 获取其他配置值

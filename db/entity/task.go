@@ -24,27 +24,40 @@ type TaskType string
 const (
 	TaskTypeBatchTransfer TaskType = "batch_transfer" // 批量转存
 	TaskTypeExpansion     TaskType = "expansion"     // 账号扩容
+	TaskTypeGoogleIndex   TaskType = "google_index"  // Google索引
 )
 
 // Task 任务表
 type Task struct {
 	ID          uint       `json:"id" gorm:"primaryKey;autoIncrement"`
 	Title       string     `json:"title" gorm:"size:255;not null;comment:任务标题"`
+	Name        string     `json:"name" gorm:"size:255;not null;default:'';comment:任务名称"`
 	Type        TaskType   `json:"type" gorm:"size:50;not null;comment:任务类型"`
 	Status      TaskStatus `json:"status" gorm:"size:20;not null;default:pending;comment:任务状态"`
 	Description string     `json:"description" gorm:"type:text;comment:任务描述"`
 
 	// 进度信息
-	TotalItems     int `json:"total_items" gorm:"not null;default:0;comment:总项目数"`
-	ProcessedItems int `json:"processed_items" gorm:"not null;default:0;comment:已处理项目数"`
-	SuccessItems   int `json:"success_items" gorm:"not null;default:0;comment:成功项目数"`
-	FailedItems    int `json:"failed_items" gorm:"not null;default:0;comment:失败项目数"`
+	TotalItems     int     `json:"total_items" gorm:"not null;default:0;comment:总项目数"`
+	ProcessedItems int     `json:"processed_items" gorm:"not null;default:0;comment:已处理项目数"`
+	SuccessItems   int     `json:"success_items" gorm:"not null;default:0;comment:成功项目数"`
+	FailedItems    int     `json:"failed_items" gorm:"not null;default:0;comment:失败项目数"`
+	Progress       float64 `json:"progress" gorm:"not null;default:0.0;comment:任务进度"`
 
 	// 任务配置 (JSON格式存储)
 	Config string `json:"config" gorm:"type:text;comment:任务配置"`
 
 	// 任务消息
 	Message string `json:"message" gorm:"type:text;comment:任务消息"`
+
+	// 进度数据 (JSON格式存储)
+	ProgressData string `json:"progress_data" gorm:"type:text;comment:进度数据"`
+
+	// Google索引特有字段 (当Type为google_index时使用)
+	IndexedURLs    int `json:"indexed_urls" gorm:"default:0;comment:已索引URL数量"`
+	FailedURLs     int `json:"failed_urls" gorm:"default:0;comment:失败URL数量"`
+
+	// 配置关联 (用于Google索引任务)
+	ConfigID *uint `json:"config_id" gorm:"comment:配置ID"`
 
 	// 时间信息
 	StartedAt   *time.Time     `json:"started_at" gorm:"comment:开始时间"`

@@ -1,5 +1,6 @@
 import { useApiFetch } from './useApiFetch'
 import { useUserStore } from '~/stores/user'
+import { useGoogleIndexApi } from './useGoogleIndexApi'
 
 // 统一响应解析函数
 export const parseApiResponse = <T>(response: any): T => {
@@ -447,6 +448,7 @@ export const useApi = () => {
     apiAccessLogApi: useApiAccessLogApi(),
     systemLogApi: useSystemLogApi(),
     wechatApi: useWechatApi(),
-    sitemapApi: useSitemapApi()
+    sitemapApi: useSitemapApi(),
+    googleIndexApi: useGoogleIndexApi()
   }
 }

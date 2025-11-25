@@ -191,6 +191,8 @@ func main() {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 
 	// 根据系统配置启动相应的调度任务
@@ -198,6 +200,7 @@ func main() {
 	autoProcessReadyResources, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)
 	autoTransferEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
 	autoSitemapEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeySitemapAutoGenerateEnabled)
+	autoGoogleIndexEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.GoogleIndexConfigKeyEnabled)
 
 	globalScheduler.UpdateSchedulerStatusWithAutoTransfer(
 		autoFetchHotDrama,
@@ -211,6 +214,13 @@ func main() {
 		utils.Info("系统配置启用Sitemap自动生成功能，启动定时任务")
 	} else {
 		utils.Info("系统配置禁用Sitemap自动生成功能")
+	}
+
+	// Google索引调度器现在由Sitemap调度器管理，不再独立启动
+	if autoGoogleIndexEnabled {
+		utils.Info("系统配置启用Google索引自动提交功能，将由Sitemap调度器管理")
+	} else {
+		utils.Info("系统配置禁用Google索引自动提交功能")
 	}
 
 	utils.Info("调度器初始化完成")
@@ -236,6 +246,17 @@ func main() {
 	// 创建举报和版权申述处理器
 	reportHandler := handlers.NewReportHandler(repoManager.ReportRepository, repoManager.ResourceRepository)
 	copyrightClaimHandler := handlers.NewCopyrightClaimHandler(repoManager.CopyrightClaimRepository, repoManager.ResourceRepository)
+
+	// 创建Google索引任务处理器
+	googleIndexProcessor := task.NewGoogleIndexProcessor(repoManager)
+
+	// 创建Google索引处理器
+	googleIndexHandler := handlers.NewGoogleIndexHandler(repoManager, taskManager)
+
+	// 注册Google索引处理器到任务管理器
+	taskManager.RegisterProcessor(googleIndexProcessor)
+
+	utils.Info("Google索引功能已启用，注册到任务管理器")
 
 	// API路由
 	api := r.Group("/api")
@@ -363,6 +384,7 @@ func main() {
 		api.GET("/system/config/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetConfigStatus)
 		api.POST("/system/config/toggle-auto-process", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ToggleAutoProcess)
 		api.GET("/public/system-config", handlers.GetPublicSystemConfig)
+api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  // 网站验证代码（公开访问）
 
 		// 热播剧管理路由（查询接口无需认证）
 		api.GET("/hot-dramas", handlers.GetHotDramaList)
@@ -521,6 +543,24 @@ func main() {
 		api.POST("/sitemap/generate", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GenerateSitemap)
 		api.GET("/sitemap/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSitemapStatus)
 		api.POST("/sitemap/full-generate", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GenerateFullSitemap)
+
+		// Google索引管理API
+		api.GET("/google-index/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetConfig)
+		api.GET("/google-index/config-all", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetAllConfig)  // 获取所有配置
+		api.POST("/google-index/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.UpdateConfig)
+		api.POST("/google-index/config/update", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.UpdateGoogleIndexConfig)  // 分组配置更新
+		api.GET("/google-index/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetStatus)  // 获取状态
+		api.POST("/google-index/tasks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.CreateTask)
+		api.GET("/google-index/tasks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetTasks)
+		api.GET("/google-index/tasks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetTaskStatus)
+		api.POST("/google-index/tasks/:id/start", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.StartTask)
+		api.GET("/google-index/tasks/:id/items", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetTaskItems)
+
+		// Google索引凭据上传和验证API
+		api.POST("/google-index/upload-credentials", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.UploadCredentials)
+		api.POST("/google-index/validate-credentials", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.ValidateCredentials)
+		api.POST("/google-index/diagnose-permissions", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.DiagnosePermissions)
+		api.POST("/google-index/urls/submit-to-index", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.SubmitURLsToIndex)
 	}
 
 	// 设置监控系统
@@ -538,10 +578,11 @@ func main() {
 
 	// 静态文件服务
 	r.Static("/uploads", "./uploads")
+	r.Static("/data", "./data")
 
 	// 添加CORS头到静态文件
 	r.Use(func(c *gin.Context) {
-		if strings.HasPrefix(c.Request.URL.Path, "/uploads/") {
+		if strings.HasPrefix(c.Request.URL.Path, "/uploads/") || strings.HasPrefix(c.Request.URL.Path, "/data/") {
 			c.Header("Access-Control-Allow-Origin", "*")
 			c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
 			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept")

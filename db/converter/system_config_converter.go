@@ -305,7 +305,7 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		entity.ConfigResponseFieldEnableRegister:      true, // 默认开启注册功能
 		entity.ConfigResponseFieldThirdPartyStatsCode: "",
 		entity.ConfigResponseFieldWebsiteURL:          "",
-	}
+			}
 
 	// 将键值对转换为map，过滤掉敏感配置
 	for _, config := range configs {

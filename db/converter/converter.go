@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"encoding/json"
 	"reflect"
 	"time"
 
@@ -325,3 +326,38 @@ func ToReadyResourceResponseList(resources []entity.ReadyResource) []dto.ReadyRe
 // 		Key:         req.Key,
 // 	}
 // }
+
+// TaskToGoogleIndexTaskOutput 将Task实体转换为GoogleIndexTaskOutput
+func TaskToGoogleIndexTaskOutput(task *entity.Task, stats map[string]int) dto.GoogleIndexTaskOutput {
+	output := dto.GoogleIndexTaskOutput{
+		ID:                  task.ID,
+		Name:                task.Name,
+		Description:         task.Description,
+		Type:                string(task.Type),
+		Status:              string(task.Status),
+		Progress:            task.Progress,
+		TotalItems:          stats["total"],
+		ProcessedItems:      stats["completed"] + stats["failed"],
+		SuccessfulItems:     stats["completed"],
+		FailedItems:         stats["failed"],
+		PendingItems:        stats["pending"],
+		ProcessingItems:     stats["processing"],
+		IndexedURLs:         task.IndexedURLs,
+		FailedURLs:          task.FailedURLs,
+		ConfigID:            task.ConfigID,
+		CreatedAt:           task.CreatedAt,
+		UpdatedAt:           task.UpdatedAt,
+		StartedAt:           task.StartedAt,
+		CompletedAt:         task.CompletedAt,
+	}
+
+	// 设置进度数据
+	if task.ProgressData != "" {
+		var progressData map[string]interface{}
+		if err := json.Unmarshal([]byte(task.ProgressData), &progressData); err == nil {
+			output.ProgressData = progressData
+		}
+	}
+
+	return output
+}

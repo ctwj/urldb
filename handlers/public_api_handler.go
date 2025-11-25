@@ -499,3 +499,36 @@ func (h *PublicAPIHandler) recordAPIAccessToDB(ip, userAgent, endpoint, method s
 		}
 	}()
 }
+
+// GetPublicSiteVerificationCode 获取网站验证代码（公开访问）
+func GetPublicSiteVerificationCode(c *gin.Context) {
+	// 获取站点URL配置
+	siteURL, err := repoManager.SystemConfigRepository.GetConfigValue("site_url")
+	if err != nil || siteURL == "" {
+		c.JSON(400, gin.H{
+			"success": false,
+			"message": "站点URL未配置",
+		})
+		return
+	}
+
+	// 生成Google Search Console验证代码示例
+	verificationCode := map[string]interface{}{
+		"site_url": siteURL,
+		"verification_methods": map[string]string{
+			"html_tag":     `<meta name="google-site-verification" content="your-verification-code">`,
+			"dns_txt":      `google-site-verification=your-verification-code`,
+			"html_file":    `google1234567890abcdef.html`,
+		},
+		"instructions": map[string]string{
+			"html_tag": "请将以下meta标签添加到您网站的首页<head>部分中",
+			"dns_txt":  "请添加以下TXT记录到您的DNS配置中",
+			"html_file": "请在网站根目录创建包含指定内容的HTML文件",
+		},
+	}
+
+	c.JSON(200, gin.H{
+		"success": true,
+		"data":    verificationCode,
+	})
+}

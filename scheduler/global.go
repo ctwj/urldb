@@ -32,10 +32,10 @@ func GetGlobalMeilisearchManager() *services.MeilisearchManager {
 }
 
 // GetGlobalScheduler 获取全局调度器实例（单例模式）
-func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository, cksRepo repo.CksRepository, tagRepo repo.TagRepository, categoryRepo repo.CategoryRepository) *GlobalScheduler {
+func GetGlobalScheduler(hotDramaRepo repo.HotDramaRepository, readyResourceRepo repo.ReadyResourceRepository, resourceRepo repo.ResourceRepository, systemConfigRepo repo.SystemConfigRepository, panRepo repo.PanRepository, cksRepo repo.CksRepository, tagRepo repo.TagRepository, categoryRepo repo.CategoryRepository, taskItemRepo repo.TaskItemRepository, taskRepo repo.TaskRepository) *GlobalScheduler {
 	once.Do(func() {
 		globalScheduler = &GlobalScheduler{
-			manager: NewManager(hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo, panRepo, cksRepo, tagRepo, categoryRepo),
+			manager: NewManager(hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo, panRepo, cksRepo, tagRepo, categoryRepo, taskItemRepo, taskRepo),
 		}
 	})
 	return globalScheduler
@@ -200,4 +200,40 @@ func (gs *GlobalScheduler) TriggerSitemapGeneration() {
 	defer gs.mutex.Unlock()
 
 	gs.manager.TriggerSitemapGeneration()
+}
+
+// StartGoogleIndexScheduler 启动Google索引调度任务
+func (gs *GlobalScheduler) StartGoogleIndexScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if gs.manager.IsGoogleIndexRunning() {
+		utils.Debug("Google索引调度任务已在运行中")
+		return
+	}
+
+	gs.manager.StartGoogleIndexScheduler()
+	utils.Info("Google索引调度任务已启动")
+}
+
+// StopGoogleIndexScheduler 停止Google索引调度任务
+func (gs *GlobalScheduler) StopGoogleIndexScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if !gs.manager.IsGoogleIndexRunning() {
+		utils.Debug("Google索引调度任务未在运行")
+		return
+	}
+
+	gs.manager.StopGoogleIndexScheduler()
+	utils.Info("Google索引调度任务已停止")
+}
+
+// IsGoogleIndexSchedulerRunning 检查Google索引调度任务是否在运行
+func (gs *GlobalScheduler) IsGoogleIndexSchedulerRunning() bool {
+	gs.mutex.RLock()
+	defer gs.mutex.RUnlock()
+
+	return gs.manager.IsGoogleIndexRunning()
 }

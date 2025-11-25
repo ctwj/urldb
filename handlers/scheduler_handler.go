@@ -18,11 +18,15 @@ func GetSchedulerStatus(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 
 	status := gin.H{
 		"hot_drama_scheduler_running":      scheduler.IsHotDramaSchedulerRunning(),
 		"ready_resource_scheduler_running": scheduler.IsReadyResourceRunning(),
+		"google_index_scheduler_running":   scheduler.IsGoogleIndexSchedulerRunning(),
+		"sitemap_scheduler_running":        scheduler.IsSitemapSchedulerRunning(),
 	}
 
 	SuccessResponse(c, status)
@@ -39,6 +43,8 @@ func StartHotDramaScheduler(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	if scheduler.IsHotDramaSchedulerRunning() {
 		ErrorResponse(c, "热播剧定时任务已在运行中", http.StatusBadRequest)
@@ -59,6 +65,8 @@ func StopHotDramaScheduler(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	if !scheduler.IsHotDramaSchedulerRunning() {
 		ErrorResponse(c, "热播剧定时任务未在运行", http.StatusBadRequest)
@@ -79,6 +87,8 @@ func TriggerHotDramaScheduler(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	scheduler.StartHotDramaScheduler() // 直接启动一次
 	SuccessResponse(c, gin.H{"message": "手动触发热播剧定时任务成功"})
@@ -95,6 +105,8 @@ func FetchHotDramaNames(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	names, err := scheduler.GetHotDramaNames()
 	if err != nil {
@@ -115,6 +127,8 @@ func StartReadyResourceScheduler(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	if scheduler.IsReadyResourceRunning() {
 		ErrorResponse(c, "待处理资源自动处理任务已在运行中", http.StatusBadRequest)
@@ -135,6 +149,8 @@ func StopReadyResourceScheduler(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	if !scheduler.IsReadyResourceRunning() {
 		ErrorResponse(c, "待处理资源自动处理任务未在运行", http.StatusBadRequest)
@@ -155,6 +171,8 @@ func TriggerReadyResourceScheduler(c *gin.Context) {
 		repoManager.CksRepository,
 		repoManager.TagRepository,
 		repoManager.CategoryRepository,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 	scheduler.StartReadyResourceScheduler() // 直接启动一次
 	SuccessResponse(c, gin.H{"message": "手动触发待处理资源自动处理任务成功"})

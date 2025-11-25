@@ -90,6 +90,8 @@ func GetSitemapConfig(c *gin.Context) {
 	enabled, err := scheduler.GetGlobalScheduler(
 		hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo,
 		panRepo, cksRepo, tagRepo, categoryRepo,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	).GetSitemapConfig()
 	if err != nil && err != gorm.ErrRecordNotFound {
 		// 如果获取失败，尝试从配置表中获取
@@ -140,6 +142,8 @@ func UpdateSitemapConfig(c *gin.Context) {
 	if err := scheduler.GetGlobalScheduler(
 		hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo,
 		panRepo, cksRepo, tagRepo, categoryRepo,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	).UpdateSitemapConfig(config.AutoGenerate); err != nil {
 		ErrorResponse(c, "更新调度器配置失败", http.StatusInternalServerError)
 		return
@@ -175,11 +179,15 @@ func UpdateSitemapConfig(c *gin.Context) {
 		scheduler.GetGlobalScheduler(
 			hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo,
 			panRepo, cksRepo, tagRepo, categoryRepo,
+			repoManager.TaskItemRepository,
+			repoManager.TaskRepository,
 		).StartSitemapScheduler()
 	} else {
 		scheduler.GetGlobalScheduler(
 			hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo,
 			panRepo, cksRepo, tagRepo, categoryRepo,
+			repoManager.TaskItemRepository,
+			repoManager.TaskRepository,
 		).StopSitemapScheduler()
 	}
 
@@ -201,6 +209,8 @@ func GenerateSitemap(c *gin.Context) {
 	globalScheduler := scheduler.GetGlobalScheduler(
 		hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo,
 		panRepo, cksRepo, tagRepo, categoryRepo,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 
 	// 手动触发sitemap生成
@@ -257,12 +267,16 @@ func GetSitemapStatus(c *gin.Context) {
 	isRunning := scheduler.GetGlobalScheduler(
 		hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo,
 		panRepo, cksRepo, tagRepo, categoryRepo,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	).IsSitemapSchedulerRunning()
 
 	// 获取自动生成功能状态
 	autoGenerateEnabled, err := scheduler.GetGlobalScheduler(
 		hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo,
 		panRepo, cksRepo, tagRepo, categoryRepo,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	).GetSitemapConfig()
 	if err != nil {
 		// 如果调度器获取失败，从配置中获取
@@ -345,15 +359,24 @@ func SitemapPageHandler(c *gin.Context) {
 		return
 	}
 
+	// 构建主机URL
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	host := c.Request.Host
+	if host == "" {
+		host = "localhost:8080" // 默认值
+	}
+	baseURL := fmt.Sprintf("%s://%s", scheme, host)
+
 	var urls []Url
 	for _, resource := range resources {
-		lastMod := resource.UpdatedAt
-		if resource.CreatedAt.After(lastMod) {
-			lastMod = resource.CreatedAt
-		}
+		// 使用资源的创建时间作为 lastmod，因为资源内容创建后很少改变
+		lastMod := resource.CreatedAt
 
 		urls = append(urls, Url{
-			Loc:        fmt.Sprintf("/r/%s", resource.Key),
+			Loc:        fmt.Sprintf("%s/r/%s", baseURL, resource.Key),
 			LastMod:    lastMod.Format("2006-01-01"), // 只保留日期部分
 			ChangeFreq: "weekly",
 			Priority:   0.8,
@@ -382,6 +405,8 @@ func GenerateFullSitemap(c *gin.Context) {
 	globalScheduler := scheduler.GetGlobalScheduler(
 		hotDramaRepo, readyResourceRepo, resourceRepo, systemConfigRepo,
 		panRepo, cksRepo, tagRepo, categoryRepo,
+		repoManager.TaskItemRepository,
+		repoManager.TaskRepository,
 	)
 
 	// 手动触发sitemap生成

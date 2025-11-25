@@ -219,7 +219,19 @@ func createIndexes(db *gorm.DB) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_api_access_logs_response_time ON api_access_logs(processing_time)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_api_access_logs_error_logs ON api_access_logs(response_status, created_at DESC) WHERE response_status >= 400")
 
-	utils.Info("数据库索引创建完成（已移除全文搜索索引，准备使用Meilisearch，新增API访问日志性能索引）")
+	// 任务和任务项表索引 - Google索引功能优化
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_tasks_type_status ON tasks(type, status)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at DESC)")
+
+	// task_items表的关键索引 - 支持高效去重和状态查询
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_task_items_url ON task_items(url)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_task_items_url_status ON task_items(url, status)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_task_items_task_id ON task_items(task_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_task_items_status ON task_items(status)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_task_items_created_at ON task_items(created_at DESC)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_task_items_status_created ON task_items(status, created_at)")
+
+	utils.Info("数据库索引创建完成（已移除全文搜索索引，准备使用Meilisearch，新增API访问日志性能索引，任务项表索引优化）")
 }
 
 // insertDefaultDataIfEmpty 只在数据库为空时插入默认数据

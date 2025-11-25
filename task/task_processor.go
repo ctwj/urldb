@@ -555,3 +555,71 @@ func (tm *TaskManager) RecoverRunningTasks() error {
 	utils.Info("任务恢复完成，共恢复 %d 个任务", recoveredCount)
 	return nil
 }
+
+// CreateTask 创建任务
+func (tm *TaskManager) CreateTask(taskType, name, description string, configID *uint) (*entity.Task, error) {
+	// 验证任务类型是否有对应的处理器
+	tm.mu.RLock()
+	_, exists := tm.processors[taskType]
+	tm.mu.RUnlock()
+
+	if !exists {
+		return nil, fmt.Errorf("未找到任务类型 %s 的处理器", taskType)
+	}
+
+	task := &entity.Task{
+		Type:        entity.TaskType(taskType),
+		Name:        name,
+		Title:       name, // 设置Title为相同值，保持兼容性
+		Description: description,
+		Status:      entity.TaskStatusPending,
+		ConfigID:    configID,
+	}
+
+	err := tm.repoMgr.TaskRepository.Create(task)
+	if err != nil {
+		return nil, fmt.Errorf("创建任务失败: %v", err)
+	}
+
+	utils.Info("创建任务成功: ID=%d, 类型=%s, 名称=%s", task.ID, task.Type, task.Name)
+	return task, nil
+}
+
+// GetTask 获取任务详情
+func (tm *TaskManager) GetTask(taskID uint) (*entity.Task, error) {
+	task, err := tm.repoMgr.TaskRepository.GetByID(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("获取任务失败: %v", err)
+	}
+	return task, nil
+}
+
+// GetTaskItemStats 获取任务项统计信息
+func (tm *TaskManager) GetTaskItemStats(taskID uint) (map[string]int, error) {
+	stats, err := tm.repoMgr.TaskItemRepository.GetStatsByTaskID(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("获取任务项统计失败: %v", err)
+	}
+	return stats, nil
+}
+
+// QueryTaskItems 查询任务项
+func (tm *TaskManager) QueryTaskItems(taskID uint, page, pageSize int, status string) ([]*entity.TaskItem, int64, error) {
+	items, total, err := tm.repoMgr.TaskItemRepository.GetListByTaskID(taskID, page, pageSize, status)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询任务项失败: %v", err)
+	}
+	return items, total, nil
+}
+
+// CreateTaskItems 创建任务项
+func (tm *TaskManager) CreateTaskItems(taskID uint, items []*entity.TaskItem) error {
+	for _, item := range items {
+		item.TaskID = taskID
+		if err := tm.repoMgr.TaskItemRepository.Create(item); err != nil {
+			return fmt.Errorf("创建任务项失败: %v", err)
+		}
+	}
+	utils.Info("创建任务项成功: 任务ID=%d, 数量=%d", taskID, len(items))
+	return nil
+}
