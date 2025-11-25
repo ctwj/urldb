@@ -188,10 +188,8 @@ func (s *SitemapScheduler) generateSitemapPage(page int) error {
 
 	var urls []Url
 	for _, resource := range resources {
-		lastMod := resource.UpdatedAt
-		if resource.CreatedAt.After(lastMod) {
-			lastMod = resource.CreatedAt
-		}
+		// 使用资源的创建时间作为 lastmod，因为资源内容创建后很少改变
+		lastMod := resource.CreatedAt
 
 		urls = append(urls, Url{
 			Loc:        fmt.Sprintf("%s/r/%s", baseURL, resource.Key),
