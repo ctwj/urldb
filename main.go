@@ -216,10 +216,9 @@ func main() {
 		utils.Info("系统配置禁用Sitemap自动生成功能")
 	}
 
-	// 根据系统配置启动Google索引调度器
+	// Google索引调度器现在由Sitemap调度器管理，不再独立启动
 	if autoGoogleIndexEnabled {
-		globalScheduler.StartGoogleIndexScheduler()
-		utils.Info("系统配置启用Google索引自动提交功能，启动定时任务")
+		utils.Info("系统配置启用Google索引自动提交功能，将由Sitemap调度器管理")
 	} else {
 		utils.Info("系统配置禁用Google索引自动提交功能")
 	}

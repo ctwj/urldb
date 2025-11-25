@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/pkg/google"
 	"github.com/ctwj/urldb/utils"
 	"gorm.io/gorm"
 )
@@ -159,6 +160,12 @@ func (s *SitemapScheduler) generateSitemap() {
 
 	utils.Info("Sitemap生成完成，耗时: %v", time.Since(startTime))
 	utils.Info("Sitemap地址: %s/sitemap.xml", baseURL)
+
+	// 检查是否启用了Google索引自动提交功能
+	if s.shouldTriggerGoogleIndex() {
+		utils.Info("将在5分钟后自动提交sitemap到Google")
+		go s.scheduleGoogleIndexSubmission()
+	}
 }
 
 // generateSitemapPage 生成单个sitemap页面
@@ -171,6 +178,14 @@ func (s *SitemapScheduler) generateSitemapPage(page int) error {
 		return fmt.Errorf("获取资源数据失败: %w", err)
 	}
 
+	// 获取网站基础URL
+	baseURL, err := s.BaseScheduler.systemConfigRepo.GetConfigValue(entity.ConfigKeyWebsiteURL)
+	if err != nil || baseURL == "" {
+		baseURL = "https://yoursite.com" // 默认值
+	}
+	// 移除URL末尾的斜杠
+	baseURL = strings.TrimSuffix(baseURL, "/")
+
 	var urls []Url
 	for _, resource := range resources {
 		lastMod := resource.UpdatedAt
@@ -179,7 +194,7 @@ func (s *SitemapScheduler) generateSitemapPage(page int) error {
 		}
 
 		urls = append(urls, Url{
-			Loc:        fmt.Sprintf("/r/%s", resource.Key),
+			Loc:        fmt.Sprintf("%s/r/%s", baseURL, resource.Key),
 			LastMod:    lastMod.Format("2006-01-02"), // 只保留日期部分
 			ChangeFreq: "weekly",
 			Priority:   0.8,
@@ -305,4 +320,99 @@ type SitemapIndex struct {
 type Sitemap struct {
 	Loc     string `xml:"loc"`
 	LastMod string `xml:"lastmod"`
+}
+
+// shouldTriggerGoogleIndex 检查是否应该触发Google索引提交
+func (s *SitemapScheduler) shouldTriggerGoogleIndex() bool {
+	// 获取Google索引启用状态
+	enabledStr, err := s.BaseScheduler.systemConfigRepo.GetConfigValue(entity.GoogleIndexConfigKeyEnabled)
+	if err != nil {
+		return false
+	}
+	return enabledStr == "1" || enabledStr == "true"
+}
+
+// scheduleGoogleIndexSubmission 安排Google索引提交（延迟5分钟）
+func (s *SitemapScheduler) scheduleGoogleIndexSubmission() {
+	// 等待5分钟
+	time.Sleep(5 * time.Minute)
+
+	utils.Info("开始自动提交sitemap到Google...")
+
+	// 直接实现Google索引提交逻辑
+	if err := s.submitSitemapToGoogle(); err != nil {
+		utils.Error("自动提交sitemap失败: %v", err)
+	} else {
+		utils.Info("自动提交sitemap成功")
+		// 更新最后提交时间
+		s.updateLastSitemapSubmitTime()
+	}
+}
+
+// submitSitemapToGoogle 提交sitemap给Google
+func (s *SitemapScheduler) submitSitemapToGoogle() error {
+	utils.Info("开始提交sitemap给Google...")
+
+	// 获取站点URL构建sitemap URL
+	siteURL, err := s.BaseScheduler.systemConfigRepo.GetConfigValue(entity.ConfigKeyWebsiteURL)
+	if err != nil || siteURL == "" || siteURL == "https://example.com" {
+		siteURL = "https://pan.l9.lc" // 默认站点URL
+	}
+
+	sitemapURL := siteURL
+	if !strings.HasSuffix(sitemapURL, "/") {
+		sitemapURL += "/"
+	}
+	sitemapURL += "sitemap.xml"
+
+	utils.Info("提交sitemap: %s", sitemapURL)
+
+	// 验证sitemapURL不为空
+	if sitemapURL == "" || sitemapURL == "/sitemap.xml" {
+		return fmt.Errorf("网站地图URL不能为空")
+	}
+
+	// 创建Google客户端配置
+	config := &google.Config{
+		SiteURL: siteURL,
+	}
+
+	// 获取凭据文件路径
+	credentialsFile, err := s.BaseScheduler.systemConfigRepo.GetConfigValue(entity.GoogleIndexConfigKeyCredentialsFile)
+	if err != nil {
+		return fmt.Errorf("获取凭据文件路径失败: %v", err)
+	}
+	config.CredentialsFile = credentialsFile
+
+	// 创建Google客户端
+	client, err := google.NewClient(config)
+	if err != nil {
+		return fmt.Errorf("创建Google客户端失败: %v", err)
+	}
+
+	// 提交sitemap给Google
+	err = client.SubmitSitemap(sitemapURL)
+	if err != nil {
+		utils.Error("提交sitemap失败: %s, 错误: %v", sitemapURL, err)
+		return fmt.Errorf("提交sitemap失败: %v", err)
+	}
+
+	utils.Info("sitemap提交成功: %s", sitemapURL)
+	return nil
+}
+
+// updateLastSitemapSubmitTime 更新最后sitemap提交时间
+func (s *SitemapScheduler) updateLastSitemapSubmitTime() {
+	now := time.Now().Format("2006-01-02 15:04:05")
+	configs := []entity.SystemConfig{
+		{
+			Key:   "google_index_last_sitemap_submit",
+			Value: now,
+			Type:  entity.ConfigTypeString,
+		},
+	}
+
+	if err := s.BaseScheduler.systemConfigRepo.UpsertConfigs(configs); err != nil {
+		utils.Error("更新sitemap提交时间失败: %v", err)
+	}
 }

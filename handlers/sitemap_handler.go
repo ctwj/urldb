@@ -359,6 +359,17 @@ func SitemapPageHandler(c *gin.Context) {
 		return
 	}
 
+	// 构建主机URL
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	host := c.Request.Host
+	if host == "" {
+		host = "localhost:8080" // 默认值
+	}
+	baseURL := fmt.Sprintf("%s://%s", scheme, host)
+
 	var urls []Url
 	for _, resource := range resources {
 		lastMod := resource.UpdatedAt
@@ -367,7 +378,7 @@ func SitemapPageHandler(c *gin.Context) {
 		}
 
 		urls = append(urls, Url{
-			Loc:        fmt.Sprintf("/r/%s", resource.Key),
+			Loc:        fmt.Sprintf("%s/r/%s", baseURL, resource.Key),
 			LastMod:    lastMod.Format("2006-01-01"), // 只保留日期部分
 			ChangeFreq: "weekly",
 			Priority:   0.8,
