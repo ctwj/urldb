@@ -19,7 +19,10 @@ import (
 	"github.com/ctwj/urldb/task"
 	"github.com/ctwj/urldb/utils"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/oauth2"
 	goauth "golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
+	"google.golang.org/api/searchconsole/v1"
 )
 
 // GoogleIndexHandler Google索引处理程序
@@ -400,7 +403,7 @@ func (h *GoogleIndexHandler) CreateTask(c *gin.Context) {
 	var taskItems []*entity.TaskItem
 
 	switch req.Type {
-	case "url_indexing", "status_check", "batch_index", "manual_check":
+	case "url_indexing", "status_check", "batch_index", "manual_check", "url_submit":
 		// 为每个URL创建任务项
 		for _, url := range req.URLs {
 			itemData := map[string]interface{}{
@@ -1005,9 +1008,6 @@ func (h *GoogleIndexHandler) UpdateGoogleIndexConfig(c *gin.Context) {
 }
 
 func (h *GoogleIndexHandler) getValidToken(config *google.Config) error {
-	// 为了简单验证，我们只尝试读取凭据文件并确保JWT配置可以正常工作
-	// 在实际实现中，这里应该尝试获取一个实际的token
-
 	// 重新读取凭据文件进行验证
 	data, err := os.ReadFile(config.CredentialsFile)
 	if err != nil {
@@ -1019,12 +1019,337 @@ func (h *GoogleIndexHandler) getValidToken(config *google.Config) error {
 		"https://www.googleapis.com/auth/webmasters",
 		"https://www.googleapis.com/auth/indexing",
 	}
-	_, err = goauth.JWTConfigFromJSON(data, scopes...)
-	if err != nil {
-		return fmt.Errorf("创建JWT配置失败: %v", err)
+
+	// 检查凭据类型
+	var credentialsMap map[string]interface{}
+	if err := json.Unmarshal(data, &credentialsMap); err != nil {
+		return fmt.Errorf("解析凭据失败: %v", err)
 	}
 
-	// 如果能成功创建JWT配置，我们认为凭据格式是正确的
-	// 在实际环境中，这里应该尝试获取token来验证凭据的有效性
+	credType, ok := credentialsMap["type"].(string)
+	if !ok {
+		return fmt.Errorf("未知的凭据类型")
+	}
+
+	ctx := context.Background()
+	var client *http.Client
+
+	if credType == "service_account" {
+		// 服务账号凭据
+		jwtConfig, err := goauth.JWTConfigFromJSON(data, scopes...)
+		if err != nil {
+			return fmt.Errorf("创建JWT配置失败: %v", err)
+		}
+		client = jwtConfig.Client(ctx)
+
+		// 尝试获取一个测试URL来验证凭据
+		siteURL, _ := h.repoMgr.SystemConfigRepository.GetConfigValue(entity.ConfigKeyWebsiteURL)
+		if siteURL == "" {
+			siteURL = "https://example.com" // 使用默认URL进行测试
+		}
+
+		// 创建Search Console服务进行测试
+		searchService, err := searchconsole.NewService(ctx, option.WithHTTPClient(client))
+		if err != nil {
+			return fmt.Errorf("创建Search Console服务失败: %v", err)
+		}
+
+		// 尝试获取站点列表来验证凭据
+		_, err = searchService.Sites.List().Do()
+		if err != nil {
+			return fmt.Errorf("凭据验证失败 - 无法访问Google Search Console API: %v", err)
+		}
+
+		utils.Info("Google服务账号凭据验证成功")
+
+	} else {
+		// OAuth2客户端凭据
+		oauthConfig, err := goauth.ConfigFromJSON(data, scopes...)
+		if err != nil {
+			return fmt.Errorf("创建OAuth配置失败: %v", err)
+		}
+
+		// 尝试从文件读取token
+		tokenFile := "data/google_token.json"
+		token, err := h.tokenFromFile(tokenFile)
+		if err != nil {
+			return fmt.Errorf("未找到有效的token文件，请先完成OAuth认证流程: %v", err)
+		}
+
+		// 验证token是否过期
+		if !token.Valid() {
+			return fmt.Errorf("Token已过期，请重新认证")
+		}
+
+		client = oauthConfig.Client(ctx, token)
+
+		// 测试API访问
+		searchService, err := searchconsole.NewService(ctx, option.WithHTTPClient(client))
+		if err != nil {
+			return fmt.Errorf("创建Search Console服务失败: %v", err)
+		}
+
+		_, err = searchService.Sites.List().Do()
+		if err != nil {
+			return fmt.Errorf("凭据验证失败 - 无法访问Google Search Console API: %v", err)
+		}
+
+		utils.Info("Google OAuth2凭据验证成功")
+	}
+
 	return nil
+}
+
+// tokenFromFile 从文件读取token
+func (h *GoogleIndexHandler) tokenFromFile(file string) (*oauth2.Token, error) {
+	f, err := os.Open(file)
+	defer f.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	token := &oauth2.Token{}
+	err = json.NewDecoder(f).Decode(token)
+	return token, err
+}
+
+// SubmitURLsToIndex 提交URL到Google索引
+func (h *GoogleIndexHandler) SubmitURLsToIndex(c *gin.Context) {
+	var req struct {
+		URLs []string `json:"urls" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("GoogleIndexHandler.SubmitURLsToIndex - 用户提交URL到索引 - 用户: %s, URL数量: %d, IP: %s", username, len(req.URLs), clientIP)
+
+	// 创建通用任务
+	var configID *uint
+	task, err := h.taskManager.CreateTask(string(entity.TaskTypeGoogleIndex), fmt.Sprintf("手动URL提交任务 - %d个URL", len(req.URLs)), fmt.Sprintf("手动提交 %d 个URL到Google索引", len(req.URLs)), configID)
+	if err != nil {
+		utils.Error("创建Google索引任务失败: %v", err)
+		ErrorResponse(c, "创建任务失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 为每个URL创建任务项
+	var taskItems []*entity.TaskItem
+	for _, url := range req.URLs {
+		itemData := map[string]interface{}{
+			"urls":      []string{url},
+			"operation": "url_submit",
+		}
+		itemDataJSON, _ := json.Marshal(itemData)
+
+		taskItem := &entity.TaskItem{
+			URL:       url,
+			InputData: string(itemDataJSON),
+		}
+		taskItems = append(taskItems, taskItem)
+	}
+
+	// 批量创建任务项
+	err = h.taskManager.CreateTaskItems(task.ID, taskItems)
+	if err != nil {
+		utils.Error("创建任务项失败: %v", err)
+		ErrorResponse(c, "创建任务项失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 更新任务的总项目数
+	err = h.repoMgr.TaskRepository.UpdateTotalItems(task.ID, len(taskItems))
+	if err != nil {
+		utils.Error("更新任务总项目数失败: %v", err)
+	}
+
+	// 自动启动任务
+	err = h.taskManager.StartTask(task.ID)
+	if err != nil {
+		utils.Error("启动Google索引任务失败: %v", err)
+		ErrorResponse(c, "启动任务失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	utils.Info("Google索引URL提交任务创建完成: %d, 总项目数: %d", task.ID, len(taskItems))
+	SuccessResponse(c, gin.H{
+		"task_id":     task.ID,
+		"total_items": len(taskItems),
+		"message":     "URL提交任务已创建并启动",
+	})
+}
+
+// DiagnosePermissions 诊断Google API权限
+func (h *GoogleIndexHandler) DiagnosePermissions(c *gin.Context) {
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("GoogleIndexHandler.DiagnosePermissions - 用户执行权限诊断 - 用户: %s, IP: %s", username, clientIP)
+
+	// 凭据文件路径
+	credentialsFile := "data/google_credentials.json"
+
+	// 检查凭据文件是否存在
+	if _, err := os.Stat(credentialsFile); os.IsNotExist(err) {
+		ErrorResponse(c, "凭据文件不存在: "+credentialsFile, http.StatusBadRequest)
+		return
+	}
+
+	// 读取凭据文件
+	data, err := os.ReadFile(credentialsFile)
+	if err != nil {
+		ErrorResponse(c, "读取凭据文件失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 解析凭据
+	var creds struct {
+		Type        string `json:"type"`
+		ProjectID   string `json:"project_id"`
+		ClientEmail string `json:"client_email"`
+	}
+	if err := json.Unmarshal(data, &creds); err != nil {
+		ErrorResponse(c, "解析凭据文件失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 创建Google客户端
+	ctx := context.Background()
+	config, err := goauth.JWTConfigFromJSON(data, searchconsole.WebmastersScope)
+	if err != nil {
+		ErrorResponse(c, "创建JWT配置失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	client := config.Client(ctx)
+
+	// 创建Search Console服务
+	service, err := searchconsole.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		ErrorResponse(c, "创建Search Console服务失败: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// 诊断结果结构
+	diagnosis := map[string]interface{}{
+		"credentials": map[string]interface{}{
+			"file_exists":    true,
+			"service_account": creds.ClientEmail,
+			"project_id":     creds.ProjectID,
+			"type":          creds.Type,
+		},
+		"api_access": map[string]interface{}{
+			"search_console_enabled": true,
+			"sites_count":           0,
+			"sites":                []interface{}{},
+		},
+		"site_tests": []interface{}{},
+		"recommendations": []string{},
+	}
+
+	// 测试基本API访问 - 获取站点列表
+	sites, err := service.Sites.List().Do()
+	if err != nil {
+		diagnosis["api_access"].(map[string]interface{})["sites_error"] = err.Error()
+		diagnosis["recommendations"] = append(diagnosis["recommendations"].([]string),
+			"无法访问Search Console API，请检查服务账号权限")
+	} else {
+		diagnosis["api_access"].(map[string]interface{})["sites_count"] = len(sites.SiteEntry)
+
+		// 添加站点列表
+		for i, site := range sites.SiteEntry {
+			if i < 5 { // 只显示前5个站点
+				diagnosis["api_access"].(map[string]interface{})["sites"] = append(
+					diagnosis["api_access"].(map[string]interface{})["sites"].([]interface{}),
+					map[string]interface{}{
+						"url":             site.SiteUrl,
+						"permission_level": site.PermissionLevel,
+					})
+			}
+		}
+	}
+
+	// 测试特定站点访问
+	targetSite := "https://pan.l9.lc"
+	siteFormats := []string{
+		targetSite,
+		targetSite + "/",
+		"sc-domain:pan.l9.lc",
+	}
+
+	for _, siteURL := range siteFormats {
+		siteTest := map[string]interface{}{
+			"site_format": siteURL,
+			"site_access": false,
+			"url_inspect": false,
+		}
+
+		// 测试站点访问
+		_, err = service.Sites.Get(siteURL).Do()
+		if err != nil {
+			siteTest["site_error"] = err.Error()
+		} else {
+			siteTest["site_access"] = true
+		}
+
+		// 测试URL检查
+		testURL := targetSite + "/test"
+		inspectionRequest := &searchconsole.InspectUrlIndexRequest{
+			InspectionUrl: testURL,
+			SiteUrl:       siteURL,
+			LanguageCode:  "zh-CN",
+		}
+
+		_, err = service.UrlInspection.Index.Inspect(inspectionRequest).Do()
+		if err != nil {
+			siteTest["inspect_error"] = err.Error()
+		} else {
+			siteTest["url_inspect"] = true
+		}
+
+		diagnosis["site_tests"] = append(diagnosis["site_tests"].([]interface{}), siteTest)
+	}
+
+	// 生成建议
+	sitesCount := diagnosis["api_access"].(map[string]interface{})["sites_count"].(int)
+	if sitesCount == 0 {
+		diagnosis["recommendations"] = append(diagnosis["recommendations"].([]string),
+			"服务账号未被授权访问任何Search Console站点",
+			"请在Google Search Console中添加服务账号为用户")
+	}
+
+	// 检查是否有任何站点测试成功
+	hasSuccessfulSiteTest := false
+	for _, test := range diagnosis["site_tests"].([]interface{}) {
+		if testMap, ok := test.(map[string]interface{}); ok {
+			if siteAccess, exists := testMap["site_access"].(bool); exists && siteAccess {
+				hasSuccessfulSiteTest = true
+				break
+			}
+		}
+	}
+
+	if !hasSuccessfulSiteTest {
+		diagnosis["recommendations"] = append(diagnosis["recommendations"].([]string),
+			"所有站点访问测试失败，请检查站点所有权验证和服务账号权限")
+	}
+
+	// 添加具体操作步骤
+	diagnosis["recommendations"] = append(diagnosis["recommendations"].([]string),
+		"1. 登录Google Search Console: https://search.google.com/search-console",
+		"2. 选择站点 https://pan.l9.lc",
+		"3. 进入 设置 → 用户和权限",
+		"4. 添加用户: "+creds.ClientEmail,
+		"5. 授予 '所有者' 或 '完整' 权限",
+		"6. 等待权限生效（可能需要几分钟）",
+		"7. 确保Indexing API已启用: https://console.cloud.google.com/apis/library/indexing.googleapis.com")
+
+	utils.Info("Google权限诊断完成，站点数量: %d", sitesCount)
+	SuccessResponse(c, gin.H{
+		"diagnosis": diagnosis,
+		"message":   "权限诊断完成",
+	})
 }

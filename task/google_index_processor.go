@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -88,6 +89,8 @@ func (gip *GoogleIndexProcessor) Process(ctx context.Context, taskID uint, item 
 	switch input.Operation {
 	case "url_indexing":
 		return gip.processURLIndexing(ctx, client, taskID, item, input)
+	case "url_submit":
+		return gip.processURLSubmit(ctx, client, taskID, item, input)
 	case "sitemap_submit":
 		return gip.processSitemapSubmit(ctx, client, taskID, item, input)
 	case "status_check":
@@ -142,19 +145,30 @@ func (gip *GoogleIndexProcessor) processURLIndexing(ctx context.Context, client 
 
 // processSitemapSubmit 处理网站地图提交
 func (gip *GoogleIndexProcessor) processSitemapSubmit(ctx context.Context, client *google.Client, taskID uint, item *entity.TaskItem, input GoogleIndexTaskInput) error {
-	utils.Info("开始网站地图提交: %s", input.SitemapURL)
+	utils.Info("[GOOGLE-PROCESSOR] 开始网站地图提交任务: %s", input.SitemapURL)
 
 	if input.SitemapURL == "" {
 		errorMsg := "网站地图URL不能为空"
+		utils.Error("[GOOGLE-PROCESSOR] %s", errorMsg)
 		gip.updateTaskItemStatus(item, entity.TaskItemStatusFailed, "", false, nil, 400, errorMsg)
 		return fmt.Errorf(errorMsg)
 	}
 
+	// 验证网站地图URL格式
+	if !strings.HasPrefix(input.SitemapURL, "http://") && !strings.HasPrefix(input.SitemapURL, "https://") {
+		errorMsg := fmt.Sprintf("网站地图URL格式错误，必须以http://或https://开头: %s", input.SitemapURL)
+		utils.Error("[GOOGLE-PROCESSOR] %s", errorMsg)
+		gip.updateTaskItemStatus(item, entity.TaskItemStatusFailed, "", false, nil, 400, errorMsg)
+		return fmt.Errorf(errorMsg)
+	}
+
+	utils.Info("[GOOGLE-PROCESSOR] 提交网站地图到Google...")
 	// 提交网站地图
 	err := client.SubmitSitemap(input.SitemapURL)
 	if err != nil {
-		utils.Error("提交网站地图失败: %s, 错误: %v", input.SitemapURL, err)
-		gip.updateTaskItemStatus(item, entity.TaskItemStatusFailed, "", false, nil, 500, err.Error())
+		utils.Error("[GOOGLE-PROCESSOR] 提交网站地图失败: %s, 错误: %v", input.SitemapURL, err)
+		errorMessage := fmt.Sprintf("网站地图提交失败: %v", err)
+		gip.updateTaskItemStatus(item, entity.TaskItemStatusFailed, "", false, nil, 500, errorMessage)
 		return fmt.Errorf("提交网站地图失败: %v", err)
 	}
 
@@ -162,13 +176,91 @@ func (gip *GoogleIndexProcessor) processSitemapSubmit(ctx context.Context, clien
 	now := time.Now()
 	gip.updateTaskItemStatus(item, entity.TaskItemStatusSuccess, "SUBMITTED", false, &now, 200, "")
 
-	utils.Info("网站地图提交完成: %s", input.SitemapURL)
+	utils.Info("[GOOGLE-PROCESSOR] 网站地图提交任务完成: %s", input.SitemapURL)
+	return nil
+}
+
+// processURLSubmit 处理URL提交到索引
+func (gip *GoogleIndexProcessor) processURLSubmit(ctx context.Context, client *google.Client, taskID uint, item *entity.TaskItem, input GoogleIndexTaskInput) error {
+	utils.Info("[GOOGLE-PROCESSOR] 开始URL提交到索引任务，URL数量: %d", len(input.URLs))
+
+	submittedCount := 0
+	failedCount := 0
+
+	for i, url := range input.URLs {
+		select {
+		case <-ctx.Done():
+			utils.Error("[GOOGLE-PROCESSOR] URL提交任务被取消")
+			gip.updateTaskItemStatus(item, entity.TaskItemStatusFailed, "", false, nil, 0, "任务被取消")
+			return ctx.Err()
+		default:
+			utils.Info("[GOOGLE-PROCESSOR] 处理URL %d/%d: %s", i+1, len(input.URLs), url)
+
+			// 提交URL到索引
+			err := client.PublishURL(url, "URL_UPDATED")
+			if err != nil {
+				utils.Error("[GOOGLE-PROCESSOR] 提交URL到索引失败: %s, 错误: %v", url, err)
+
+				// 更新失败状态，但继续处理其他URL
+				errorMessage := fmt.Sprintf("URL %s 提交失败: %v", url, err)
+				gip.updateTaskItemStatus(item, entity.TaskItemStatusFailed, "", false, nil, 500, errorMessage)
+				failedCount++
+
+				// 即使失败也要等待，避免触发更多频率限制
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			submittedCount++
+			utils.Info("[GOOGLE-PROCESSOR] URL提交成功: %s", url)
+
+			// Indexing API有严格的频率限制，增加延迟
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	// 更新任务项状态
+	now := time.Now()
+	statusMessage := fmt.Sprintf("成功提交: %d, 失败: %d", submittedCount, failedCount)
+
+	// 根据提交结果确定任务项状态
+	var finalStatus entity.TaskItemStatus
+	var statusCode int
+	if submittedCount > 0 && failedCount == 0 {
+		// 全部成功
+		finalStatus = entity.TaskItemStatusSuccess
+		statusCode = 200
+		utils.Info("[GOOGLE-PROCESSOR] URL提交任务全部成功: %s", statusMessage)
+	} else if submittedCount == 0 && failedCount > 0 {
+		// 全部失败
+		finalStatus = entity.TaskItemStatusFailed
+		statusCode = 500
+		utils.Error("[GOOGLE-PROCESSOR] URL提交任务全部失败: %s", statusMessage)
+	} else {
+		// 部分成功
+		finalStatus = entity.TaskItemStatusSuccess // 部分成功算作完成，但错误消息会显示失败数量
+		statusCode = 206 // 206 Partial Content
+		utils.Info("[GOOGLE-PROCESSOR] URL提交任务部分成功: %s", statusMessage)
+	}
+
+	gip.updateTaskItemStatus(item, finalStatus, "SUBMITTED", false, &now, statusCode, statusMessage)
+
+	utils.Info("[GOOGLE-PROCESSOR] URL提交任务完成: %s", statusMessage)
+
+	// 如果所有URL都提交失败，返回错误
+	if submittedCount == 0 && failedCount > 0 {
+		return fmt.Errorf("所有URL提交失败，失败数量: %d", failedCount)
+	}
+
 	return nil
 }
 
 // processStatusCheck 处理状态检查
 func (gip *GoogleIndexProcessor) processStatusCheck(ctx context.Context, client *google.Client, taskID uint, item *entity.TaskItem, input GoogleIndexTaskInput) error {
 	utils.Info("开始状态检查: %v", input.URLs)
+
+	successCount := 0
+	failedCount := 0
 
 	for _, url := range input.URLs {
 		select {
@@ -180,7 +272,7 @@ func (gip *GoogleIndexProcessor) processStatusCheck(ctx context.Context, client 
 			result, err := gip.inspectURL(client, url)
 			if err != nil {
 				utils.Error("检查URL状态失败: %s, 错误: %v", url, err)
-				gip.updateTaskItemStatus(item, entity.TaskItemStatusFailed, "", false, nil, 500, err.Error())
+				failedCount++
 				continue
 			}
 
@@ -194,9 +286,17 @@ func (gip *GoogleIndexProcessor) processStatusCheck(ctx context.Context, client 
 			}
 
 			gip.updateTaskItemStatus(item, entity.TaskItemStatusSuccess, result.IndexStatusResult.IndexingState, result.MobileUsabilityResult.MobileFriendly, lastCrawled, 200, "")
+			successCount++
 
 			utils.Info("URL状态检查完成: %s, 状态: %s", url, result.IndexStatusResult.IndexingState)
 		}
+	}
+
+	// 如果所有URL都检查失败，返回错误
+	if successCount == 0 && failedCount > 0 {
+		errorMsg := fmt.Sprintf("所有URL状态检查失败，失败数量: %d", failedCount)
+		gip.updateTaskItemStatus(item, entity.TaskItemStatusFailed, "", false, nil, 500, errorMsg)
+		return fmt.Errorf(errorMsg)
 	}
 
 	return nil
@@ -204,19 +304,37 @@ func (gip *GoogleIndexProcessor) processStatusCheck(ctx context.Context, client 
 
 // initGoogleClient 初始化Google客户端
 func (gip *GoogleIndexProcessor) initGoogleClient() (*google.Client, error) {
+	utils.Info("[GOOGLE-PROCESSOR] 开始初始化Google客户端")
+
 	// 使用固定的凭据文件路径，与验证逻辑保持一致
 	credentialsFile := "data/google_credentials.json"
+	utils.Info("[GOOGLE-PROCESSOR] 检查凭据文件: %s", credentialsFile)
 
 	// 检查凭据文件是否存在
 	if _, err := os.Stat(credentialsFile); os.IsNotExist(err) {
+		utils.Error("[GOOGLE-PROCESSOR] Google凭据文件不存在: %s", credentialsFile)
 		return nil, fmt.Errorf("Google凭据文件不存在: %s", credentialsFile)
 	}
+	utils.Info("[GOOGLE-PROCESSOR] 凭据文件存在")
 
 	// 从配置中获取网站URL
 	siteURL, err := gip.repoMgr.SystemConfigRepository.GetConfigValue(entity.ConfigKeyWebsiteURL)
-	if err != nil || siteURL == "" || siteURL == "https://example.com" {
-		return nil, fmt.Errorf("未配置网站URL或在站点配置中设置了默认值")
+	if err != nil {
+		utils.Error("[GOOGLE-PROCESSOR] 获取网站URL配置失败: %v", err)
+		return nil, fmt.Errorf("获取网站URL配置失败: %v", err)
 	}
+
+	if siteURL == "" {
+		utils.Error("[GOOGLE-PROCESSOR] 网站URL配置为空")
+		return nil, fmt.Errorf("网站URL配置为空，请在站点配置中设置正确的网站URL")
+	}
+
+	if siteURL == "https://example.com" {
+		utils.Error("[GOOGLE-PROCESSOR] 网站URL仍为默认值，请更新为实际网站URL")
+		return nil, fmt.Errorf("网站URL仍为默认值，请在站点配置中设置正确的网站URL")
+	}
+
+	utils.Info("[GOOGLE-PROCESSOR] 使用网站URL: %s", siteURL)
 
 	config := &google.Config{
 		CredentialsFile: credentialsFile,
@@ -224,34 +342,46 @@ func (gip *GoogleIndexProcessor) initGoogleClient() (*google.Client, error) {
 		TokenFile:       "data/google_token.json", // 使用固定token文件名，放在data目录下
 	}
 
+	utils.Info("[GOOGLE-PROCESSOR] 开始创建Google客户端...")
 	client, err := google.NewClient(config)
 	if err != nil {
+		utils.Error("[GOOGLE-PROCESSOR] 创建Google客户端失败: %v", err)
 		return nil, fmt.Errorf("创建Google客户端失败: %v", err)
 	}
 
+	utils.Info("[GOOGLE-PROCESSOR] Google客户端初始化成功")
 	return client, nil
 }
 
 // inspectURL 检查URL索引状态
 func (gip *GoogleIndexProcessor) inspectURL(client *google.Client, url string) (*google.URLInspectionResult, error) {
+	utils.Info("[GOOGLE-PROCESSOR] 开始检查URL索引状态: %s", url)
+
 	// 重试机制
 	var result *google.URLInspectionResult
 	var err error
 
 	for attempt := 0; attempt <= gip.config.RetryAttempts; attempt++ {
+		utils.Info("[GOOGLE-PROCESSOR] URL检查尝试 %d/%d: %s", attempt+1, gip.config.RetryAttempts+1, url)
 		result, err = client.InspectURL(url)
 		if err == nil {
+			utils.Info("[GOOGLE-PROCESSOR] URL检查成功: %s", url)
 			break // 成功则退出重试循环
 		}
 
 		if attempt < gip.config.RetryAttempts {
-			utils.Info("URL检查失败，第%d次重试: %s, 错误: %v", attempt+1, url, err)
+			utils.Info("[GOOGLE-PROCESSOR] URL检查失败，第%d次重试: %s, 错误: %v", attempt+1, url, err)
 			time.Sleep(gip.config.RetryDelay)
 		}
 	}
 
 	if err != nil {
+		utils.Error("[GOOGLE-PROCESSOR] URL检查最终失败: %s, 错误: %v", url, err)
 		return nil, fmt.Errorf("检查URL失败: %v", err)
+	}
+
+	if result != nil {
+		utils.Info("[GOOGLE-PROCESSOR] URL检查结果: %s - 索引状态: %s", url, result.IndexStatusResult.IndexingState)
 	}
 
 	return result, nil

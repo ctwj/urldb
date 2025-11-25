@@ -152,6 +152,9 @@ export const useGoogleIndexApi = () => {
   const submitGoogleIndexURL = (data: { urls: string[] }) =>
     useApiFetch('/google-index/urls/submit', { method: 'POST', body: data }).then(parseApiResponse<any>)
 
+  const submitURLsToIndex = (data: { urls: string[] }) =>
+    useApiFetch('/google-index/urls/submit-to-index', { method: 'POST', body: data }).then(parseApiResponse<any>)
+
   // 批量操作API
   const batchSubmitGoogleIndexURLs = (data: { urls: string[], operation: string }) =>
     useApiFetch('/google-index/batch/submit', { method: 'POST', body: data }).then(parseApiResponse<any>)
@@ -170,6 +173,10 @@ export const useGoogleIndexApi = () => {
   // 验证凭据API
   const validateCredentials = (data: { credentialsFile: string }) =>
     useApiFetch('/google-index/validate-credentials', { method: 'POST', body: data }).then(parseApiResponse<any>)
+
+  // 诊断权限API
+  const diagnosePermissions = (data: any) =>
+    useApiFetch('/google-index/diagnose-permissions', { method: 'POST', body: data }).then(parseApiResponse<any>)
 
   // 更新Google索引分组配置API
   const updateGoogleIndexGroupConfig = (data: GoogleIndexConfig) =>
@@ -209,6 +216,7 @@ export const useGoogleIndexApi = () => {
     // 凭据验证和上传
     validateCredentials,
     uploadCredentials,
+    diagnosePermissions,
 
     // 任务管理
     getGoogleIndexTasks,
@@ -226,6 +234,7 @@ export const useGoogleIndexApi = () => {
     getGoogleIndexURLStatusByURL,
     checkGoogleIndexURLStatus,
     submitGoogleIndexURL,
+    submitURLsToIndex,
 
     // 批量操作
     batchSubmitGoogleIndexURLs,

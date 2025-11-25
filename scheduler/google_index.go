@@ -171,18 +171,30 @@ func (s *GoogleIndexScheduler) performScheduledTasks() {
 	}
 
 	ctx := context.Background()
+	now := time.Now()
 
 	// 任务0: 清理旧记录
 	if err := s.taskItemRepo.CleanupOldRecords(); err != nil {
 		utils.Error("清理旧记录失败: %v", err)
 	}
 
-	// 任务1: 定期提交sitemap给Google
-	if err := s.submitSitemapToGoogle(ctx); err != nil {
-		utils.Error("提交sitemap失败: %v", err)
+	// 任务1: 智能sitemap提交策略
+	if s.shouldSubmitSitemap(now) {
+		if err := s.submitSitemapToGoogle(ctx); err != nil {
+			utils.Error("提交sitemap失败: %v", err)
+		} else {
+			s.updateLastSitemapSubmitTime()
+		}
 	}
 
-	// 任务2: 刷新待处理的URL结果
+	// 任务2: 检查新URL状态（仅在白天执行，避免夜间消耗配额）
+	if s.shouldCheckURLStatus(now) {
+		if err := s.checkNewURLsStatus(ctx); err != nil {
+			utils.Error("检查新URL状态失败: %v", err)
+		}
+	}
+
+	// 任务3: 刷新待处理的URL结果
 	s.flushURLResults()
 
 	utils.Debug("Google索引调度任务执行完成")
@@ -538,4 +550,96 @@ func (s *GoogleIndexScheduler) getErrorMessage(result *google.URLInspectionResul
 // SetRunning 设置运行状态
 func (s *GoogleIndexScheduler) SetRunning(running bool) {
 	s.isRunning = running
+}
+
+// shouldSubmitSitemap 判断是否应该提交sitemap
+func (s *GoogleIndexScheduler) shouldSubmitSitemap(now time.Time) bool {
+	// 获取上次提交时间
+	lastSubmitStr, err := s.systemConfigRepo.GetConfigValue("google_index_last_sitemap_submit")
+	if err != nil {
+		// 如果没有记录，允许提交
+		return true
+	}
+
+	lastSubmit, err := time.Parse("2006-01-02 15:04:05", lastSubmitStr)
+	if err != nil {
+		// 如果解析失败，允许提交
+		return true
+	}
+
+	// 每天只提交一次sitemap
+	hoursSinceLastSubmit := now.Sub(lastSubmit).Hours()
+	return hoursSinceLastSubmit >= 24
+}
+
+// updateLastSitemapSubmitTime 更新最后sitemap提交时间
+func (s *GoogleIndexScheduler) updateLastSitemapSubmitTime() {
+	now := time.Now().Format("2006-01-02 15:04:05")
+	configs := []entity.SystemConfig{
+		{
+			Key:   "google_index_last_sitemap_submit",
+			Value: now,
+			Type:  entity.ConfigTypeString,
+		},
+	}
+
+	if err := s.systemConfigRepo.UpsertConfigs(configs); err != nil {
+		utils.Error("更新sitemap提交时间失败: %v", err)
+	}
+}
+
+// shouldCheckURLStatus 判断是否应该检查URL状态
+func (s *GoogleIndexScheduler) shouldCheckURLStatus(now time.Time) bool {
+	// 只在白天执行（8:00-22:00），避免夜间消耗API配额
+	hour := now.Hour()
+	if hour < 8 || hour >= 22 {
+		return false
+	}
+
+	// 获取上次检查时间
+	lastCheckStr, err := s.systemConfigRepo.GetConfigValue("google_index_last_url_check")
+	if err != nil {
+		// 如果没有记录，允许检查
+		return true
+	}
+
+	lastCheck, err := time.Parse("2006-01-02 15:04:05", lastCheckStr)
+	if err != nil {
+		// 如果解析失败，允许检查
+		return true
+	}
+
+	// 每6小时检查一次URL状态
+	hoursSinceLastCheck := now.Sub(lastCheck).Hours()
+	return hoursSinceLastCheck >= 6
+}
+
+// updateLastURLCheckTime 更新最后URL检查时间
+func (s *GoogleIndexScheduler) updateLastURLCheckTime() {
+	now := time.Now().Format("2006-01-02 15:04:05")
+	configs := []entity.SystemConfig{
+		{
+			Key:   "google_index_last_url_check",
+			Value: now,
+			Type:  entity.ConfigTypeString,
+		},
+	}
+
+	if err := s.systemConfigRepo.UpsertConfigs(configs); err != nil {
+		utils.Error("更新URL检查时间失败: %v", err)
+	}
+}
+
+// checkNewURLsStatus 检查新URL的状态
+func (s *GoogleIndexScheduler) checkNewURLsStatus(ctx context.Context) error {
+	utils.Info("开始检查新URL状态...")
+
+	// 暂时跳过新URL检查，因为GetRecentResources方法不存在
+	// TODO: 后续可以添加获取最近资源的逻辑
+	utils.Info("新URL检查功能暂时跳过")
+
+	// 仍然更新检查时间，避免重复尝试
+	s.updateLastURLCheckTime()
+
+	return nil
 }

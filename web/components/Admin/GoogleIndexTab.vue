@@ -152,57 +152,7 @@
         </div>
       </div>
 
-      <!-- Google索引统计 -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-          <div class="flex items-center">
-            <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <i class="fas fa-link text-blue-600 dark:text-blue-400"></i>
-            </div>
-            <div class="ml-3">
-              <p class="text-sm text-gray-600 dark:text-gray-400">总URL数</p>
-              <p class="text-xl font-bold text-gray-900 dark:text-white">{{ googleIndexStats.totalURLs || 0 }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-          <div class="flex items-center">
-            <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-              <i class="fas fa-check-circle text-green-600 dark:text-green-400"></i>
-            </div>
-            <div class="ml-3">
-              <p class="text-sm text-gray-600 dark:text-gray-400">已索引</p>
-              <p class="text-xl font-bold text-gray-900 dark:text-white">{{ googleIndexStats.indexedURLs || 0 }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-          <div class="flex items-center">
-            <div class="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-              <i class="fas fa-exclamation-triangle text-yellow-600 dark:text-yellow-400"></i>
-            </div>
-            <div class="ml-3">
-              <p class="text-sm text-gray-600 dark:text-gray-400">错误数</p>
-              <p class="text-xl font-bold text-gray-900 dark:text-white">{{ googleIndexStats.errorURLs || 0 }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-          <div class="flex items-center">
-            <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <i class="fas fa-tasks text-purple-600 dark:text-purple-400"></i>
-            </div>
-            <div class="ml-3">
-              <p class="text-sm text-gray-600 dark:text-gray-400">总任务数</p>
-              <p class="text-xl font-bold text-gray-900 dark:text-white">{{ googleIndexStats.totalTasks || 0 }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      
       <!-- 外部工具链接 -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
@@ -263,6 +213,18 @@
         </n-button>
 
         <n-button
+          type="warning"
+          @click="$emit('manual-submit-urls')"
+          :loading="manualSubmitLoading"
+          size="large"
+        >
+          <template #icon>
+            <i class="fas fa-paper-plane"></i>
+          </template>
+          手动提交URL
+        </n-button>
+
+        <n-button
           type="success"
           @click="submitSitemap"
           :loading="submitSitemapLoading"
@@ -272,6 +234,18 @@
             <i class="fas fa-upload"></i>
           </template>
           提交网站地图
+        </n-button>
+
+        <n-button
+          type="error"
+          @click="$emit('diagnose-permissions')"
+          :loading="diagnoseLoading"
+          size="large"
+        >
+          <template #icon>
+            <i class="fas fa-stethoscope"></i>
+          </template>
+          权限诊断
         </n-button>
 
         <n-button
@@ -311,28 +285,30 @@ import { ref, computed, h, watch } from 'vue'
 interface Props {
   systemConfig?: any
   googleIndexConfig: any
-  googleIndexStats: any
   tasks: any[]
   credentialsStatus: string | null
   credentialsStatusMessage: string
   configLoading: boolean
   manualCheckLoading: boolean
+  manualSubmitLoading: boolean
   submitSitemapLoading: boolean
   tasksLoading: boolean
+  diagnoseLoading: boolean
   pagination: any
 }
 
 const props = withDefaults(defineProps<Props>(), {
   systemConfig: null,
   googleIndexConfig: () => ({}),
-  googleIndexStats: () => ({}),
   tasks: () => [],
   credentialsStatus: null,
   credentialsStatusMessage: '',
   configLoading: false,
   manualCheckLoading: false,
+  manualSubmitLoading: false,
   submitSitemapLoading: false,
   tasksLoading: false,
+  diagnoseLoading: false,
   pagination: () => ({})
 })
 
@@ -343,7 +319,9 @@ const emit = defineEmits<{
   'show-credentials-guide': []
   'select-credentials-file': []
   'manual-check-urls': []
+  'manual-submit-urls': []
   'refresh-status': []
+  'diagnose-permissions': []
 }>()
 
 // 获取消息组件

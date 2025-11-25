@@ -560,6 +560,8 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 		// Google索引凭据上传和验证API
 		api.POST("/google-index/upload-credentials", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.UploadCredentials)
 		api.POST("/google-index/validate-credentials", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.ValidateCredentials)
+		api.POST("/google-index/diagnose-permissions", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.DiagnosePermissions)
+		api.POST("/google-index/urls/submit-to-index", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.SubmitURLsToIndex)
 	}
 
 	// 设置监控系统

@@ -18,21 +18,24 @@
             <GoogleIndexTab
               :system-config="systemConfig"
               :google-index-config="googleIndexConfig"
-              :google-index-stats="googleIndexStats"
               :tasks="googleIndexTasks"
               :credentials-status="credentialsStatus"
               :credentials-status-message="credentialsStatusMessage"
               :config-loading="configLoading"
               :manual-check-loading="manualCheckLoading"
+              :manual-submit-loading="manualSubmitLoading"
               :submit-sitemap-loading="submitSitemapLoading"
               :tasks-loading="tasksLoading"
+              :diagnose-loading="diagnoseLoading"
               :pagination="googleIndexPagination"
               @update:google-index-config="updateGoogleIndexConfig"
               @show-verification="showVerificationModal = true"
               @show-credentials-guide="showCredentialsGuide = true"
               @select-credentials-file="selectCredentialsFile"
               @manual-check-urls="manualCheckURLs"
+              @manual-submit-urls="manualSubmitURLs"
               @refresh-status="refreshGoogleIndexStatus"
+              @diagnose-permissions="diagnosePermissions"
               @view-task-items="viewTaskItems"
               @start-task="startTask"
             />
@@ -91,6 +94,51 @@
       <div class="flex justify-end space-x-2">
         <n-button @click="urlCheckModal.show = false">取消</n-button>
         <n-button type="primary" @click="confirmManualCheckURLs" :loading="manualCheckLoading">确认</n-button>
+      </div>
+    </div>
+  </n-modal>
+
+  <!-- URL提交模态框 -->
+  <n-modal v-model:show="urlSubmitModal.show" preset="card" title="手动提交URL到Google索引" style="max-width: 600px;">
+    <div class="space-y-4">
+      <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <i class="fas fa-exclamation-triangle text-yellow-500 dark:text-yellow-400 text-xl"></i>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">重要说明</h3>
+            <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+              <ul class="list-disc list-inside space-y-1">
+                <li>此功能将直接向Google提交URL索引请求</li>
+                <li>Google Indexing API有每日配额限制（建议不超过100个URL/天）</li>
+                <li>提交成功不代表立即被索引，Google仍会根据页面质量决定</li>
+                <li>请确保URL可正常访问且内容符合Google质量指南</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-gray-600 dark:text-gray-400">输入要提交到Google索引的URL，每行一个：</p>
+      <n-input
+        v-model:value="urlSubmitModal.urls"
+        type="textarea"
+        :autosize="{ minRows: 4, maxRows: 8 }"
+        placeholder="https://yoursite.com/page1&#10;https://yoursite.com/page2"
+      />
+
+      <div class="flex justify-between items-center">
+        <div class="text-sm text-gray-500">
+          <i class="fas fa-info-circle mr-1"></i>
+          提交后需要等待Google处理，结果可在任务列表中查看
+        </div>
+        <div class="flex space-x-2">
+          <n-button @click="urlSubmitModal.show = false">取消</n-button>
+          <n-button type="primary" @click="confirmManualSubmitURLs" :loading="urlSubmitLoading">
+            确认提交
+          </n-button>
+        </div>
       </div>
     </div>
   </n-modal>
@@ -181,9 +229,33 @@
         </div>
 
         <!-- 步骤3 -->
+        <div class="border-l-4 border-orange-500 pl-4">
+          <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <i class="fas fa-number-3 text-orange-500 mr-2"></i>启用Indexing API
+          </h4>
+          <p class="text-gray-600 dark:text-gray-400 mb-3">
+            <strong class="text-orange-600">重要：</strong>除了Search Console API，还需要启用Indexing API才能提交URL到Google索引。
+          </p>
+          <ol class="list-decimal list-inside space-y-2 text-sm text-gray-600 dark:text-gray-400">
+            <li>在导航菜单中选择"API和服务" > "库"</li>
+            <li>搜索"Indexing API"或"Google Indexing API"</li>
+            <li>点击搜索结果中的"Indexing API"</li>
+            <li>点击"启用"按钮</li>
+            <li class="text-orange-600 font-medium">⚠️ 如果找不到Indexing API，请确保项目已启用Google Search Console API</li>
+          </ol>
+          <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-3 mt-3">
+            <p class="text-sm text-orange-700 dark:text-orange-300">
+              <strong>为什么需要两个API？</strong><br>
+              • Search Console API：用于检查URL索引状态和获取站点数据<br>
+              • Indexing API：用于主动提交URL到Google索引队列
+            </p>
+          </div>
+        </div>
+
+        <!-- 步骤4 -->
         <div class="border-l-4 border-yellow-500 pl-4">
           <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            <i class="fas fa-number-3 text-yellow-500 mr-2"></i>创建服务账号
+            <i class="fas fa-number-4 text-yellow-500 mr-2"></i>创建服务账号
           </h4>
           <p class="text-gray-600 dark:text-gray-400 mb-3">
             创建服务账号并生成JSON密钥文件。
@@ -216,21 +288,81 @@
           </ol>
         </div>
 
-        <!-- 步骤5 -->
+        <!-- 步骤6 -->
         <div class="border-l-4 border-red-500 pl-4">
           <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            <i class="fas fa-number-5 text-red-500 mr-2"></i>验证网站所有权
+            <i class="fas fa-number-6 text-red-500 mr-2"></i>验证网站所有权并配置权限
           </h4>
           <p class="text-gray-600 dark:text-gray-400 mb-3">
-            在Google Search Console中验证网站并添加服务账号权限。
+            在Google Search Console中验证网站并添加服务账号权限。这是最关键的一步！
           </p>
           <ol class="list-decimal list-inside space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <li>访问 <a href="https://search.google.com/search-console/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Google Search Console</a></li>
-            <li>添加属性并验证网站所有权</li>
-            <li>在设置中找到"用户和权限"</li>
-            <li>点击"添加用户"，输入服务账号的邮箱地址</li>
-            <li>授予"所有者"或"完整"权限</li>
+            <li><strong class="text-red-600">如果尚未验证网站所有权：</strong>
+              <ul class="list-disc list-inside ml-4 mt-1 space-y-1">
+                <li>点击"添加属性"</li>
+                <li>选择"网址前缀"（推荐）或"网域"</li>
+                <li>输入您的网站URL（如：https://pan.l9.lc）</li>
+                <li>选择验证方法（DNS记录、HTML文件上传、HTML标签或Google Analytics）</li>
+                <li>按照指示完成验证</li>
+              </ul>
+            </li>
+            <li><strong class="text-green-600">添加服务账号权限：</strong>
+              <ul class="list-disc list-inside ml-4 mt-1 space-y-1">
+                <li>选择已验证的网站属性</li>
+                <li>在左侧菜单中点击"设置" ⚙️</li>
+                <li>选择"用户和权限"</li>
+                <li>点击右上角的"添加用户"</li>
+                <li>输入服务账号邮箱（格式：xxx@xxx.iam.gserviceaccount.com）</li>
+                <li><strong class="text-orange-600">权限选择：</strong>
+                  <ul class="list-circle list-inside ml-4 mt-1">
+                    <li>✅ 推荐："所有者" - 完全访问权限</li>
+                    <li>⚠️ 可选："完整" - 大部分功能权限</li>
+                    <li>❌ 不推荐："受限" - 功能受限</li>
+                  </ul>
+                </li>
+                <li>点击"添加"完成授权</li>
+              </ul>
+            </li>
           </ol>
+          <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-3 mt-3">
+            <p class="text-sm text-green-700 dark:text-green-300">
+              <strong>✅ 验证权限配置成功：</strong><br>
+              • 添加权限后等待5-10分钟生效<br>
+              • 使用上方的"权限诊断"按钮验证配置<br>
+              • 如果诊断显示"可访问站点数: 1"，说明配置成功
+            </p>
+          </div>
+        </div>
+
+        <!-- 故障排除 -->
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <h5 class="font-semibold text-blue-800 dark:text-blue-200 mb-3">
+            <i class="fas fa-tools mr-2"></i>故障排除
+          </h5>
+          <div class="space-y-3 text-sm text-blue-700 dark:text-blue-300">
+            <div>
+              <strong class="text-blue-600">❌ 诊断显示"可访问站点数: 0"</strong>
+              <ul class="list-disc list-inside ml-4 mt-1 space-y-1">
+                <li>确认服务账号邮箱输入正确</li>
+                <li>确认已授予"所有者"或"完整"权限</li>
+                <li>等待权限生效（可能需要10-15分钟）</li>
+                <li>检查网站所有权验证是否有效</li>
+              </ul>
+            </div>
+            <div>
+              <strong class="text-blue-600">❌ 提交URL失败，权限错误</strong>
+              <ul class="list-disc list-inside ml-4 mt-1 space-y-1">
+                <li>确认已启用Indexing API（步骤3）</li>
+                <li>确认网站URL格式正确（建议使用https://example.com/）</li>
+                <li>检查API配额是否超限</li>
+              </ul>
+            </div>
+            <div>
+              <strong class="text-green-600">✅ 使用权限诊断工具</strong>
+              <p>点击上方的"权限诊断"按钮，系统会自动检查所有配置并提供详细建议。</p>
+            </div>
+          </div>
         </div>
 
         <!-- 注意事项 -->
@@ -243,6 +375,8 @@
             <li>• 服务账号邮箱地址通常格式为：xxx@xxx.iam.gserviceaccount.com</li>
             <li>• API配额有限制，请合理使用避免超出限制</li>
             <li>• 确保网站已在Search Console中验证所有权</li>
+            <li>• Indexing API有严格的速率限制，不要频繁提交</li>
+            <li>• 权限更改后需要等待几分钟才能生效</li>
           </ul>
         </div>
 
@@ -255,6 +389,136 @@
       </div>
     </n-drawer-content>
   </n-drawer>
+
+  <!-- 任务详情模态框 -->
+  <n-modal v-model:show="taskDetailModal.show" preset="card" title="任务详情" style="max-width: 900px;">
+    <div class="space-y-4">
+      <!-- 任务头部信息 -->
+      <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold">任务 #{{ taskDetailModal.taskId }}</h3>
+          <n-tag :type="taskDetailModal.items.length > 0 ? 'info' : 'default'">
+            {{ taskDetailModal.items.length }} 个任务项
+          </n-tag>
+        </div>
+      </div>
+
+      <!-- 任务项列表 -->
+      <div v-if="taskDetailModal.loading" class="flex justify-center py-8">
+        <n-spin size="large" />
+      </div>
+
+      <div v-else-if="taskDetailModal.items.length === 0" class="text-center py-8 text-gray-500">
+        暂无任务项
+      </div>
+
+      <div v-else class="space-y-4 max-h-96 overflow-y-auto">
+        <div
+          v-for="(item, index) in taskDetailModal.items"
+          :key="item.id"
+          class="border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        >
+          <!-- 任务项头部 -->
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-2">
+              <span class="text-sm font-medium text-gray-500">#{{ index + 1 }}</span>
+              <n-tag
+                :type="item.status === 'success' ? 'success' : item.status === 'failed' ? 'error' : 'default'"
+                size="small"
+              >
+                {{ item.status }}
+              </n-tag>
+            </div>
+            <div class="text-sm text-gray-500">
+              {{ item.completedAt ? new Date(item.completedAt).toLocaleString('zh-CN') : '未完成' }}
+            </div>
+          </div>
+
+          <!-- URL信息 -->
+          <div class="mb-3">
+            <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL:</div>
+            <div class="p-2 bg-gray-100 dark:bg-gray-700 rounded text-sm break-all">
+              {{ item.URL || 'N/A' }}
+            </div>
+          </div>
+
+          <!-- 详细状态信息 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- 索引状态 -->
+            <div>
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">索引状态:</div>
+              <n-tag
+                :type="formatIndexStatus(item.indexStatus).color"
+                size="small"
+                v-if="item.indexStatus"
+              >
+                {{ formatIndexStatus(item.indexStatus).text }}
+              </n-tag>
+              <span v-else class="text-gray-500">未知</span>
+            </div>
+
+            <!-- 移动友好 -->
+            <div>
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">移动友好:</div>
+              <n-tag
+                :type="item.mobileFriendly ? 'success' : 'error'"
+                size="small"
+              >
+                {{ item.mobileFriendly ? '是' : '否' }}
+              </n-tag>
+            </div>
+
+            <!-- HTTP状态码 -->
+            <div>
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">HTTP状态码:</div>
+              <n-tag
+                :type="item.statusCode >= 200 && item.statusCode < 300 ? 'success' : 'error'"
+                size="small"
+              >
+                {{ item.statusCode || 'N/A' }}
+              </n-tag>
+            </div>
+
+            <!-- 最后抓取时间 -->
+            <div>
+              <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">最后抓取:</div>
+              <div class="text-sm">
+                {{ item.lastCrawled ? new Date(item.lastCrawled).toLocaleString('zh-CN') : '从未抓取' }}
+              </div>
+            </div>
+          </div>
+
+          <!-- 错误信息 -->
+          <div v-if="item.errorMessage" class="mt-3">
+            <div class="text-sm font-medium text-red-600 dark:text-red-400 mb-1">错误信息:</div>
+            <div class="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-300">
+              {{ item.errorMessage }}
+            </div>
+          </div>
+
+          <!-- 检查结果详情 -->
+          <div v-if="item.inspectResult" class="mt-3">
+            <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">检查结果详情:</div>
+            <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs font-mono">
+              <pre>{{ JSON.stringify(JSON.parse(item.inspectResult), null, 2) }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="flex justify-end space-x-2 pt-4 border-t">
+        <n-button @click="taskDetailModal.show = false">关闭</n-button>
+        <n-button
+          v-if="taskDetailModal.items.some(item => item.status === 'failed')"
+          type="primary"
+          @click="retryFailedItems(taskDetailModal.taskId)"
+        >
+          重试失败项
+        </n-button>
+      </div>
+    </div>
+  </n-modal>
 
   <!-- 隐藏的文件输入 -->
   <input
@@ -278,12 +542,13 @@ definePageMeta({
   layout: 'admin'
 })
 
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { useApi } from '~/composables/useApi'
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, h } from 'vue'
 
 // 获取消息组件
 const message = useMessage()
+const dialog = useDialog()
 
 // 当前激活的Tab - 默认显示 Google Index
 const activeTab = ref('google-index')
@@ -313,16 +578,6 @@ const showCredentialsGuide = ref(false)
 // 所有权验证相关
 const showVerificationModal = ref(false)
 
-// Google索引统计
-const googleIndexStats = ref({
-  totalURLs: 0,
-  indexedURLs: 0,
-  errorURLs: 0,
-  totalTasks: 0,
-  runningTasks: 0,
-  completedTasks: 0,
-  failedTasks: 0
-})
 
 // Google索引任务列表
 const googleIndexTasks = ref([])
@@ -352,9 +607,28 @@ const urlCheckModal = ref({
   urls: ''
 })
 
+// 任务详情模态框状态
+const taskDetailModal = ref({
+  show: false,
+  taskId: 0,
+  items: [],
+  loading: false
+})
+
+// URL提交模态框状态
+const urlSubmitModal = ref({
+  show: false,
+  urls: ''
+})
+
+// URL提交加载状态
+const urlSubmitLoading = ref(false)
+
 // 加载状态
 const configLoading = ref(false)
 const manualCheckLoading = ref(false)
+const manualSubmitLoading = ref(false)
+const diagnoseLoading = ref(false)
 const submitSitemapLoading = ref(false)
 
 // Sitemap管理相关
@@ -615,14 +889,6 @@ const updateGoogleIndexConfig = async () => {
 // 刷新Google索引状态
 const refreshGoogleIndexStatus = async () => {
   try {
-    const api = useApi()
-
-    // 加载统计信息
-    const statsResponse = await api.googleIndexApi.getGoogleIndexStatus()
-    if (statsResponse) {
-      googleIndexStats.value = statsResponse
-    }
-
     // 加载任务列表
     await loadGoogleIndexTasks()
   } catch (error) {
@@ -658,6 +924,148 @@ const manualCheckURLs = () => {
   urlCheckModal.value.urls = ''
 }
 
+// 手动提交URL
+const manualSubmitURLs = () => {
+  urlSubmitModal.value.show = true
+  urlSubmitModal.value.urls = ''
+}
+
+// 诊断Google API权限
+const diagnosePermissions = async () => {
+  diagnoseLoading.value = true
+  try {
+    const api = useApi()
+    const response = await api.googleIndexApi.diagnosePermissions({})
+
+    if (response?.diagnosis) {
+      const diagnosis = response.diagnosis
+
+      // 创建诊断结果对话框
+      dialog.create({
+        title: 'Google API 权限诊断结果',
+        style: {
+          width: '800px',
+          maxWidth: '90vw'
+        },
+        content: () => h('div', { class: 'space-y-6 p-4' }, [
+          // 凭据信息
+          h('div', { class: 'bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg' }, [
+            h('h4', { class: 'font-semibold text-gray-900 dark:text-white mb-3' }, '📋 凭据信息'),
+            h('div', { class: 'grid grid-cols-2 gap-4 text-sm' }, [
+              h('div', [
+                h('span', { class: 'text-gray-600 dark:text-gray-400' }, '服务账号: '),
+                h('span', { class: 'font-mono text-gray-900 dark:text-white' }, diagnosis.credentials.service_account || 'N/A')
+              ]),
+              h('div', [
+                h('span', { class: 'text-gray-600 dark:text-gray-400' }, '项目ID: '),
+                h('span', { class: 'font-mono text-gray-900 dark:text-white' }, diagnosis.credentials.project_id || 'N/A')
+              ]),
+              h('div', [
+                h('span', { class: 'text-gray-600 dark:text-gray-400' }, '凭据类型: '),
+                h('span', { class: 'text-gray-900 dark:text-white' }, diagnosis.credentials.type || 'N/A')
+              ]),
+              h('div', [
+                h('span', { class: 'text-gray-600 dark:text-gray-400' }, '文件状态: '),
+                h('span', { class: diagnosis.credentials.file_exists ? 'text-green-600' : 'text-red-600' },
+                   diagnosis.credentials.file_exists ? '✅ 存在' : '❌ 不存在')
+              ])
+            ])
+          ]),
+
+          // API访问状态
+          h('div', { class: 'bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg' }, [
+            h('h4', { class: 'font-semibold text-gray-900 dark:text-white mb-3' }, '🔌 API访问状态'),
+            h('div', { class: 'grid grid-cols-2 gap-4 text-sm' }, [
+              h('div', [
+                h('span', { class: 'text-gray-600 dark:text-gray-400' }, '可访问站点数: '),
+                h('span', { class: `font-bold ${diagnosis.api_access.sites_count > 0 ? 'text-green-600' : 'text-red-600'}` },
+                   diagnosis.api_access.sites_count)
+              ]),
+              h('div', [
+                h('span', { class: 'text-gray-600 dark:text-gray-400' }, 'Search Console: '),
+                h('span', { class: diagnosis.api_access.search_console_enabled ? 'text-green-600' : 'text-red-600' },
+                   diagnosis.api_access.search_console_enabled ? '✅ 已启用' : '❌ 未启用')
+              ])
+            ])
+          ]),
+
+          // 站点测试结果
+          h('div', { class: 'bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg' }, [
+            h('h4', { class: 'font-semibold text-gray-900 dark:text-white mb-3' }, '🔍 站点访问测试'),
+            ...diagnosis.site_tests.map((test: any) =>
+              h('div', { class: 'mb-3 p-3 border border-yellow-200 dark:border-yellow-800 rounded' }, [
+                h('div', { class: 'font-mono text-sm mb-2' }, test.site_format),
+                h('div', { class: 'grid grid-cols-2 gap-4 text-sm' }, [
+                  h('div', [
+                    h('span', { class: 'text-gray-600' }, '站点访问: '),
+                    h('span', { class: test.site_access ? 'text-green-600' : 'text-red-600' },
+                       test.site_access ? '✅ 成功' : '❌ 失败')
+                  ]),
+                  h('div', [
+                    h('span', { class: 'text-gray-600' }, 'URL检查: '),
+                    h('span', { class: test.url_inspect ? 'text-green-600' : 'text-red-600' },
+                       test.url_inspect ? '✅ 成功' : '❌ 失败')
+                  ])
+                ]),
+                test.site_error && h('div', { class: 'text-red-600 text-xs mt-1' }, test.site_error),
+                test.inspect_error && h('div', { class: 'text-red-600 text-xs mt-1' }, test.inspect_error)
+              ])
+            )
+          ]),
+
+          // 建议和解决方案
+          h('div', { class: 'bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg' }, [
+            h('h4', { class: 'font-semibold text-gray-900 dark:text-white mb-3' }, '💡 建议和解决方案'),
+            ...diagnosis.recommendations.map((rec: string) =>
+              h('div', { class: 'text-sm text-gray-700 dark:text-gray-300 mb-2 leading-relaxed' }, rec)
+            )
+          ])
+        ]),
+        positiveText: '关闭',
+        onPositiveClick: () => {
+          dialog.destroyAll()
+        }
+      })
+
+      message.success('权限诊断完成')
+    }
+  } catch (error: any) {
+    console.error('权限诊断失败:', error)
+    const errorMsg = error?.response?.data?.message || error?.message || '权限诊断失败'
+    message.error('权限诊断失败: ' + errorMsg)
+  } finally {
+    diagnoseLoading.value = false
+  }
+}
+
+// 确认手动提交URL
+const confirmManualSubmitURLs = async () => {
+  const urls = urlSubmitModal.value.urls.split('\n').filter(url => url.trim() !== '')
+  if (urls.length === 0) {
+    message.warning('请至少输入一个URL')
+    return
+  }
+
+  urlSubmitLoading.value = true
+  try {
+    const api = useApi()
+    const response = await api.googleIndexApi.submitURLsToIndex({
+      urls: urls
+    })
+    if (response) {
+      message.success('URL提交任务已创建，正在后台处理')
+      urlSubmitModal.value.show = false
+      await refreshGoogleIndexStatus()
+    }
+  } catch (error: any) {
+    console.error('手动提交URL失败:', error)
+    const errorMsg = error?.response?.data?.message || error?.message || '手动提交URL失败'
+    message.error('手动提交URL失败: ' + errorMsg)
+  } finally {
+    urlSubmitLoading.value = false
+  }
+}
+
 // 确认手动检查URL
 const confirmManualCheckURLs = async () => {
   const urls = urlCheckModal.value.urls.split('\n').filter(url => url.trim() !== '')
@@ -691,43 +1099,65 @@ const confirmManualCheckURLs = async () => {
 
 // 查看任务详情
 const viewTaskItems = async (taskId: number) => {
+  taskDetailModal.value.show = true
+  taskDetailModal.value.taskId = taskId
+  taskDetailModal.value.loading = true
+  taskDetailModal.value.items = []
+
   try {
     const api = useApi()
     const response = await api.googleIndexApi.getGoogleIndexTaskItems(taskId)
     if (response) {
-      const items = response.items || []
-
-      // 创建任务详情内容
-      let content = `任务 ${taskId} 详情:\n\n`
-
-      if (items.length === 0) {
-        content += '暂无任务项'
-      } else {
-        items.forEach((item: any, index: number) => {
-          content += `--- 任务项 ${index + 1} ---\n`
-          content += `URL: ${item.URL || 'N/A'}\n`
-          content += `状态: ${item.status || 'N/A'}\n`
-          content += `索引状态: ${item.indexStatus || 'N/A'}\n`
-          content += `移动友好: ${item.mobileFriendly ? '是' : '否'}\n`
-          content += `状态码: ${item.statusCode || 'N/A'}\n`
-          content += `最后抓取: ${item.lastCrawled ? new Date(item.lastCrawled).toLocaleString('zh-CN') : 'N/A'}\n`
-
-          // 错误信息处理
-          const errorMsg = item.errorMessage || item.outputData?.error || '无'
-          content += `错误信息: ${errorMsg}\n`
-          content += '\n'
-        })
-      }
-
-      // 使用更好的显示方式
-      if (window.confirm(content + '\n\n点击确定关闭此窗口')) {
-        // 用户确认后关闭
-      }
+      taskDetailModal.value.items = response.items || []
     }
   } catch (error: any) {
     console.error('获取任务详情失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '获取任务详情失败'
     message.error('获取任务详情失败: ' + errorMsg)
+  } finally {
+    taskDetailModal.value.loading = false
+  }
+}
+
+// 格式化索引状态
+const formatIndexStatus = (status: string) => {
+  const statusMap: Record<string, { text: string; color: string }> = {
+    'SUBMITTED': { text: '已提交', color: 'blue' },
+    'INDEXING_ALLOWED': { text: '允许索引', color: 'green' },
+    'INDEXING_BLOCKED': { text: '索引被阻止', color: 'red' },
+    'BLOCKED_BY_ROBOTS_TXT': { text: '被robots.txt阻止', color: 'orange' },
+    'PAGE_WITH_REDIRECT': { text: '页面重定向', color: 'orange' },
+    'NOT_FOUND': { text: '页面未找到', color: 'red' }
+  }
+
+  const statusInfo = statusMap[status] || { text: status || '未知', color: 'gray' }
+  return statusInfo
+}
+
+// 获取状态颜色类
+const getStatusColor = (status: string) => {
+  const colorMap: Record<string, string> = {
+    'success': 'text-green-600',
+    'failed': 'text-red-600',
+    'pending': 'text-gray-600',
+    'processing': 'text-blue-600'
+  }
+  return colorMap[status] || 'text-gray-600'
+}
+
+// 重试失败的任务项
+const retryFailedItems = async (taskId: number) => {
+  try {
+    const api = useApi()
+    // 这里可以调用重试API，暂时重新启动任务
+    await api.googleIndexApi.startGoogleIndexTask(taskId)
+    message.success('已重新启动任务')
+    taskDetailModal.value.show = false
+    await loadGoogleIndexTasks()
+  } catch (error: any) {
+    console.error('重试失败:', error)
+    const errorMsg = error?.response?.data?.message || error?.message || '重试失败'
+    message.error('重试失败: ' + errorMsg)
   }
 }
 
