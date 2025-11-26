@@ -18,6 +18,8 @@ const (
 	GoogleIndexConfigKeyCheckInterval     = "google_index_check_interval"      // 检查间隔（分钟）
 	GoogleIndexConfigKeyBatchSize         = "google_index_batch_size"          // 批处理大小
 	GoogleIndexConfigKeyConcurrency       = "google_index_concurrency"         // 并发数
+
+	// 重试配置
 	GoogleIndexConfigKeyRetryAttempts     = "google_index_retry_attempts"      // 重试次数
 	GoogleIndexConfigKeyRetryDelay        = "google_index_retry_delay"         // 重试延迟（秒）
 
@@ -25,4 +27,17 @@ const (
 	GoogleIndexConfigKeyAutoSitemap       = "google_index_auto_sitemap"        // 自动提交网站地图
 	GoogleIndexConfigKeySitemapPath       = "google_index_sitemap_path"        // 网站地图路径
 	GoogleIndexConfigKeySitemapSchedule   = "google_index_sitemap_schedule"    // 网站地图调度
+)
+
+// Google索引配置默认值
+const (
+	GoogleIndexConfigDefaultCheckInterval = 60
+	GoogleIndexConfigDefaultBatchSize    = 100
+	GoogleIndexConfigDefaultConcurrency  = 5
+)
+
+// BingIndexConfigKeys Bing索引配置键常量
+const (
+	// 通用配置
+	BingIndexConfigKeyEnabled = "bing_index_enabled" // 是否启用Bing索引功能
 )

@@ -13,6 +13,20 @@
       <div class="config-content h-full">
         <!-- Tab导航 -->
         <n-tabs v-model:value="activeTab" type="line" animated>
+          <!-- Sitemap管理 Tab -->
+          <n-tab-pane name="sitemap" tab="Sitemap管理">
+            <SitemapTab
+              :system-config="systemConfig"
+              :sitemap-config="sitemapConfig"
+              :sitemap-stats="sitemapStats"
+              :config-loading="configLoading"
+              :is-generating="isGenerating"
+              :generate-status="generateStatus"
+              @update:sitemap-config="updateSitemapConfig"
+              @refresh-status="refreshSitemapStatus"
+            />
+          </n-tab-pane>
+
           <!-- Google Index Tab -->
           <n-tab-pane name="google-index" tab="Google Index">
             <GoogleIndexTab
@@ -41,17 +55,22 @@
             />
           </n-tab-pane>
 
-          <!-- Sitemap管理 Tab -->
-          <n-tab-pane name="sitemap" tab="Sitemap管理">
-            <SitemapTab
+          <!-- Bing索引 Tab -->
+          <n-tab-pane name="bing-index" tab="Bing索引">
+            <BingTab
               :system-config="systemConfig"
-              :sitemap-config="sitemapConfig"
-              :sitemap-stats="sitemapStats"
+              :bing-index-config="bingIndexConfig"
+              :submit-history="bingSubmitHistory"
+              :last-submit-status="bingLastSubmitStatus"
+              :last-submit-time="bingLastSubmitTime"
               :config-loading="configLoading"
-              :is-generating="isGenerating"
-              :generate-status="generateStatus"
-              @update:sitemap-config="updateSitemapConfig"
-              @refresh-status="refreshSitemapStatus"
+              :submit-sitemap-loading="bingSubmitSitemapLoading"
+              :batch-submit-loading="bingBatchSubmitLoading"
+              :status-loading="bingStatusLoading"
+              :history-loading="bingHistoryLoading"
+              :pagination="bingPagination"
+              @update:bing-index-config="updateBingIndexConfig"
+              @refresh-status="refreshBingStatus"
             />
           </n-tab-pane>
 
@@ -535,6 +554,7 @@ import AdminPageLayout from '~/components/AdminPageLayout.vue'
 import GoogleIndexTab from '~/components/Admin/GoogleIndexTab.vue'
 import SitemapTab from '~/components/Admin/SitemapTab.vue'
 import SiteSubmitTab from '~/components/Admin/SiteSubmitTab.vue'
+import BingTab from '~/components/Admin/BingTab.vue'
 import LinkBuildingTab from '~/components/Admin/LinkBuildingTab.vue'
 
 // SEO管理页面
@@ -550,8 +570,8 @@ import { ref, onMounted, watch, h } from 'vue'
 const message = useMessage()
 const dialog = useDialog()
 
-// 当前激活的Tab - 默认显示 Google Index
-const activeTab = ref('google-index')
+// 当前激活的Tab - 默认显示 Sitemap管理
+const activeTab = ref('sitemap')
 
 // 获取系统配置
 const systemConfig = ref<any>(null)
@@ -565,6 +585,14 @@ const googleIndexConfig = ref({
   checkInterval: 60,
   batchSize: 100,
   concurrency: 5
+})
+
+// Bing索引配置
+const bingIndexConfig = ref({
+  enabled: false,
+  submitInterval: 60,
+  batchSize: 5,
+  retryCount: 3
 })
 
 // 凭据验证相关
@@ -630,6 +658,15 @@ const manualCheckLoading = ref(false)
 const manualSubmitLoading = ref(false)
 const diagnoseLoading = ref(false)
 const submitSitemapLoading = ref(false)
+
+// Bing相关状态
+const bingSubmitSitemapLoading = ref(false)
+const bingBatchSubmitLoading = ref(false)
+const bingStatusLoading = ref(false)
+const bingHistoryLoading = ref(false)
+const bingLastSubmitStatus = ref('')
+const bingLastSubmitTime = ref('')
+const bingSubmitHistory = ref([])
 
 // Sitemap管理相关
 const sitemapConfig = ref({
@@ -709,6 +746,23 @@ const linkPagination = ref({
     linkPagination.value.pageSize = pageSize
     linkPagination.value.page = 1
     loadLinkList()
+  }
+})
+
+// Bing分页配置
+const bingPagination = ref({
+  page: 1,
+  pageSize: 10,
+  showSizePicker: true,
+  pageSizes: [10, 20, 50],
+  onChange: (page: number) => {
+    bingPagination.value.page = page
+    loadBingSubmitHistory()
+  },
+  onUpdatePageSize: (pageSize: number) => {
+    bingPagination.value.pageSize = pageSize
+    bingPagination.value.page = 1
+    loadBingSubmitHistory()
   }
 })
 
@@ -1201,6 +1255,9 @@ const updateSitemapConfig = async (value: boolean) => {
       lastUpdate: new Date().toISOString()
     })
     message.success(value ? '自动生成功能已开启' : '自动生成功能已关闭')
+
+    // 重新加载配置以同步前端状态
+    await loadSitemapConfig()
   } catch (error) {
     message.error('更新配置失败')
   } finally {
@@ -1251,6 +1308,58 @@ const deleteLink = (row: any) => {
   message.warning(`删除外链: ${row.title}`)
 }
 
+// 加载Bing索引配置
+const loadBingIndexConfig = async () => {
+  try {
+    console.log('开始加载 Bing 索引配置...')
+    const api = useApi()
+    const response = await api.bingApi.getConfig()
+
+    if (response?.success && response?.data) {
+      bingIndexConfig.value = response.data
+      console.log('Bing索引配置加载完成:', response.data)
+    }
+  } catch (error) {
+    console.error('获取Bing索引配置失败:', error)
+  }
+}
+
+// 更新Bing索引配置
+const updateBingIndexConfig = async () => {
+  configLoading.value = true
+  try {
+    const api = useApi()
+
+    // 调用后端API保存配置
+    const response = await api.bingApi.updateConfig({
+      enabled: bingIndexConfig.value.enabled
+    })
+
+    if (response?.success) {
+      message.success(response.message || 'Bing索引配置已更新')
+      console.log('Bing索引配置更新成功:', response)
+    } else {
+      message.error(response?.message || '更新配置失败')
+    }
+  } catch (error: any) {
+    console.error('更新Bing索引配置失败:', error)
+    const errorMsg = error?.response?.data?.message || error?.message || '更新配置失败'
+    message.error('更新配置失败: ' + errorMsg)
+  } finally {
+    configLoading.value = false
+  }
+}
+
+// 刷新Bing状态
+const refreshBingStatus = async () => {
+  try {
+    await loadBingIndexConfig()
+  } catch (error) {
+    console.error('刷新Bing状态失败:', error)
+    message.error('刷新状态失败')
+  }
+}
+
 // 初始化
 onMounted(async () => {
   await loadSystemConfig()
@@ -1258,6 +1367,7 @@ onMounted(async () => {
   await refreshGoogleIndexStatus()
   await loadSitemapConfig()
   await refreshSitemapStatus()
+  await loadBingIndexConfig()
   loadLinkList()
 })
 </script>

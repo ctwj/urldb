@@ -79,9 +79,9 @@ type Url struct {
 
 // SitemapConfig sitemap配置
 type SitemapConfig struct {
-	AutoGenerate bool      `json:"auto_generate"`
-	LastGenerate time.Time `json:"last_generate"`
-	LastUpdate   time.Time `json:"last_update"`
+	AutoGenerate bool      `json:"autoGenerate"`
+	LastGenerate time.Time `json:"lastGenerate"`
+	LastUpdate   time.Time `json:"lastUpdate"`
 }
 
 // GetSitemapConfig 获取sitemap配置

@@ -12,7 +12,7 @@
           <div>
             <h4 class="font-medium text-gray-900 dark:text-white mb-2">Google索引功能</h4>
             <p class="text-sm text-gray-600 dark:text-gray-400">
-              开启后系统将自动检查和提交URL到Google索引
+              开启后系统将在生成sitemap后自动提交Sitemap到Google索引
             </p>
           </div>
           <n-switch
@@ -32,7 +32,7 @@
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">站点URL</label>
               <n-input
-                :value="getSiteUrlDisplay()"
+                :value="getSiteUrlDisplay"
                 :disabled="true"
                 placeholder="请先在站点配置中设置站点URL"
               >
@@ -105,28 +105,6 @@
                 </div>
               </div>
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">检查间隔(分钟)</label>
-              <n-input-number
-                v-model:value="googleIndexConfig.checkInterval"
-                :min="1"
-                :max="1440"
-                @update:value="updateGoogleIndexConfig"
-                :disabled="!credentialsFilePath"
-                style="width: 100%"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">批处理大小</label>
-              <n-input-number
-                v-model:value="googleIndexConfig.batchSize"
-                :min="1"
-                :max="1000"
-                @update:value="updateGoogleIndexConfig"
-                :disabled="!credentialsFilePath"
-                style="width: 100%"
-              />
-            </div>
           </div>
         </div>
 
@@ -167,7 +145,7 @@
               </div>
             </div>
             <a
-              :href="getSearchConsoleUrl()"
+              :href="getSearchConsoleUrl"
               target="_blank"
               class="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm"
             >
@@ -188,7 +166,7 @@
               </div>
             </div>
             <a
-              :href="getAnalyticsUrl()"
+              :href="getAnalyticsUrl"
               target="_blank"
               class="px-3 py-1 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm"
             >
@@ -486,7 +464,7 @@ const submitSitemap = async () => {
 }
 
 // 获取Google Search Console URL
-const getSearchConsoleUrl = () => {
+const getSearchConsoleUrl = computed(() => {
   const siteUrl = props.systemConfig?.site_url || ''
   if (!siteUrl) {
     return 'https://search.google.com/search-console'
@@ -495,10 +473,10 @@ const getSearchConsoleUrl = () => {
   // 格式化URL用于Google Search Console
   const normalizedUrl = siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`
   return `https://search.google.com/search-console/performance/search-analytics?resource_id=${encodeURIComponent(normalizedUrl)}`
-}
+})
 
 // 获取Google Analytics URL
-const getAnalyticsUrl = () => {
+const getAnalyticsUrl = computed(() => {
   const siteUrl = props.systemConfig?.site_url || ''
 
   // 格式化URL用于Google Analytics
@@ -506,10 +484,10 @@ const getAnalyticsUrl = () => {
 
   // 跳转到Google Analytics
   return 'https://analytics.google.com/'
-}
+})
 
 // 获取站点URL显示文本
-const getSiteUrlDisplay = () => {
+const getSiteUrlDisplay = computed(() => {
   const siteUrl = props.systemConfig?.site_url || ''
   if (!siteUrl) {
     return '站点URL未配置'
@@ -518,7 +496,7 @@ const getSiteUrlDisplay = () => {
     return '请配置正确的站点URL'
   }
   return siteUrl
-}
+})
 </script>
 
 <style scoped>

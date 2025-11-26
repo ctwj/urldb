@@ -9,7 +9,11 @@ const CACHE_DURATION = 30 * 60 * 1000 // 30分钟缓存
 
 // 安全的客户端检查函数
 const isClient = () => {
-  return typeof process !== 'undefined' && process.client
+  try {
+    return typeof window !== 'undefined' && typeof localStorage !== 'undefined'
+  } catch {
+    return false
+  }
 }
 
 interface CacheData {
@@ -199,7 +203,7 @@ export const useSystemConfigStore = defineStore('systemConfig', {
         // console.error('[SystemConfig] 获取系统配置失败:', error)
 
         // 如果网络请求失败，尝试使用过期的缓存作为降级方案
-        if (!force) {
+        if (!force && isClient()) {
           try {
             const expiredCache = localStorage.getItem(CACHE_KEY)
             if (expiredCache) {

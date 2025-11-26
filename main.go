@@ -253,10 +253,19 @@ func main() {
 	// 创建Google索引处理器
 	googleIndexHandler := handlers.NewGoogleIndexHandler(repoManager, taskManager)
 
+	// 创建Bing处理器
+	siteURL, _ := repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyWebsiteURL)
+	bingHandler := handlers.NewBingHandler(siteURL, repoManager)
+
 	// 注册Google索引处理器到任务管理器
 	taskManager.RegisterProcessor(googleIndexProcessor)
 
 	utils.Info("Google索引功能已启用，注册到任务管理器")
+	if bingHandler != nil {
+		utils.Info("Bing提交功能已启用")
+	} else {
+		utils.Warn("Bing处理器初始化失败，可能是因为站点URL未配置")
+	}
 
 	// API路由
 	api := r.Group("/api")
@@ -561,6 +570,13 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 		api.POST("/google-index/validate-credentials", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.ValidateCredentials)
 		api.POST("/google-index/diagnose-permissions", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.DiagnosePermissions)
 		api.POST("/google-index/urls/submit-to-index", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.SubmitURLsToIndex)
+
+		// Bing提交API
+		if bingHandler != nil {
+			// Bing配置API
+			api.GET("/bing/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), bingHandler.GetBingIndexConfig)
+			api.POST("/bing/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), bingHandler.UpdateBingIndexConfig)
+		}
 	}
 
 	// 设置监控系统

@@ -174,17 +174,9 @@ const message = useMessage()
 // 更新Sitemap配置
 const updateSitemapConfig = async (value: boolean) => {
   try {
-    const api = useApi()
-    await api.sitemapApi.updateSitemapConfig({
-      autoGenerate: value,
-      lastGenerate: props.sitemapConfig.lastGenerate,
-      lastUpdate: new Date().toISOString()
-    })
-    message.success(value ? '自动生成功能已开启' : '自动生成功能已关闭')
+    emit('update:sitemap-config', value)
   } catch (error) {
     message.error('更新配置失败')
-    // 恢复之前的值
-    props.sitemapConfig.autoGenerate = !value
   }
 }
 
