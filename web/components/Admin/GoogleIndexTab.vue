@@ -16,7 +16,7 @@
             </p>
           </div>
           <n-switch
-            v-model:value="googleIndexConfig.enabled"
+            :value="googleIndexConfig.enabled"
             @update:value="updateGoogleIndexConfig"
             :loading="configLoading"
             size="large"
@@ -292,7 +292,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 // Emits
 const emit = defineEmits<{
-  'update:google-index-config': []
+  'update:google-index-config': [value: boolean]
   'show-verification': []
   'show-credentials-guide': []
   'select-credentials-file': []
@@ -430,8 +430,8 @@ const validateCredentials = async () => {
 }
 
 // 更新Google索引配置
-const updateGoogleIndexConfig = async () => {
-  emit('update:google-index-config')
+const updateGoogleIndexConfig = async (value: boolean) => {
+  emit('update:google-index-config', value)
 }
 
 // 提交网站地图

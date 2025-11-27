@@ -23,8 +23,13 @@ func NewBingHandler(siteURL string, repoManager *repo.RepositoryManager) *BingHa
 
 // GetBingIndexConfig 获取Bing索引配置
 func (h *BingHandler) GetBingIndexConfig(c *gin.Context) {
+	enabledValue := h.getConfigValue(entity.BingIndexConfigKeyEnabled, "false")
+	enabled := enabledValue == "true"
+	
+	fmt.Printf("[Bing] 获取配置 - 原始值: %s, 转换后: %v\n", enabledValue, enabled)
+	
 	config := gin.H{
-		"enabled": h.getConfigValue(entity.BingIndexConfigKeyEnabled, "false") == "true",
+		"enabled": enabled,
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -47,15 +52,23 @@ func (h *BingHandler) UpdateBingIndexConfig(c *gin.Context) {
 		return
 	}
 
+	fmt.Printf("[Bing] 更新配置 - 接收到的值: %v\n", request.Enabled)
+
 	// 保存配置
-	err := h.setConfigValue(entity.BingIndexConfigKeyEnabled, fmt.Sprintf("%t", request.Enabled))
+	valueToSave := fmt.Sprintf("%t", request.Enabled)
+	fmt.Printf("[Bing] 保存配置 - 键: %s, 值: %s\n", entity.BingIndexConfigKeyEnabled, valueToSave)
+	
+	err := h.setConfigValue(entity.BingIndexConfigKeyEnabled, valueToSave)
 	if err != nil {
+		fmt.Printf("[Bing] 保存配置失败: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"message": "保存配置失败: " + err.Error(),
 		})
 		return
 	}
+
+	fmt.Printf("[Bing] 配置保存成功\n")
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
@@ -74,10 +87,16 @@ func (h *BingHandler) getConfigValue(key string, defaultValue string) string {
 
 // setConfigValue 保存配置值
 func (h *BingHandler) setConfigValue(key string, value string) error {
+	// 根据key确定配置类型
+	configType := entity.ConfigTypeString
+	if key == entity.BingIndexConfigKeyEnabled {
+		configType = entity.ConfigTypeBool
+	}
+	
 	config := entity.SystemConfig{
 		Key:   key,
 		Value: value,
-		Type:  entity.ConfigTypeString,
+		Type:  configType,
 	}
 	return h.systemConfigRepo.UpsertConfigs([]entity.SystemConfig{config})
 }

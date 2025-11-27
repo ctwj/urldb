@@ -16,7 +16,7 @@
             </p>
           </div>
           <n-switch
-            v-model:value="bingIndexConfig.enabled"
+            :value="bingIndexConfig.enabled"
             @update:value="updateBingIndexConfig"
             :loading="configLoading"
             size="large"
@@ -44,12 +44,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 // Emits
 const emit = defineEmits<{
-  'update:bing-index-config': []
+  'update:bing-index-config': [value: boolean]
 }>()
 
 // 更新Bing索引配置
-const updateBingIndexConfig = async () => {
-  emit('update:bing-index-config')
+const updateBingIndexConfig = async (value: boolean) => {
+  emit('update:bing-index-config', value)
 }
 </script>
 

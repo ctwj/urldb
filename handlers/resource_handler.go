@@ -16,6 +16,7 @@ import (
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // GetResources 获取资源列表

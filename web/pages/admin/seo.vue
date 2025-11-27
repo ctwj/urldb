@@ -913,17 +913,20 @@ const handleCredentialsFileSelect = async (event: Event) => {
 }
 
 // 更新Google索引配置
-const updateGoogleIndexConfig = async () => {
+const updateGoogleIndexConfig = async (value: boolean) => {
   configLoading.value = true
   try {
     const api = useApi()
 
+    // 先更新本地状态
+    googleIndexConfig.value.enabled = value
+
     // 更新general配置
-    await api.googleIndexApi.updateGoogleIndexGroupConfig({
+    const response = await api.googleIndexApi.updateGoogleIndexGroupConfig({
       group: 'general',
       key: 'general',
       value: JSON.stringify({
-        enabled: googleIndexConfig.value.enabled,
+        enabled: value,
         siteURL: systemConfig.value?.site_url || googleIndexConfig.value.siteURL,
         checkInterval: googleIndexConfig.value.checkInterval,
         batchSize: googleIndexConfig.value.batchSize,
@@ -933,11 +936,19 @@ const updateGoogleIndexConfig = async () => {
 
     message.success('Google索引配置已更新')
     
-    // 重新加载配置以确保界面显示最新状态
-    await loadGoogleIndexConfig()
+    // 延迟重新加载配置以验证后端状态（在后台进行，不阻塞UI）
+    setTimeout(async () => {
+      try {
+        await loadGoogleIndexConfig()
+      } catch (error) {
+        console.error('重新加载配置失败:', error)
+      }
+    }, 1000)
   } catch (error) {
     console.error('更新Google索引配置失败:', error)
     message.error('更新配置失败')
+    // 失败时恢复原状态
+    googleIndexConfig.value.enabled = !value
   } finally {
     configLoading.value = false
   }
@@ -1328,29 +1339,42 @@ const loadBingIndexConfig = async () => {
 }
 
 // 更新Bing索引配置
-const updateBingIndexConfig = async () => {
+const updateBingIndexConfig = async (value: boolean) => {
   configLoading.value = true
   try {
     const api = useApi()
 
+    // 先更新本地状态
+    bingIndexConfig.value.enabled = value
+
     // 调用后端API保存配置
     const response = await api.bingApi.updateConfig({
-      enabled: bingIndexConfig.value.enabled
+      enabled: value
     })
 
     if (response?.success) {
       message.success(response.message || 'Bing索引配置已更新')
       console.log('Bing索引配置更新成功:', response)
       
-      // 重新加载配置以确保界面显示最新状态
-      await loadBingIndexConfig()
+      // 延迟重新加载配置以验证后端状态（在后台进行，不阻塞UI）
+      setTimeout(async () => {
+        try {
+          await loadBingIndexConfig()
+        } catch (error) {
+          console.error('重新加载配置失败:', error)
+        }
+      }, 1000)
     } else {
       message.error(response?.message || '更新配置失败')
+      // 失败时恢复原状态
+      bingIndexConfig.value.enabled = !value
     }
   } catch (error: any) {
     console.error('更新Bing索引配置失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '更新配置失败'
     message.error('更新配置失败: ' + errorMsg)
+    // 失败时恢复原状态
+    bingIndexConfig.value.enabled = !value
   } finally {
     configLoading.value = false
   }
