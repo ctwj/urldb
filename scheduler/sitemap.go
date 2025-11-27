@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/pkg/bing"
 	"github.com/ctwj/urldb/pkg/google"
 	"github.com/ctwj/urldb/utils"
 	"gorm.io/gorm"
@@ -165,6 +166,12 @@ func (s *SitemapScheduler) generateSitemap() {
 	if s.shouldTriggerGoogleIndex() {
 		utils.Info("将在5分钟后自动提交sitemap到Google")
 		go s.scheduleGoogleIndexSubmission()
+	}
+
+	// 检查是否启用了Bing索引自动提交功能
+	if s.shouldTriggerBingSubmit() {
+		utils.Info("将自动提交sitemap到Bing")
+		go s.submitSitemapToBing(baseURL)
 	}
 }
 
@@ -412,5 +419,72 @@ func (s *SitemapScheduler) updateLastSitemapSubmitTime() {
 
 	if err := s.BaseScheduler.systemConfigRepo.UpsertConfigs(configs); err != nil {
 		utils.Error("更新sitemap提交时间失败: %v", err)
+	}
+}
+
+// shouldTriggerBingSubmit 检查是否应该触发Bing提交
+func (s *SitemapScheduler) shouldTriggerBingSubmit() bool {
+	// 获取Bing索引启用状态
+	enabledStr, err := s.BaseScheduler.systemConfigRepo.GetConfigValue(entity.BingIndexConfigKeyEnabled)
+	if err != nil {
+		return false
+	}
+	return enabledStr == "1" || enabledStr == "true"
+}
+
+// submitSitemapToBing 提交sitemap给Bing
+func (s *SitemapScheduler) submitSitemapToBing(baseURL string) {
+	utils.Info("开始自动提交sitemap到Bing...")
+
+	// 构建sitemap URL
+	sitemapURL := baseURL
+	if !strings.HasSuffix(sitemapURL, "/") {
+		sitemapURL += "/"
+	}
+	sitemapURL += "sitemap.xml"
+
+	utils.Info("提交sitemap到Bing: %s", sitemapURL)
+
+	// 创建Bing客户端配置
+	config := &bing.Config{
+		SiteURL: baseURL,
+	}
+
+	// 创建Bing客户端
+	client, err := bing.NewClient(config)
+	if err != nil {
+		utils.Error("创建Bing客户端失败: %v", err)
+		return
+	}
+
+	// 提交sitemap给Bing
+	response, err := client.SubmitSitemap(sitemapURL)
+	if err != nil {
+		utils.Error("提交sitemap到Bing失败: %v", err)
+		return
+	}
+
+	if response.Success {
+		utils.Info("sitemap提交到Bing成功: %s", sitemapURL)
+		// 更新最后提交时间
+		s.updateLastBingSitemapSubmitTime()
+	} else {
+		utils.Error("sitemap提交到Bing失败: %s (状态码: %d)", response.Message, response.StatusCode)
+	}
+}
+
+// updateLastBingSitemapSubmitTime 更新最后Bing sitemap提交时间
+func (s *SitemapScheduler) updateLastBingSitemapSubmitTime() {
+	now := time.Now().Format("2006-01-02 15:04:05")
+	configs := []entity.SystemConfig{
+		{
+			Key:   "bing_index_last_sitemap_submit",
+			Value: now,
+			Type:  entity.ConfigTypeString,
+		},
+	}
+
+	if err := s.BaseScheduler.systemConfigRepo.UpsertConfigs(configs); err != nil {
+		utils.Error("更新Bing sitemap提交时间失败: %v", err)
 	}
 }

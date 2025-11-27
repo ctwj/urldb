@@ -444,12 +444,35 @@ func DeleteResource(c *gin.Context) {
 		return
 	}
 
-	// 先从数据库中删除资源
-	err = repoManager.ResourceRepository.Delete(uint(id))
+	// 使用事务确保删除操作的原子性
+	err = repoManager.ResourceRepository.GetDB().Transaction(func(tx *gorm.DB) error {
+		// 1. 先删除关联的访问记录（resource_views）
+		if err := tx.Unscoped().Where("resource_id = ?", uint(id)).Delete(&entity.ResourceView{}).Error; err != nil {
+			utils.Error("删除资源访问记录失败 (ID: %d): %v", uint(id), err)
+			return err
+		}
+
+		// 2. 删除资源标签关联（resource_tags）
+		if err := tx.Unscoped().Where("resource_id = ?", uint(id)).Delete(&entity.ResourceTag{}).Error; err != nil {
+			utils.Error("删除资源标签关联失败 (ID: %d): %v", uint(id), err)
+			return err
+		}
+
+		// 3. 最后删除资源本身
+		if err := tx.Unscoped().Delete(&entity.Resource{}, uint(id)).Error; err != nil {
+			utils.Error("删除资源失败 (ID: %d): %v", uint(id), err)
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	utils.Info("成功从数据库物理删除资源及其关联数据 (ID: %d)", uint(id))
 
 	// 如果启用了Meilisearch，尝试从Meilisearch中删除对应数据
 	if meilisearchManager != nil && meilisearchManager.IsEnabled() {
@@ -580,39 +603,62 @@ func BatchDeleteResources(c *gin.Context) {
 		return
 	}
 
-	count := 0
-	var deletedIDs []uint
+	var deletedCount int64
 
-	// 先删除数据库中的资源
-	for _, id := range req.IDs {
-		if err := repoManager.ResourceRepository.Delete(id); err == nil {
-			count++
-			deletedIDs = append(deletedIDs, id)
+	// 使用事务确保批量删除操作的原子性
+	err := repoManager.ResourceRepository.GetDB().Transaction(func(tx *gorm.DB) error {
+		// 1. 先删除关联的访问记录（resource_views）
+		if err := tx.Unscoped().Where("resource_id IN ?", req.IDs).Delete(&entity.ResourceView{}).Error; err != nil {
+			utils.Error("批量删除资源访问记录失败: %v", err)
+			return err
 		}
+
+		// 2. 删除资源标签关联（resource_tags）
+		if err := tx.Unscoped().Where("resource_id IN ?", req.IDs).Delete(&entity.ResourceTag{}).Error; err != nil {
+			utils.Error("批量删除资源标签关联失败: %v", err)
+			return err
+		}
+
+		// 3. 最后删除资源本身
+		result := tx.Unscoped().Delete(&entity.Resource{}, req.IDs)
+		if result.Error != nil {
+			utils.Error("批量删除资源失败: %v", result.Error)
+			return result.Error
+		}
+
+		deletedCount = result.RowsAffected
+		return nil
+	})
+
+	if err != nil {
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
+	utils.Info("批量物理删除资源及其关联数据成功：删除 %d 个资源", deletedCount)
+
 	// 如果启用了Meilisearch，异步删除对应的搜索数据
-	if meilisearchManager != nil && meilisearchManager.IsEnabled() && len(deletedIDs) > 0 {
+	if meilisearchManager != nil && meilisearchManager.IsEnabled() && len(req.IDs) > 0 {
 		go func() {
 			service := meilisearchManager.GetService()
 			if service != nil {
-				deletedCount := 0
-				for _, id := range deletedIDs {
+				meilisearchDeletedCount := 0
+				for _, id := range req.IDs {
 					if err := service.DeleteDocument(id); err != nil {
 						utils.Error("从Meilisearch批量删除资源失败 (ID: %d): %v", id, err)
 					} else {
-						deletedCount++
+						meilisearchDeletedCount++
 						utils.Info("成功从Meilisearch批量删除资源 (ID: %d)", id)
 					}
 				}
-				utils.Info("批量删除完成：成功删除 %d 个资源，Meilisearch删除 %d 个资源", count, deletedCount)
+				utils.Info("Meilisearch批量删除完成：删除 %d 个资源", meilisearchDeletedCount)
 			} else {
 				utils.Error("批量删除时无法获取Meilisearch服务")
 			}
 		}()
 	}
 
-	SuccessResponse(c, gin.H{"deleted": count, "message": "批量删除成功"})
+	SuccessResponse(c, gin.H{"deleted": deletedCount, "message": "批量删除成功"})
 }
 
 // GetResourceLink 获取资源链接（智能转存）
@@ -1505,3 +1551,4 @@ func getQuarkPanID() (uint, error) {
 
 	return 0, fmt.Errorf("未找到quark平台")
 }
+

@@ -1,13 +1,12 @@
-import type { UseApiFetchOptions } from 'nuxt/app'
+import { useApiFetch } from './useApiFetch'
 
 // Bing API 相关类型定义
 export interface BingIndexConfig {
   enabled: boolean
-  submitInterval: number
-  batchSize: number
-  retryCount: number
+  submitInterval?: number
+  batchSize?: number
+  retryCount?: number
 }
-
 
 export interface UpdateBingConfigRequest {
   enabled: boolean
@@ -15,25 +14,17 @@ export interface UpdateBingConfigRequest {
 
 // Bing API Hook
 export const useBingApi = () => {
-  const { $fetch } = useNuxtApp()
-
   // 获取Bing配置
   const getConfig = async (): Promise<{ success: boolean; data: BingIndexConfig }> => {
-    const options: UseApiFetchOptions = {
-      method: 'GET'
-    }
-
-    return $fetch<{ success: boolean; data: BingIndexConfig }>('/api/bing/config', options)
+    return useApiFetch('/bing/config', { method: 'GET' })
   }
 
   // 更新Bing配置
   const updateConfig = async (data: UpdateBingConfigRequest): Promise<{ success: boolean; message: string }> => {
-    const options: UseApiFetchOptions = {
-      method: 'POST',
-      body: data
-    }
-
-    return $fetch<{ success: boolean; message: string }>('/api/bing/config', options)
+    return useApiFetch('/bing/config', { 
+      method: 'POST', 
+      body: data 
+    })
   }
 
   return {

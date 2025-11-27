@@ -625,16 +625,16 @@ const batchDelete = async () => {
 
   dialog.warning({
     title: '警告',
-    content: `确定要删除选中的 ${selectedResources.value.length} 个资源吗？`,
+    content: `确定要删除选中的 ${selectedResources.value.length} 个资源吗？此操作不可恢复！`,
     positiveText: '确定',
     negativeText: '取消',
     draggable: true,
     onPositiveClick: async () => {
       try {
-        // 这里应该调用批量删除API
-        console.log('批量删除:', selectedResources.value)
+        // 调用批量删除API
+        await resourceApi.batchDeleteResources(selectedResources.value)
         notification.success({
-          content: '批量删除成功',
+          content: `成功删除 ${selectedResources.value.length} 个资源`,
           duration: 3000
         })
         selectedResources.value = []
@@ -643,7 +643,7 @@ const batchDelete = async () => {
       } catch (error) {
         console.error('批量删除失败:', error)
         notification.error({
-          content: '批量删除失败',
+          content: '批量删除失败: ' + (error as Error).message,
           duration: 3000
         })
       }

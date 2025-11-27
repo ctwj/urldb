@@ -257,7 +257,7 @@
 <script setup lang="ts">
 import { useMessage } from 'naive-ui'
 import { useApi } from '~/composables/useApi'
-import { ref, computed, h, watch } from 'vue'
+import { ref, computed, h, watch, onMounted } from 'vue'
 
 // Props
 interface Props {
@@ -436,7 +436,7 @@ const updateGoogleIndexConfig = async () => {
 
 // 提交网站地图
 const submitSitemap = async () => {
-  const siteUrl = props.systemConfig?.site_url || ''
+  const siteUrl = getSiteUrl.value
   if (!siteUrl || siteUrl === 'https://example.com') {
     message.warning('请先在站点配置中设置正确的站点URL')
     return
@@ -463,9 +463,29 @@ const submitSitemap = async () => {
   }
 }
 
+// 从 store 获取站点 URL（作为备用方案）
+const siteUrlFromStore = ref('')
+
+// 在组件挂载时从 store 获取配置
+onMounted(async () => {
+  try {
+    const { useSystemConfigStore } = await import('~/stores/systemConfig')
+    const systemConfigStore = useSystemConfigStore()
+    await systemConfigStore.initConfig()
+    siteUrlFromStore.value = systemConfigStore.config?.site_url || ''
+  } catch (error) {
+    console.error('从 store 获取站点 URL 失败:', error)
+  }
+})
+
+// 获取站点 URL（优先使用 prop，如果为空则使用 store）
+const getSiteUrl = computed(() => {
+  return props.systemConfig?.site_url || siteUrlFromStore.value || ''
+})
+
 // 获取Google Search Console URL
 const getSearchConsoleUrl = computed(() => {
-  const siteUrl = props.systemConfig?.site_url || ''
+  const siteUrl = getSiteUrl.value
   if (!siteUrl) {
     return 'https://search.google.com/search-console'
   }
@@ -477,7 +497,7 @@ const getSearchConsoleUrl = computed(() => {
 
 // 获取Google Analytics URL
 const getAnalyticsUrl = computed(() => {
-  const siteUrl = props.systemConfig?.site_url || ''
+  const siteUrl = getSiteUrl.value
 
   // 格式化URL用于Google Analytics
   const normalizedUrl = siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`
@@ -488,7 +508,7 @@ const getAnalyticsUrl = computed(() => {
 
 // 获取站点URL显示文本
 const getSiteUrlDisplay = computed(() => {
-  const siteUrl = props.systemConfig?.site_url || ''
+  const siteUrl = getSiteUrl.value
   if (!siteUrl) {
     return '站点URL未配置'
   }

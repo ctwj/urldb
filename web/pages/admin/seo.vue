@@ -932,6 +932,9 @@ const updateGoogleIndexConfig = async () => {
     })
 
     message.success('Google索引配置已更新')
+    
+    // 重新加载配置以确保界面显示最新状态
+    await loadGoogleIndexConfig()
   } catch (error) {
     console.error('更新Google索引配置失败:', error)
     message.error('更新配置失败')
@@ -1338,6 +1341,9 @@ const updateBingIndexConfig = async () => {
     if (response?.success) {
       message.success(response.message || 'Bing索引配置已更新')
       console.log('Bing索引配置更新成功:', response)
+      
+      // 重新加载配置以确保界面显示最新状态
+      await loadBingIndexConfig()
     } else {
       message.error(response?.message || '更新配置失败')
     }
