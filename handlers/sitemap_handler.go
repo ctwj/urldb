@@ -4,7 +4,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -239,6 +241,14 @@ func GenerateSitemap(c *gin.Context) {
 	SuccessResponse(c, result)
 }
 
+// SitemapFileInfo sitemap文件信息
+type SitemapFileInfo struct {
+	Name       string `json:"name"`
+	Size       int64  `json:"size"`
+	ModTime    string `json:"mod_time"`
+	SizeFormat string `json:"size_format"`
+}
+
 // GetSitemapStatus 获取sitemap生成状态
 func GetSitemapStatus(c *gin.Context) {
 	// 获取资源总数
@@ -251,16 +261,36 @@ func GetSitemapStatus(c *gin.Context) {
 	// 计算需要生成的sitemap文件数量
 	totalPages := int((total + SITEMAP_MAX_URLS - 1) / SITEMAP_MAX_URLS)
 
-	// 获取最后生成时间
-	lastGenerateStr, err := systemConfigRepo.GetConfigValue(entity.ConfigKeySitemapLastGenerateTime)
-	if err != nil {
-		// 如果没有记录，使用当前时间
-		lastGenerateStr = time.Now().Format("2006-01-02 15:04:05")
+	// 获取 data/sitemap 目录下的文件列表
+	sitemapDir := "./data/sitemap"
+	var files []SitemapFileInfo
+	var latestModTime time.Time
+
+	entries, err := os.ReadDir(sitemapDir)
+	if err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() && (strings.HasSuffix(entry.Name(), ".xml")) {
+				info, err := entry.Info()
+				if err == nil {
+					modTime := info.ModTime()
+					if modTime.After(latestModTime) {
+						latestModTime = modTime
+					}
+					files = append(files, SitemapFileInfo{
+						Name:       entry.Name(),
+						Size:       info.Size(),
+						ModTime:    modTime.Format("2006-01-02 15:04:05"),
+						SizeFormat: formatFileSize(info.Size()),
+					})
+				}
+			}
+		}
 	}
 
-	lastGenerate, err := time.Parse("2006-01-02 15:04:05", lastGenerateStr)
-	if err != nil {
-		lastGenerate = time.Now()
+	// 使用文件的最后修改时间作为最后生成时间
+	lastGenerateStr := ""
+	if !latestModTime.IsZero() {
+		lastGenerateStr = latestModTime.Format("2006-01-02 15:04:05")
 	}
 
 	// 检查调度器是否运行
@@ -291,13 +321,34 @@ func GetSitemapStatus(c *gin.Context) {
 	result := map[string]interface{}{
 		"total_resources": total,
 		"total_pages":     totalPages,
-		"last_generate":   lastGenerate.Format("2006-01-02 15:04:05"),
+		"last_generate":   lastGenerateStr,
 		"status":          "ready",
 		"is_running":      isRunning,
 		"auto_generate":   autoGenerateEnabled,
+		"files":           files,
+		"file_count":      len(files),
 	}
 
 	SuccessResponse(c, result)
+}
+
+// formatFileSize 格式化文件大小
+func formatFileSize(size int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+	switch {
+	case size >= GB:
+		return fmt.Sprintf("%.2f GB", float64(size)/float64(GB))
+	case size >= MB:
+		return fmt.Sprintf("%.2f MB", float64(size)/float64(MB))
+	case size >= KB:
+		return fmt.Sprintf("%.2f KB", float64(size)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", size)
+	}
 }
 
 // SitemapIndexHandler sitemap索引文件处理器

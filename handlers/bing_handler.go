@@ -68,7 +68,9 @@ func (h *BingHandler) UpdateBingIndexConfig(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[Bing] 配置保存成功\n")
+	// 清除配置缓存，确保下次读取时从数据库获取最新值
+	h.systemConfigRepo.ClearConfigCache()
+	fmt.Printf("[Bing] 配置保存成功，缓存已清除\n")
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

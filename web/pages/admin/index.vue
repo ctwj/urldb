@@ -86,26 +86,6 @@
         </template>
       </n-card>
 
-      <!-- Google索引统计 -->
-      <n-card>
-        <div class="flex items-center">
-          <div class="p-3 bg-red-100 dark:bg-red-900 rounded-lg">
-            <i class="fab fa-google text-red-600 dark:text-red-400 text-xl"></i>
-          </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-gray-600 dark:text-gray-400">已索引URL/总URL</p>
-            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ googleIndexStats.indexedURLs || 0 }}/{{ googleIndexStats.totalURLs || 0 }}</p>
-          </div>
-        </div>
-        <template #footer>
-          <n-button text type="primary" @click="navigateTo('/admin/seo#google-index')">
-            查看详情
-            <template #icon>
-              <i class="fas fa-arrow-right"></i>
-            </template>
-          </n-button>
-        </template>
-      </n-card>
     </div>
 
     <!-- 平台管理 -->
@@ -169,17 +149,6 @@ import { useStatsApi, usePanApi } from '~/composables/useApi'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { parseApiResponse } from '~/composables/useApi'
 import Chart from 'chart.js/auto'
-
-// Google索引统计
-const googleIndexStats = ref({
-  totalURLs: 0,
-  indexedURLs: 0,
-  errorURLs: 0,
-  totalTasks: 0,
-  runningTasks: 0,
-  completedTasks: 0,
-  failedTasks: 0
-})
 
 // API
 const statsApi = useStatsApi()
@@ -402,23 +371,10 @@ watch([weeklyViews, weeklySearches], () => {
   })
 })
 
-// 加载Google索引统计
-const loadGoogleIndexStats = async () => {
-  try {
-    const response = await useApiFetch('/google-index/status').then(parseApiResponse)
-    if (response && response.data) {
-      googleIndexStats.value = response.data
-    }
-  } catch (error) {
-    console.error('加载Google索引统计失败:', error)
-  }
-}
-
 // 组件挂载后初始化图表和数据
 onMounted(async () => {
   console.log('组件挂载，开始初始化...')
   await fetchTrendData()
-  await loadGoogleIndexStats() // 加载Google索引统计
   console.log('数据获取完成，准备初始化图表...')
   nextTick(() => {
     console.log('nextTick执行，开始初始化图表...')

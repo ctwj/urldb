@@ -1328,10 +1328,20 @@ const loadBingIndexConfig = async () => {
     console.log('开始加载 Bing 索引配置...')
     const api = useApi()
     const response = await api.bingApi.getConfig()
+    
+    console.log('Bing API 原始响应:', JSON.stringify(response, null, 2))
 
     if (response?.success && response?.data) {
-      bingIndexConfig.value = response.data
-      console.log('Bing索引配置加载完成:', response.data)
+      // 确保 enabled 是布尔值
+      const enabled = response.data.enabled === true || response.data.enabled === 'true'
+      bingIndexConfig.value = {
+        ...bingIndexConfig.value,
+        ...response.data,
+        enabled: enabled
+      }
+      console.log('Bing索引配置加载完成:', bingIndexConfig.value)
+    } else {
+      console.warn('Bing API 响应格式不正确:', response)
     }
   } catch (error) {
     console.error('获取Bing索引配置失败:', error)
