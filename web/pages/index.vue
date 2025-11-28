@@ -14,10 +14,10 @@
     </div>
 
     <!-- 主要内容区域 -->
-    <div class="flex-1 p-3 sm:p-5">
+    <main class="flex-1 p-3 sm:p-5">
       <div class="max-w-7xl mx-auto">
       <!-- 头部 -->
-      <div class="header-container bg-slate-800 dark:bg-slate-800 text-white dark:text-slate-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
+      <header class="header-container bg-slate-800 dark:bg-slate-800 text-white dark:text-slate-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
         <h1 class="text-2xl sm:text-3xl font-bold mb-4 flex items-center justify-center gap-3">
           <img 
             v-if="systemConfig?.site_logo" 
@@ -37,65 +37,76 @@
           </a>
         </h1>
         
-        <nav class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-2 right-4 top-0 absolute">
-          <NuxtLink to="/hot-dramas" class="hidden sm:flex">
+        <nav aria-label="主导航" class="mt-4 flex flex-col sm:flex-row justify-center gap-2 sm:gap-2 right-4 top-0 absolute">
+          <NuxtLink to="/hot-dramas" class="hidden sm:flex" title="浏览热门影视剧资源">
             <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-              <i class="fas fa-film text-xs"></i> 热播剧
+              <i class="fas fa-film text-xs" aria-hidden="true"></i> 热播剧
             </n-button>
           </NuxtLink>
-          <NuxtLink to="/monitor" class="hidden sm:flex">
+          <NuxtLink to="/monitor" class="hidden sm:flex" title="查看系统运行状态和统计数据">
             <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-              <i class="fas fa-chart-line text-xs"></i> 系统监控
+              <i class="fas fa-chart-line text-xs" aria-hidden="true"></i> 系统监控
             </n-button>
           </NuxtLink>
-          <NuxtLink to="/api-docs" class="hidden sm:flex">
+          <NuxtLink to="/api-docs" class="hidden sm:flex" title="查看API接口文档">
             <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-              <i class="fas fa-book text-xs"></i> API文档
+              <i class="fas fa-book text-xs" aria-hidden="true"></i> API文档
             </n-button>
           </NuxtLink>
           <ClientOnly>
-            <NuxtLink v-if="authInitialized && !userStore.isAuthenticated" to="/login" class="sm:flex">
+            <NuxtLink v-if="authInitialized && !userStore.isAuthenticated" to="/login" class="sm:flex" title="登录账号">
               <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-                <i class="fas fa-sign-in-alt text-xs"></i> 登录
+                <i class="fas fa-sign-in-alt text-xs" aria-hidden="true"></i> 登录
               </n-button>
             </NuxtLink>
-            <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role === 'admin'" to="/admin" class="hidden sm:flex">
+            <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role === 'admin'" to="/admin" class="hidden sm:flex" title="进入管理后台">
               <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-                <i class="fas fa-user-shield text-xs"></i> 管理后台
+                <i class="fas fa-user-shield text-xs" aria-hidden="true"></i> 管理后台
               </n-button>
             </NuxtLink>
-            <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role !== 'admin'" to="/user" class="hidden sm:flex">
+            <NuxtLink v-if="authInitialized && userStore.isAuthenticated && userStore.user?.role !== 'admin'" to="/user" class="hidden sm:flex" title="进入用户中心">
               <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-                <i class="fas fa-user text-xs"></i> 用户中心
+                <i class="fas fa-user text-xs" aria-hidden="true"></i> 用户中心
               </n-button>
             </NuxtLink>
           </ClientOnly>
         </nav>
-      </div>
+      </header>
 
       <!-- 公告信息 -->
-      <div class="w-full max-w-3xl mx-auto mb-2 px-2 sm:px-0">
+      <aside aria-label="公告信息" class="w-full max-w-3xl mx-auto mb-2 px-2 sm:px-0">
         <Announcement />
-      </div>
+      </aside>
 
       <!-- 搜索区域 -->
-      <div class="w-full max-w-3xl mx-auto mb-4 sm:mb-8 px-2 sm:px-0">
+      <section aria-label="搜索功能" class="w-full max-w-3xl mx-auto mb-4 sm:mb-8 px-2 sm:px-0">
+        <h2 class="sr-only">搜索网盘资源</h2>
         <ClientOnly>
           <div class="relative">
-            <n-input round placeholder="搜索" v-model:value="searchQuery" @blur="handleSearch" @keyup.enter="handleSearch" clearable>
+            <n-input 
+              round 
+              placeholder="搜索资源名称、关键词..." 
+              v-model:value="searchQuery" 
+              @blur="handleSearch" 
+              @keyup.enter="handleSearch" 
+              clearable
+              aria-label="搜索资源"
+            >
                 <template #prefix>
-                <i class="fas fa-search text-gray-400"></i>
+                <i class="fas fa-search text-gray-400" aria-hidden="true"></i>
                 </template>
               </n-input>
           </div>
         </ClientOnly>
 
         <!-- 平台类型筛选 -->
-        <div class="mt-3 flex flex-wrap gap-2" id="platformFilters">
+        <nav aria-label="平台筛选" class="mt-3 flex flex-wrap gap-2" id="platformFilters">
           <a 
             :href="`/?search=${$route.query.search || ''}&platform=`"
             class="px-2 py-1 text-xs rounded-full bg-slate-800 dark:bg-gray-700 text-white dark:text-gray-100 hover:bg-slate-700 dark:hover:bg-gray-600 transition-colors"
             :class="{ 'active-filter': !selectedPlatform }"
+            :aria-current="!selectedPlatform ? 'page' : undefined"
+            title="显示所有平台的资源"
           >
             全部
           </a>
@@ -105,41 +116,61 @@
             :href="`/?search=${$route.query.search || ''}&platform=${platform.id}`"
             class="px-2 py-1 text-xs rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
             :class="{ 'active-filter': selectedPlatform === platform.id }"
+            :aria-current="selectedPlatform === platform.id ? 'page' : undefined"
+            :title="`筛选${platform.name}平台的资源`"
           >
-            <span v-html="platform.icon"></span> {{ platform.name }}
+            <span v-html="platform.icon" aria-hidden="true"></span> {{ platform.name }}
           </a>
-        </div>
+        </nav>
         
         <!-- 统计信息 -->
-        <div class="flex justify-between mt-3 text-sm text-gray-600 dark:text-gray-300 px-2">
+        <div class="flex justify-between mt-3 text-sm text-gray-600 dark:text-gray-300 px-2" role="status" aria-live="polite">
           <div class="flex items-center">
-            <i class="fas fa-calendar-day text-pink-600 mr-1"></i>
-            今日资源: <span class="font-medium text-pink-600 ml-1 count-up" :data-target="safeStats?.today_resources || 0">0</span>
+            <i class="fas fa-calendar-day text-pink-600 mr-1" aria-hidden="true"></i>
+            <span class="sr-only">今日新增资源数量：</span>
+            今日资源: 
+            <span v-if="statsLoading" class="font-medium text-pink-600 ml-1">
+              <i class="fas fa-spinner fa-spin text-xs" aria-hidden="true"></i>
+              <span class="sr-only">加载中</span>
+            </span>
+            <span v-else class="font-medium text-pink-600 ml-1 count-up" :data-target="safeStats?.today_resources || 0" :aria-label="`今日新增${safeStats?.today_resources || 0}个资源`">0</span>
           </div>
           <div class="flex items-center">
-            <i class="fas fa-database text-blue-600 mr-1"></i>
-            总资源数: <span class="font-medium text-blue-600 ml-1 count-up" :data-target="safeStats?.total_resources || 0">0</span>
+            <i class="fas fa-database text-blue-600 mr-1" aria-hidden="true"></i>
+            <span class="sr-only">总资源数量：</span>
+            总资源数: 
+            <span v-if="statsLoading" class="font-medium text-blue-600 ml-1">
+              <i class="fas fa-spinner fa-spin text-xs" aria-hidden="true"></i>
+              <span class="sr-only">加载中</span>
+            </span>
+            <span v-else class="font-medium text-blue-600 ml-1 count-up" :data-target="safeStats?.total_resources || 0" :aria-label="`共${safeStats?.total_resources || 0}个资源`">0</span>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- 资源列表 -->
-      <div class="overflow-x-auto bg-white dark:bg-slate-800 rounded-lg shadow-lg shadow-slate-900/10 dark:shadow-slate-900/50">
-        <table class="w-full min-w-full">
+      <section aria-label="资源列表" class="overflow-x-auto bg-white dark:bg-slate-800 rounded-lg shadow-lg shadow-slate-900/10 dark:shadow-slate-900/50">
+        <h2 class="sr-only">{{ searchQuery ? `"${searchQuery}" 的搜索结果` : '最新网盘资源列表' }}</h2>
+        <table class="w-full min-w-full" role="table" aria-label="网盘资源列表">
+          <caption class="sr-only">
+            {{ searchQuery ? `搜索"${searchQuery}"找到${safeResources.length}个资源` : `最新网盘资源，共${safeResources.length}个` }}
+          </caption>
           <thead>
             <tr class="bg-slate-800 dark:bg-slate-700 text-white dark:text-slate-100">
-              <th class="text-left text-xs sm:text-sm w-20 pl-2 sm:pl-3">
+              <th scope="col" class="text-left text-xs sm:text-sm w-20 pl-2 sm:pl-3">
                 <div class="flex items-center">
-                  <i class="fas fa-image mr-1 text-gray-300 dark:text-slate-300"></i> 封面
+                  <i class="fas fa-image mr-1 text-gray-300 dark:text-slate-300" aria-hidden="true"></i> 
+                  <span>封面</span>
                 </div>
               </th>
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">
+              <th scope="col" class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">
                 <div class="flex items-center">
-                  <i class="fas fa-cloud mr-1 text-gray-300 dark:text-slate-300"></i> 文件名
+                  <i class="fas fa-cloud mr-1 text-gray-300 dark:text-slate-300" aria-hidden="true"></i> 
+                  <span>文件名</span>
                 </div>
               </th>
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-24">链接</th>
-              <th class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-32">更新时间</th>
+              <th scope="col" class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-24">链接</th>
+              <th scope="col" class="px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell w-32">更新时间</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
@@ -182,7 +213,8 @@
                   <ClientOnly>
                     <n-image
                       :src="getResourceImageUrl(resource)"
-                      :alt="resource.title || '资源图片'"
+                      :alt="`${resource.title} - ${getPlatformName(resource.pan_id)} 网盘资源封面图`"
+                      :title="resource.title"
                       width="80"
                       class="rounded object-cover border border-gray-200 dark:border-slate-600 h-auto"
                       lazy
@@ -201,17 +233,18 @@
               </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm">
                 <div class="flex items-start">
-                  <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(resource.pan_id || 0)"></span>
+                  <span class="mr-2 flex-shrink-0" v-html="getPlatformIcon(resource.pan_id || 0)" aria-hidden="true"></span>
                   <div class="flex-1 min-w-0">
-                    <div class="break-words font-medium" v-html="resource.title_highlight || resource.title"></div>
+                    <h3 class="break-words font-medium text-base" v-html="resource.title_highlight || resource.title"></h3>
                     <!-- 显示标签 -->
-                    <div v-if="resource.tags && resource.tags.length > 0" class="mt-1 flex flex-wrap gap-1">
+                    <div v-if="resource.tags && resource.tags.length > 0" class="mt-1 flex flex-wrap gap-1" role="list" aria-label="资源标签">
                       <template v-for="(tag, index) in resource.tags" :key="tag.id">
                         <span
                           class="resource-tag inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-100 border dark:border-blue-400/30"
-                          :title="tag.name"
+                          :title="`标签: ${tag.name}`"
+                          role="listitem"
                         >
-                          <i class="fas fa-tag mr-1 dark:text-blue-200"></i>
+                          <i class="fas fa-tag mr-1 dark:text-blue-200" aria-hidden="true"></i>
                           <span>{{ tag.name || '未知标签' }}</span>
                         </span>
                       </template>
@@ -233,9 +266,11 @@
                       <NuxtLink
                         :to="`/r/${resource.key}`"
                         class="mobile-link-btn flex items-center gap-1 text-xs no-underline"
+                        :title="`查看 ${resource.title} 的详细信息和下载链接`"
+                        :aria-label="`查看 ${resource.title} 详情`"
                         @click.stop
                       >
-                        <i class="fas fa-eye"></i> 查看详情
+                        <i class="fas fa-eye" aria-hidden="true"></i> 查看详情
                       </NuxtLink>
                     </div>
                   </div>
@@ -245,9 +280,11 @@
                 <NuxtLink
                   :to="`/r/${resource.key}`"
                   class="text-blue-600 hover:text-blue-800 flex items-center gap-1 show-link-btn"
+                  :title="`查看 ${resource.title} 的详细信息和下载链接`"
+                  :aria-label="`查看 ${resource.title} 详情`"
                   @click.stop
                 >
-                  <i class="fas fa-eye"></i> 查看详情
+                  <i class="fas fa-eye" aria-hidden="true"></i> 查看详情
                 </NuxtLink>
               </td>
               <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-500 hidden sm:table-cell w-32" :title="resource.updated_at">
@@ -256,13 +293,11 @@
             </tr>
           </tbody>
         </table>
-        
-
-      </div>
+      </section>
 
     </div>
 
-    </div>
+    </main>
 
     <!-- 二维码模态框 -->
     <QrCodeModal 
@@ -280,7 +315,9 @@
     />
 
     <!-- 页脚 -->
-    <AppFooter />
+    <footer>
+      <AppFooter />
+    </footer>
 
     <!-- 悬浮按钮组件 -->
     <FloatButtons />
@@ -453,10 +490,28 @@ const updatePageSeo = () => {
       }
     ],
     meta: [
-      {
-        property: 'og:image',
-        content: '/assets/images/og.webp'
-      }
+      // Open Graph 标签
+      { property: 'og:type', content: 'website' },
+      { property: 'og:url', content: canonicalUrl },
+      { property: 'og:title', content: pageTitle.value },
+      { property: 'og:description', content: pageDescription.value },
+      { property: 'og:image', content: `${baseUrl}/assets/images/og.webp` },
+      { property: 'og:image:width', content: '1200' },
+      { property: 'og:image:height', content: '630' },
+      { property: 'og:site_name', content: (seoSystemConfig.value && seoSystemConfig.value.site_title) || '老九网盘资源数据库' },
+      { property: 'og:locale', content: 'zh_CN' },
+      
+      // Twitter Card 标签
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:title', content: pageTitle.value },
+      { name: 'twitter:description', content: pageDescription.value },
+      { name: 'twitter:image', content: `${baseUrl}/assets/images/og.webp` },
+      
+      // 额外的 SEO meta 标签
+      { name: 'author', content: (seoSystemConfig.value && seoSystemConfig.value.site_title) || '老九网盘资源数据库' },
+      { name: 'robots', content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' },
+      { name: 'googlebot', content: 'index, follow' },
+      { name: 'bingbot', content: 'index, follow' }
     ],
     script: [
       {
@@ -464,10 +519,29 @@ const updatePageSeo = () => {
         innerHTML: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "WebSite",
+          "@id": `${baseUrl}#website`,
+          "url": baseUrl,
           "name": (seoSystemConfig.value && seoSystemConfig.value.site_title) || '老九网盘资源数据库',
           "description": pageDescription.value,
-          "url": canonicalUrl,
-          "image": '/assets/images/og.webp'
+          "image": `${baseUrl}/assets/images/og.webp`,
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": `${baseUrl}?search={search_term_string}`
+            },
+            "query-input": "required name=search_term_string"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "@id": `${baseUrl}#organization`,
+            "name": (seoSystemConfig.value && seoSystemConfig.value.site_title) || '老九网盘资源数据库',
+            "url": baseUrl,
+            "logo": {
+              "@type": "ImageObject",
+              "url": `${baseUrl}/assets/images/logo.webp`
+            }
+          }
         })
       }
     ]
@@ -559,11 +633,29 @@ const { data: resourcesData, pending, refresh } = await useAsyncData(
   }
 )
 
-// 获取统计数据
-const { data: statsData, error: statsError } = await useAsyncData('stats', () => statsApi.getStats())
+// 获取统计数据 - 客户端渲染，30分钟缓存
+const getCacheKey = (prefix: string) => {
+  const cacheMinutes = Math.floor(Date.now() / (30 * 60 * 1000)) // 30分钟缓存
+  return `${prefix}-${cacheMinutes}`
+}
 
-// 获取平台数据
-const { data: platformsData, error: platformsError } = await useAsyncData('platforms', () => panApi.getPans())
+const { data: statsData, error: statsError } = await useAsyncData(
+  getCacheKey('stats'),
+  () => statsApi.getStats(),
+  {
+    server: false, // 客户端渲染
+    lazy: true // 延迟加载，不阻塞首屏
+  }
+)
+
+// 获取平台数据 - 30分钟缓存
+const { data: platformsData, error: platformsError } = await useAsyncData(
+  getCacheKey('platforms'),
+  () => panApi.getPans(),
+  {
+    lazy: true // 延迟加载
+  }
+)
 
 // 系统配置已在顶部获取，这里处理错误
 const systemConfigError = ref(null)
@@ -646,7 +738,18 @@ const safeResources = computed(() => {
   // console.log('未匹配到任何数据结构')
   return []
 })
-const safeStats = computed(() => (statsData.value as any) || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_resources: 0 })
+// 统计数据加载状态
+const statsLoading = computed(() => !statsData.value)
+
+// 安全的统计数据，提供默认值
+const safeStats = computed(() => {
+  const data = statsData.value as any
+  // 如果数据还在加载中，返回 null 以便显示加载状态
+  if (!data) return null
+  
+  // 数据加载完成，返回实际数据
+  return data || { total_resources: 0, total_categories: 0, total_tags: 0, total_views: 0, today_resources: 0 }
+})
 const platforms = computed(() => (platformsData.value as any) || [])
 const systemConfig = computed(() => systemConfigStore.config || { site_title: '老九网盘资源数据库' })
 const safeLoading = computed(() => pending.value)
@@ -682,12 +785,25 @@ const handleSearch = () => {
   window.location.href = `/?${params.toString()}`
 }
 
+// 监听统计数据加载完成，触发数字动画
+watch(statsData, (newData) => {
+  if (newData && process.client) {
+    // 使用 nextTick 确保 DOM 已更新
+    nextTick(() => {
+      animateCounters()
+    })
+  }
+})
+
 // 初始化认证状态
 onMounted(() => {
   // 初始化认证状态
   authInitialized.value = true
 
-  animateCounters()
+  // 如果统计数据已经加载（SSR 或缓存），立即执行动画
+  if (statsData.value) {
+    animateCounters()
+  }
 
   // 页面挂载完成时，如果有搜索关键词，记录搜索统计
   if (process.client && route.query?.search) {
@@ -838,6 +954,19 @@ const animateCounters = () => {
 </script>
 
 <style scoped>
+/* 屏幕阅读器专用样式 - 隐藏但对辅助技术可见 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 .active-filter {
   @apply bg-slate-800 text-white;
 }

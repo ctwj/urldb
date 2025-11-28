@@ -170,12 +170,12 @@
                 </div>
 
                 <div class="flex items-center space-x-2 ml-4">
-                  <!-- <n-button size="small" type="primary" @click="editResource(resource)">
+                  <n-button size="small" type="primary" @click="editResource(resource)">
                     <template #icon>
                       <i class="fas fa-edit"></i>
                     </template>
                     编辑
-                  </n-button> -->
+                  </n-button>
                   <n-button size="small" type="error" @click="deleteResource(resource)">
                     <template #icon>
                       <i class="fas fa-trash"></i>
@@ -240,60 +240,86 @@
   </n-modal>
 
   <!-- 编辑资源模态框 -->
-  <n-modal v-model:show="showEditModal" preset="card" title="编辑资源" style="width: 600px">
-    <n-form
-      ref="editFormRef"
-      :model="editForm"
-      :rules="editRules"
-      label-placement="left"
-      label-width="auto"
-      require-mark-placement="right-hanging"
-    >
-      <n-form-item label="标题" path="title">
-        <n-input v-model:value="editForm.title" placeholder="请输入资源标题" />
-      </n-form-item>
+  <n-modal v-model:show="showEditModal" preset="card" title="编辑资源" style="width: 700px; max-height: 80vh">
+    <n-scrollbar style="max-height: 60vh">
+      <n-form
+        ref="editFormRef"
+        :model="editForm"
+        :rules="editRules"
+        label-placement="left"
+        label-width="80px"
+        require-mark-placement="right-hanging"
+      >
+        <n-form-item label="标题" path="title">
+          <n-input v-model:value="editForm.title" placeholder="请输入资源标题" />
+        </n-form-item>
 
-      <n-form-item label="描述" path="description">
-        <n-input
-          v-model:value="editForm.description"
-          type="textarea"
-          placeholder="请输入资源描述"
-          :rows="3"
-        />
-      </n-form-item>
+        <n-form-item label="描述" path="description">
+          <n-input
+            v-model:value="editForm.description"
+            type="textarea"
+            placeholder="请输入资源描述"
+            :rows="3"
+          />
+        </n-form-item>
 
-      <n-form-item label="URL" path="url">
-        <n-input v-model:value="editForm.url" placeholder="请输入资源链接" />
-      </n-form-item>
+        <n-form-item label="URL" path="url">
+          <n-input v-model:value="editForm.url" placeholder="请输入资源链接" />
+        </n-form-item>
 
-      <n-form-item label="分类" path="category_id">
-        <n-select
-          v-model:value="editForm.category_id"
-          :options="categoryOptions"
-          placeholder="请选择分类"
-          clearable
-        />
-      </n-form-item>
+        <n-form-item label="分类" path="category_id">
+          <n-select
+            v-model:value="editForm.category_id"
+            :options="categoryOptions"
+            placeholder="请选择分类"
+            clearable
+          />
+        </n-form-item>
 
-      <n-form-item label="平台" path="pan_id">
-        <n-select
-          v-model:value="editForm.pan_id"
-          :options="platformOptions"
-          placeholder="请选择平台"
-          clearable
-        />
-      </n-form-item>
+        <n-form-item label="平台" path="pan_id">
+          <n-select
+            v-model:value="editForm.pan_id"
+            :options="platformOptions"
+            placeholder="请选择平台"
+            clearable
+          />
+        </n-form-item>
 
-      <n-form-item label="标签" path="tag_ids">
-        <n-select
-          v-model:value="editForm.tag_ids"
-          :options="tagOptions"
-          placeholder="请选择标签"
-          multiple
-          clearable
-        />
-      </n-form-item>
-    </n-form>
+        <n-form-item label="标签" path="tag_ids">
+          <n-select
+            v-model:value="editForm.tag_ids"
+            :options="tagOptions"
+            placeholder="请选择标签"
+            multiple
+            clearable
+          />
+        </n-form-item>
+
+        <n-form-item label="作者" path="author">
+          <n-input v-model:value="editForm.author" placeholder="请输入作者" />
+        </n-form-item>
+
+        <n-form-item label="文件大小" path="file_size">
+          <n-input v-model:value="editForm.file_size" placeholder="如：2.5GB" />
+        </n-form-item>
+
+        <n-form-item label="封面图片" path="cover">
+          <n-input v-model:value="editForm.cover" placeholder="请输入封面图片URL" />
+        </n-form-item>
+
+        <n-form-item label="转存链接" path="save_url">
+          <n-input v-model:value="editForm.save_url" placeholder="请输入转存链接" />
+        </n-form-item>
+
+        <n-form-item label="是否有效" path="is_valid">
+          <n-switch v-model:value="editForm.is_valid" />
+        </n-form-item>
+
+        <n-form-item label="是否公开" path="is_public">
+          <n-switch v-model:value="editForm.is_public" />
+        </n-form-item>
+      </n-form>
+    </n-scrollbar>
 
     <template #footer>
       <div class="flex justify-end space-x-3">
@@ -326,6 +352,8 @@ interface Resource {
   author?: string
   file_size?: string
   view_count?: number
+  cover?: string
+  save_url?: string
   is_valid: boolean
   is_public: boolean
   created_at: string
@@ -356,7 +384,13 @@ const editForm = ref({
   url: '',
   category_id: null as number | null,
   pan_id: null as number | null,
-  tag_ids: [] as number[]
+  tag_ids: [] as number[],
+  author: '',
+  file_size: '',
+  cover: '',
+  save_url: '',
+  is_valid: true,
+  is_public: true
 })
 
 // 编辑验证规则
@@ -512,6 +546,9 @@ const handlePageSizeChange = (size: number) => {
 
 // 刷新数据
 const refreshData = () => {
+  // 清空选择
+  selectedResources.value = []
+  // 重新获取数据
   fetchData()
 }
 
@@ -569,13 +606,29 @@ const openBatchModal = () => {
 // 编辑资源
 const editResource = (resource: Resource) => {
   editingResource.value = resource
+  
+  // 从资源的tags数组中提取tag_ids，确保tags是数组
+  let tagIds: number[] = []
+  if (resource.tags && Array.isArray(resource.tags)) {
+    tagIds = resource.tags.map(tag => tag.id)
+  } else if (resource.tag_ids && Array.isArray(resource.tag_ids)) {
+    // 如果tags不存在但tag_ids存在，直接使用tag_ids
+    tagIds = resource.tag_ids
+  }
+  
   editForm.value = {
     title: resource.title,
     description: resource.description || '',
     url: resource.url,
     category_id: resource.category_id || null,
     pan_id: resource.pan_id || null,
-    tag_ids: resource.tag_ids || []
+    tag_ids: tagIds,
+    author: resource.author || '',
+    file_size: resource.file_size || '',
+    cover: resource.cover || '',
+    save_url: resource.save_url || '',
+    is_valid: resource.is_valid !== undefined ? resource.is_valid : true,
+    is_public: resource.is_public !== undefined ? resource.is_public : true
   }
   showEditModal.value = true
 }
@@ -599,9 +652,13 @@ const deleteResource = async (resource: Resource) => {
         const index = resources.value.findIndex(r => r.id === resource.id)
         if (index > -1) {
           resources.value.splice(index, 1)
+          total.value = Math.max(0, total.value - 1)
         }
-        // 重新获取数据以更新总数
-        fetchData()
+        // 从选择列表中移除
+        const selectedIndex = selectedResources.value.indexOf(resource.id)
+        if (selectedIndex > -1) {
+          selectedResources.value.splice(selectedIndex, 1)
+        }
       } catch (error) {
         console.error('删除失败:', error)
         notification.error({
@@ -623,9 +680,11 @@ const batchDelete = async () => {
     return
   }
 
+  const deleteCount = selectedResources.value.length
+
   dialog.warning({
     title: '警告',
-    content: `确定要删除选中的 ${selectedResources.value.length} 个资源吗？此操作不可恢复！`,
+    content: `确定要删除选中的 ${deleteCount} 个资源吗？此操作不可恢复！`,
     positiveText: '确定',
     negativeText: '取消',
     draggable: true,
@@ -634,12 +693,14 @@ const batchDelete = async () => {
         // 调用批量删除API
         await resourceApi.batchDeleteResources(selectedResources.value)
         notification.success({
-          content: `成功删除 ${selectedResources.value.length} 个资源`,
+          content: `成功删除 ${deleteCount} 个资源`,
           duration: 3000
         })
+        // 清空选择
         selectedResources.value = []
         showBatchModal.value = false
-        fetchData()
+        // 重新获取数据
+        await fetchData()
       } catch (error) {
         console.error('批量删除失败:', error)
         notification.error({
@@ -686,6 +747,12 @@ const handleEditSubmit = async () => {
     const resourceId = editingResource.value?.id
     const index = resources.value.findIndex(r => r.id === resourceId)
     if (index > -1) {
+      // 从tagOptions中获取完整的tag对象
+      const selectedTags = editForm.value.tag_ids.map(tagId => {
+        const tagOption = tagOptions.value.find(opt => opt.value === tagId)
+        return tagOption ? { id: tagId, name: tagOption.label } : null
+      }).filter(Boolean) as Array<{ id: number; name: string }>
+
       resources.value[index] = {
         ...resources.value[index],
         title: editForm.value.title,
@@ -693,7 +760,15 @@ const handleEditSubmit = async () => {
         url: editForm.value.url,
         category_id: editForm.value.category_id || undefined,
         pan_id: editForm.value.pan_id || undefined,
-        tag_ids: editForm.value.tag_ids
+        tag_ids: editForm.value.tag_ids,
+        tags: selectedTags,
+        author: editForm.value.author,
+        file_size: editForm.value.file_size,
+        cover: editForm.value.cover,
+        save_url: editForm.value.save_url,
+        is_valid: editForm.value.is_valid,
+        is_public: editForm.value.is_public,
+        updated_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
       }
     }
 

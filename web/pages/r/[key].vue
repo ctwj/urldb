@@ -1,57 +1,78 @@
 <template>
   <div v-if="!systemConfig?.maintenance_mode" class="min-h-screen bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-slate-100">
     <!-- 主要内容区域 -->
-    <div class="flex-1 p-3 sm:p-5">
+    <main class="flex-1 p-3 sm:p-5">
       <div class="max-w-7xl mx-auto">
       <!-- 头部导航 -->
-      <div class="header-container bg-slate-800 dark:bg-slate-800 text-white dark:text-slate-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
-        <h1 class="flex items-center justify-center gap-3">
+      <header class="header-container bg-slate-800 dark:bg-slate-800 text-white dark:text-slate-100 rounded-lg shadow-lg p-4 sm:p-8 mb-4 sm:mb-8 text-center relative">
+        <div class="flex items-center justify-center gap-3">
           <img
             v-if="systemConfig?.site_logo"
             :src="getImageUrl(systemConfig.site_logo)"
-            :alt="systemConfig?.site_title || 'Logo'"
+            :alt="`${systemConfig?.site_title || '老九网盘资源数据库'} Logo`"
             class="h-8 w-auto object-contain"
             @error="handleLogoError"
           />
           <img
             v-else
             src="/assets/images/logo.webp"
-            alt="Logo"
+            alt="老九网盘资源数据库 Logo"
             class="h-8 w-auto object-contain"
           />
-          <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline text-2xl sm:text-3xl font-bold">
+          <NuxtLink to="/" class="text-white hover:text-gray-200 dark:hover:text-gray-300 no-underline text-2xl sm:text-3xl font-bold" title="返回首页">
             {{ systemConfig?.site_title || '老九网盘资源数据库' }}
           </NuxtLink>
-        </h1>
+        </div>
 
         <!-- 右侧导航按钮 -->
-        <nav class="mt-4 flex flex-row justify-center gap-2 right-4 top-0 absolute">
+        <nav aria-label="页面导航" class="mt-4 flex flex-row justify-center gap-2 right-4 top-0 absolute">
           <!-- 返回首页按钮 -->
-          <NuxtLink to="/" class="flex">
+          <NuxtLink to="/" class="flex" title="返回首页" aria-label="返回首页">
             <n-button size="tiny" type="tertiary" round ghost class="!px-2 !py-1 !text-xs !text-white dark:!text-white !border-white/30 hover:!border-white">
-              <i class="fas fa-arrow-left text-xs"></i>
+              <i class="fas fa-arrow-left text-xs" aria-hidden="true"></i>
               <span class="ml-1">返回首页</span>
             </n-button>
           </NuxtLink>
           <!-- 搜索按钮 -->
           <SearchButton />
         </nav>
-      </div>
+      </header>
+
+      <!-- 面包屑导航 -->
+      <nav aria-label="面包屑导航" class="mb-4 px-2 sm:px-0">
+        <ol class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400" itemscope itemtype="https://schema.org/BreadcrumbList">
+          <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="/" itemprop="item" class="hover:text-blue-600 dark:hover:text-blue-400" title="返回首页">
+              <span itemprop="name">首页</span>
+            </a>
+            <meta itemprop="position" content="1" />
+          </li>
+          <li class="flex items-center">
+            <span class="mx-2" aria-hidden="true">/</span>
+          </li>
+          <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <span itemprop="name" class="text-gray-900 dark:text-gray-100 font-medium">{{ mainResource?.title }}</span>
+            <meta itemprop="position" content="2" />
+          </li>
+        </ol>
+      </nav>
 
       <!-- 资源详情内容 -->
       <div v-if="resourcesData" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- 主内容区域 -->
-        <div class="lg:col-span-2 space-y-6">
+        <article class="lg:col-span-2 space-y-6" itemscope itemtype="https://schema.org/SoftwareApplication">
           <!-- 资源主卡片 -->
-          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+          <section aria-label="资源详情" class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
             <div class="flex flex-col sm:flex-row gap-6 p-6">
               <!-- 封面图片 -->
               <div class="flex-shrink-0 mx-auto sm:mx-0">
                 <n-image
                   :src="getResourceImageUrl(mainResource)"
-                  :alt="mainResource?.title || '资源图片'"
+                  :alt="`${mainResource?.title} - ${mainResource?.pan?.remark || '网盘'} 资源封面图`"
+                  :title="mainResource?.title"
                   width="160"
                   class="rounded-xl object-cover border-2 border-gray-200 dark:border-slate-600 shadow-md hover:shadow-xl transition-all duration-300 w-40 h-56"
+                  itemprop="image"
                   @error="handleResourceImageError"
                 />
               </div>
@@ -61,7 +82,7 @@
                 <!-- 标题和操作按钮 -->
                 <div class="flex flex-col gap-2">
                   <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words leading-tight flex-1" v-html="mainResource?.title_highlight || mainResource?.title">
+                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 break-words leading-tight flex-1" itemprop="name" v-html="mainResource?.title_highlight || mainResource?.title">
                     </h1>
 
                     <!-- 操作按钮组 -->
@@ -69,17 +90,19 @@
                       <button
                         class="px-3 py-1.5 text-xs font-medium rounded-lg border border-orange-200 dark:border-orange-400/30 bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors flex items-center gap-1"
                         @click="showReportModal = true"
-                        title="举报资源失效"
+                        title="举报资源失效或违规内容"
+                        aria-label="举报资源"
                       >
-                        <i class="fas fa-exclamation-circle"></i>
+                        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
                         <span class="hidden sm:inline">举报</span>
                       </button>
                       <button
                         class="px-3 py-1.5 text-xs font-medium rounded-lg border border-purple-200 dark:border-purple-400/30 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-colors flex items-center gap-1"
                         @click="showCopyrightModal = true"
-                        title="版权申述"
+                        title="提交版权申述"
+                        aria-label="版权申述"
                       >
-                        <i class="fas fa-balance-scale"></i>
+                        <i class="fas fa-balance-scale" aria-hidden="true"></i>
                         <span class="hidden sm:inline">申述</span>
                       </button>
                     </div>
@@ -125,17 +148,17 @@
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- 网盘资源链接列表 -->
-          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+          <section aria-label="网盘下载链接" class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
             <div class="p-6">
               <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3">
-                  <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <i class="fas fa-cloud-download-alt text-blue-500"></i>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <i class="fas fa-cloud-download-alt text-blue-500" aria-hidden="true"></i>
                     网盘资源 ({{ resourcesData?.resources?.length || 0 }})
-                  </h3>
+                  </h2>
 
                   <!-- 检测状态总览 -->
                   <!-- <div v-if="resourcesData?.resources?.length > 0" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium" :class="detectionStatus.text + ' bg-opacity-10 ' + detectionStatus.text.replace('text', 'bg')">
@@ -160,8 +183,8 @@
                                   </div>
               </div>
 
-              <div class="space-y-3">
-                <div
+              <ul role="list" aria-label="可用的网盘下载链接" class="space-y-3">
+                <li
                   v-for="(resource, index) in resourcesData?.resources"
                   :key="resource.id"
                   class="relative flex items-center justify-between p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
@@ -255,8 +278,8 @@
                       </button>
                     </template>
                   </div>
-                </div>
-              </div>
+                </li>
+              </ul>
 
               <!-- 违禁词提示 -->
               <div v-if="resourcesData?.resources?.some(r => r.forbidden)" class="mt-4 p-4 bg-yellow-50 dark:bg-yellow-500/10 rounded-lg border border-yellow-200 dark:border-yellow-400/30">
@@ -268,18 +291,18 @@
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
+        </article>
 
         <!-- 右侧边栏 -->
-        <div class="lg:col-span-1 space-y-6">
+        <aside class="lg:col-span-1 space-y-6">
           <!-- 相关资源 -->
-          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+          <section aria-label="相关资源推荐" class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
             <div class="p-6">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <i class="fas fa-fire text-orange-500"></i>
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <i class="fas fa-fire text-orange-500" aria-hidden="true"></i>
                 相关资源
-              </h3>
+              </h2>
 
               <!-- 相关资源列表 -->
               <div v-if="isRelatedResourcesLoading" class="space-y-3">
@@ -294,54 +317,58 @@
                 </div>
               </div>
 
-              <div v-else-if="displayRelatedResources.length > 0" class="space-y-3">
-                <a
-                  v-for="(resource, index) in displayRelatedResources"
-                  :key="resource.id"
-                  :href="`/r/${resource.key}`"
-                  class="group block cursor-pointer"
-                  @click.prevent="navigateToResource(resource.key)"
-                >
-                  <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
-                    <!-- 序号 -->
-                    <div class="flex-shrink-0 flex items-center justify-center">
-                      <div
-                        class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium"
-                        :class="index < 3
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'"
-                      >
-                        {{ index + 1 }}
-                      </div>
-                    </div>
+              <nav v-else-if="displayRelatedResources.length > 0" aria-label="相关资源列表">
+                <ul role="list" class="space-y-3">
+                  <li v-for="(resource, index) in displayRelatedResources" :key="resource.id">
+                    <a
+                      :href="`/r/${resource.key}`"
+                      class="group block cursor-pointer"
+                      :title="`查看 ${resource.title} 的详细信息`"
+                      :aria-label="`查看 ${resource.title} 详情`"
+                      @click.prevent="navigateToResource(resource.key)"
+                    >
+                      <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                        <!-- 序号 -->
+                        <div class="flex-shrink-0 flex items-center justify-center">
+                          <div
+                            class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium"
+                            :class="index < 3
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'"
+                          >
+                            {{ index + 1 }}
+                          </div>
+                        </div>
 
-                    <!-- 资源信息 -->
-                    <div class="flex-1 min-w-0">
-                      <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {{ resource.title }}
-                      </h4>
-                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
-                        {{ resource.description }}
-                      </p>
-                    </div>
-                  </div>
-                </a>
-              </div>
+                        <!-- 资源信息 -->
+                        <div class="flex-1 min-w-0">
+                          <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {{ resource.title }}
+                          </h4>
+                          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
+                            {{ resource.description }}
+                          </p>
+                        </div>
+                      </div>
+                    </a>
+                  </li>
+                </ul>
+              </nav>
 
               <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
                 <i class="fas fa-inbox text-3xl mb-2"></i>
                 <p class="text-sm">暂无相关资源</p>
               </div>
             </div>
-          </div>
+          </section>
 
           <!-- 热门资源 -->
-          <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+          <section aria-label="热门资源推荐" class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
             <div class="p-6">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <i class="fas fa-trending-up text-red-500"></i>
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <i class="fas fa-trending-up text-red-500" aria-hidden="true"></i>
                 热门资源
-              </h3>
+              </h2>
 
               <!-- 热门资源列表 -->
               <div v-if="hotResourcesLoading" class="space-y-3">
@@ -356,55 +383,59 @@
                 </div>
               </div>
 
-              <div v-else-if="hotResources.length > 0" class="space-y-3">
-                <a
-                  v-for="(resource, index) in hotResources"
-                  :key="resource.id"
-                  :href="`/r/${resource.key}`"
-                  class="group block cursor-pointer"
-                  @click.prevent="navigateToResource(resource.key)"
-                >
-                  <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
-                    <!-- 排名标识 -->
-                    <div class="flex-shrink-0 flex items-center justify-center">
-                      <div
-                        class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium"
-                        :class="index < 3
-                          ? 'bg-red-500 text-white'
-                          : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'"
-                      >
-                        {{ index + 1 }}
-                      </div>
-                    </div>
+              <nav v-else-if="hotResources.length > 0" aria-label="热门资源列表">
+                <ul role="list" class="space-y-3">
+                  <li v-for="(resource, index) in hotResources" :key="resource.id">
+                    <a
+                      :href="`/r/${resource.key}`"
+                      class="group block cursor-pointer"
+                      :title="`查看 ${resource.title} 的详细信息`"
+                      :aria-label="`查看 ${resource.title} 详情`"
+                      @click.prevent="navigateToResource(resource.key)"
+                    >
+                      <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                        <!-- 排名标识 -->
+                        <div class="flex-shrink-0 flex items-center justify-center">
+                          <div
+                            class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium"
+                            :class="index < 3
+                              ? 'bg-red-500 text-white'
+                              : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'"
+                          >
+                            {{ index + 1 }}
+                          </div>
+                        </div>
 
-                    <!-- 资源信息 -->
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center justify-between">
-                        <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors flex-1">
-                          {{ resource.title }}
-                        </h4>
-                        <!-- 排名皇冠 -->
-                        <div class="flex items-center gap-1 flex-shrink-0 ml-2">
-                          <i v-if="index === 0" class="fas fa-crown text-yellow-500 text-xs" title="第一名"></i>
-                          <i v-else-if="index === 1" class="fas fa-crown text-gray-400 text-xs" title="第二名"></i>
-                          <i v-else-if="index === 2" class="fas fa-crown text-orange-600 text-xs" title="第三名"></i>
+                        <!-- 资源信息 -->
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors flex-1">
+                              {{ resource.title }}
+                            </h4>
+                            <!-- 排名皇冠 -->
+                            <div class="flex items-center gap-1 flex-shrink-0 ml-2">
+                              <i v-if="index === 0" class="fas fa-crown text-yellow-500 text-xs" title="第一名"></i>
+                              <i v-else-if="index === 1" class="fas fa-crown text-gray-400 text-xs" title="第二名"></i>
+                              <i v-else-if="index === 2" class="fas fa-crown text-orange-600 text-xs" title="第三名"></i>
+                            </div>
+                          </div>
+                          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
+                            {{ resource.description }}
+                          </p>
                         </div>
                       </div>
-                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
-                        {{ resource.description }}
-                      </p>
-                    </div>
-                  </div>
-                </a>
-              </div>
+                    </a>
+                  </li>
+                </ul>
+              </nav>
 
               <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
                 <i class="fas fa-fire-alt text-3xl mb-2"></i>
                 <p class="text-sm">暂无热门资源</p>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
 
       <!-- 404 状态 -->
@@ -423,7 +454,7 @@
         </div>
       </div>
     </div>
-    </div>
+    </main>
 
     <!-- 链接模态框 -->
     <QrCodeModal
@@ -458,7 +489,9 @@
 
     
     <!-- 页脚 -->
-    <AppFooter />
+    <footer>
+      <AppFooter />
+    </footer>
 
     <!-- 悬浮按钮组件 -->
     <FloatButtons />
@@ -1362,6 +1395,19 @@ watch(resourcesError, (error) => {
 </script>
 
 <style scoped>
+/* 屏幕阅读器专用样式 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 .header-container{
   background: url(/assets/images/banner.webp) center top/cover no-repeat,
   linear-gradient(

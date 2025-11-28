@@ -26,10 +26,6 @@ func GetResources(c *gin.Context) {
 
 	utils.Info("资源列表请求 - page: %d, pageSize: %d, User-Agent: %s", page, pageSize, c.GetHeader("User-Agent"))
 
-	// 添加缓存控制头，优化 SSR 性能
-	c.Header("Cache-Control", "public, max-age=30") // 30秒缓存，平衡性能和实时性
-	c.Header("ETag", fmt.Sprintf("resources-%d-%d-%s-%s", page, pageSize, c.Query("search"), c.Query("pan_id")))
-
 	params := map[string]interface{}{
 		"page":      page,
 		"page_size": pageSize,
@@ -491,6 +487,11 @@ func DeleteResource(c *gin.Context) {
 		}()
 	}
 
+	// 设置响应头，防止缓存
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
+
 	SuccessResponse(c, gin.H{"message": "资源删除成功"})
 }
 
@@ -658,6 +659,11 @@ func BatchDeleteResources(c *gin.Context) {
 			}
 		}()
 	}
+
+	// 设置响应头，防止缓存
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
 
 	SuccessResponse(c, gin.H{"deleted": deletedCount, "message": "批量删除成功"})
 }
