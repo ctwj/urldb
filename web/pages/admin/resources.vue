@@ -170,7 +170,7 @@
                 </div>
 
                 <div class="flex items-center space-x-2 ml-4">
-                  <n-button size="small" type="primary" @click="editResource(resource)">
+                  <n-button v-show="false" size="small" type="primary" @click="editResource(resource)">
                     <template #icon>
                       <i class="fas fa-edit"></i>
                     </template>
@@ -348,7 +348,7 @@ interface Resource {
   category_id?: number
   pan_id?: number
   tag_ids?: number[]
-  tags?: Array<{ id: number; name: string }>
+  tags?: Array<{ id: number; name: string; description?: string }>
   author?: string
   file_size?: string
   view_count?: number
@@ -360,8 +360,21 @@ interface Resource {
   updated_at: string
 }
 
-const notification = useNotification()
-const dialog = useDialog()
+// 使用computed延迟获取notification和dialog实例，避免SSR问题
+const notification = computed(() => {
+  if (process.client) {
+    return useNotification()
+  }
+  return null
+})
+
+const dialog = computed(() => {
+  if (process.client) {
+    return useDialog()
+  }
+  return null
+})
+
 const resources = ref<Resource[]>([])
 const loading = ref(false)
 const total = ref(0)
@@ -426,21 +439,31 @@ const { data: platformsData } = await useAsyncData('resourcePlatforms', () => pa
 // 分类选项
 const categoryOptions = computed(() => {
   const data = categoriesData.value as any
-  console.log('分类数据:', data)
   const categories = data?.items || data || []
-  console.log('处理后的分类:', categories)
-  const options = categories.map((cat: any) => ({
+  
+  // 确保categories是数组
+  if (!Array.isArray(categories)) {
+    console.warn('categoryOptions: categories不是数组', categories)
+    return []
+  }
+  
+  return categories.map((cat: any) => ({
     label: cat.name,
     value: cat.id
   }))
-  console.log('分类选项:', options)
-  return options
 })
 
 // 标签选项
 const tagOptions = computed(() => {
   const data = tagsData.value as any
   const tags = data?.data || data || []
+  
+  // 确保tags是数组
+  if (!Array.isArray(tags)) {
+    console.warn('tagOptions: tags不是数组', tags)
+    return []
+  }
+  
   return tags.map((tag: any) => ({
     label: tag.name,
     value: tag.id
@@ -451,6 +474,13 @@ const tagOptions = computed(() => {
 const platformOptions = computed(() => {
   const data = platformsData.value as any
   const platforms = data?.data || data || []
+  
+  // 确保platforms是数组
+  if (!Array.isArray(platforms)) {
+    console.warn('platformOptions: platforms不是数组', platforms)
+    return []
+  }
+  
   return platforms.map((platform: any) => ({
     label: platform.remark || platform.name,
     value: platform.id
@@ -492,13 +522,7 @@ const fetchData = async () => {
       // console.log('添加平台筛选:', selectedPlatform.value)
     }
     
-    // console.log('请求参数:', params)
-    // console.log('pageSize:', pageSize.value)
-    // console.log('selectedCategory:', selectedCategory.value)
-    // console.log('selectedPlatform:', selectedPlatform.value)
     const response = await resourceApi.getResources(params) as any
-    // console.log('API响应:', response)
-    // console.log('返回的资源数量:', response?.data?.length || 0)
     
     if (response && response.data) {
       // 处理嵌套的data结构：{data: {data: [...], total: ...}}
@@ -595,7 +619,7 @@ const openBatchModal = () => {
   // 如果没有选择任何资源，自动全选当前页面
   if (selectedResources.value.length === 0 && resources.value.length > 0) {
     selectedResources.value = resources.value.map(resource => resource.id)
-    notification.info({
+    notification.value?.info({
       content: '已自动全选当前页面资源',
       duration: 2000
     })
@@ -635,7 +659,7 @@ const editResource = (resource: Resource) => {
 
 // 删除资源
 const deleteResource = async (resource: Resource) => {
-  dialog.warning({
+  dialog.value?.warning({
     title: '警告',
     content: `确定要删除资源"${resource.title}"吗？`,
     positiveText: '确定',
@@ -644,7 +668,7 @@ const deleteResource = async (resource: Resource) => {
     onPositiveClick: async () => {
       try {
         await resourceApi.deleteResource(resource.id)
-        notification.success({
+        notification.value?.success({
           content: '删除成功',
           duration: 3000
         })
@@ -661,7 +685,7 @@ const deleteResource = async (resource: Resource) => {
         }
       } catch (error) {
         console.error('删除失败:', error)
-        notification.error({
+        notification.value?.error({
           content: '删除失败',
           duration: 3000
         })
@@ -673,7 +697,7 @@ const deleteResource = async (resource: Resource) => {
 // 批量删除
 const batchDelete = async () => {
   if (selectedResources.value.length === 0) {
-    notification.warning({
+    notification.value?.warning({
       content: '请先选择要删除的资源',
       duration: 3000
     })
@@ -682,7 +706,7 @@ const batchDelete = async () => {
 
   const deleteCount = selectedResources.value.length
 
-  dialog.warning({
+  dialog.value?.warning({
     title: '警告',
     content: `确定要删除选中的 ${deleteCount} 个资源吗？此操作不可恢复！`,
     positiveText: '确定',
@@ -692,7 +716,7 @@ const batchDelete = async () => {
       try {
         // 调用批量删除API
         await resourceApi.batchDeleteResources(selectedResources.value)
-        notification.success({
+        notification.value?.success({
           content: `成功删除 ${deleteCount} 个资源`,
           duration: 3000
         })
@@ -703,7 +727,7 @@ const batchDelete = async () => {
         await fetchData()
       } catch (error) {
         console.error('批量删除失败:', error)
-        notification.error({
+        notification.value?.error({
           content: '批量删除失败: ' + (error as Error).message,
           duration: 3000
         })
@@ -715,7 +739,7 @@ const batchDelete = async () => {
 // 批量更新
 const batchUpdate = () => {
   if (selectedResources.value.length === 0) {
-    notification.warning({
+    notification.value?.warning({
       content: '请先选择要更新的资源',
       duration: 3000
     })
@@ -724,7 +748,7 @@ const batchUpdate = () => {
   
   // 这里可以实现批量更新功能
   console.log('批量更新:', selectedResources.value)
-  notification.info({
+  notification.value?.info({
     content: '批量更新功能开发中',
     duration: 3000
   })
@@ -738,45 +762,21 @@ const handleEditSubmit = async () => {
 
     await resourceApi.updateResource(editingResource.value!.id, editForm.value)
 
-    notification.success({
+    notification.value?.success({
       content: '更新成功',
       duration: 3000
     })
 
-    // 更新本地数据
-    const resourceId = editingResource.value?.id
-    const index = resources.value.findIndex(r => r.id === resourceId)
-    if (index > -1) {
-      // 从tagOptions中获取完整的tag对象
-      const selectedTags = editForm.value.tag_ids.map(tagId => {
-        const tagOption = tagOptions.value.find(opt => opt.value === tagId)
-        return tagOption ? { id: tagId, name: tagOption.label } : null
-      }).filter(Boolean) as Array<{ id: number; name: string }>
-
-      resources.value[index] = {
-        ...resources.value[index],
-        title: editForm.value.title,
-        description: editForm.value.description,
-        url: editForm.value.url,
-        category_id: editForm.value.category_id || undefined,
-        pan_id: editForm.value.pan_id || undefined,
-        tag_ids: editForm.value.tag_ids,
-        tags: selectedTags,
-        author: editForm.value.author,
-        file_size: editForm.value.file_size,
-        cover: editForm.value.cover,
-        save_url: editForm.value.save_url,
-        is_valid: editForm.value.is_valid,
-        is_public: editForm.value.is_public,
-        updated_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
-      }
-    }
-
+    // 关闭模态框
     showEditModal.value = false
     editingResource.value = null
+    
+    // 重新获取数据以确保tags等关联数据正确显示
+    await fetchData()
+
   } catch (error) {
     console.error('更新失败:', error)
-    notification.error({
+    notification.value?.error({
       content: '更新失败',
       duration: 3000
     })
