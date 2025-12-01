@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/utils"
@@ -192,6 +193,16 @@ func (s *WechatBotServiceImpl) handleTextMessage(msg *message.MixMessage) (inter
 		return s.handleGetResource(string(msg.FromUserName), keyword)
 	}
 
+	// 检查是否为纯数字命令（例如：1, 2等），如果是，则将其作为获取资源命令处理
+	if isPureNumber(keyword) {
+		// 检查用户是否有搜索会话
+		session := s.searchSessionManager.GetSession(string(msg.FromUserName))
+		if session != nil {
+			// 如果有搜索会话，则将数字作为获取资源命令处理
+			return s.handleGetResource(string(msg.FromUserName), keyword)
+		}
+	}
+
 	if keyword == "" {
 		utils.Info("[WECHAT:MESSAGE] 关键词为空，返回提示消息")
 		return message.NewText("请输入搜索关键词"), nil
@@ -293,21 +304,28 @@ func (s *WechatBotServiceImpl) handleGetResource(userID, command string) (interf
 		return message.NewText("📌 请输入要获取的资源编号\n\n💡 提示：回复\"获取 1\"或\"get 1\"获取第一个资源的详细信息"), nil
 	}
 
+	// 检查是否为纯数字命令（如 "1", "2" 等），如果是则转换为 "获取X" 格式
+	if isPureNumber(command) {
+		command = "获取" + command
+	}
+
 	// 解析命令，例如："获取 1" 或 "get 2"
 	// 支持"获取4"这种没有空格的格式
 	var index int
-	_, err := fmt.Sscanf(command, "获取%d", &index)
-	if err != nil {
-		_, err = fmt.Sscanf(command, "获取 %d", &index)
-		if err != nil {
-			_, err = fmt.Sscanf(command, "get%d", &index)
-			if err != nil {
-				_, err = fmt.Sscanf(command, "get %d", &index)
-				if err != nil {
-					return message.NewText("❌ 命令格式错误\n\n📌 正确格式：\n   • 获取 1\n   • get 1\n   • 获取1\n   • get1"), nil
-				}
-			}
+	var err error
+	patterns := []string{"获取%d", "获取 %d", "get%d", "get %d"}
+
+	parsed := false
+	for _, pattern := range patterns {
+		_, err = fmt.Sscanf(command, pattern, &index)
+		if err == nil {
+			parsed = true
+			break
 		}
+	}
+
+	if !parsed {
+		return message.NewText("❌ 命令格式错误\n\n📌 正确格式：\n   • 获取 1\n   • get 1\n   • 获取1\n   • get1\n   • 直接输入数字 1"), nil
 	}
 
 	if index < 1 || index > len(session.Resources) {
@@ -521,4 +539,17 @@ func (s *WechatBotServiceImpl) SendWelcomeMessage(openID string) error {
 	// 注意：Customer API 需要额外的权限，这里仅作示例
 	// 实际应用中可能需要使用模板消息或其他方式
 	return nil
+}
+
+// isPureNumber 检查字符串是否为纯数字
+func isPureNumber(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return true
 }
