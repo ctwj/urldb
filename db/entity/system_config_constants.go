@@ -172,7 +172,7 @@ const (
 	ConfigResponseFieldQrCodeStyle         = "qr_code_style"
 
 	// 网站URL配置字段
-	ConfigResponseFieldWebsiteURL = "site_url"
+	ConfigResponseFieldWebsiteURL = "website_url"
 )
 
 // ConfigDefaultValue 配置默认值常量

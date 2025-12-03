@@ -503,7 +503,7 @@ func (h *PublicAPIHandler) recordAPIAccessToDB(ip, userAgent, endpoint, method s
 // GetPublicSiteVerificationCode 获取网站验证代码（公开访问）
 func GetPublicSiteVerificationCode(c *gin.Context) {
 	// 获取站点URL配置
-	siteURL, err := repoManager.SystemConfigRepository.GetConfigValue("site_url")
+	siteURL, err := repoManager.SystemConfigRepository.GetConfigValue("website_url")
 	if err != nil || siteURL == "" {
 		c.JSON(400, gin.H{
 			"success": false,
@@ -514,7 +514,7 @@ func GetPublicSiteVerificationCode(c *gin.Context) {
 
 	// 生成Google Search Console验证代码示例
 	verificationCode := map[string]interface{}{
-		"site_url": siteURL,
+		"website_url": siteURL,
 		"verification_methods": map[string]string{
 			"html_tag":     `<meta name="google-site-verification" content="your-verification-code">`,
 			"dns_txt":      `google-site-verification=your-verification-code`,

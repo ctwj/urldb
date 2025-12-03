@@ -26,7 +26,7 @@ type GoogleIndexConfigOutput struct {
 // GoogleIndexConfigGeneral 通用配置
 type GoogleIndexConfigGeneral struct {
 	Enabled  bool   `json:"enabled" binding:"required"`
-	SiteURL  string `json:"site_url" binding:"required"`
+	SiteURL  string `json:"website_url" binding:"required"`
 	SiteName string `json:"site_name"`
 }
 
@@ -160,7 +160,7 @@ type GoogleIndexBatchResponse struct {
 // GoogleIndexStatusResponse 索引状态响应
 type GoogleIndexStatusResponse struct {
 	Enabled           bool      `json:"enabled"`
-	SiteURL           string    `json:"site_url"`
+	SiteURL           string    `json:"website_url"`
 	LastCheckTime     time.Time `json:"last_check_time"`
 	TotalURLs         int       `json:"total_urls"`
 	IndexedURLs       int       `json:"indexed_urls"`

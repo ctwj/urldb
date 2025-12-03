@@ -16,7 +16,7 @@ type Client struct {
 
 // Config Bing配置
 type Config struct {
-	SiteURL string `json:"site_url"`
+	SiteURL string `json:"website_url"`
 }
 
 // SitemapSubmitResponse sitemap提交响应

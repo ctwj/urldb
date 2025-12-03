@@ -52,7 +52,7 @@ type SystemConfigRequest struct {
 	QrCodeStyle         *string   `json:"qr_code_style,omitempty"`
 
 	// 网站URL配置
-	SiteURL *string `json:"site_url,omitempty"`
+	SiteURL *string `json:"website_url,omitempty"`
 }
 
 // SystemConfigResponse 系统配置响应
@@ -111,7 +111,7 @@ type SystemConfigResponse struct {
 	QrCodeStyle         string   `json:"qr_code_style"`
 
 	// 网站URL配置
-	SiteURL string `json:"site_url"`
+	SiteURL string `json:"website_url"`
 }
 
 // SystemConfigItem 单个配置项

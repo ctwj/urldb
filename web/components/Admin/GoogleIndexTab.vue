@@ -472,7 +472,7 @@ onMounted(async () => {
     const { useSystemConfigStore } = await import('~/stores/systemConfig')
     const systemConfigStore = useSystemConfigStore()
     await systemConfigStore.initConfig()
-    siteUrlFromStore.value = systemConfigStore.config?.site_url || ''
+    siteUrlFromStore.value = systemConfigStore.config?.website_url || ''
   } catch (error) {
     console.error('从 store 获取站点 URL 失败:', error)
   }
@@ -480,7 +480,7 @@ onMounted(async () => {
 
 // 获取站点 URL（优先使用 prop，如果为空则使用 store）
 const getSiteUrl = computed(() => {
-  return props.systemConfig?.site_url || siteUrlFromStore.value || ''
+  return props.systemConfig?.website_url || siteUrlFromStore.value || ''
 })
 
 // 获取Google Search Console URL

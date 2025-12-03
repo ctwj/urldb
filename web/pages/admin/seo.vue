@@ -927,7 +927,7 @@ const updateGoogleIndexConfig = async (value: boolean) => {
       key: 'general',
       value: JSON.stringify({
         enabled: value,
-        siteURL: systemConfig.value?.site_url || googleIndexConfig.value.siteURL,
+        siteURL: systemConfig.value?.website_url || googleIndexConfig.value.siteURL,
         checkInterval: googleIndexConfig.value.checkInterval,
         batchSize: googleIndexConfig.value.batchSize,
         concurrency: googleIndexConfig.value.concurrency || 5

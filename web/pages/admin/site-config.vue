@@ -41,7 +41,7 @@
                     <span class="text-xs text-gray-500 dark:text-gray-400">网站的基础URL，用于生成sitemap等，请包含协议名（如：https://example.com）</span>
                   </div>
                   <n-input
-                    v-model:value="configForm.site_url"
+                    v-model:value="configForm.website_url"
                     placeholder="请输入站点URL，如：https://example.com"
                   />
                 </div>
@@ -310,7 +310,7 @@ interface Announcement {
 
 // 配置表单数据类型
 interface SiteConfigForm {
-  site_url: string
+  website_url: string
   site_title: string
   site_description: string
   keywords: string
@@ -375,7 +375,7 @@ const {
   },
   // 字段映射：前端字段名 -> 后端字段名
   fieldMapping: {
-    site_url: 'site_url',
+    website_url: 'website_url',
     site_title: 'site_title',
     site_description: 'site_description',
     keywords: 'keywords',
@@ -397,7 +397,7 @@ const {
 
 // 配置表单数据
 const configForm = ref<SiteConfigForm>({
-  site_url: '',
+  website_url: '',
   site_title: '',
   site_description: '',
   keywords: '',
@@ -439,7 +439,7 @@ const fetchConfig = async () => {
     
     if (response) {
       const configData = {
-        site_url: response.site_url || '',
+        website_url: response.website_url || '',
         site_title: response.site_title || '',
         site_description: response.site_description || '',
         keywords: response.keywords || '',

@@ -31,7 +31,7 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">站点URL</label>
             <n-input
-              :value="systemConfig?.site_url || '站点URL未配置'"
+              :value="systemConfig?.website_url || '站点URL未配置'"
               :disabled="true"
               placeholder="请先在站点配置中设置站点URL"
             >
@@ -214,7 +214,7 @@ const updateSitemapConfig = async (value: boolean) => {
 // 生成Sitemap
 const generateSitemap = async () => {
   // 使用已经加载的系统配置
-  const siteUrl = props.systemConfig?.site_url || ''
+  const siteUrl = props.systemConfig?.website_url || ''
   if (!siteUrl) {
     message.warning('请先在站点配置中设置站点URL，然后再生成Sitemap')
     return
@@ -222,7 +222,7 @@ const generateSitemap = async () => {
 
   try {
     const api = useApi()
-    const response = await api.sitemapApi.generateSitemap({ site_url: siteUrl })
+    const response = await api.sitemapApi.generateSitemap({ website_url: siteUrl })
 
     if (response) {
       message.success(`Sitemap生成任务已启动，使用站点URL: ${siteUrl}`)

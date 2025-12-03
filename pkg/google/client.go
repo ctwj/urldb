@@ -27,7 +27,7 @@ type Client struct {
 // Config 配置信息
 type Config struct {
 	CredentialsFile string `json:"credentials_file"`
-	SiteURL         string `json:"site_url"`
+	SiteURL         string `json:"website_url"`
 	TokenFile       string `json:"token_file"`
 }
 
