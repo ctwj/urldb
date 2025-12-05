@@ -1322,7 +1322,7 @@ func CheckResourceValidity(c *gin.Context) {
 
 	// 只有明确检测出无效的资源才更新数据库状态
 	// 如果检测成功且结果与数据库状态不同，则更新
-	if detectionMethod == "quark_deep" && isValid != resource.IsValid {
+	if (detectionMethod == "quark_deep" || detectionMethod == "baidu_deep") && isValid != resource.IsValid {
 		resource.IsValid = isValid
 		updateErr := repoManager.ResourceRepository.Update(resource)
 		if updateErr != nil {
@@ -1363,9 +1363,11 @@ func performAdvancedValidityCheck(resource *entity.Resource) (bool, string, erro
 	switch serviceType {
 	case panutils.Quark:
 		return performQuarkValidityCheck(resource, shareID)
+	case panutils.BaiduPan:
+		return performBaiduValidityCheck(resource, shareID)
 	case panutils.Alipan:
 		return performAlipanValidityCheck(resource, shareID)
-	case panutils.BaiduPan, panutils.UC, panutils.Xunlei, panutils.Tianyi, panutils.Pan123, panutils.Pan115:
+	case panutils.UC, panutils.Xunlei, panutils.Tianyi, panutils.Pan123, panutils.Pan115:
 		// 这些网盘暂未实现深度检测，返回不支持提示
 		return false, "unsupported", fmt.Errorf("当前网盘类型 %s 暂不支持深度检测，请等待后续更新", serviceType.String())
 	default:
@@ -1443,6 +1445,76 @@ func performAlipanValidityCheck(resource *entity.Resource, shareID string) (bool
 	return false, "unsupported", fmt.Errorf("阿里云盘暂不支持深度检测，请等待后续更新")
 }
 
+// performBaiduValidityCheck 百度网盘深度检测
+func performBaiduValidityCheck(resource *entity.Resource, shareID string) (bool, string, error) {
+	// 获取百度网盘账号
+	panID, err := getBaiduPanID()
+	if err != nil {
+		return false, "baidu_failed", fmt.Errorf("获取百度平台ID失败: %v", err)
+	}
+
+	accounts, err := repoManager.CksRepository.FindByPanID(panID)
+	if err != nil {
+		return false, "baidu_failed", fmt.Errorf("获取百度网盘账号失败: %v", err)
+	}
+
+	if len(accounts) == 0 {
+		return false, "baidu_failed", fmt.Errorf("没有可用的百度网盘账号")
+	}
+
+	// 选择第一个有效的账号
+	var selectedAccount *entity.Cks
+	for _, account := range accounts {
+		if account.IsValid {
+			selectedAccount = &account
+			break
+		}
+	}
+
+	if selectedAccount == nil {
+		return false, "baidu_failed", fmt.Errorf("没有有效的百度网盘账号")
+	}
+
+	utils.Info("使用百度网盘账号进行深度检测 - AccountID: %d", selectedAccount.ID)
+
+	// 准备配置
+	config := &panutils.PanConfig{
+		URL:         resource.URL,
+		Code:        "", // 可以从URL中提取
+		IsType:      1,  // 检验模式：只获取基本信息，不实际转存
+		ExpiredType: 1,  // 永久分享
+		AdFid:       "",
+		Stoken:      "",
+		Cookie:      selectedAccount.Ck,
+	}
+
+	// 创建网盘服务工厂
+	factory := pan.NewPanFactory()
+	// 通过工厂获取对应的网盘服务
+	panService, err := factory.CreatePanService(resource.URL, config)
+	if err != nil {
+		return false, "baidu_failed", fmt.Errorf("创建百度网盘服务失败: %v", err)
+	}
+
+	// 执行深度检测（Transfer方法，检验模式）
+	utils.Info("执行百度网盘深度检测 - ShareID: %s", shareID)
+	result, err := panService.Transfer(shareID)
+	if err != nil {
+		return false, "baidu_failed", fmt.Errorf("百度网盘检测失败: %v", err)
+	}
+
+	if !result.Success {
+		// 检查是否是因为没有Cookie或其他配置问题
+		if strings.Contains(result.Message, "cookie") || strings.Contains(result.Message, "登录") {
+			return false, "baidu_failed", fmt.Errorf("百度网盘账号配置问题: %s", result.Message)
+		}
+		return false, "baidu_deep", fmt.Errorf("百度网盘链接无效: %s", result.Message)
+	}
+
+	utils.Info("百度网盘深度检测成功 - ShareID: %s", shareID)
+	return true, "baidu_deep", nil
+}
+
 
 // BatchCheckResourceValidity 批量检查资源链接有效性
 func BatchCheckResourceValidity(c *gin.Context) {
@@ -1514,7 +1586,7 @@ func BatchCheckResourceValidity(c *gin.Context) {
 		}
 
 		// 只有明确检测出无效的资源才更新数据库状态
-		if detectionMethod == "quark_deep" && isValid != resource.IsValid {
+		if (detectionMethod == "quark_deep" || detectionMethod == "baidu_deep") && isValid != resource.IsValid {
 			resource.IsValid = isValid
 			updateErr := repoManager.ResourceRepository.Update(resource)
 			if updateErr != nil {
@@ -1557,5 +1629,22 @@ func getQuarkPanID() (uint, error) {
 	}
 
 	return 0, fmt.Errorf("未找到quark平台")
+}
+
+// getBaiduPanID 获取百度网盘ID
+func getBaiduPanID() (uint, error) {
+	// 通过FindAll方法查找所有平台，然后过滤出baidu平台
+	pans, err := repoManager.PanRepository.FindAll()
+	if err != nil {
+		return 0, fmt.Errorf("查询平台信息失败: %v", err)
+	}
+
+	for _, p := range pans {
+		if p.Name == "baidu" {
+			return p.ID, nil
+		}
+	}
+
+	return 0, fmt.Errorf("未找到baidu平台")
 }
 

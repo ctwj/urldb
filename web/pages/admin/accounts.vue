@@ -234,6 +234,20 @@
         </div>
       </div>
 
+      <div v-if="isBaidu">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Cookie <span class="text-red-500">*</span>
+            </label>
+            <n-input v-model:value="form.ck" type="textarea" placeholder="请输入百度网盘Cookie内容" :rows="4" required />
+            <p class="mt-1 text-xs text-gray-500">
+              请从浏览器获取百度网盘的Cookie，通常包含BAIDUID、BDUSS等字段
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div>
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">备注</label>
         <n-input v-model:value="form.remark" placeholder="可选，备注信息" />
@@ -273,6 +287,7 @@ definePageMeta({
 
 const isQuark = ref(false)
 const isXunlei = ref(false)
+const isBaidu = ref(false)
 
 const notification = useNotification()
 const router = useRouter()
@@ -296,7 +311,7 @@ const xunleiForm = ref({
   password: ''
 })
 
-const panEnables = ref(['quark', 'xunlei'])
+const panEnables = ref(['quark', 'xunlei', 'baidu'])
 // const xunleiEnable = useCookie('xunleiEnable', { default: () => false })
 // if (xunleiEnable.value && xunleiEnable.value === 'true') {
 //   panEnables.value.push('xunlei')
@@ -305,6 +320,7 @@ const panEnables = ref(['quark', 'xunlei'])
 watch(() => form.value.pan_id, (newVal) => {
   isQuark.value = false
   isXunlei.value = false
+  isBaidu.value = false
   const list = platforms.value.filter(it => it.id === newVal)
   if (!list || list.length === 0) {
     return
@@ -314,6 +330,8 @@ watch(() => form.value.pan_id, (newVal) => {
     isQuark.value = true
   } else if (pan.name === 'xunlei') {
     isXunlei.value = true
+  } else if (pan.name === 'baidu') {
+    isBaidu.value = true
   }
 })
 
@@ -567,6 +585,11 @@ const editCks = (cks) => {
       }
     }
   }
+  // 如果是百度网盘账号，ck直接使用
+  else if (cks.pan?.name === 'baidu') {
+    // 百度网盘的ck直接使用，不需要特殊处理
+    form.value.ck = cks.ck
+  }
 
   showEditModal.value = true
 }
@@ -607,6 +630,25 @@ const handleSubmit = async () => {
       refresh_token: '' // 初始为空，登录后会填充
     })
   }
+  // 如果是百度网盘账号，需要验证Cookie
+  else if (isBaidu.value) {
+    if (!form.value.ck || form.value.ck.trim() === '') {
+      notification.error({
+        title: '失败',
+        content: '请输入百度网盘Cookie',
+        duration: 3000
+      })
+      return
+    }
+    // 验证Cookie格式（简单验证是否包含必要字段）
+    if (!form.value.ck.includes('BDUSS') && !form.value.ck.includes('BAIDUID')) {
+      notification.warning({
+        title: '警告',
+        content: 'Cookie格式可能不正确，请确保包含BDUSS等必要字段',
+        duration: 3000
+      })
+    }
+  }
 
   if (showEditModal.value) {
     await updateCks()
@@ -622,6 +664,9 @@ const getPlatformIcon = (platformName) => {
     'other': '<i class="fas fa-cloud text-gray-500"></i>',
     'magnet': '<i class="fas fa-magnet text-red-600"></i>',
     'uc': '<i class="fas fa-cloud-download-alt text-purple-600"></i>',
+    'quark': '<i class="fas fa-cloud text-blue-600"></i>',
+    'xunlei': '<i class="fas fa-cloud text-orange-500"></i>',
+    'baidu': '<i class="fas fa-cloud text-blue-500"></i>',
     '夸克网盘': '<i class="fas fa-cloud text-blue-600"></i>',
     '阿里云盘': '<i class="fas fa-cloud text-orange-600"></i>',
     '百度网盘': '<i class="fas fa-cloud text-blue-500"></i>',

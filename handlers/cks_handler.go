@@ -11,6 +11,7 @@ import (
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -191,11 +192,14 @@ func CreateCks(c *gin.Context) {
 		}
 	} else {
 		// 获取用户信息
+		utils.Info("开始获取用户信息，平台: %s, Cookie长度: %d", pan.Name, len(req.Ck))
 		userInfo, err := service.GetUserInfo(&req.Ck)
 		if err != nil {
+			utils.Error("获取用户信息失败: %v", err)
 			ErrorResponse(c, "无法获取用户信息，账号创建失败: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		utils.Info("成功获取用户信息: %+v", userInfo)
 
 		leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
 

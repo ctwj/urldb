@@ -131,3 +131,5 @@ data/
 main
 output.zip
 CLAUDE.md
+.kiro
+*.md

@@ -212,8 +212,8 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 	// 	}
 	// }
 
-	// 不是夸克，直接保存
-	if serviceType != panutils.Quark {
+	// 不是夸克和百度，直接保存
+	if serviceType != panutils.Quark && serviceType != panutils.BaiduPan {
 		// 检测是否有效
 		checkResult, err := commonutils.CheckURL(readyResource.URL)
 		if err != nil {
@@ -223,6 +223,82 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		if !checkResult.Status {
 			utils.Warn(fmt.Sprintf("链接无效: %s", readyResource.URL))
 			return fmt.Errorf("链接无效: %s", readyResource.URL)
+		}
+	} else if serviceType == panutils.BaiduPan {
+		// 百度网盘使用百度API进行检测
+		panID := r.getPanIDByServiceType(serviceType)
+		if panID == nil {
+			utils.Error("未找到对应的平台ID")
+			return fmt.Errorf("未找到对应的平台ID")
+		}
+
+		accounts, err := r.cksRepo.FindByPanID(*panID)
+		if err != nil {
+			utils.Error(fmt.Sprintf("获取百度网盘账号失败: %v", err))
+			return fmt.Errorf("获取网盘账号失败: %v", err)
+		}
+
+		if len(accounts) == 0 {
+			utils.Error("没有可用的百度网盘账号")
+			return fmt.Errorf("没有可用的百度网盘账号")
+		}
+
+		// 选择第一个有效的账号
+		var selectedAccount *entity.Cks
+		for _, account := range accounts {
+			if account.IsValid {
+				selectedAccount = &account
+				break
+			}
+		}
+
+		if selectedAccount == nil {
+			utils.Error("没有有效的百度网盘账号")
+			return fmt.Errorf("没有有效的百度网盘账号")
+		}
+
+		utils.Debug(fmt.Sprintf("使用百度网盘账号: %d, Cookie: %s", selectedAccount.ID, selectedAccount.Ck[:20]+"..."))
+
+		// 准备配置
+		config := &panutils.PanConfig{
+			URL:         readyResource.URL,
+			Code:        "", // 可以从readyResource中获取
+			IsType:      1,  // 转存并分享后的资源信息  0 转存后分享， 1 只获取基本信息
+			ExpiredType: 1,  // 永久分享
+			AdFid:       "",
+			Stoken:      "",
+			Cookie:      selectedAccount.Ck, // 添加 cookie
+		}
+
+		// 通过工厂获取对应的网盘服务单例
+		panService, err := factory.CreatePanService(readyResource.URL, config)
+		if err != nil {
+			utils.Error(fmt.Sprintf("获取网盘服务失败: %v", err))
+			return fmt.Errorf("获取网盘服务失败: %v", err)
+		}
+
+		// 统一处理：尝试转存获取标题
+		result, err := panService.Transfer(shareID)
+		if err != nil {
+			utils.Error(fmt.Sprintf("百度网盘信息获取失败: %v", err))
+			return fmt.Errorf("网盘信息获取失败: %v", err)
+		}
+
+		if !result.Success {
+			utils.Error(fmt.Sprintf("百度网盘信息获取失败: %s", result.Message))
+			return fmt.Errorf("网盘信息获取失败: %s", result.Message)
+		}
+
+		// 从结果中提取标题等信息
+		if result.Data != nil {
+			if data, ok := result.Data.(map[string]interface{}); ok {
+				if title, ok := data["title"].(string); ok && title != "" {
+					resource.Title = title
+				}
+				if description, ok := data["description"].(string); ok && description != "" {
+					resource.Description = description
+				}
+			}
 		}
 	} else {
 		// 获取夸克网盘账号的 cookie
