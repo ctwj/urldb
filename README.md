@@ -22,18 +22,6 @@
 
 
 </div>
-<div>
-
-  
-### 阿里云边缘安全加速（ESA）中国站全新推出 ESA 免费版套餐
-
-![首页](https://raw.githubusercontent.com/ctwj/urldb/refs/heads/main/github/aliyun.webp)
-
-免费阿里云 CDN: [点击免费获取](https://tianchi.aliyun.com/specials/promotion/freetier/esa?taskCode=25254&recordId=3f3fad3c536691d616048949aa561754)
-1. 链接点进去看到的是基础版，点击立即试用，进入会看到其余3个版本，记得选免费版！！！
-2. 0元购买后，点击套餐管理，点击续费，选择设置续费规则，会自动打开续费页面，选择续费1年，0元，反复操作25次，刷到2050年。
-2. 0元购买后，点击套餐管理，点击续费，选择设置续费规则，会自动打开续费页面，选择续费1年，0元，反复操作25次，刷到2050年。
-</div>
 
 <div align="center">
 
