@@ -2,6 +2,7 @@ package pan
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -84,7 +85,17 @@ func (b *BasePanService) HTTPGet(requestURL string, queryParams map[string]strin
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	// 处理gzip压缩
+	var reader io.Reader = resp.Body
+	if resp.Header.Get("Content-Encoding") == "gzip" {
+		reader, err = gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("解压gzip失败: %v", err)
+		}
+		defer reader.(*gzip.Reader).Close()
+	}
+
+	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +222,41 @@ func (b *BasePanService) HTTPDelete(requestURL string) ([]byte, error) {
 	// 设置请求头
 	for key, value := range b.headers {
 		req.Header.Set(key, value)
+	}
+
+	resp, err := b.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(respBody))
+	}
+
+	return respBody, nil
+}
+
+// HTTPPostForm 发送表单POST请求
+func (b *BasePanService) HTTPPostForm(requestURL string, formData url.Values) ([]byte, error) {
+	req, err := http.NewRequest("POST", requestURL, strings.NewReader(formData.Encode()))
+	if err != nil {
+		return nil, err
+	}
+
+	// 设置表单请求头
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// 设置其他请求头
+	for key, value := range b.headers {
+		if key != "Content-Type" {
+			req.Header.Set(key, value)
+		}
 	}
 
 	resp, err := b.httpClient.Do(req)

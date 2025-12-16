@@ -1,0 +1,809 @@
+package pan
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/db/repo"
+	"github.com/ctwj/urldb/utils"
+)
+
+// BaiduPanService 百度网盘服务 - 基于BaiduPanFilesTransfers项目改写
+type BaiduPanService struct {
+	*BasePanService
+	configMutex sync.RWMutex // 保护配置的读写锁
+	bdstoken    string       // 百度网盘操作令牌
+	entity      entity.Cks   // 实体信息
+	cksRepo     repo.CksRepository
+	client      *http.Client // HTTP客户端
+}
+
+// NewBaiduPanService 创建百度网盘服务
+func NewBaiduPanService(config *PanConfig) *BaiduPanService {
+	service := &BaiduPanService{
+		BasePanService: NewBasePanService(config),
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+
+	// 设置与Python项目完全一致的请求头
+	service.SetHeaders(map[string]string{
+		"Host":               "pan.baidu.com",
+		"Connection":         "keep-alive",
+		"Upgrade-Insecure-Requests": "1",
+		"Accept":             "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+		"Sec-Fetch-Dest":     "document",
+		"Sec-Fetch-Site":     "same-site",
+		"Sec-Fetch-Mode":     "navigate",
+		"Referer":            "https://pan.baidu.com",
+		"Accept-Encoding":    "gzip, deflate, br",
+		"Accept-Language":    "zh-CN,zh;q=0.9,en;q=0.8,en-US;q=0.7,en-GB;q=0.6,ru;q=0.5",
+		"User-Agent":         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+	})
+
+	service.UpdateConfig(config)
+	return service
+}
+
+// GetServiceType 获取服务类型
+func (b *BaiduPanService) GetServiceType() ServiceType {
+	return BaiduPan
+}
+
+// 错误码映射 - 与Python项目完全一致
+var errorCodes = map[int]string{
+	-1:  "链接错误，链接失效或缺少提取码",
+	-4:  "转存失败，无效登录。请退出账号在其他地方的登录",
+	-6:  "转存失败，请用浏览器无痕模式获取 Cookie 后再试",
+	-7:  "转存失败，转存文件夹名有非法字符，不能包含 < > | * ? \\ :，请改正目录名后重试",
+	-8:  "转存失败，目录中已有同名文件或文件夹存在",
+	-9:  "链接错误，提取码错误",
+	-10: "转存失败，容量不足",
+	-12: "链接错误，提取码错误",
+	-62: "转存失败，链接访问次数过多，请手动转存或稍后再试",
+	0:   "转存成功",
+	2:   "转存失败，目标目录不存在",
+	4:   "转存失败，目录中存在同名文件",
+	12:  "转存失败，转存文件数超过限制",
+	20:  "转存失败，容量不足",
+	105: "链接错误，所访问的页面不存在",
+	404: "转存失败，秒传无效",
+}
+
+// Transfer 转存分享链接 - 基于Python项目的operations.py:save方法改写
+func (b *BaiduPanService) Transfer(shareID string) (*TransferResult, error) {
+	b.configMutex.RLock()
+	config := b.config
+	b.configMutex.RUnlock()
+
+	log.Printf("开始处理百度网盘分享: %s", shareID)
+
+	// 1. 准备运行 - 对应Python的prepare_run方法
+	cookie := strings.TrimSpace(config.Cookie)
+
+	// 检查Cookie格式 - 对应Python的handle_input
+	if !strings.Contains(cookie, "BAIDUID") {
+		return ErrorResult("百度网盘 cookie 输入不正确，请查看使用帮助。"), nil
+	}
+
+	// 设置Cookie
+	b.SetHeader("Cookie", cookie)
+
+	// 2. 获取bdstoken - 对应Python的handle_bdstoken
+	_, err := b.getBdstoken()
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("没获取到 bdstoken 参数，错误：%v", err)), nil
+	}
+
+	// 3. 解析和标准化链接 - 对应Python的setup_save方法
+	linkURL, passCode := b.parseURLAndCode(config.URL)
+	if linkURL == "" {
+		return ErrorResult("不支持的链接：" + config.URL), nil
+	}
+
+	// 4. 验证链接和提取码 - 对应Python的verify_link方法
+	result, err := b.verifyLink(linkURL, passCode)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("链接验证失败：%s - %s", config.URL, err.Error())), nil
+	}
+
+	// 检验模式
+	if config.IsType == 1 {
+		title := result[3]
+		if len(result[3]) > 0 {
+			fileNames := strings.Split(result[3], ",")
+			if len(fileNames) > 0 {
+				title = fileNames[0]
+			}
+		}
+		return SuccessResult("检验成功", map[string]interface{}{
+			"title":     title,
+			"shareUrl":  config.URL,
+			"stoken":    "",
+		}), nil
+	}
+
+	// 5. 创建目录 - 对应Python的handle_create_dir方法
+	targetFolder := "心悦转存文件"
+	if config.ExpiredType == 2 {
+		targetFolder = "心悦临时转存文件"
+	}
+	err = b.createDirIfNotExists("/" + targetFolder)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("创建目录失败，错误代码：%v", err)), nil
+	}
+
+	// 6. 执行转存 - 对应Python的transfer_file方法
+	err = b.transferFile(result, "/"+targetFolder)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("转存失败：%s - %s 文件：%s", config.URL, err.Error(), result[3])), nil
+	}
+
+	// 7. 创建分享
+	password := "6666"
+	fsIds := result[2]
+	shareLink, err := b.createShare(fsIds, 0, password)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("创建分享失败: %v", err)), nil
+	}
+
+	if shareLink == "0" {
+		return ErrorResult("创建分享失败"), nil
+	}
+
+	if password != "" {
+		shareLink = shareLink + "?pwd=" + password
+	}
+
+	title := result[3]
+	if len(result[3]) > 0 {
+		fileNames := strings.Split(result[3], ",")
+		if len(fileNames) > 0 {
+			title = fileNames[0]
+		}
+	}
+
+	return SuccessResult("转存成功", map[string]interface{}{
+		"title":    title,
+		"shareUrl": shareLink,
+		"fid":      "/" + targetFolder,
+		"code":     password,
+	}), nil
+}
+
+// GetFiles 获取文件列表 - 基于Python项目的get_dir_list方法
+func (b *BaiduPanService) GetFiles(pdirFid string) (*TransferResult, error) {
+	if pdirFid == "0" || pdirFid == "" {
+		pdirFid = "/"
+	}
+
+	log.Printf("开始获取百度网盘文件列表，目录: %s", pdirFid)
+
+	dirList, err := b.getDirList(pdirFid)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("获取文件列表失败: %v", err)), nil
+	}
+
+	return SuccessResult("获取成功", dirList), nil
+}
+
+// DeleteFiles 删除文件 - 基于Python项目的batch_delete_files方法
+func (b *BaiduPanService) DeleteFiles(fileList []string) (*TransferResult, error) {
+	if len(fileList) == 0 {
+		return ErrorResult("文件列表为空"), nil
+	}
+
+	log.Printf("开始删除百度网盘文件，文件数量: %d", len(fileList))
+
+	result, err := b.batchDeleteFiles(fileList)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("删除文件失败: %v", err)), nil
+	}
+
+	// 检查删除结果
+	if errno, ok := result["errno"].(float64); ok && int(errno) != 0 {
+		return ErrorResult(fmt.Sprintf("删除文件失败: %v", result)), nil
+	}
+
+	return SuccessResult("删除成功", nil), nil
+}
+
+// GetUserInfo 获取用户信息 - 基于Python项目的gettemplatevariable方法
+func (b *BaiduPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
+	// 设置Cookie
+	b.SetHeader("Cookie", *cookie)
+
+	// 首先调用gettemplatevariable获取基础token信息
+	userInfoURL := "https://pan.baidu.com/api/gettemplatevariable"
+
+	utils.Info("调用百度网盘用户信息API - URL: %s, Cookie长度: %d", userInfoURL, len(*cookie))
+	resp, err := b.HTTPGet(userInfoURL, map[string]string{
+		"fields":     `["bdstoken","token","uk","isdocuser","servertime"]`,
+		"clienttype": "0",
+		"app_id":     "38824127",
+		"web":        "1",
+	})
+	if err != nil {
+		utils.Info("百度网盘API调用失败: %v", err)
+		return nil, fmt.Errorf("获取用户信息失败: %v", err)
+	}
+	utils.Info("百度网盘API调用成功，响应长度: %d", len(resp))
+
+	// 解析响应
+	var result struct {
+		Errno int `json:"errno"`
+		Result struct {
+			Bdstoken   string `json:"bdstoken"`
+			Token      string `json:"token"`
+			UK         string `json:"uk"`
+			IsDocUser  int    `json:"isdocuser"`
+			ServerTime int64  `json:"servertime"`
+		} `json:"result"`
+	}
+
+	utils.Info("API响应内容: %s", string(resp))
+
+	if err := b.ParseJSONResponse(resp, &result); err != nil {
+		return nil, fmt.Errorf("解析用户信息失败: %v", err)
+	}
+
+	if result.Errno != 0 {
+		return nil, fmt.Errorf("API返回错误: %d", result.Errno)
+	}
+
+	utils.Info("成功获取用户信息token: %+v", result)
+
+	// 现在使用获取的bdstoken来获取详细的用户信息
+	detailUserInfo, err := b.getUserInfoDetail(cookie, result.Result.Bdstoken, result.Result.UK)
+	if err != nil {
+		utils.Error("获取详细用户信息失败: %v", err)
+		// 如果获取详细信息失败，返回基本信息
+		return &UserInfo{
+			Username:    "",
+			VIPStatus:   false,
+			UsedSpace:   0,
+			TotalSpace:  0,
+			ServiceType: "baidu",
+		}, nil
+	}
+
+	return detailUserInfo, nil
+}
+
+// getUserInfoDetail 获取详细用户信息
+func (b *BaiduPanService) getUserInfoDetail(cookie *string, bdstoken, uk string) (*UserInfo, error) {
+	// 设置Cookie
+	b.SetHeader("Cookie", *cookie)
+
+	// 调用百度网盘用户信息API
+	userInfoURL := "https://pan.baidu.com/rest/2.0/xpan/nas"
+	params := map[string]string{
+		"method":     "uinfo",
+		"clienttype": "0",
+		"app_id":     "250528", // 注意这个app_id与gettemplatevariable不同
+	}
+
+	utils.Info("调用百度网盘详细用户信息API - URL: %s", userInfoURL)
+	resp, err := b.HTTPGet(userInfoURL, params)
+	if err != nil {
+		utils.Info("百度网盘详细用户信息API调用失败: %v", err)
+		return nil, fmt.Errorf("获取详细用户信息失败: %v", err)
+	}
+
+	// 解析响应
+	var result struct {
+		Errno int `json:"errno"`
+		Username string `json:"username"`
+		UK      string `json:"uk"`
+		VipType int    `json:"vip_type"`
+		VipEndtime int64 `json:"vip_endtime"`
+		TotalCapacity int64 `json:"total_capacity"`
+		UsedCapacity  int64 `json:"used_capacity"`
+	}
+
+	if err := json.Unmarshal([]byte(resp), &result); err != nil {
+		return nil, fmt.Errorf("解析详细用户信息失败: %v", err)
+	}
+
+	if result.Errno != 0 {
+		return nil, fmt.Errorf("详细用户信息API返回错误: %d", result.Errno)
+	}
+
+	// 转换VIP状态
+	vipStatus := result.VipType > 0
+
+	utils.Info("成功获取详细用户信息: username=%s, uk=%s, vip=%d", result.Username, result.UK, result.VipType)
+
+	return &UserInfo{
+		Username:    result.Username,
+		VIPStatus:   vipStatus,
+		UsedSpace:   result.UsedCapacity,
+		TotalSpace:  result.TotalCapacity,
+		ServiceType: "baidu",
+	}, nil
+}
+
+// SetCKSRepository 设置 CksRepository 和 entity
+func (b *BaiduPanService) SetCKSRepository(cksRepo repo.CksRepository, entity entity.Cks) {
+	b.cksRepo = cksRepo
+	b.entity = entity
+}
+
+// UpdateConfig 更新配置（线程安全）
+func (b *BaiduPanService) UpdateConfig(config *PanConfig) {
+	if config == nil {
+		return
+	}
+	b.configMutex.Lock()
+	defer b.configMutex.Unlock()
+
+	b.config = config
+	if config.Cookie != "" {
+		b.SetHeader("Cookie", config.Cookie)
+	}
+}
+
+// ==================== 核心网络请求方法 - 基于Python项目的network.py改写 ====================
+
+// getBdstoken 获取百度网盘操作令牌 - 基于Python的get_bdstoken方法
+func (b *BaiduPanService) getBdstoken() (string, error) {
+	if b.bdstoken != "" {
+		return b.bdstoken, nil
+	}
+
+	url := "https://pan.baidu.com/api/gettemplatevariable"
+	params := map[string]string{
+		"clienttype": "0",
+		"app_id":     "38824127",
+		"web":        "1",
+		"fields":     `["bdstoken","token","uk","isdocuser","servertime"]`,
+	}
+
+	resp, err := b.HTTPGet(url, params)
+	if err != nil {
+		return "", err
+	}
+
+	var result struct {
+		Errno int `json:"errno"`
+		Result struct {
+			Bdstoken string `json:"bdstoken"`
+		} `json:"result"`
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return "", err
+	}
+
+	if result.Errno != 0 {
+		return "", fmt.Errorf("获取bdstoken失败，错误代码：%d", result.Errno)
+	}
+
+	b.bdstoken = result.Result.Bdstoken
+	return b.bdstoken, nil
+}
+
+// verifyPassCode 验证提取码 - 基于Python的verify_pass_code方法
+func (b *BaiduPanService) verifyPassCode(shareURL, passCode string) (string, error) {
+	surl := extractSurl(shareURL)
+	url := "https://pan.baidu.com/share/verify"
+
+	// 构建表单数据
+	formData := url.Values{}
+	formData.Set("surl", surl)
+	formData.Set("bdstoken", b.bdstoken)
+	formData.Set("t", strconv.FormatInt(time.Now().UnixMilli(), 10))
+	formData.Set("channel", "chunlei")
+	formData.Set("web", "1")
+	formData.Set("clienttype", "0")
+	formData.Set("pwd", passCode)
+	formData.Set("vcode", "")
+	formData.Set("vcode_str", "")
+
+	respData, err := b.HTTPPostForm(url, formData)
+	if err != nil {
+		return "0", err
+	}
+
+	var result struct {
+		Errno int `json:"errno"`
+		Randsk string `json:"randsk"`
+	}
+
+	if err := json.Unmarshal(respData, &result); err != nil {
+		return "0", err
+	}
+
+	if result.Errno != 0 {
+		return fmt.Sprintf("%d", result.Errno), nil
+	}
+
+	return result.Randsk, nil
+}
+
+// getTransferParams 获取转存参数 - 基于Python的get_transfer_params方法
+func (b *BaiduPanService) getTransferParams(shareURL string) ([]string, error) {
+	resp, err := b.HTTPGet(shareURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析响应内容，提取必要参数 - 基于Python的parse_response方法
+	return b.parseResponse(string(resp))
+}
+
+// createDir 创建目录 - 基于Python的create_dir方法
+func (b *BaiduPanService) createDir(dirPath string) error {
+	url := "https://pan.baidu.com/api/create"
+
+	// 构建表单数据
+	formData := url.Values{}
+	formData.Set("a", "commit")
+	formData.Set("bdstoken", b.bdstoken)
+	formData.Set("path", dirPath)
+	formData.Set("isdir", "1")
+	formData.Set("block_list", "[]")
+
+	respData, err := b.HTTPPostForm(url, formData)
+	if err != nil {
+		return err
+	}
+
+	var result struct {
+		Errno int `json:"errno"`
+	}
+
+	if err := json.Unmarshal(respData, &result); err != nil {
+		return err
+	}
+
+	if result.Errno != 0 {
+		return fmt.Errorf("创建目录失败，错误代码：%d", result.Errno)
+	}
+
+	return nil
+}
+
+// transferFile 转存文件 - 基于Python的transfer_file方法
+func (b *BaiduPanService) transferFile(paramsList []string, folderName string) error {
+	url := "https://pan.baidu.com/share/transfer"
+
+	// 构建表单数据
+	formData := url.Values{}
+	formData.Set("shareid", paramsList[0])
+	formData.Set("from", paramsList[1])
+	formData.Set("bdstoken", b.bdstoken)
+	formData.Set("channel", "chunlei")
+	formData.Set("web", "1")
+	formData.Set("clienttype", "0")
+
+	fsIds := strings.Split(paramsList[2], ",")
+	formData.Set("fsidlist", fmt.Sprintf("[%s]", strings.Join(fsIds, ",")))
+	formData.Set("path", folderName)
+
+	respData, err := b.HTTPPostForm(url, formData)
+	if err != nil {
+		return err
+	}
+
+	var result struct {
+		Errno int `json:"errno"`
+	}
+
+	if err := json.Unmarshal(respData, &result); err != nil {
+		return err
+	}
+
+	if result.Errno != 0 {
+		return fmt.Errorf("转存失败，错误代码：%d", result.Errno) // 返回错误代码
+	}
+
+	return nil
+}
+
+// createShare 创建分享 - 基于Python的create_share方法
+func (b *BaiduPanService) createShare(fsIds string, expiry int, password string) (string, error) {
+	url := "https://pan.baidu.com/share/set"
+
+	// 构建表单数据
+	formData := url.Values{}
+	formData.Set("channel", "chunlei")
+	formData.Set("bdstoken", b.bdstoken)
+	formData.Set("clienttype", "0")
+	formData.Set("app_id", "250528")
+	formData.Set("web", "1")
+	formData.Set("period", strconv.Itoa(expiry))
+	formData.Set("pwd", password)
+	formData.Set("eflag_disable", "true")
+	formData.Set("channel_list", "[]")
+	formData.Set("schannel", "4")
+	formData.Set("fid_list", fmt.Sprintf("[%s]", fsIds))
+
+	respData, err := b.HTTPPostForm(url, formData)
+	if err != nil {
+		return "0", err
+	}
+
+	var result struct {
+		Errno int `json:"errno"`
+		Link  string `json:"link"`
+	}
+
+	if err := json.Unmarshal(respData, &result); err != nil {
+		return "0", err
+	}
+
+	if result.Errno != 0 {
+		return fmt.Sprintf("%d", result.Errno), nil
+	}
+
+	return result.Link, nil
+}
+
+// batchDeleteFiles 批量删除文件 - 基于Python项目逻辑
+func (b *BaiduPanService) batchDeleteFiles(filePaths []string) (map[string]interface{}, error) {
+	url := "https://pan.baidu.com/api/filemanager"
+
+	// 构建filelist参数
+	filelist := make([]string, 0, len(filePaths))
+	for _, path := range filePaths {
+		filelist = append(filelist, fmt.Sprintf(`"%s"`, path))
+	}
+
+	// 构建表单数据
+	formData := url.Values{}
+	formData.Set("channel", "chunlei")
+	formData.Set("web", "1")
+	formData.Set("app_id", "250528")
+	formData.Set("clienttype", "0")
+	formData.Set("bdstoken", b.bdstoken)
+	formData.Set("async", "1")
+	formData.Set("filelist", fmt.Sprintf("[%s]", strings.Join(filelist, ",")))
+	formData.Set("ondup", "overwrite")
+
+	respData, err := b.HTTPPostForm(url, formData)
+	if err != nil {
+		return nil, err
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(respData, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// ==================== Python项目工具函数的Go实现 ====================
+
+// parseURLAndCode 解析URL和提取码 - 基于Python的parse_url_and_code方法
+func (b *BaiduPanService) parseURLAndCode(urlCode string) (string, string) {
+	// 标准化链接格式
+	normalized := b.normalizeLink(urlCode)
+
+	// 以空格分割URL和提取码
+	parts := strings.SplitN(normalized, " ", 2)
+	if len(parts) < 2 {
+		return "", ""
+	}
+
+	url := strings.TrimSpace(parts[0])
+	code := strings.TrimSpace(parts[1])
+
+	// 处理URL长度限制
+	if len(url) > 47 {
+		url = url[:47]
+	}
+
+	// 处理提取码长度限制
+	if len(code) > 4 {
+		code = code[len(code)-4:]
+	}
+
+	return url, code
+}
+
+// normalizeLink 标准化链接 - 基于Python的normalize_link方法
+func (b *BaiduPanService) normalizeLink(urlCode string) string {
+	// 升级旧链接格式
+	normalized := strings.ReplaceAll(urlCode, "share/init?surl=", "s/1")
+
+	// 替换掉 ?pwd= 或 &pwd= 为空格
+	re1 := regexp.MustCompile(`[?&]pwd=`)
+	normalized = re1.ReplaceAllString(normalized, " ")
+
+	// 替换掉提取码字样为空格
+	re2 := regexp.MustCompile(`提取码*[：:]`)
+	normalized = re2.ReplaceAllString(normalized, " ")
+
+	// 替换 http 为 https，顺便处理掉开头没用的文字
+	re3 := regexp.MustCompile(`^.*?(https?://)`)
+	normalized = re3.ReplaceAllString(normalized, "https://")
+
+	// 替换连续的空格
+	re4 := regexp.MustCompile(`\s+`)
+	normalized = re4.ReplaceAllString(normalized, " ")
+
+	return strings.TrimSpace(normalized)
+}
+
+// parseResponse 解析响应内容 - 基于Python的parse_response方法
+func (b *BaiduPanService) parseResponse(response string) ([]string, error) {
+	// 使用正则表达式提取参数
+	shareIDRegex := regexp.MustCompile(`"shareid":(\d+?),"`)
+	userIDRegex := regexp.MustCompile(`"share_uk":"(\d+?),"`)
+	fsIDRegex := regexp.MustCompile(`"fs_id":(\d+?),"`)
+	serverFilenameRegex := regexp.MustCompile(`"server_filename":"(.+?),"`)
+	isDirRegex := regexp.MustCompile(`"isdir":(\d+?),"`)
+
+	shareIDList := shareIDRegex.FindStringSubmatch(response)
+	userIDList := userIDRegex.FindStringSubmatch(response)
+	fsIDList := fsIDRegex.FindAllStringSubmatch(response, -1)
+	serverFilenameList := serverFilenameRegex.FindAllStringSubmatch(response, -1)
+	isDirList := isDirRegex.FindAllStringSubmatch(response, -1)
+
+	if len(shareIDList) < 2 || len(userIDList) < 2 || len(fsIDList) == 0 || len(serverFilenameList) == 0 || len(isDirList) == 0 {
+		return nil, fmt.Errorf("解析响应失败，错误代码：-1")
+	}
+
+	// 提取fs_ids和file_names
+	fsIDs := make([]string, 0, len(fsIDList))
+	fileNames := make([]string, 0, len(serverFilenameList))
+	isDirs := make([]string, 0, len(isDirList))
+
+	for _, match := range fsIDList {
+		if len(match) > 1 {
+			fsIDs = append(fsIDs, match[1])
+		}
+	}
+
+	for _, match := range serverFilenameList {
+		if len(match) > 1 {
+			fileNames = append(fileNames, match[1])
+		}
+	}
+
+	for _, match := range isDirList {
+		if len(match) > 1 {
+			isDirs = append(isDirs, match[1])
+		}
+	}
+
+	return []string{shareIDList[1], userIDList[1], strings.Join(fsIDs, ","), strings.Join(fileNames, ","), strings.Join(isDirs, ",")}, nil
+}
+
+// verifyLink 验证链接 - 基于Python的verify_link方法
+func (b *BaiduPanService) verifyLink(url, password string) ([]string, error) {
+	// 对于有提取码的链接先验证提取码
+	if password != "" {
+		bdclnd, err := b.verifyPassCode(url, password)
+		if err != nil {
+			return nil, err
+		}
+
+		// 如果返回的是错误代码
+		if bdclnd == "0" {
+			return nil, fmt.Errorf("提取码验证失败")
+		}
+
+		// 更新BDCLND到cookie
+		b.updateCookie(bdclnd)
+	}
+
+	// 获取转存参数
+	return b.getTransferParams(url)
+}
+
+// updateCookie 更新cookie - 基于Python的update_cookie方法
+func (b *BaiduPanService) updateCookie(bdclnd string) {
+	b.configMutex.RLock()
+	cookie := b.config.Cookie
+	b.configMutex.RUnlock()
+
+	// 拆分cookie字符串
+	cookies := make(map[string]string)
+	parts := strings.Split(cookie, ";")
+	for _, part := range parts {
+		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
+		if len(kv) == 2 {
+			cookies[kv[0]] = kv[1]
+		}
+	}
+
+	// 更新BDCLND
+	cookies["BDCLND"] = bdclnd
+
+	// 重新构建cookie
+	var newCookieParts []string
+	for k, v := range cookies {
+		newCookieParts = append(newCookieParts, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	newCookie := strings.Join(newCookieParts, ";")
+	b.SetHeader("Cookie", newCookie)
+}
+
+// extractSurl 从分享链接中提取surl - 基于Python方法
+func extractSurl(shareURL string) string {
+	re := regexp.MustCompile(`/s/([a-zA-Z0-9_-]+)`)
+	matches := re.FindStringSubmatch(shareURL)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+// ==================== 辅助方法 ====================
+
+// getDirList 获取目录文件列表 - 基于Python的get_dir_list方法
+func (b *BaiduPanService) getDirList(dirPath string) ([]map[string]interface{}, error) {
+	bdstoken, err := b.getBdstoken()
+	if err != nil {
+		return nil, err
+	}
+
+	queryParams := map[string]string{
+		"order":      "time",
+		"desc":       "1",
+		"showempty":  "0",
+		"web":        "1",
+		"page":       "1",
+		"num":        "1000",
+		"dir":        dirPath,
+		"bdstoken":   bdstoken,
+	}
+
+	respData, err := b.HTTPGet("https://pan.baidu.com/api/list", queryParams)
+	if err != nil {
+		return nil, err
+	}
+
+	var result struct {
+		Errno int                      `json:"errno"`
+		List  []map[string]interface{} `json:"list"`
+	}
+
+	if err := json.Unmarshal(respData, &result); err != nil {
+		return nil, err
+	}
+
+	if result.Errno != 0 {
+		return nil, fmt.Errorf("获取目录列表失败，错误代码：%d", result.Errno)
+	}
+
+	return result.List, nil
+}
+
+// createDirIfNotExists 确保目录存在，不存在则创建 - 基于Python的handle_create_dir方法
+func (b *BaiduPanService) createDirIfNotExists(folderName string) error {
+	result, err := b.getDirList(folderName)
+	if err == nil && result != nil {
+		return nil // 目录已存在
+	}
+
+	// 如果是错误代码数字，代表目标目录不存在
+	if err != nil {
+		returnCode := b.createDir(folderName)
+		if returnCode != nil {
+			return returnCode
+		}
+	}
+
+	return nil
+}
+
+// GetUserInfoByEntity 根据 entity.Cks 获取用户信息
+func (b *BaiduPanService) GetUserInfoByEntity(cks entity.Cks) (*UserInfo, error) {
+	cookie := cks.Ck
+	return b.GetUserInfo(&cookie)
+}
