@@ -311,10 +311,10 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 					// 只取最近的maxExcludeIDs个ID进行排除
 					startIndex := len(excludeIDs) - maxExcludeIDs
 					truncatedExcludeIDs := excludeIDs[startIndex:]
-					db = db.Where("id NOT IN ?", truncatedExcludeIDs)
+					db = db.Where("resources.id NOT IN ?", truncatedExcludeIDs)
 					utils.Debug("SearchWithFilters: 排除ID数量过多，截取最近%d个ID", len(truncatedExcludeIDs))
 				} else {
-					db = db.Where("id NOT IN ?", excludeIDs)
+					db = db.Where("resources.id NOT IN ?", excludeIDs)
 				}
 			}
 		}
