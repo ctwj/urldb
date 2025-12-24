@@ -25,19 +25,33 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/spf13/cobra"
 )
 
 func main() {
 	// 检查命令行参数
-	if len(os.Args) > 1 && os.Args[1] == "version" {
-		versionInfo := utils.GetVersionInfo()
-		fmt.Printf("版本: v%s\n", versionInfo.Version)
-		fmt.Printf("构建时间: %s\n", versionInfo.BuildTime.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Git提交: %s\n", versionInfo.GitCommit)
-		fmt.Printf("Git分支: %s\n", versionInfo.GitBranch)
-		fmt.Printf("Go版本: %s\n", versionInfo.GoVersion)
-		fmt.Printf("平台: %s/%s\n", versionInfo.Platform, versionInfo.Arch)
-		return
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "version":
+			versionInfo := utils.GetVersionInfo()
+			fmt.Printf("版本: v%s\n", versionInfo.Version)
+			fmt.Printf("构建时间: %s\n", versionInfo.BuildTime.Format("2006-01-02 15:04:05"))
+			fmt.Printf("Git提交: %s\n", versionInfo.GitCommit)
+			fmt.Printf("Git分支: %s\n", versionInfo.GitBranch)
+			fmt.Printf("Go版本: %s\n", versionInfo.GoVersion)
+			fmt.Printf("平台: %s/%s\n", versionInfo.Platform, versionInfo.Arch)
+			return
+		case "plugin":
+			// 处理插件命令
+			initPluginCommands()
+			rootCmd := &cobra.Command{Use: "urldb"}
+			rootCmd.AddCommand(pluginCmd)
+			if err := rootCmd.Execute(); err != nil {
+				utils.Error("插件命令执行失败: %v", err)
+				os.Exit(1)
+			}
+			return
+		}
 	}
 
 	// 初始化日志系统
@@ -91,6 +105,31 @@ func main() {
 
 	// 创建Repository管理器
 	repoManager := repo.NewRepositoryManager(db.DB)
+
+	// 加载插件配置
+	pluginConfig := LoadPluginConfig()
+
+	// 如果启用了插件系统，则初始化
+	if pluginConfig.Enabled {
+		// 验证配置
+		if err := ValidatePluginConfig(pluginConfig); err != nil {
+			utils.Error("插件配置验证失败: %v", err)
+		} else {
+			// 确保目录存在
+			if err := EnsureDirectories(pluginConfig); err != nil {
+				utils.Error("创建插件目录失败: %v", err)
+			} else {
+				// 初始化插件系统
+				if err := InitializePluginSystem(repoManager); err != nil {
+					utils.Error("插件系统初始化失败: %v", err)
+				} else {
+					utils.Info("插件系统启动成功")
+				}
+			}
+		}
+	} else {
+		utils.Info("插件系统已禁用")
+	}
 
 	// 创建配置管理器
 	configManager := config.NewConfigManager(repoManager)

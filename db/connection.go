@@ -111,6 +111,22 @@ func InitDB() error {
 			&entity.APIAccessLogSummary{},
 			&entity.Report{},
 			&entity.CopyrightClaim{},
+			// 插件系统相关表
+			&entity.PluginConfig{},
+			&entity.PluginLog{},
+			&entity.CustomEvent{},
+			&entity.CronJob{},
+			&entity.UserPreference{},
+			&entity.UserInterest{},
+			&entity.URLStats{},
+			&entity.AccessStats{},
+			&entity.PopularResources{},
+			&entity.DomainPattern{},
+			&entity.PathPattern{},
+			&entity.RealTimeMetrics{},
+			&entity.ClassificationStats{},
+			&entity.DailyReport{},
+			&entity.SystemHealth{},
 		)
 		if err != nil {
 			utils.Fatal("数据库迁移失败: %v", err)
@@ -176,6 +192,22 @@ func autoMigrate() error {
 		&entity.HotDrama{},
 		&entity.File{},
 		&entity.TelegramChannel{},
+		// 插件系统相关表
+		&entity.PluginConfig{},
+		&entity.PluginLog{},
+		&entity.CustomEvent{},
+		&entity.CronJob{},
+		&entity.UserPreference{},
+		&entity.UserInterest{},
+		&entity.URLStats{},
+		&entity.AccessStats{},
+		&entity.PopularResources{},
+		&entity.DomainPattern{},
+		&entity.PathPattern{},
+		&entity.RealTimeMetrics{},
+		&entity.ClassificationStats{},
+		&entity.DailyReport{},
+		&entity.SystemHealth{},
 	)
 }
 
@@ -231,7 +263,35 @@ func createIndexes(db *gorm.DB) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_task_items_created_at ON task_items(created_at DESC)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_task_items_status_created ON task_items(status, created_at)")
 
-	utils.Info("数据库索引创建完成（已移除全文搜索索引，准备使用Meilisearch，新增API访问日志性能索引，任务项表索引优化）")
+	// 创建插件系统相关索引
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_plugin_configs_plugin_name ON plugin_configs(plugin_name)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_plugin_configs_enabled ON plugin_configs(enabled)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_plugin_logs_plugin_name ON plugin_logs(plugin_name)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_plugin_logs_hook_name ON plugin_logs(hook_name)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_plugin_logs_success ON plugin_logs(success)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_custom_events_event_name ON custom_events(event_name)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_custom_events_processed ON custom_events(processed)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_cron_jobs_enabled ON cron_jobs(enabled)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_cron_jobs_next_run ON cron_jobs(next_run)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_preferences_category ON user_preferences(category)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_interests_user_id ON user_interests(user_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_user_interests_category ON user_interests(category)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_url_stats_domain ON url_stats(domain)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_url_stats_category ON url_stats(category)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_access_stats_url_id ON access_stats(url_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_access_stats_user_id ON access_stats(user_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_access_stats_access_time ON access_stats(access_time)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_popular_resources_access_count ON popular_resources(access_count DESC)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_domain_pattern_count ON domain_patterns(count DESC)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_path_pattern_count ON path_patterns(count DESC)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_real_time_metrics_metric ON real_time_metrics(metric)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_real_time_metrics_timestamp ON real_time_metrics(timestamp)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_classification_stats_category ON classification_stats(category)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_daily_reports_type ON daily_reports(type)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_system_health_status ON system_health(status)")
+
+	utils.Info("数据库索引创建完成（已移除全文搜索索引，准备使用Meilisearch，新增API访问日志性能索引，任务项表索引优化，插件系统索引）")
 }
 
 // insertDefaultDataIfEmpty 只在数据库为空时插入默认数据
