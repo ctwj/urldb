@@ -24,6 +24,9 @@ type RepositoryManager struct {
 	APIAccessLogRepository    APIAccessLogRepository
 	ReportRepository          ReportRepository
 	CopyrightClaimRepository  CopyrightClaimRepository
+	PluginConfigRepository    *PluginConfigRepository
+	PluginLogRepository       *PluginLogRepository
+	CronJobRepository         *CronJobRepository
 }
 
 // NewRepositoryManager 创建Repository管理器
@@ -47,5 +50,8 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		APIAccessLogRepository:    NewAPIAccessLogRepository(db),
 		ReportRepository:          NewReportRepository(db),
 		CopyrightClaimRepository:  NewCopyrightClaimRepository(db),
+		PluginConfigRepository:    NewPluginConfigRepository(db),
+		PluginLogRepository:       NewPluginLogRepository(db),
+		CronJobRepository:         NewCronJobRepository(db),
 	}
 }

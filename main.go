@@ -17,6 +17,7 @@ import (
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
 	"github.com/ctwj/urldb/monitor"
+	"github.com/ctwj/urldb/routes"
 	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/task"
@@ -616,6 +617,9 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 			api.GET("/bing/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), bingHandler.GetBingIndexConfig)
 			api.POST("/bing/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), bingHandler.UpdateBingIndexConfig)
 		}
+
+		// 插件管理API
+		routes.SetupPluginRoutes(r, repoManager)
 	}
 
 	// 设置监控系统
