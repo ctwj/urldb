@@ -1,8 +1,19 @@
+// Package jsvm implements pluggable utilities for binding a JS goja runtime
+// to the PocketBase instance (loading migrations, attaching to app hooks, etc.).
+//
+// Example:
+//
+//	jsvm.MustRegister(app, jsvm.Config{
+//		HooksWatch: true,
+//	})
 package jsvm
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,8 +29,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/fsnotify/fsnotify"
 	"github.com/ctwj/urldb/core"
-	"github.com/ctwj/urldb/db/entity"
-	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
 )
 
@@ -50,9 +59,6 @@ type Config struct {
 	// attach custom Go variables and functions.
 	OnInit func(vm *goja.Runtime)
 
-	// RouteRegister is a function to register custom routes from plugins
-	RouteRegister func(method, path string, handler func() (interface{}, error)) error
-
 	// HooksWatch enables auto app restarts when a JS app hook file changes.
 	//
 	// Note that currently the application cannot be automatically restarted on Windows
@@ -61,14 +67,14 @@ type Config struct {
 
 	// HooksDir specifies the JS app hooks directory.
 	//
-	// If not set it fallbacks to a relative "./hooks" directory.
+	// If not set it fallbacks to a relative "pb_data/../pb_hooks" directory.
 	HooksDir string
 
 	// HooksFilesPattern specifies a regular expression pattern that
 	// identify which file to load by the hook vm(s).
 	//
-	// If not set it fallbacks to `^.*(\.plugin\.js|\.plugin\.ts)$`, aka. any
-	// HooksDir file ending in ".plugin.js" or ".plugin.ts" (the last one is to enforce IDE linters).
+	// If not set it fallbacks to `^.*(\.pb\.js|\.pb\.ts)$`, aka. any
+	// HookdsDir file ending in ".pb.js" or ".pb.ts" (the last one is to enforce IDE linters).
 	HooksFilesPattern string
 
 	// HooksPoolSize specifies how many goja.Runtime instances to prewarm
@@ -80,7 +86,7 @@ type Config struct {
 
 	// MigrationsDir specifies the JS migrations directory.
 	//
-	// If not set it fallbacks to a relative "./migrations" directory.
+	// If not set it fallbacks to a relative "pb_data/../pb_migrations" directory.
 	MigrationsDir string
 
 	// If not set it fallbacks to `^.*(\.js|\.ts)$`, aka. any MigrationDir file
@@ -90,7 +96,7 @@ type Config struct {
 	// TypesDir specifies the directory where to store the embedded
 	// TypeScript declarations file.
 	//
-	// If not set it fallbacks to ".".
+	// If not set it fallbacks to "pb_data".
 	//
 	// Note: Avoid using the same directory as the HooksDir when HooksWatch is enabled
 	// to prevent unnecessary app restarts when the types file is initially created.
@@ -116,12 +122,7 @@ func MustRegister(app core.App, config Config) {
 
 // Register registers the jsvm plugin in the provided app instance.
 func Register(app core.App, config Config) error {
-	return RegisterWithRepo(app, config, nil)
-}
-
-// RegisterWithRepo registers the jsvm plugin in the provided app instance with repository manager.
-func RegisterWithRepo(app core.App, config Config, repoManager interface{}) error {
-	p := &plugin{app: app, config: config, repoManager: repoManager}
+	p := &plugin{app: app, config: config}
 
 	if p.config.HooksDir == "" {
 		p.config.HooksDir = filepath.Join(".", "hooks")
@@ -140,7 +141,7 @@ func RegisterWithRepo(app core.App, config Config, repoManager interface{}) erro
 	}
 
 	if p.config.TypesDir == "" {
-		p.config.TypesDir = "."
+		p.config.TypesDir = app.DataDir()
 	}
 
 	p.app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
@@ -170,9 +171,8 @@ func RegisterWithRepo(app core.App, config Config, repoManager interface{}) erro
 }
 
 type plugin struct {
-	app         core.App
-	config      Config
-	repoManager interface{} // RepositoryManager interface
+	app    core.App
+	config Config
 }
 
 // registerMigrations registers the JS migrations loader.
@@ -189,6 +189,7 @@ func (p *plugin) registerMigrations() error {
 	}
 
 	registry := new(require.Registry) // this can be shared by multiple runtimes
+	templateRegistry := template.NewRegistry()
 
 	for file, content := range files {
 		vm := goja.New()
@@ -208,11 +209,11 @@ func (p *plugin) registerMigrations() error {
 		formsBinds(vm)
 		mailsBinds(vm)
 
+		vm.Set("$template", templateRegistry)
 		vm.Set("__hooks", absHooksDir)
 
 		vm.Set("migrate", func(up, down func(txApp core.App) error) {
-			// TODO: 实现迁移注册
-			utils.Info("Migration registered: %s", file)
+			core.AppMigrations.Register(up, down, file)
 		})
 
 		if p.config.OnInit != nil {
@@ -271,12 +272,14 @@ func (p *plugin) registerHooks() error {
 	}
 
 	p.app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		// 简化实现，暂时不绑定异常处理器
+		e.Router.BindFunc(p.normalizeServeExceptions)
+
 		return e.Next()
 	})
 
 	// safe to be shared across multiple vms
 	requireRegistry := new(require.Registry)
+	templateRegistry := template.NewRegistry()
 
 	sharedBinds := func(vm *goja.Runtime) {
 		requireRegistry.Enable(vm)
@@ -296,6 +299,7 @@ func (p *plugin) registerHooks() error {
 		mailsBinds(vm)
 
 		vm.Set("$app", p.app)
+		vm.Set("$template", templateRegistry)
 		vm.Set("__hooks", absHooksDir)
 
 		if p.config.OnInit != nil {
@@ -315,39 +319,25 @@ func (p *plugin) registerHooks() error {
 	sharedBinds(loader)
 	hooksBinds(p.app, loader, executors)
 	cronBinds(p.app, loader, executors)
-	routerBinds(p.app, loader, executors, p.config.RouteRegister)
+	routerBinds(p.app, loader, executors)
 
 	for file, content := range files {
 		func() {
-			startTime := time.Now()
-			var execErr error
-
 			defer func() {
 				if err := recover(); err != nil {
-					execErr = fmt.Errorf("failed to execute %s:\n - %v", file, err)
-
-					// 记录插件执行日志到数据库
-					if logErr := p.recordPluginLog(file, "load", startTime, false, execErr.Error()); logErr != nil {
-						utils.Error("Failed to record plugin execution log: %v", logErr)
-					}
+					fmtErr := fmt.Errorf("failed to execute %s:\n - %v", file, err)
 
 					if p.config.HooksWatch {
-						color.Red("%v", execErr)
+						color.Red("%v", fmtErr)
 					} else {
-						panic(execErr)
+						panic(fmtErr)
 					}
 				}
 			}()
 
 			_, err := loader.RunScript(defaultScriptPath, string(content))
 			if err != nil {
-				execErr = err
 				panic(err)
-			}
-
-			// 记录插件成功执行日志到数据库
-			if logErr := p.recordPluginLog(file, "load", startTime, true, ""); logErr != nil {
-				utils.Error("Failed to record plugin execution log: %v", logErr)
 			}
 		}()
 	}
@@ -358,9 +348,14 @@ func (p *plugin) registerHooks() error {
 // normalizeExceptions registers a global error handler that
 // wraps the extracted goja exception error value for consistency
 // when throwing or returning errors.
-func (p *plugin) normalizeServeExceptions(e interface{}) error {
-	// 简化实现，直接返回
-	return nil
+func (p *plugin) normalizeServeExceptions(e *core.RequestEvent) error {
+	err := e.Next()
+
+	if err == nil || e.Written() {
+		return err // no error or already committed
+	}
+
+	return normalizeException(err)
 }
 
 // watchHooks initializes a hooks file watcher that will restart the
@@ -372,7 +367,7 @@ func (p *plugin) watchHooks() error {
 
 	hooksDirInfo, err := os.Lstat(p.config.HooksDir)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil // no hooks dir to watch
 		}
 		return err
@@ -443,7 +438,7 @@ func (p *plugin) watchHooks() error {
 	// add directories to watch
 	//
 	// @todo replace once recursive watcher is added (https://github.com/fsnotify/fsnotify/issues/18)
-	dirsErr := filepath.WalkDir(watchDir, func(path string, entry os.DirEntry, err error) error {
+	dirsErr := filepath.WalkDir(watchDir, func(path string, entry fs.DirEntry, err error) error {
 		// ignore hidden directories, node_modules, symlinks, sockets, etc.
 		if !entry.IsDir() || entry.Name() == "node_modules" || strings.HasPrefix(entry.Name(), ".") {
 			return nil
@@ -489,87 +484,26 @@ func (p *plugin) refreshTypesFile() error {
 		return err
 	}
 
-	// Basic TypeScript definitions for urldb
-	typesContent := `// URLDB Plugin System TypeScript Definitions
-
-declare global {
-  // 应用接口
-  interface App {
-  }
-
-  // URL 模型
-  interface URL {
-    id: string;
-    url: string;
-    title: string;
-    category: string;
-    tags: string[];
-    createdAt: Date;
-    updatedAt: Date;
-  }
-
-  // 用户模型
-  interface User {
-    id: string;
-    username: string;
-    email: string;
-    createdAt: Date;
-  }
-
-  // 钩子事件
-  interface URLEvent {
-    app: App;
-    url: URL;
-    data: Record<string, any>;
-    next(): void;
-  }
-
-  interface UserEvent {
-    app: App;
-    user: User;
-    data: Record<string, any>;
-    next(): void;
-  }
-
-  interface APIEvent {
-    app: App;
-    request: any;
-    path: string;
-    method: string;
-    headers: Record<string, string>;
-    body: any;
-    next(): void;
-  }
-}
-
-// 钩子函数声明
-declare function onURLAdd(handler: (e: URLEvent) => void): void;
-declare function onURLAccess(handler: (e: URLEvent) => void): void;
-declare function onUserLogin(handler: (e: UserEvent) => void): void;
-declare function onAPIRequest(handler: (e: APIEvent) => void): void;
-
-// 路由函数声明
-declare function routerAdd(method: string, path: string, handler: (ctx: any) => void): void;
-
-// 定时任务函数声明
-declare function cronAdd(name: string, schedule: string, handler: () => void): void;
-
-// 全局变量
-declare const $app: App;
-declare const __hooks: string;
-
-export {};
-`
+	// retrieve the types data to write
+	data, err := generated.Types.ReadFile(typesFileName)
+	if err != nil {
+		return err
+	}
 
 	// read the first timestamp line of the old file (if exists) and compare it to the embedded one
 	// (note: ignore errors to allow always overwriting the file if it is invalid)
 	existingFile, err := os.Open(fullPath)
 	if err == nil {
-		// For simplicity, always overwrite the file
+		timestamp := make([]byte, 13)
+		io.ReadFull(existingFile, timestamp)
 		existingFile.Close()
+
+		if len(data) >= len(timestamp) && bytes.Equal(data[:13], timestamp) {
+			return nil // nothing new to save
+		}
 	}
 
-	return os.WriteFile(fullPath, []byte(typesContent), 0644)
+	return os.WriteFile(fullPath, data, 0644)
 }
 
 // prependToEmptyFile prepends the specified text to an empty file.
@@ -594,7 +528,7 @@ func prependToEmptyFile(path, text string) error {
 func filesContent(dirPath string, pattern string) (map[string][]byte, error) {
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return map[string][]byte{}, nil
 		}
 		return nil, err
@@ -624,68 +558,4 @@ func filesContent(dirPath string, pattern string) (map[string][]byte, error) {
 	}
 
 	return result, nil
-}
-
-// recordPluginLog 记录插件执行日志到数据库
-func (p *plugin) recordPluginLog(pluginName, hookName string, startTime time.Time, success bool, errorMessage string) error {
-	// 计算执行时间
-	executionTime := time.Since(startTime).Milliseconds()
-
-	// 获取插件名称（去掉扩展名）
-	name := pluginName
-	if strings.HasSuffix(name, ".plugin.js") {
-		name = strings.TrimSuffix(name, ".plugin.js")
-	} else if strings.HasSuffix(name, ".plugin.ts") {
-		name = strings.TrimSuffix(name, ".plugin.ts")
-	}
-
-	// 创建插件日志记录
-	log := &entity.PluginLog{
-		PluginName:    name,
-		HookName:      hookName,
-		ExecutionTime: int(executionTime),
-		Success:       success,
-	}
-
-	if !success && errorMessage != "" {
-		log.ErrorMessage = &errorMessage
-	}
-
-	// 尝试记录到数据库
-	if p.repoManager != nil {
-		// 使用类型断言访问 RepositoryManager
-		if repoMgr, ok := p.repoManager.(interface {
-			GetPluginLogRepository() *repo.PluginLogRepository
-		}); ok {
-			if pluginLogRepo := repoMgr.GetPluginLogRepository(); pluginLogRepo != nil {
-				if err := pluginLogRepo.CreateLog(log); err != nil {
-					utils.Error("Failed to save plugin log to database: %v", err)
-					// 如果数据库记录失败，仍然记录到系统日志
-				} else {
-					// 数据库记录成功，也记录到系统日志用于调试
-					if success {
-						utils.Info("Plugin '%s' executed successfully (%s) in %dms (logged to db)", name, hookName, executionTime)
-					} else {
-						utils.Error("Plugin '%s' execution failed (%s): %s (logged to db)", name, hookName, errorMessage)
-					}
-					return nil
-				}
-			}
-		}
-	}
-
-	// 如果无法访问数据库或记录失败，记录到系统日志
-	if success {
-		utils.Info("Plugin '%s' executed successfully (%s) in %dms", name, hookName, executionTime)
-	} else {
-		utils.Error("Plugin '%s' execution failed (%s): %s", name, hookName, errorMessage)
-	}
-
-	return nil
-}
-
-// normalizeException normalizes goja exceptions for consistent error handling.
-func normalizeException(err error) error {
-	// Simple implementation - in real PocketBase this would be more sophisticated
-	return err
 }

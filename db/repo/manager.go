@@ -55,3 +55,8 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		CronJobRepository:         NewCronJobRepository(db),
 	}
 }
+
+// GetPluginLogRepository 获取插件日志仓库
+func (rm *RepositoryManager) GetPluginLogRepository() *PluginLogRepository {
+	return rm.PluginLogRepository
+}

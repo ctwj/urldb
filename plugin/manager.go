@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"github.com/dop251/goja"
 	"github.com/ctwj/urldb/core"
 	"github.com/ctwj/urldb/plugin/jsvm"
 )
@@ -22,6 +23,11 @@ func (m *Manager) RegisterJSVM(config jsvm.Config) error {
 	return jsvm.Register(m.app, config)
 }
 
+// RegisterJSVMWithRepo 注册 JavaScript 虚拟机插件（带RepositoryManager）
+func (m *Manager) RegisterJSVMWithRepo(config jsvm.Config, repoManager interface{}) error {
+	return jsvm.RegisterWithRepo(m.app, config, repoManager)
+}
+
 // RegisterJSVMDefault 注册默认配置的 JSVM 插件
 func (m *Manager) RegisterJSVMDefault() error {
 	config := jsvm.Config{
@@ -33,7 +39,7 @@ func (m *Manager) RegisterJSVMDefault() error {
 }
 
 // defaultOnInit 默认的 VM 初始化回调
-func (m *Manager) defaultOnInit(vm interface{}) {
+func (m *Manager) defaultOnInit(vm *goja.Runtime) {
 	// 可以在这里添加自定义的全局变量或函数
 	// 例如：vm.Set("version", "1.0.0")
 }

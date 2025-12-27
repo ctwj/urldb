@@ -26,7 +26,7 @@ func (p *PluginUtils) CreatePluginTemplate(pluginName, pluginType string) error 
 	switch pluginType {
 	case "hook":
 		template = p.generateHookTemplate(pluginName)
-		filename = filepath.Join("./hooks", pluginName+".pb.js")
+		filename = filepath.Join("./hooks", pluginName+".plugin.js")
 	case "migration":
 		template = p.generateMigrationTemplate(pluginName)
 		filename = filepath.Join("./migrations", pluginName+".js")
@@ -147,7 +147,7 @@ migrate(
 // ListPlugins 列出所有插件文件
 func (p *PluginUtils) ListPlugins() error {
 	utils.Info("=== 钩子文件 ===")
-	if err := p.listFilesInDir("./hooks", "*.pb.js"); err != nil {
+	if err := p.listFilesInDir("./hooks", "*.plugin.js"); err != nil {
 		return err
 	}
 
@@ -226,7 +226,7 @@ func (p *PluginUtils) GetPluginStats() map[string]interface{} {
 
 	// 统计钩子文件
 	hooksDir := "./hooks"
-	hooksCount := p.countFiles(hooksDir, "*.pb.js")
+	hooksCount := p.countFiles(hooksDir, "*.plugin.js")
 	stats["hooks_count"] = hooksCount
 
 	// 统计迁移文件
@@ -259,7 +259,7 @@ func (p *PluginUtils) countFiles(dir, pattern string) int {
 	for _, file := range files {
 		if !file.IsDir() {
 			// 简单的模式匹配
-			if pattern == "*.pb.js" && len(file.Name()) > 6 && file.Name()[len(file.Name())-6:] == ".pb.js" {
+			if pattern == "*.plugin.js" && len(file.Name()) > 10 && file.Name()[len(file.Name())-10:] == ".plugin.js" {
 				count++
 			} else if pattern == "*.js" && len(file.Name()) > 3 && file.Name()[len(file.Name())-3:] == ".js" {
 				count++

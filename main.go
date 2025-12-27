@@ -107,31 +107,6 @@ func main() {
 	// 创建Repository管理器
 	repoManager := repo.NewRepositoryManager(db.DB)
 
-	// 加载插件配置
-	pluginConfig := LoadPluginConfig()
-
-	// 如果启用了插件系统，则初始化
-	if pluginConfig.Enabled {
-		// 验证配置
-		if err := ValidatePluginConfig(pluginConfig); err != nil {
-			utils.Error("插件配置验证失败: %v", err)
-		} else {
-			// 确保目录存在
-			if err := EnsureDirectories(pluginConfig); err != nil {
-				utils.Error("创建插件目录失败: %v", err)
-			} else {
-				// 初始化插件系统
-				if err := InitializePluginSystem(repoManager); err != nil {
-					utils.Error("插件系统初始化失败: %v", err)
-				} else {
-					utils.Info("插件系统启动成功")
-				}
-			}
-		}
-	} else {
-		utils.Info("插件系统已禁用")
-	}
-
 	// 创建配置管理器
 	configManager := config.NewConfigManager(repoManager)
 
@@ -196,6 +171,36 @@ func main() {
 
 	// 将Repository管理器注入到handlers中
 	handlers.SetRepositoryManager(repoManager)
+
+	// 加载插件配置并初始化插件系统
+	pluginConfig := LoadPluginConfig()
+
+	// 如果启用了插件系统，则初始化
+	if pluginConfig.Enabled {
+		// 验证配置
+		if err := ValidatePluginConfig(pluginConfig); err != nil {
+			utils.Error("插件配置验证失败: %v", err)
+		} else {
+			// 确保目录存在
+			if err := EnsureDirectories(pluginConfig); err != nil {
+				utils.Error("创建插件目录失败: %v", err)
+			} else {
+				// 初始化插件系统
+				if err := InitializePluginSystem(repoManager); err != nil {
+					utils.Error("插件系统初始化失败: %v", err)
+				} else {
+					utils.Info("插件系统启动成功")
+					// 设置路由器到插件系统
+					if globalPluginIntegration != nil {
+						globalPluginIntegration.SetRouter(r)
+						utils.Info("插件路由器已设置")
+					}
+				}
+			}
+		}
+	} else {
+		utils.Info("插件系统已禁用")
+	}
 
 	// 将Repository管理器注入到services中
 	services.SetRepositoryManager(repoManager)

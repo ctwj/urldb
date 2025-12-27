@@ -237,16 +237,72 @@ const configPresets = ref({
 })
 
 // 方法
+const generateDefaultConfig = (configFields) => {
+  const defaultConfig = {}
+
+  for (const [fieldName, fieldConfig] of Object.entries(configFields)) {
+    if (fieldConfig.default !== undefined && fieldConfig.default !== null) {
+      defaultConfig[fieldName] = fieldConfig.default
+    } else {
+      // 根据字段类型设置默认值
+      switch (fieldConfig.type) {
+        case 'boolean':
+          defaultConfig[fieldName] = false
+          break
+        case 'number':
+          defaultConfig[fieldName] = 0
+          break
+        case 'string':
+        case 'text':
+          defaultConfig[fieldName] = ''
+          break
+        case 'select':
+          defaultConfig[fieldName] = fieldConfig.options ? fieldConfig.options[0] : ''
+          break
+        default:
+          defaultConfig[fieldName] = null
+      }
+    }
+  }
+
+  return defaultConfig
+}
+
 const loadConfig = async () => {
   try {
+    console.log('🔍 开始加载配置:', props.plugin.name)
     const response = await $fetch(`/api/plugins/${props.plugin.name}`)
-    if (response.success && response.data.plugin.config) {
-      const config = response.data.plugin.config
+    console.log('📥 API响应:', response)
+
+    if (response.success && response.data.plugin) {
+      let config = response.data.plugin.config
+      console.log('🔧 原始配置:', config)
+
+      // 强制显示调试信息
+      alert(`调试信息:\n原始配置: ${JSON.stringify(config, null, 2)}\ncustom_message: ${config?.custom_message || 'undefined'}`)
+
+      // 如果配置为空对象或null，使用默认配置
+      if (!config || Object.keys(config).length === 0) {
+        console.log('⚠️ 配置为空，生成默认配置')
+        alert('配置被判断为空，使用默认配置')
+        // 根据插件的配置字段生成默认配置
+        const configFields = response.data.plugin.config_fields || {}
+        config = generateDefaultConfig(configFields)
+        console.log('🔧 生成的默认配置:', config)
+      } else {
+        console.log('✅ 使用数据库配置')
+        alert('使用数据库配置')
+      }
+
+      console.log('🎯 最终配置:', config)
       configText.value = JSON.stringify(config, null, 2)
       originalConfig.value = configText.value
       parsedConfig.value = config
       validateConfig()
+      console.log('📝 配置已设置到界面')
     } else {
+      console.log('❌ API响应失败，使用硬编码默认配置')
+      alert('API响应失败')
       // 使用默认配置
       const defaultConfig = {
         enabled: true,
@@ -258,6 +314,8 @@ const loadConfig = async () => {
       isValid.value = true
     }
   } catch (error) {
+    console.error('💥 加载配置异常:', error)
+    alert('加载配置异常: ' + error.message)
     toast.error('加载配置失败: ' + error.message)
   }
 }
@@ -335,6 +393,9 @@ const saveConfig = async () => {
 
 // 生命周期
 onMounted(() => {
+  console.log('🚀 PluginConfigModal 组件已加载')
+  console.log('🔧 插件名称:', props.plugin.name)
+  alert(`PluginConfigModal 已加载!\n插件: ${props.plugin.name}\n即将加载配置...`)
   loadConfig()
 })
 

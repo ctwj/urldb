@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * test_hook 钩子
- * 创建时间: 2025-12-24 22:29:08
+ * url_classifier 钩子
+ * 创建时间: 2025-12-25 23:22:23
  */
 
 // 示例：监听 URL 添加事件
@@ -26,15 +26,15 @@ onUserLogin((e) => {
 });
 
 // 示例：添加自定义路由
-routerAdd("GET", "/api/custom", (e) => {
+routerAdd("GET", "/api/url-classifier", (e) => {
     return e.json(200, {
-        message: "来自 test_hook 插件的自定义 API",
+        message: "来自 url_classifier 插件的自定义 API",
         timestamp: new Date().toISOString()
     });
 });
 
 // 示例：添加定时任务
-cronAdd("test_hook_task", "0 */6 * * *", () => {
-    console.log("执行定时任务: test_hook");
+cronAdd("url_classifier_task", "0 */6 * * *", () => {
+    console.log("执行定时任务: url_classifier");
     // 在这里添加定时任务逻辑
 });

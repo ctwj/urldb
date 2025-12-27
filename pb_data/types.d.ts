@@ -62,4 +62,8 @@ declare function routerAdd(method: string, path: string, handler: (ctx: any) => 
 // 定时任务函数声明
 declare function cronAdd(name: string, schedule: string, handler: () => void): void;
 
+// 全局变量
+declare const $app: App;
+declare const __hooks: string;
+
 export {};

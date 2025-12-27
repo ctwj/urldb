@@ -51,7 +51,7 @@ var validateCmd = &cobra.Command{
 	Long: `验证插件文件的格式和内容
 
 示例:
-  urldb plugin validate ./hooks/my_hook.pb.js`,
+  urldb plugin validate ./hooks/my_hook.plugin.js`,
 	Args: cobra.ExactArgs(1),
 	Run:  runValidatePlugin,
 }
@@ -91,7 +91,7 @@ func runCreatePlugin(cmd *cobra.Command, args []string) {
 			"migration": "./migrations",
 		}[pluginType],
 		pluginName+map[string]string{
-			"hook":      ".pb.js",
+			"hook":      ".plugin.js",
 			"migration": ".js",
 		}[pluginType],
 	))

@@ -152,9 +152,23 @@ func InitDB() error {
 
 // shouldRunMigration 检查是否需要运行数据库迁移
 func shouldRunMigration() bool {
-	// 通过环境变量控制是否运行迁移
+	// 优先检查新的 MIGRATE 配置
+	migrate := os.Getenv("MIGRATE")
+	if migrate == "false" {
+		utils.Info("MIGRATE=false，跳过数据库迁移")
+		return false
+	}
+
+	// 如果明确设置 MIGRATE=true，则执行迁移
+	if migrate == "true" {
+		utils.Info("MIGRATE=true，执行数据库迁移")
+		return true
+	}
+
+	// 兼容旧的 SKIP_MIGRATION 配置
 	skipMigration := os.Getenv("SKIP_MIGRATION")
 	if skipMigration == "true" {
+		utils.Info("SKIP_MIGRATION=true，跳过数据库迁移")
 		return false
 	}
 
@@ -166,13 +180,16 @@ func shouldRunMigration() bool {
 		DB.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'schema_migrations'").Count(&count)
 		if count == 0 {
 			// 没有迁移表，说明是首次部署
+			utils.Info("生产环境首次部署，执行数据库迁移")
 			return true
 		}
 		// 有迁移表，检查是否需要迁移（这里可以添加更复杂的逻辑）
+		utils.Info("生产环境已有迁移表，跳过数据库迁移")
 		return false
 	}
 
 	// 开发环境：总是运行迁移
+	utils.Info("开发环境，执行数据库迁移")
 	return true
 }
 

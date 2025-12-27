@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * notification_center 钩子
- * 创建时间: 2025-12-25 23:23:19
+ * test_demo 钩子
+ * 创建时间: 2025-12-25 08:16:09
  */
 
 // 示例：监听 URL 添加事件
@@ -26,15 +26,15 @@ onUserLogin((e) => {
 });
 
 // 示例：添加自定义路由
-routerAdd("GET", "/api/custom", (e) => {
+routerAdd("GET", "/api/test-demo", (e) => {
     return e.json(200, {
-        message: "来自 notification_center 插件的自定义 API",
+        message: "来自 test_demo 插件的自定义 API",
         timestamp: new Date().toISOString()
     });
 });
 
 // 示例：添加定时任务
-cronAdd("notification_center_task", "0 */6 * * *", () => {
-    console.log("执行定时任务: notification_center");
+cronAdd("test_demo_task", "0 */6 * * *", () => {
+    console.log("执行定时任务: test_demo");
     // 在这里添加定时任务逻辑
 });
