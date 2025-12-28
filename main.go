@@ -17,6 +17,7 @@ import (
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
 	"github.com/ctwj/urldb/monitor"
+	"github.com/ctwj/urldb/plugin"
 	"github.com/ctwj/urldb/routes"
 	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/services"
@@ -125,6 +126,22 @@ func main() {
 	transferProcessor := task.NewTransferProcessor(repoManager)
 	taskManager.RegisterProcessor(transferProcessor)
 
+	// 初始化插件系统
+	if err := InitializePluginSystem(repoManager); err != nil {
+		utils.Error("插件系统初始化失败: %v", err)
+	} else {
+		utils.Info("插件系统启动成功")
+	}
+
+	// 创建插件管理器
+	var pluginManager *plugin.Manager
+	if globalPluginIntegration != nil {
+		pluginManager = globalPluginIntegration.pluginManager
+	} else {
+		pluginManager = plugin.NewManager(nil)
+		pluginManager.SetRepoManager(repoManager)
+	}
+
 	// 注册扩容任务处理器
 	expansionProcessor := task.NewExpansionProcessor(repoManager)
 	taskManager.RegisterProcessor(expansionProcessor)
@@ -175,31 +192,10 @@ func main() {
 	// 加载插件配置并初始化插件系统
 	pluginConfig := LoadPluginConfig()
 
-	// 如果启用了插件系统，则初始化
-	if pluginConfig.Enabled {
-		// 验证配置
-		if err := ValidatePluginConfig(pluginConfig); err != nil {
-			utils.Error("插件配置验证失败: %v", err)
-		} else {
-			// 确保目录存在
-			if err := EnsureDirectories(pluginConfig); err != nil {
-				utils.Error("创建插件目录失败: %v", err)
-			} else {
-				// 初始化插件系统
-				if err := InitializePluginSystem(repoManager); err != nil {
-					utils.Error("插件系统初始化失败: %v", err)
-				} else {
-					utils.Info("插件系统启动成功")
-					// 设置路由器到插件系统
-					if globalPluginIntegration != nil {
-						globalPluginIntegration.SetRouter(r)
-						utils.Info("插件路由器已设置")
-					}
-				}
-			}
-		}
-	} else {
-		utils.Info("插件系统已禁用")
+	// 如果启用了插件系统，则设置路由器
+	if pluginConfig.Enabled && globalPluginIntegration != nil {
+		globalPluginIntegration.SetRouter(r)
+		utils.Info("插件路由器已设置")
 	}
 
 	// 将Repository管理器注入到services中
@@ -624,7 +620,7 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 		}
 
 		// 插件管理API
-		routes.SetupPluginRoutes(r, repoManager)
+		routes.SetupPluginRoutes(r, repoManager, pluginManager)
 	}
 
 	// 设置监控系统

@@ -3,12 +3,33 @@ package jsvm
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/robfig/cron/v3"
 	"github.com/ctwj/urldb/core"
+	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
 )
+
+// 全局cron调度器管理
+type cronManager struct {
+	scheduler *cron.Cron
+	jobs      map[string]cron.EntryID
+	jobsMux   sync.RWMutex
+}
+
+var globalCronManager = &cronManager{
+	scheduler: cron.New(),
+	jobs:      make(map[string]cron.EntryID),
+}
+
+// 初始化cron调度器
+func init() {
+	globalCronManager.scheduler.Start()
+}
 
 // baseBinds 基础API绑定
 func baseBinds(vm *goja.Runtime) {
@@ -273,12 +294,44 @@ func hooksBinds(app core.App, vm *goja.Runtime, executors *vmsPool) {
 }
 
 // cronBinds 定时任务绑定
-func cronBinds(app core.App, vm *goja.Runtime, executors *vmsPool) {
+func cronBinds(app core.App, vm *goja.Runtime, executors *vmsPool, repoManager *repo.RepositoryManager) {
 	vm.Set("cron", map[string]interface{}{
 		"add": func(name, schedule string, handler goja.Value) error {
-			if _, ok := goja.AssertFunction(handler); ok {
-				// TODO: 实现定时任务注册
-				utils.Info("Cron job registered: %s (%s)", name, schedule)
+			if fn, ok := goja.AssertFunction(handler); ok {
+				// 实际添加到cron调度器
+				globalCronManager.jobsMux.Lock()
+				defer globalCronManager.jobsMux.Unlock()
+
+				// 如果同名任务已存在，先移除
+				if entryID, exists := globalCronManager.jobs[name]; exists {
+					globalCronManager.scheduler.Remove(entryID)
+					delete(globalCronManager.jobs, name)
+					utils.Info("Removed existing cron job: %s", name)
+				}
+
+				// 创建包装函数，从池中获取VM实例
+				wrappedFunc := func() {
+					executor := executors.Get()
+					defer executors.Put(executor)
+
+					_, err := fn(goja.Undefined())
+					if err != nil {
+						utils.Error("Cron job '%s' execution error: %v", name, err)
+					} else {
+						utils.Info("Cron job '%s' executed successfully", name)
+					}
+				}
+
+				// 添加到调度器
+				entryID, err := globalCronManager.scheduler.AddFunc(schedule, wrappedFunc)
+				if err != nil {
+					utils.Error("Failed to add cron job '%s': %v", name, err)
+					return err
+				}
+
+				// 保存任务ID
+				globalCronManager.jobs[name] = entryID
+				utils.Info("Cron job registered and started: %s (%s)", name, schedule)
 			}
 			return nil
 		},
@@ -286,10 +339,127 @@ func cronBinds(app core.App, vm *goja.Runtime, executors *vmsPool) {
 
 	// 为了兼容性，直接注册 cronAdd 函数
 	vm.Set("cronAdd", func(name, schedule string, handler goja.Value) error {
-		if _, ok := goja.AssertFunction(handler); ok {
-			// TODO: 实现定时任务注册
-			utils.Info("Cron job registered: %s (%s)", name, schedule)
+		if fn, ok := goja.AssertFunction(handler); ok {
+			// 实际添加到cron调度器
+			globalCronManager.jobsMux.Lock()
+			defer globalCronManager.jobsMux.Unlock()
+
+			// 如果同名任务已存在，先移除
+			if entryID, exists := globalCronManager.jobs[name]; exists {
+				globalCronManager.scheduler.Remove(entryID)
+				delete(globalCronManager.jobs, name)
+				utils.Info("Removed existing cron job: %s", name)
+			}
+
+			// 创建包装函数，从池中获取VM实例
+			wrappedFunc := func() {
+				// 添加panic恢复机制，防止整个程序崩溃
+				defer func() {
+					if r := recover(); r != nil {
+						utils.Error("Cron job '%s' panicked: %v", name, r)
+						utils.Error("Stack trace: %v", r)
+						// 不要重新panic，只是记录错误
+					}
+				}()
+
+				// 检查插件是否启用
+				pluginName := extractPluginNameFromCronJob(name)
+				if repoManager != nil && pluginName != "" {
+					if config, err := repoManager.PluginConfigRepository.GetConfig(pluginName); err == nil && config != nil && !config.Enabled {
+						utils.Debug("Cron job '%s' skipped: plugin '%s' is disabled", name, pluginName)
+						return
+					}
+				}
+
+				executor := executors.Get()
+				defer executors.Put(executor)
+
+				// 再次保护，防止VM调用时出错
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							utils.Error("Cron job '%s' VM execution panicked: %v", name, r)
+						}
+					}()
+
+					_, err := fn(goja.Undefined())
+					if err != nil {
+						utils.Error("Cron job '%s' execution error: %v", name, err)
+					} else {
+						utils.Info("Cron job '%s' executed successfully", name)
+					}
+				}()
+			}
+
+			// 添加到调度器
+			entryID, err := globalCronManager.scheduler.AddFunc(schedule, wrappedFunc)
+			if err != nil {
+				utils.Error("Failed to add cron job '%s': %v", name, err)
+				return err
+			}
+
+			// 保存任务ID
+			globalCronManager.jobs[name] = entryID
+			utils.Info("Cron job registered and started: %s (%s)", name, schedule)
 		}
+		return nil
+	})
+}
+
+// configBinds 配置相关绑定
+func configBinds(vm *goja.Runtime, repoManager *repo.RepositoryManager) {
+	// 获取插件配置函数
+	vm.Set("getPluginConfig", func(pluginName string) goja.Value {
+		// 从数据库查询插件配置
+		config, err := repoManager.PluginConfigRepository.GetConfig(pluginName)
+		if err != nil {
+			utils.Error("Failed to get plugin config for %s: %v", pluginName, err)
+			return vm.ToValue(nil)
+		}
+
+		// 解析配置 JSON
+		var configData interface{}
+		if err := json.Unmarshal([]byte(config.ConfigJSON), &configData); err != nil {
+			utils.Error("Failed to parse config JSON for %s: %v", pluginName, err)
+			return vm.ToValue(nil)
+		}
+
+		utils.Info("Plugin config loaded for %s: %v", pluginName, configData)
+		return vm.ToValue(configData)
+	})
+
+	// 设置插件配置函数
+	vm.Set("setPluginConfig", func(pluginName string, configData goja.Value) error {
+		// 保存到数据库
+		err := repoManager.PluginConfigRepository.SetConfig(pluginName, configData.Export().(map[string]interface{}))
+		if err != nil {
+			utils.Error("Failed to save config for %s: %v", pluginName, err)
+			return err
+		}
+
+		utils.Info("Plugin config saved for %s", pluginName)
+		return nil
+	})
+
+	// 获取插件启用状态
+	vm.Set("isPluginEnabled", func(pluginName string) bool {
+		config, err := repoManager.PluginConfigRepository.GetConfig(pluginName)
+		if err != nil {
+			utils.Error("Failed to get plugin status for %s: %v", pluginName, err)
+			return false
+		}
+		return config.Enabled
+	})
+
+	// 设置插件启用状态
+	vm.Set("setPluginEnabled", func(pluginName string, enabled bool) error {
+		err := repoManager.PluginConfigRepository.SetEnabled(pluginName, enabled)
+		if err != nil {
+			utils.Error("Failed to set plugin status for %s: %v", pluginName, err)
+			return err
+		}
+
+		utils.Info("Plugin %s enabled: %v", pluginName, enabled)
 		return nil
 	})
 }
@@ -347,6 +517,13 @@ func routerBinds(app core.App, vm *goja.Runtime, executors *vmsPool, routeRegist
 			if routeRegister != nil {
 				// 将 JavaScript handler 转换为 Go handler
 				goHandler := func() (interface{}, error) {
+					// 添加panic恢复机制，防止整个程序崩溃
+					defer func() {
+						if r := recover(); r != nil {
+							utils.Error("Route handler panicked: %v", r)
+						}
+					}()
+
 					vm := executors.Get()
 					defer executors.Put(vm)
 
@@ -360,22 +537,47 @@ func routerBinds(app core.App, vm *goja.Runtime, executors *vmsPool, routeRegist
 						},
 					}
 
-					fn, _ := goja.AssertFunction(handler)
-					result, err := fn(goja.Undefined(), vm.ToValue(event))
-					if err != nil {
-						return nil, err
-					}
+					// 保护JavaScript执行
+					var finalResult interface{}
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								utils.Error("Route VM execution panicked: %v", r)
+							}
+						}()
 
-					// 导出结果
-					exported := result.Export()
-					if resultMap, ok := exported.(map[string]interface{}); ok {
-						if _, hasStatus := resultMap["status"]; hasStatus {
-							if data, hasData := resultMap["data"]; hasData {
-								return data, nil
+						fn, _ := goja.AssertFunction(handler)
+						result, err := fn(goja.Undefined(), vm.ToValue(event))
+						if err != nil {
+							utils.Error("Route execution error: %v", err)
+							return
+						}
+
+						// 导出结果
+						exported := result.Export()
+						if resultMap, ok := exported.(map[string]interface{}); ok {
+							if _, hasStatus := resultMap["status"]; hasStatus {
+								if data, hasData := resultMap["data"]; hasData {
+									utils.Info("Plugin route handler success: %v", data)
+									finalResult = data
+									return
+								}
 							}
 						}
+						utils.Info("Plugin route handler success: %v", exported)
+						finalResult = exported
+					}()
+
+					// 返回处理结果
+					if finalResult != nil {
+						return finalResult, nil
 					}
-					return exported, nil
+
+					// 返回默认响应，避免nil
+					return map[string]interface{}{
+						"message": "Plugin route executed",
+						"success": true,
+					}, nil
 				}
 				return routeRegister(method, path, goHandler)
 			}
@@ -384,4 +586,43 @@ func routerBinds(app core.App, vm *goja.Runtime, executors *vmsPool, routeRegist
 		}
 		return nil
 	})
+}
+
+// extractPluginNameFromCronJob 从cron任务名称中提取插件名称
+func extractPluginNameFromCronJob(cronJobName string) string {
+	// 常见的任务名称模式：
+	// - config_demo_task -> config_demo
+	// - analytics_engine_task -> analytics_engine
+	// - test-job -> test
+	// - daily_report -> daily_report (可能是独立的)
+
+	// 如果以 _task 结尾，去掉后缀
+	if strings.HasSuffix(cronJobName, "_task") {
+		return strings.TrimSuffix(cronJobName, "_task")
+	}
+
+	// 如果包含连字符，取第一部分
+	if strings.Contains(cronJobName, "-") {
+		parts := strings.Split(cronJobName, "-")
+		if len(parts) > 0 {
+			return parts[0]
+		}
+	}
+
+	// 如果包含下划线，尝试推断插件名
+	if strings.Contains(cronJobName, "_") {
+		// 对于像 daily_report 这样的名称，可能本身就是插件名
+		// 但对于像 config_demo_task 这样的，我们已经在上面处理了
+		parts := strings.Split(cronJobName, "_")
+		if len(parts) >= 2 {
+			// 检查是否是常见的任务后缀
+			lastPart := parts[len(parts)-1]
+			if lastPart == "task" || lastPart == "job" || lastPart == "report" {
+				return strings.Join(parts[:len(parts)-1], "_")
+			}
+		}
+	}
+
+	// 默认返回原名称
+	return cronJobName
 }

@@ -5,8 +5,8 @@
         <!-- 模态框头部 -->
         <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 class="text-xl font-semibold text-gray-900">配置插件</h2>
-            <p class="text-sm text-gray-600 mt-1">{{ plugin.name }} v{{ plugin.version }}</p>
+            <h2 class="text-xl font-semibold text-gray-900">配置 {{ plugin.name }} v{{ plugin.version }}</h2>
+            <p class="text-sm text-gray-600 mt-1">{{ plugin.description || '配置插件参数' }}</p>
           </div>
           <button
             @click="$emit('close')"

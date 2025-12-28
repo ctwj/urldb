@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"github.com/gin-gonic/gin"
 	"github.com/dop251/goja"
 	"github.com/ctwj/urldb/core"
@@ -45,6 +46,9 @@ func NewPluginIntegration(repoManager *repo.RepositoryManager) *PluginIntegratio
 
 	// 注册插件管理器
 	pi.pluginManager = plugin.NewManager(pi.app)
+
+	// 设置 RepositoryManager
+	pi.pluginManager.SetRepoManager(repoManager)
 
 	return pi
 }
@@ -93,6 +97,20 @@ func (pi *PluginIntegration) registerPendingRoutes() {
 			switch method {
 			case "GET":
 				pi.router.GET(path, func(c *gin.Context) {
+					// 检查插件是否启用
+					pluginName := pi.extractPluginNameFromPath(path)
+					if pluginName != "" {
+						if config, err := pi.repoManager.PluginConfigRepository.GetConfig(pluginName); err == nil && config != nil && !config.Enabled {
+							utils.Debug("Plugin route '%s %s' skipped: plugin '%s' is disabled", method, path, pluginName)
+							c.JSON(403, gin.H{
+								"success": false,
+								"error":   "Plugin is disabled",
+								"message": "The plugin for this route is currently disabled",
+							})
+							return
+						}
+					}
+
 					utils.Info("Plugin route called: %s %s", method, path)
 					result, err := handler()
 					if err != nil {
@@ -105,6 +123,20 @@ func (pi *PluginIntegration) registerPendingRoutes() {
 				})
 			case "POST":
 				pi.router.POST(path, func(c *gin.Context) {
+					// 检查插件是否启用
+					pluginName := pi.extractPluginNameFromPath(path)
+					if pluginName != "" {
+						if config, err := pi.repoManager.PluginConfigRepository.GetConfig(pluginName); err == nil && config != nil && !config.Enabled {
+							utils.Debug("Plugin route '%s %s' skipped: plugin '%s' is disabled", method, path, pluginName)
+							c.JSON(403, gin.H{
+								"success": false,
+								"error":   "Plugin is disabled",
+								"message": "The plugin for this route is currently disabled",
+							})
+							return
+						}
+					}
+
 					result, err := handler()
 					if err != nil {
 						c.JSON(500, gin.H{"error": err.Error()})
@@ -114,6 +146,20 @@ func (pi *PluginIntegration) registerPendingRoutes() {
 				})
 			case "PUT":
 				pi.router.PUT(path, func(c *gin.Context) {
+					// 检查插件是否启用
+					pluginName := pi.extractPluginNameFromPath(path)
+					if pluginName != "" {
+						if config, err := pi.repoManager.PluginConfigRepository.GetConfig(pluginName); err == nil && config != nil && !config.Enabled {
+							utils.Debug("Plugin route '%s %s' skipped: plugin '%s' is disabled", method, path, pluginName)
+							c.JSON(403, gin.H{
+								"success": false,
+								"error":   "Plugin is disabled",
+								"message": "The plugin for this route is currently disabled",
+							})
+							return
+						}
+					}
+
 					result, err := handler()
 					if err != nil {
 						c.JSON(500, gin.H{"error": err.Error()})
@@ -123,6 +169,20 @@ func (pi *PluginIntegration) registerPendingRoutes() {
 				})
 			case "DELETE":
 				pi.router.DELETE(path, func(c *gin.Context) {
+					// 检查插件是否启用
+					pluginName := pi.extractPluginNameFromPath(path)
+					if pluginName != "" {
+						if config, err := pi.repoManager.PluginConfigRepository.GetConfig(pluginName); err == nil && config != nil && !config.Enabled {
+							utils.Debug("Plugin route '%s %s' skipped: plugin '%s' is disabled", method, path, pluginName)
+							c.JSON(403, gin.H{
+								"success": false,
+								"error":   "Plugin is disabled",
+								"message": "The plugin for this route is currently disabled",
+							})
+							return
+						}
+					}
+
 					result, err := handler()
 					if err != nil {
 						c.JSON(500, gin.H{"error": err.Error()})
@@ -389,4 +449,30 @@ func TriggerAPIRequest(method, path string, headers map[string]string, body inte
 		// app.TriggerAPIRequest(method, path, headers, body)
 		utils.Info("API request event triggered: %s %s", method, path)
 	}
+}
+
+// extractPluginNameFromPath 从路由路径中提取插件名称
+func (pi *PluginIntegration) extractPluginNameFromPath(path string) string {
+	// 从路径中提取插件名称，例如 /api/config-demo -> config_demo
+	// 使用正则表达式匹配 /api/plugin-name 或 /api/plugin-name/... 的模式
+
+	// 去掉开头的斜杠
+	path = strings.TrimPrefix(path, "/")
+
+	// 分割路径
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 || parts[0] != "api" {
+		return ""
+	}
+
+	// 返回插件名称部分
+	pluginName := parts[1]
+
+	// 如果插件名称包含连字符，转换为下划线以匹配数据库中的插件名
+	if strings.Contains(pluginName, "-") {
+		// 例如：config-demo -> config_demo
+		pluginName = strings.ReplaceAll(pluginName, "-", "_")
+	}
+
+	return pluginName
 }

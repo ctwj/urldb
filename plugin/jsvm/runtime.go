@@ -120,7 +120,12 @@ func Register(app core.App, config Config) error {
 }
 
 // RegisterWithRepo registers the jsvm plugin in the provided app instance with repository manager.
-func RegisterWithRepo(app core.App, config Config, repoManager interface{}) error {
+func RegisterWithRepo(app core.App, config Config, repoManager *repo.RepositoryManager) error {
+	// 检查 app 是否为 nil
+	if app == nil {
+		return fmt.Errorf("app instance is nil")
+	}
+
 	p := &plugin{app: app, config: config, repoManager: repoManager}
 
 	if p.config.HooksDir == "" {
@@ -172,7 +177,7 @@ func RegisterWithRepo(app core.App, config Config, repoManager interface{}) erro
 type plugin struct {
 	app         core.App
 	config      Config
-	repoManager interface{} // RepositoryManager interface
+	repoManager *repo.RepositoryManager // RepositoryManager
 }
 
 // registerMigrations registers the JS migrations loader.
@@ -295,6 +300,11 @@ func (p *plugin) registerHooks() error {
 		apisBinds(vm)
 		mailsBinds(vm)
 
+		// 配置相关绑定（需要传递 repoManager）
+		if p.repoManager != nil {
+			configBinds(vm, p.repoManager)
+		}
+
 		vm.Set("$app", p.app)
 		vm.Set("__hooks", absHooksDir)
 
@@ -314,7 +324,7 @@ func (p *plugin) registerHooks() error {
 	loader := goja.New()
 	sharedBinds(loader)
 	hooksBinds(p.app, loader, executors)
-	cronBinds(p.app, loader, executors)
+	cronBinds(p.app, loader, executors, p.repoManager)
 	routerBinds(p.app, loader, executors, p.config.RouteRegister)
 
 	for file, content := range files {
@@ -631,8 +641,9 @@ func (p *plugin) recordPluginLog(pluginName, hookName string, startTime time.Tim
 	// 计算执行时间
 	executionTime := time.Since(startTime).Milliseconds()
 
-	// 获取插件名称（去掉扩展名）
+	// 使用插件的真实名称（应该已经是解析后的名称）
 	name := pluginName
+	// 如果传入的还是文件名格式，做兼容处理
 	if strings.HasSuffix(name, ".plugin.js") {
 		name = strings.TrimSuffix(name, ".plugin.js")
 	} else if strings.HasSuffix(name, ".plugin.ts") {
@@ -653,23 +664,19 @@ func (p *plugin) recordPluginLog(pluginName, hookName string, startTime time.Tim
 
 	// 尝试记录到数据库
 	if p.repoManager != nil {
-		// 使用类型断言访问 RepositoryManager
-		if repoMgr, ok := p.repoManager.(interface {
-			GetPluginLogRepository() *repo.PluginLogRepository
-		}); ok {
-			if pluginLogRepo := repoMgr.GetPluginLogRepository(); pluginLogRepo != nil {
-				if err := pluginLogRepo.CreateLog(log); err != nil {
-					utils.Error("Failed to save plugin log to database: %v", err)
-					// 如果数据库记录失败，仍然记录到系统日志
+		// 直接使用 RepositoryManager
+		if pluginLogRepo := p.repoManager.PluginLogRepository; pluginLogRepo != nil {
+			if err := pluginLogRepo.CreateLog(log); err != nil {
+				utils.Error("Failed to save plugin log to database: %v", err)
+				// 如果数据库记录失败，仍然记录到系统日志
+			} else {
+				// 数据库记录成功，也记录到系统日志用于调试
+				if success {
+					utils.Info("Plugin '%s' executed successfully (%s) in %dms (logged to db)", name, hookName, executionTime)
 				} else {
-					// 数据库记录成功，也记录到系统日志用于调试
-					if success {
-						utils.Info("Plugin '%s' executed successfully (%s) in %dms (logged to db)", name, hookName, executionTime)
-					} else {
-						utils.Error("Plugin '%s' execution failed (%s): %s (logged to db)", name, hookName, errorMessage)
-					}
-					return nil
+					utils.Error("Plugin '%s' execution failed (%s): %s (logged to db)", name, hookName, errorMessage)
 				}
+				return nil
 			}
 		}
 	}

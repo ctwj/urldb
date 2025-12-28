@@ -28,6 +28,9 @@
           <template #tip>
             <n-text depth="3" style="font-size: 12px">
               {{ field.description }}
+              <span v-if="isNotificationField(field.name) && !formData.enable_notification" style="color: #999; margin-left: 8px;">
+                (通知功能未启用时为可选)
+              </span>
             </n-text>
           </template>
         </n-form-item>
@@ -49,6 +52,9 @@
           <template #tip>
             <n-text depth="3" style="font-size: 12px">
               {{ field.description }}
+              <span v-if="isNotificationField(field.name) && !formData.enable_notification" style="color: #999; margin-left: 8px;">
+                (通知功能未启用时为可选)
+              </span>
             </n-text>
           </template>
         </n-form-item>
@@ -68,6 +74,9 @@
           <template #tip>
             <n-text depth="3" style="font-size: 12px">
               {{ field.description }}
+              <span v-if="isNotificationField(field.name) && !formData.enable_notification" style="color: #999; margin-left: 8px;">
+                (通知功能未启用时为可选)
+              </span>
             </n-text>
           </template>
         </n-form-item>
@@ -107,6 +116,9 @@
           <template #tip>
             <n-text depth="3" style="font-size: 12px">
               {{ field.description }}
+              <span v-if="isNotificationField(field.name) && !formData.enable_notification" style="color: #999; margin-left: 8px;">
+                (通知功能未启用时为可选)
+              </span>
             </n-text>
           </template>
         </n-form-item>
@@ -133,7 +145,8 @@
 
     <div class="form-actions">
       <n-space justify="end">
-        <n-button @click="handleReset">重置</n-button>
+        <n-button @click="handleCancel">取消</n-button>
+        <n-button @click="handleReset" type="warning">重置为默认</n-button>
         <n-button type="primary" @click="handleSave" :loading="saving">
           保存配置
         </n-button>
@@ -157,7 +170,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['save', 'reset'])
+const emit = defineEmits(['save', 'reset', 'cancel'])
 
 const toast = useToast()
 const formRef = ref(null)
@@ -198,23 +211,22 @@ const getFieldLabel = (field) => {
 const getFieldRule = (field) => {
   const rules = []
 
-  if (field.required) {
+  // 检查是否是通知相关的字段
+  const isNotificationRelated = ['webhook_url', 'log_level', 'retry_count', 'custom_message'].includes(field.name)
+  const isNotificationEnabled = formData.enable_notification
+
+  // 如果是通知相关字段但通知未启用，则跳过必填验证
+  const shouldSkipRequired = isNotificationRelated && !isNotificationEnabled
+
+  if (field.required && !shouldSkipRequired) {
     let message = `请输入${field.label}`
     let trigger = ['input', 'blur', 'change']
 
     // 根据字段类型调整错误消息和触发事件
     switch (field.type) {
       case 'boolean':
-        // 布尔字段：只要值不是 undefined/null 就算通过
-        rules.push({
-          validator: (rule, value) => {
-            if (value === undefined || value === null) {
-              return new Error(`请选择${field.label}`)
-            }
-            return true
-          },
-          trigger: ['change']
-        })
+        // 布尔字段：不需要必填验证，因为布尔字段本身就是选择状态
+        // 不添加 required 验证，因为 false 是有效值
         break
       case 'select':
         message = `请选择${field.label}`
@@ -244,9 +256,20 @@ const getFieldRule = (field) => {
           trigger: trigger
         })
     }
+  } else if (isNotificationRelated && !isNotificationEnabled) {
+    // 通知未启用时，通知相关字段不需要验证
+    rules.push({
+      validator: () => true,
+      trigger: ['change', 'blur']
+    })
   }
 
   return rules
+}
+
+// 判断是否为通知相关字段
+const isNotificationField = (fieldName) => {
+  return ['webhook_url', 'log_level', 'retry_count', 'custom_message'].includes(fieldName)
 }
 
 // 获取选择框选项
@@ -268,14 +291,17 @@ const handleSave = async () => {
     saving.value = true
 
     emit('save', { ...formData })
-
-    toast.success('插件配置保存成功')
+    // toast消息由父组件处理
   } catch (error) {
     console.error('表单验证失败:', error)
     toast.error('请检查表单输入')
-  } finally {
     saving.value = false
   }
+}
+
+// 取消配置
+const handleCancel = () => {
+  emit('cancel')
 }
 
 // 重置配置
@@ -288,6 +314,7 @@ const handleReset = () => {
 // 监听配置变化
 watch(() => props.config, initializeForm, { deep: true })
 watch(() => props.plugin, initializeForm, { deep: true })
+
 
 onMounted(() => {
   initializeForm()

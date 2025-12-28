@@ -14,7 +14,12 @@
     <template #filter-bar>
       <div class="flex justify-between items-center">
         <div class="flex gap-2">
-          <!-- 空白区域用于按钮 -->
+          <n-button @click="showInstallModal = true" type="primary">
+            <template #icon>
+              <i class="fas fa-plus"></i>
+            </template>
+            安装插件
+          </n-button>
         </div>
         <div class="flex gap-2">
           <div class="relative">
@@ -84,7 +89,6 @@
           :bordered="false"
           :single-line="false"
           :loading="loading"
-          :scroll-x="1200"
           class="h-full"
         />
       </div>
@@ -136,30 +140,28 @@
   </n-modal>
 
   <!-- 插件配置模态框 -->
-  <n-modal v-model:show="showConfigModal" :mask-closable="false" preset="card" :style="{ maxWidth: '700px', width: '90%' }" title="插件配置">
+  <n-modal
+    v-model:show="showConfigModal"
+    :mask-closable="false"
+    preset="card"
+    :style="{ maxWidth: '800px', width: '90%' }"
+    :title="`配置 ${configPlugin?.display_name || configPlugin?.name || ''} v${configPlugin?.version || ''}`"
+  >
     <div v-if="configPlugin" class="space-y-4">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ configPlugin.display_name || configPlugin.name }} 配置</h3>
-        <div class="flex items-center space-x-2">
-          <n-button @click="resetConfig" size="small" type="warning">重置</n-button>
-          <n-button @click="saveConfig" :loading="saving" type="primary">保存</n-button>
-        </div>
-      </div>
-
-      <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-        <n-code :code="JSON.stringify(pluginConfig, null, 2)" language="json" show-line-numbers />
-      </div>
-
-      <div class="text-sm text-gray-600 dark:text-gray-400">
-        <i class="fas fa-info-circle mr-1"></i>
-        请确保配置格式正确，保存后将立即生效
-      </div>
+      <!-- 使用插件配置表单组件 -->
+      <PluginConfigForm
+        :plugin="configPlugin"
+        :config="pluginConfig"
+        @save="handleConfigSave"
+        @reset="handleConfigReset"
+        @cancel="closeConfigModal"
+      />
     </div>
   </n-modal>
 
   <!-- 插件日志模态框 -->
-  <n-modal v-model:show="showLogsModal" :mask-closable="false" preset="card" :style="{ maxWidth: '800px', width: '90%' }" title="插件日志">
-    <div v-if="logsPlugin" class="space-y-4">
+  <n-modal v-model:show="showLogsModal" :mask-closable="false" preset="card" :style="{ maxWidth: '1200px', width: '95%', maxHeight: '90vh' }" title="插件日志">
+    <div v-if="logsPlugin" class="space-y-4 h-full">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ logsPlugin.display_name || logsPlugin.name }} 日志</h3>
         <div class="flex items-center space-x-2">
@@ -172,32 +174,115 @@
         </div>
       </div>
 
-      <div v-if="loadingLogs" class="flex items-center justify-center py-8">
+      <div v-if="loadingLogs" class="flex items-center justify-center py-16">
         <n-spin size="medium" />
       </div>
 
-      <div v-else-if="pluginLogs.length === 0" class="text-center py-8">
+      <div v-else-if="pluginLogs.length === 0" class="text-center py-16">
         <n-empty description="暂无日志" />
       </div>
 
-      <div v-else class="space-y-2 max-h-96 overflow-y-auto">
-        <div
-          v-for="log in pluginLogs"
-          :key="log.id"
-          class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
-        >
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-sm font-medium text-gray-900 dark:text-white">
-              {{ log.level }}
-            </span>
-            <span class="text-xs text-gray-500 dark:text-gray-400">
-              {{ formatTime(log.created_at) }}
-            </span>
+      <div v-else class="overflow-hidden" style="height: calc(90vh - 140px);">
+        <n-data-table
+          :columns="logColumns"
+          :data="pluginLogs"
+          :pagination="{ pageSize: 50 }"
+          :scroll-x="800"
+          :max-height="600"
+          striped
+          size="small"
+        />
+      </div>
+    </div>
+  </n-modal>
+
+  <!-- 安装插件模态框 -->
+  <n-modal v-model:show="showInstallModal" :mask-closable="false" preset="card" :style="{ maxWidth: '600px', width: '90%' }" title="安装插件">
+    <div class="space-y-4">
+      <!-- 安装方式选择 -->
+      <n-tabs v-model:value="installType" default-value="url" justify-content="center">
+        <n-tab-pane name="url" tab="从URL安装">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                插件URL
+              </label>
+              <n-input
+                v-model:value="installUrl"
+                type="text"
+                placeholder="输入插件包URL (例如: https://example.com/plugin.zip)"
+                clearable
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                支持ZIP格式的插件包，包含package.json配置文件
+              </p>
+            </div>
           </div>
-          <p class="text-sm text-gray-700 dark:text-gray-300">{{ log.message }}</p>
+        </n-tab-pane>
+
+        <n-tab-pane name="file" tab="从文件安装">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                选择插件文件
+              </label>
+              <n-upload
+                v-model:file-list="installFiles"
+                :max="1"
+                accept=".zip,.plugin.js"
+                @update:file-list="handleFileChange"
+              >
+                <n-upload-dragger>
+                  <div style="margin-bottom: 12px">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #409eff"></i>
+                  </div>
+                  <n-text style="font-size: 16px">
+                    点击或者拖动文件到该区域来上传
+                  </n-text>
+                  <n-p depth="3" style="margin: 8px 0 0 0">
+                    支持 .zip 插件包和 .plugin.js 单文件插件
+                  </n-p>
+                </n-upload-dragger>
+              </n-upload>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                ZIP格式支持多文件插件，单文件格式适合简单插件
+              </p>
+            </div>
+          </div>
+        </n-tab-pane>
+      </n-tabs>
+
+      <!-- 安装进度 -->
+      <div v-if="installing" class="space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">安装进度</span>
+          <span class="text-sm text-gray-500">{{ installProgress }}%</span>
+        </div>
+        <n-progress :percentage="installProgress" :show-indicator="false" />
+        <p class="text-xs text-gray-500">{{ installStatus }}</p>
+      </div>
+
+      <!-- 安装结果 -->
+      <div v-if="installResult" class="p-4 rounded-lg" :class="installSuccess ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'">
+        <div class="flex items-center">
+          <i :class="installSuccess ? 'fas fa-check-circle text-green-500' : 'fas fa-exclamation-circle text-red-500'" class="mr-2"></i>
+          <span class="text-sm font-medium" :class="installSuccess ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'">
+            {{ installResult }}
+          </span>
         </div>
       </div>
     </div>
+
+    <template #footer>
+      <div class="flex justify-end space-x-2">
+        <n-button @click="closeInstallModal" :disabled="installing">
+          取消
+        </n-button>
+        <n-button type="primary" @click="installPlugin" :loading="installing" :disabled="!canInstall">
+          安装
+        </n-button>
+      </div>
+    </template>
   </n-modal>
 </template>
 
@@ -217,6 +302,7 @@ definePageMeta({
 })
 
 import { h } from 'vue'
+import PluginConfigForm from '~/components/plugins/PluginConfigForm.vue'
 const message = useMessage()
 const notification = useNotification()
 
@@ -225,13 +311,73 @@ const plugins = ref<any[]>([])
 const showDetailModal = ref(false)
 const showConfigModal = ref(false)
 const showLogsModal = ref(false)
+const showInstallModal = ref(false)
 const selectedPlugin = ref<any>(null)
 const configPlugin = ref<any>(null)
 const logsPlugin = ref<any>(null)
 const pluginConfig = ref({})
 const pluginLogs = ref([])
 const loadingLogs = ref(false)
+
+// 日志表格列定义
+const logColumns = [
+  {
+    title: '状态',
+    key: 'success',
+    width: 80,
+    render: (row) => {
+      return h('span', {
+        class: row.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+      }, row.success ? '成功' : '失败')
+    }
+  },
+  {
+    title: '钩子',
+    key: 'hook_name',
+    width: 120,
+    render: (row) => {
+      return h('span', { class: 'font-medium' }, row.hook_name)
+    }
+  },
+  {
+    title: '执行时间',
+    key: 'execution_time',
+    width: 100,
+    render: (row) => {
+      return h('span', { class: 'text-gray-600 dark:text-gray-400' }, `${row.execution_time}ms`)
+    }
+  },
+  {
+    title: '时间',
+    key: 'created_at',
+    width: 180,
+    render: (row) => {
+      return h('span', { class: 'text-gray-600 dark:text-gray-400' }, formatTime(row.created_at))
+    }
+  },
+  {
+    title: '错误信息',
+    key: 'error_message',
+    render: (row) => {
+      if (row.error_message) {
+        return h('span', { class: 'text-red-600 dark:text-red-400 text-sm' }, row.error_message)
+      } else {
+        return h('span', { class: 'text-gray-700 dark:text-gray-300 text-sm' }, '执行成功')
+      }
+    }
+  }
+]
 const saving = ref(false)
+
+// 安装相关状态
+const installType = ref('url')
+const installUrl = ref('')
+const installFiles = ref([])
+const installing = ref(false)
+const installProgress = ref(0)
+const installStatus = ref('')
+const installResult = ref('')
+const installSuccess = ref(false)
 
 // 分页和筛选状态
 const filters = ref({
@@ -239,22 +385,36 @@ const filters = ref({
   search: ''
 })
 
+// 计算属性：是否可以安装
+const canInstall = computed(() => {
+  if (installing.value) return false
+  if (installType.value === 'url') {
+    return installUrl.value.trim() !== ''
+  } else {
+    return installFiles.value.length > 0
+  }
+})
+
 // 表格列定义
 const columns = [
   {
     title: '插件信息',
     key: 'name',
+    width: 'auto',
+    minWidth: 300,
     render: (row: any) => {
       return h('div', { class: 'space-y-1' }, [
         // 第一行：名称和版本
         h('div', { class: 'flex items-center gap-2' }, [
-          h('i', { class: 'fas fa-plug text-blue-500 text-sm' }),
+          h('i', {
+            class: `fas fa-plug text-sm ${row.enabled ? 'text-green-500' : 'text-red-500'}`
+          }),
           h('span', { class: 'font-medium text-sm' }, row.display_name || row.name),
           h('span', { class: 'text-xs text-gray-400' }, `v${row.version}`)
         ]),
         // 第二行：描述
         h('div', {
-          class: 'text-xs text-gray-500 dark:text-gray-400 line-clamp-2 max-w-[330px]'
+          class: 'text-xs text-gray-500 dark:text-gray-400 line-clamp-2'
         }, row.description || '无描述'),
         // 第三行：作者和分类
         h('div', { class: 'flex items-center gap-2' }, [
@@ -265,21 +425,9 @@ const columns = [
     }
   },
   {
-    title: '状态',
-    key: 'enabled',
-    width: 80,
-    render: (row: any) => {
-      return h('n-tag', {
-        type: row.enabled ? 'success' : 'error',
-        size: 'small',
-        bordered: false
-      }, { default: () => row.enabled ? '已启用' : '已禁用' })
-    }
-  },
-  {
     title: '定时任务',
     key: 'tasks',
-    width: 100,
+    width: 200,
     render: (row: any) => {
       if (!row.scheduled_tasks || row.scheduled_tasks.length === 0) {
         return h('span', { class: 'text-xs text-gray-400' }, '无')
@@ -299,9 +447,9 @@ const columns = [
   {
     title: '操作',
     key: 'actions',
-    width: 120,
+    width: 220,
     render: (row: any) => {
-      // 第一排按钮
+      // 第一排按钮 - 3个按钮
       const firstRowButtons = [
         h('button', {
           class: 'px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded transition-colors mr-1',
@@ -311,31 +459,38 @@ const columns = [
           '详情'
         ]),
         h('button', {
-          class: 'px-2 py-1 text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 rounded transition-colors',
+          class: 'px-2 py-1 text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 rounded transition-colors mr-1',
           onClick: () => configurePlugin(row)
         }, [
           h('i', { class: 'fas fa-cog mr-1 text-xs' }),
           '配置'
-        ])
-      ]
-
-      // 第二排按钮
-      const secondRowButtons = [
+        ]),
         h('button', {
-          class: 'px-2 py-1 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 rounded transition-colors mr-1',
+          class: 'px-2 py-1 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 rounded transition-colors',
           onClick: () => viewPluginLogs(row)
         }, [
           h('i', { class: 'fas fa-file-alt mr-1 text-xs' }),
           '日志'
-        ]),
+        ])
+      ]
+
+      // 第二排按钮 - 2个按钮
+      const secondRowButtons = [
         h('button', {
-          class: `px-2 py-1 text-xs ${row.enabled ? 'bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/20 dark:text-green-400'} rounded transition-colors`,
+          class: `px-2 py-1 text-xs ${row.enabled ? 'bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/20 dark:text-green-400'} rounded transition-colors mr-1`,
           onClick: () => togglePlugin(row)
         }, [
           h('i', {
             class: `fas ${row.enabled ? 'fa-stop' : 'fa-play'} mr-1 text-xs`
           }),
           row.enabled ? '禁用' : '启用'
+        ]),
+        h('button', {
+          class: 'px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:text-red-400 rounded transition-colors',
+          onClick: () => uninstallPlugin(row)
+        }, [
+          h('i', { class: 'fas fa-trash mr-1 text-xs' }),
+          '卸载'
         ])
       ]
 
@@ -421,14 +576,122 @@ const configurePlugin = async (plugin: any) => {
     // 移除.plugin后缀，因为后端API期望不带后缀的名称
     const pluginName = plugin.name.replace('.plugin', '')
     const response = await $fetch(`/api/plugins/${pluginName}`)
-    if (response.success) {
-      pluginConfig.value = response.data.config || {}
+    if (response.success && response.data.plugin) {
+      // 使用插件详细信息，包括配置字段定义
+      configPlugin.value = response.data.plugin
+
+      // 如果配置为空，根据config_fields生成默认配置
+      let config = response.data.plugin.config || {}
+      if (!config || Object.keys(config).length === 0) {
+        config = generateDefaultConfig(response.data.plugin.config_fields || {})
+      }
+      pluginConfig.value = config
+    } else {
+      // 使用传入的插件基本信息
+      pluginConfig.value = {}
     }
   } catch (error) {
     console.error('加载插件配置失败:', error)
+    // 即使API失败，也使用传入的插件基本信息
     pluginConfig.value = {}
   }
   showConfigModal.value = true
+}
+
+// 生成默认配置
+const generateDefaultConfig = (configFields: any) => {
+  const defaultConfig: any = {}
+
+  for (const [fieldName, fieldConfig] of Object.entries(configFields)) {
+    const field = fieldConfig as any
+    if (field.default !== undefined && field.default !== null) {
+      defaultConfig[fieldName] = field.default
+    } else {
+      // 根据字段类型设置默认值
+      switch (field.type) {
+        case 'boolean':
+          defaultConfig[fieldName] = false
+          break
+        case 'number':
+          defaultConfig[fieldName] = 0
+          break
+        case 'string':
+        case 'text':
+          defaultConfig[fieldName] = ''
+          break
+        case 'select':
+          defaultConfig[fieldName] = field.options && field.options.length > 0 ? field.options[0] : ''
+          break
+        default:
+          defaultConfig[fieldName] = null
+      }
+    }
+  }
+
+  return defaultConfig
+}
+
+// 处理配置保存
+const handleConfigSave = async (config: any) => {
+  if (!configPlugin.value) return
+
+  try {
+    // 移除.plugin后缀，因为后端API期望不带后缀的名称
+    const pluginName = configPlugin.value.name.replace('.plugin', '')
+    const response = await $fetch(`/api/plugins/${pluginName}/config`, {
+      method: 'PUT',
+      body: {
+        config: config
+      }
+    })
+    if (response.success) {
+      if (process.client) {
+        notification.success({
+          content: '配置已保存',
+          duration: 3000
+        })
+      }
+      // 更新当前配置值
+      pluginConfig.value = config
+      showConfigModal.value = false
+      await fetchPlugins()
+    } else {
+      throw new Error(response.error || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存配置失败:', error)
+    if (process.client) {
+      notification.error({
+        content: '保存配置失败: ' + error.message,
+        duration: 3000
+      })
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
+// 处理配置重置
+const handleConfigReset = () => {
+  if (configPlugin.value && configPlugin.value.config_fields) {
+    pluginConfig.value = generateDefaultConfig(configPlugin.value.config_fields)
+    if (process.client) {
+      notification.info({
+        content: '配置已重置为默认值',
+        duration: 2000
+      })
+    }
+  }
+}
+
+// 重置配置为默认值
+const resetConfigToDefault = () => {
+  handleConfigReset()
+}
+
+// 关闭配置模态框
+const closeConfigModal = () => {
+  showConfigModal.value = false
 }
 
 // 查看插件日志
@@ -447,7 +710,7 @@ const loadPluginLogs = async () => {
     const pluginName = logsPlugin.value.name.replace('.plugin', '')
     const response = await $fetch(`/api/plugins/${pluginName}/logs?limit=50`)
     if (response.success) {
-      pluginLogs.value = response.data || []
+      pluginLogs.value = response.data?.logs || []
     }
   } catch (error) {
     console.error('加载插件日志失败:', error)
@@ -490,50 +753,145 @@ const togglePlugin = async (plugin: any) => {
   }
 }
 
-// 保存配置
-const saveConfig = async () => {
-  if (!configPlugin.value) return
-
-  try {
-    saving.value = true
-    // 移除.plugin后缀，因为后端API期望不带后缀的名称
-    const pluginName = configPlugin.value.name.replace('.plugin', '')
-    const response = await $fetch(`/api/plugins/${pluginName}/config`, {
-      method: 'PUT',
-      body: {
-        config: pluginConfig.value
-      }
-    })
-    if (response.success) {
-      if (process.client) {
-        notification.success({
-          content: '配置已保存',
-          duration: 3000
-        })
-      }
-      showConfigModal.value = false
-      await fetchPlugins()
-    }
-  } catch (error) {
-    console.error('保存配置失败:', error)
-    if (process.client) {
-      notification.error({
-        content: '保存配置失败',
-        duration: 3000
-      })
-    }
-  } finally {
-    saving.value = false
-  }
-}
-
-const resetConfig = () => {
-  pluginConfig.value = {}
-}
 
 const formatTime = (timestamp: string) => {
   if (!timestamp) return '-'
   return new Date(timestamp).toLocaleString()
+}
+
+// 安装插件相关方法
+const handleFileChange = (fileList: any[]) => {
+  installFiles.value = fileList
+}
+
+const closeInstallModal = () => {
+  showInstallModal.value = false
+  installUrl.value = ''
+  installFiles.value = []
+  installProgress.value = 0
+  installStatus.value = ''
+  installResult.value = ''
+  installSuccess.value = false
+  installType.value = 'url'
+}
+
+const installPlugin = async () => {
+  if (!canInstall.value) return
+
+  installing.value = true
+  installProgress.value = 0
+  installStatus.value = '准备安装...'
+  installResult.value = ''
+
+  try {
+    let requestBody: any = {}
+
+    if (installType.value === 'url') {
+      requestBody.source = installUrl.value.trim()
+      installStatus.value = '正在从URL下载插件包...'
+    } else {
+      // 文件上传
+      const file = installFiles.value[0]?.file
+      if (!file) {
+        throw new Error('请选择要安装的文件')
+      }
+
+      // 创建FormData
+      const formData = new FormData()
+      formData.append('file', file)
+      requestBody = formData
+      installStatus.value = '正在上传插件文件...'
+    }
+
+    installProgress.value = 30
+
+    const response = await $fetch('/api/plugins/install', {
+      method: 'POST',
+      headers: installType.value === 'url' ? {
+        'Content-Type': 'application/json'
+      } : {},
+      body: requestBody
+    })
+
+    installProgress.value = 80
+    installStatus.value = '正在完成安装...'
+
+    if (response.success) {
+      installProgress.value = 100
+      installStatus.value = '安装完成'
+      installResult.value = response.message || '插件安装成功'
+      installSuccess.value = true
+
+      if (process.client) {
+        notification.success({
+          content: '插件安装成功',
+          duration: 3000
+        })
+      }
+
+      // 刷新插件列表
+      await fetchPlugins()
+
+      // 延迟关闭模态框
+      setTimeout(() => {
+        closeInstallModal()
+      }, 2000)
+    } else {
+      throw new Error(response.error || '安装失败')
+    }
+  } catch (error) {
+    installProgress.value = 0
+    installStatus.value = '安装失败'
+    installResult.value = error.message || '安装过程中发生错误'
+    installSuccess.value = false
+
+    if (process.client) {
+      notification.error({
+        content: '插件安装失败: ' + error.message,
+        duration: 3000
+      })
+    }
+  } finally {
+    installing.value = false
+  }
+}
+
+// 卸载插件
+const uninstallPlugin = async (plugin: any) => {
+  if (!confirm(`确定要卸载插件 "${plugin.display_name || plugin.name}" 吗？此操作不可撤销。`)) {
+    return
+  }
+
+  try {
+    // 移除.plugin后缀，因为后端API期望不带后缀的名称
+    const pluginName = plugin.name.replace('.plugin', '')
+
+    const response = await $fetch(`/api/plugins/${pluginName}`, {
+      method: 'DELETE'
+    })
+
+    if (response.success) {
+      if (process.client) {
+        notification.success({
+          content: '插件卸载成功',
+          duration: 3000
+        })
+      }
+
+      // 刷新插件列表
+      await fetchPlugins()
+    } else {
+      throw new Error(response.error || '卸载失败')
+    }
+  } catch (error) {
+    console.error('卸载插件失败:', error)
+    if (process.client) {
+      notification.error({
+        content: '卸载插件失败: ' + error.message,
+        duration: 3000
+      })
+    }
+  }
 }
 
 // 初始化数据

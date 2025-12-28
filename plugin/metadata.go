@@ -191,9 +191,18 @@ func (p *MetadataParser) ParseFile(filePath string) (*PluginMetadata, error) {
 		}
 	}
 
-	// 设置默认值
+	// 设置默认值 - 优先使用文件名（去掉.plugin.js后缀）
 	if metadata.Name == "" {
-		metadata.Name = strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+		baseName := filepath.Base(filePath)
+		// 去掉 .plugin.js 或 .plugin.ts 后缀
+		if strings.HasSuffix(baseName, ".plugin.js") {
+			metadata.Name = strings.TrimSuffix(baseName, ".plugin.js")
+		} else if strings.HasSuffix(baseName, ".plugin.ts") {
+			metadata.Name = strings.TrimSuffix(baseName, ".plugin.ts")
+		} else {
+			// 去掉普通扩展名作为后备
+			metadata.Name = strings.TrimSuffix(baseName, filepath.Ext(baseName))
+		}
 	}
 	if metadata.DisplayName == "" {
 		metadata.DisplayName = metadata.Name
@@ -439,6 +448,7 @@ func calculateFileHash(filePath string) (string, error) {
 // ScanDirectory 扫描目录中的所有插件
 func (p *MetadataParser) ScanDirectory(dirPath string) ([]*PluginMetadata, error) {
 	var plugins []*PluginMetadata
+	nameMap := make(map[string]string) // 插件名称到文件路径的映射
 
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -453,6 +463,17 @@ func (p *MetadataParser) ScanDirectory(dirPath string) ([]*PluginMetadata, error
 				fmt.Printf("Warning: failed to parse %s: %v\n", path, err)
 				return nil
 			}
+
+			// 检查名称冲突
+			if existingPath, exists := nameMap[metadata.Name]; exists {
+				fmt.Printf("ERROR: Plugin name conflict detected!\n")
+				fmt.Printf("  Plugin name '%s' is already used by: %s\n", metadata.Name, existingPath)
+				fmt.Printf("  Conflicting file: %s\n", path)
+				fmt.Printf("  Second plugin will be skipped to prevent conflicts.\n")
+				return nil // 跳过这个插件
+			}
+
+			nameMap[metadata.Name] = path
 			plugins = append(plugins, metadata)
 		}
 
@@ -545,4 +566,64 @@ func (p *MetadataParser) checkForScheduledTasks(line string, lineNumber int, met
 		metadata.ScheduledTasks = append(metadata.ScheduledTasks, task)
 		metadata.HasScheduledTask = true
 	}
+}
+
+// ParseContent 从内容解析插件元数据
+func (p *MetadataParser) ParseContent(content []byte) (*PluginMetadata, error) {
+	// 创建基本的元数据对象
+	metadata := &PluginMetadata{
+		FilePath:         "",
+		FileSize:         int64(len(content)),
+		InstallTime:      time.Now(),
+		LastUpdated:      time.Now(),
+		Status:           "installed",
+		ConfigFields:     make(map[string]*ConfigField),
+		ScheduledTasks:   []*ScheduledTask{},
+		HasScheduledTask: false,
+	}
+
+	// 将内容转换为字符串并按行分割
+	lines := strings.Split(string(content), "\n")
+	lineNumber := 0
+
+	for _, line := range lines {
+		lineNumber++
+		line = strings.TrimSpace(line)
+
+		// 解析元数据注释
+		if strings.HasPrefix(line, "/**") {
+			// 开始解析元数据块
+			continue
+		}
+
+		if strings.HasPrefix(line, "* @name ") {
+			metadata.Name = strings.TrimSpace(strings.TrimPrefix(line, "* @name "))
+		} else if strings.HasPrefix(line, "* @description ") {
+			metadata.Description = strings.TrimSpace(strings.TrimPrefix(line, "* @description "))
+		} else if strings.HasPrefix(line, "* @version ") {
+			metadata.Version = strings.TrimSpace(strings.TrimPrefix(line, "* @version "))
+		} else if strings.HasPrefix(line, "* @author ") {
+			metadata.Author = strings.TrimSpace(strings.TrimPrefix(line, "* @author "))
+		} else if strings.HasPrefix(line, "* @license ") {
+			metadata.License = strings.TrimSpace(strings.TrimPrefix(line, "* @license "))
+		} else if strings.HasPrefix(line, "* @category ") {
+			metadata.Category = strings.TrimSpace(strings.TrimPrefix(line, "* @category "))
+		}
+
+		// 检查定时任务
+		p.checkForScheduledTasks(line, lineNumber, metadata)
+	}
+
+	// 设置默认值
+	if metadata.Name == "" {
+		metadata.Name = "unknown"
+	}
+	if metadata.Version == "" {
+		metadata.Version = "1.0.0"
+	}
+	if metadata.Description == "" {
+		metadata.Description = "No description available"
+	}
+
+	return metadata, nil
 }
