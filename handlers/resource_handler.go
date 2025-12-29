@@ -221,6 +221,18 @@ func GetResourceByID(c *gin.Context) {
 		return
 	}
 
+	// 触发 URL 访问事件
+	accessLog := map[string]interface{}{
+		"access_time": time.Now(),
+		"user_agent":  c.GetHeader("User-Agent"),
+		"ip":         c.ClientIP(),
+		"path":       c.Request.URL.Path,
+		"method":     c.Request.Method,
+	}
+
+	// 触发 URL 访问事件
+	plugins.TriggerURLAccess(resource, accessLog, c.Request, c.Writer)
+
 	response := converter.ToResourceResponse(resource)
 	SuccessResponse(c, response)
 }

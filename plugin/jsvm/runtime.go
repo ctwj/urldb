@@ -366,10 +366,11 @@ func (p *plugin) registerHooks() error {
 						PluginName: pluginName,
 						HookName:   "custom_log",
 						Success:    level != "error", // error 级别的日志标记为不成功
+						Message:    &message,        // 保存所有级别的日志消息
 					}
 
 					if level == "error" {
-						log.ErrorMessage = &message
+						log.ErrorMessage = &message // error 级别同时保存到错误消息字段
 					}
 
 					if err := pluginLogRepo.CreateLog(log); err != nil {
@@ -631,9 +632,8 @@ declare global {
 
 // 钩子函数声明
 declare function onURLAdd(handler: (e: URLEvent) => void): void;
-declare function onURLAccess(handler: (e: URLEvent) => void): void;
+declare function onURLAccess(handler: (e: URLAccessEvent) => void): void;
 declare function onUserLogin(handler: (e: UserEvent) => void): void;
-declare function onAPIRequest(handler: (e: APIEvent) => void): void;
 
 // 路由函数声明
 declare function routerAdd(method: string, path: string, handler: (ctx: any) => void): void;

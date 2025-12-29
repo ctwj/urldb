@@ -231,9 +231,40 @@ func hooksBinds(app core.App, vm *goja.Runtime, executors *vmsPool) {
 				vm := executors.Get()
 				defer executors.Put(vm)
 
+				// 创建事件对象，包含 url 和 data 属性
+				eventObj := vm.NewObject()
+				if e.URL != nil {
+					urlObj := vm.NewObject()
+					urlObj.Set("id", e.URL.ID)
+					urlObj.Set("key", e.URL.Key)
+					urlObj.Set("title", e.URL.Title)
+					urlObj.Set("url", e.URL.URL)
+					urlObj.Set("description", e.URL.Description)
+					urlObj.Set("category_id", e.URL.CategoryID)
+					urlObj.Set("tags", e.URL.Tags)
+					urlObj.Set("is_valid", e.URL.IsValid)
+					urlObj.Set("is_public", e.URL.IsPublic)
+					urlObj.Set("view_count", e.URL.ViewCount)
+					urlObj.Set("created_at", e.URL.CreatedAt)
+					urlObj.Set("updated_at", e.URL.UpdatedAt)
+					eventObj.Set("url", urlObj)
+				}
+
+				if e.Data != nil {
+					eventObj.Set("data", vm.ToValue(e.Data))
+				}
+
+				// 添加应用信息
+				if e.App != nil {
+					appObj := vm.NewObject()
+					appObj.Set("name", "URLDB")
+					appObj.Set("version", "1.0.0")
+					eventObj.Set("app", appObj)
+				}
+
 				// 调用JavaScript处理器
 				fn, _ := goja.AssertFunction(handler)
-				_, err := fn(goja.Undefined(), vm.ToValue(e.URL), vm.ToValue(e.Data))
+				_, err := fn(goja.Undefined(), eventObj)
 				if err != nil {
 					utils.Error("JavaScript hook error: %v", err)
 				}
@@ -249,8 +280,35 @@ func hooksBinds(app core.App, vm *goja.Runtime, executors *vmsPool) {
 				vm := executors.Get()
 				defer executors.Put(vm)
 
+				// 创建事件对象，包含 user 和 data 属性
+				eventObj := vm.NewObject()
+				if e.User != nil {
+					userObj := vm.NewObject()
+					userObj.Set("id", e.User.ID)
+					userObj.Set("username", e.User.Username)
+					userObj.Set("email", e.User.Email)
+					userObj.Set("role", e.User.Role)
+					userObj.Set("is_active", e.User.IsActive)
+					userObj.Set("last_login", e.User.LastLogin)
+					userObj.Set("created_at", e.User.CreatedAt)
+					userObj.Set("updated_at", e.User.UpdatedAt)
+					eventObj.Set("user", userObj)
+				}
+
+				if e.Data != nil {
+					eventObj.Set("data", vm.ToValue(e.Data))
+				}
+
+				// 添加应用信息
+				if e.App != nil {
+					appObj := vm.NewObject()
+					appObj.Set("name", "URLDB")
+					appObj.Set("version", "1.0.0")
+					eventObj.Set("app", appObj)
+				}
+
 				fn, _ := goja.AssertFunction(handler)
-				_, err := fn(goja.Undefined(), vm.ToValue(e.User), vm.ToValue(e.Data))
+				_, err := fn(goja.Undefined(), eventObj)
 				if err != nil {
 					utils.Error("JavaScript hook error: %v", err)
 				}
@@ -260,17 +318,59 @@ func hooksBinds(app core.App, vm *goja.Runtime, executors *vmsPool) {
 		}
 	})
 
-	vm.Set("onAPIRequest", func(handler goja.Value) {
-		if _, ok := goja.AssertFunction(handler); ok {
-			// TODO: 实现API请求钩子
-			utils.Info("API request handler registered")
-		}
-	})
-
 	vm.Set("onURLAccess", func(handler goja.Value) {
 		if _, ok := goja.AssertFunction(handler); ok {
-			// TODO: 实现URL访问钩子
-			utils.Info("URL access handler registered")
+			app.OnURLAccess().BindFunc(func(e *core.URLAccessEvent) error {
+				vm := executors.Get()
+				defer executors.Put(vm)
+
+				// 创建事件对象，包含 url、access_log、request、response 属性
+				eventObj := vm.NewObject()
+				if e.URL != nil {
+					urlObj := vm.NewObject()
+					urlObj.Set("id", e.URL.ID)
+					urlObj.Set("key", e.URL.Key)
+					urlObj.Set("title", e.URL.Title)
+					urlObj.Set("url", e.URL.URL)
+					urlObj.Set("description", e.URL.Description)
+					urlObj.Set("category_id", e.URL.CategoryID)
+					urlObj.Set("tags", e.URL.Tags)
+					urlObj.Set("is_valid", e.URL.IsValid)
+					urlObj.Set("is_public", e.URL.IsPublic)
+					urlObj.Set("view_count", e.URL.ViewCount)
+					urlObj.Set("created_at", e.URL.CreatedAt)
+					urlObj.Set("updated_at", e.URL.UpdatedAt)
+					eventObj.Set("url", urlObj)
+				}
+
+				if e.AccessLog != nil {
+					eventObj.Set("access_log", vm.ToValue(e.AccessLog))
+				}
+
+				if e.Request != nil {
+					eventObj.Set("request", vm.ToValue(e.Request))
+				}
+
+				if e.Response != nil {
+					eventObj.Set("response", vm.ToValue(e.Response))
+				}
+
+				// 添加应用信息
+				if e.App != nil {
+					appObj := vm.NewObject()
+					appObj.Set("name", "URLDB")
+					appObj.Set("version", "1.0.0")
+					eventObj.Set("app", appObj)
+				}
+
+				fn, _ := goja.AssertFunction(handler)
+				_, err := fn(goja.Undefined(), eventObj)
+				if err != nil {
+					utils.Error("JavaScript hook error: %v", err)
+				}
+
+				return e.Next()
+			})
 		}
 	})
 }

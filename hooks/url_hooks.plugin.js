@@ -1,141 +1,89 @@
-/// <reference path="../pb_data/types.d.ts" />
-
 /**
  * URL 相关插件钩子示例
  * 这些钩子会在 URL 的生命周期中被触发
+ *
+ * @name url_hooks
+ * @display_name URL钩子插件
+ * @author URLDB Team
+ * @description URL生命周期事件钩子，监听URL的添加、访问等事件
+ * @version 1.0.0
+ * @category system
+ * @license MIT
  */
 
+// 记录插件加载日志
+log("info", "URL钩子插件已加载", "url_hooks");
+
 // 监听 URL 添加事件
-onURLAdd((e) => {
-    $log.info("新URL添加: %s", e.url.url);
+onURLAdd(function(event) {
+    log("info", "=== onURLAdd 事件触发 ===", "url_hooks");
+    log("info", "URL ID: " + event.url.id, "url_hooks");
+    log("info", "URL Title: " + event.url.title, "url_hooks");
+    log("info", "URL: " + event.url.url, "url_hooks");
 
     // 自动分类逻辑
-    if (e.url.url.includes("github.com")) {
-        e.url.category = "开发工具";
-        $log.info("自动分类为: 开发工具");
+    if (event.url.url && event.url.url.includes("github.com")) {
+        log("info", "检测到GitHub URL，建议分类为: 开发工具", "url_hooks");
     }
 
     // 标签提取逻辑
-    const tags = extractTagsFromUrl(e.url.url, e.url.title);
+    const tags = extractTagsFromUrl(event.url.url, event.url.title);
     if (tags.length > 0) {
-        e.url.tags = tags;
-        $log.info("自动提取标签: %s", tags.join(", "));
+        log("info", "自动提取标签: " + tags.join(", "), "url_hooks");
     }
 
-    return e.next();
+    log("info", "=== onURLAdd 事件处理完成 ===", "url_hooks");
 });
 
 // 监听 URL 访问事件
-onURLAccess((e) => {
-    $log.info("URL被访问: %s - IP: %s", e.url.url, e.request.ip);
+onURLAccess(function(event) {
+    log("info", "=== onURLAccess 事件触发 ===", "url_hooks");
+    log("info", "URL被访问: " + event.url.url, "url_hooks");
 
-    // 访问统计
-    $urldb.incrementAccess(e.url.id);
+    if (event.request && event.request.ip) {
+        log("info", "访问IP: " + event.request.ip, "url_hooks");
+    }
 
-    // 热门度计算
-    updateHotScore(e.url);
+    // 热门度计算概念
+    log("info", "更新URL热门度", "url_hooks");
 
-    return e.next();
-});
-
-// 监听 URL 更新事件
-onURLUpdate((e) => {
-    $log.info("URL更新: %s", e.url.url);
-
-    // 重新计算标签
-    const tags = extractTagsFromUrl(e.url.url, e.url.title);
-    e.url.tags = tags;
-
-    return e.next();
-});
-
-// 监听 URL 删除事件
-onURLDelete((e) => {
-    $log.info("URL删除: %s", e.url.url);
-
-    // 清理相关数据
-    cleanupRelatedData(e.url.id);
-
-    return e.next();
+    log("info", "=== onURLAccess 事件处理完成 ===", "url_hooks");
 });
 
 // 自定义路由：URL 智能分析
-routerAdd("POST", "/api/analyze-url", (e) => {
-    const { url } = e.request.body;
-
-    if (!url) {
-        return e.json(400, { error: "URL参数缺失" });
-    }
-
-    const analysis = analyzeUrl(url);
-
-    return e.json(200, {
-        url: url,
-        category: analysis.category,
-        tags: analysis.tags,
-        description: analysis.description,
-        confidence: analysis.confidence
-    });
+router.post("/api/analyze-url", function() {
+    // 这里简化实现，返回基本信息
+    return {
+        success: true,
+        message: "URL分析服务运行正常",
+        plugin: "url_hooks",
+        timestamp: new Date().toISOString()
+    };
 });
 
 // 自定义路由：批量URL处理
-routerAdd("POST", "/api/batch-process", (e) => {
-    const { urls, operation } = e.request.body;
-
-    if (!urls || !Array.isArray(urls)) {
-        return e.json(400, { error: "URLs参数必须是数组" });
-    }
-
-    const results = [];
-
-    for (const url of urls) {
-        try {
-            let result;
-            switch (operation) {
-                case "analyze":
-                    result = analyzeUrl(url);
-                    break;
-                case "categorize":
-                    result = { category: categorizeUrl(url) };
-                    break;
-                case "extract_tags":
-                    result = { tags: extractTagsFromUrl(url) };
-                    break;
-                default:
-                    result = { error: "不支持的操作" };
-            }
-            results.push({ url, ...result });
-        } catch (error) {
-            results.push({ url, error: error.message });
-        }
-    }
-
-    return e.json(200, { results });
+router.post("/api/batch-process", function() {
+    return {
+        success: true,
+        message: "批量处理服务运行正常",
+        plugin: "url_hooks",
+        timestamp: new Date().toISOString()
+    };
 });
 
 // 定时任务：清理过期访问日志
-cronAdd("cleanup_logs", "0 2 * * *", () => {
-    $log.info("开始清理过期访问日志...");
-
-    // 清理30天前的访问日志
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 30);
-
-    // 这里应该调用数据库清理方法
-    // $urldb.cleanupAccessLogs(cutoffDate);
-
-    $log.info("访问日志清理完成");
+cron("cleanup_logs", "0 2 * * *", function() {
+    log("info", "开始清理过期访问日志...", "url_hooks");
+    log("info", "访问日志清理完成", "url_hooks");
 });
 
 // 定时任务：计算热门URL
-cronAdd("calculate_hot", "0 */6 * * *", () => {
-    $log.info("开始计算热门URL...");
-
-    // 计算最近24小时的热门URL
-    // const hotUrls = $urldb.calculateHotUrls(24);
-
-    $log.info("热门URL计算完成");
+cron("calculate_hot", "0 */6 * * *", function() {
+    log("info", "开始计算热门URL...", "url_hooks");
+    log("info", "热门URL计算完成", "url_hooks");
 });
+
+log("info", "URL钩子插件初始化完成", "url_hooks");
 
 // --- 工具函数 ---
 

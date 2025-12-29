@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/middleware"
+	"github.com/ctwj/urldb/plugins"
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
@@ -56,6 +58,14 @@ func Login(c *gin.Context) {
 	}
 
 	utils.Info("Login - 登录成功 - 用户名: %s(ID:%d), IP: %s", req.Username, user.ID, clientIP)
+
+	// 触发用户登录事件
+	loginData := map[string]interface{}{
+		"ip":         clientIP,
+		"user_agent": c.GetHeader("User-Agent"),
+		"login_time": time.Now(),
+	}
+	plugins.TriggerUserLogin(user, loginData)
 
 	response := dto.LoginResponse{
 		Token: token,

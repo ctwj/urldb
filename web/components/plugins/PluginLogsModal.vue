@@ -218,6 +218,7 @@ const filteredLogs = computed(() => {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(log =>
       log.hook_name.toLowerCase().includes(query) ||
+      (log.message && log.message.toLowerCase().includes(query)) ||
       (log.error_message && log.error_message.toLowerCase().includes(query))
     )
   }
@@ -288,7 +289,14 @@ const exportLogs = () => {
 
   try {
     const logText = filteredLogs.value.map(log => {
-      return `[${log.created_at}] ${log.hook_name}: ${log.success ? 'SUCCESS' : 'ERROR'} (${log.execution_time}ms)${log.error_message ? ' - ' + log.error_message : ''}`
+      let message = ''
+      if (log.message) {
+        message = ` - ${log.message}`
+      }
+      if (log.error_message) {
+        message += (message ? ' | ' : ' - ') + `ERROR: ${log.error_message}`
+      }
+      return `[${log.created_at}] ${log.hook_name}: ${log.success ? 'SUCCESS' : 'ERROR'} (${log.execution_time}ms)${message}`
     }).join('\n')
 
     const blob = new Blob([logText], { type: 'text/plain' })

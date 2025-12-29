@@ -356,12 +356,17 @@ const logColumns = [
     }
   },
   {
-    title: '错误信息',
-    key: 'error_message',
+    title: '日志信息',
+    key: 'message',
     render: (row) => {
       if (row.error_message) {
+        // 显示错误信息（红色）
         return h('span', { class: 'text-red-600 dark:text-red-400 text-sm' }, row.error_message)
+      } else if (row.message) {
+        // 显示普通日志消息（蓝色）
+        return h('span', { class: 'text-blue-600 dark:text-blue-400 text-sm' }, row.message)
       } else {
+        // 没有消息内容
         return h('span', { class: 'text-gray-700 dark:text-gray-300 text-sm' }, '执行成功')
       }
     }

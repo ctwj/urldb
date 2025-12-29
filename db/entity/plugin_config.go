@@ -21,7 +21,8 @@ type PluginLog struct {
 	HookName     string    `gorm:"not null" json:"hook_name"`
 	ExecutionTime int      `gorm:"not null" json:"execution_time"` // 毫秒
 	Success      bool      `gorm:"not null" json:"success"`
-	ErrorMessage *string   `gorm:"type:text" json:"error_message"`
+	Message      *string   `gorm:"type:text" json:"message"`        // 日志消息内容
+	ErrorMessage *string   `gorm:"type:text" json:"error_message"`  // 错误消息（仅error级别）
 	CreatedAt    time.Time `gorm:"autoCreateTime;index" json:"created_at"`
 }
 

@@ -36,6 +36,11 @@
           </span>
         </div>
 
+        <!-- 日志消息 -->
+        <div v-if="log.message" class="mt-1">
+          <p class="text-sm text-gray-700 break-all">{{ log.message }}</p>
+        </div>
+
         <!-- 错误信息 -->
         <div v-if="!log.success && log.error_message" class="mt-1">
           <p class="text-sm text-red-600 break-all">{{ log.error_message }}</p>
@@ -65,6 +70,13 @@
               </div>
             </div>
 
+            <!-- 日志消息 -->
+            <div v-if="log.message" class="mt-3">
+              <span class="text-gray-600">日志消息:</span>
+              <pre class="mt-1 p-2 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs overflow-x-auto">{{ log.message }}</pre>
+            </div>
+
+            <!-- 错误信息 -->
             <div v-if="log.error_message" class="mt-3">
               <span class="text-gray-600">错误信息:</span>
               <pre class="mt-1 p-2 bg-red-50 border border-red-200 rounded text-red-800 text-xs overflow-x-auto">{{ log.error_message }}</pre>
@@ -139,6 +151,7 @@ const copyLog = async () => {
 状态: ${props.log.success ? '成功' : '失败'}
 执行时间: ${props.log.execution_time}ms
 创建时间: ${formatFullTime(props.log.created_at)}
+${props.log.message ? `日志消息: ${props.log.message}` : ''}
 ${props.log.error_message ? `错误信息: ${props.log.error_message}` : ''}`
 
     await navigator.clipboard.writeText(logText)

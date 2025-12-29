@@ -442,14 +442,6 @@ func TriggerUserLogin(user interface{}, data map[string]interface{}) {
 	}
 }
 
-// TriggerAPIRequest 触发 API 请求事件
-func TriggerAPIRequest(method, path string, headers map[string]string, body interface{}) {
-	app := GetPluginApp()
-	if app != nil {
-		// app.TriggerAPIRequest(method, path, headers, body)
-		utils.Info("API request event triggered: %s %s", method, path)
-	}
-}
 
 // extractPluginNameFromPath 从路由路径中提取插件名称
 func (pi *PluginIntegration) extractPluginNameFromPath(path string) string {

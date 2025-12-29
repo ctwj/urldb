@@ -56,23 +56,32 @@ function processConfigDemo() {
 }
 
 // 示例：监听 URL 添加事件
-onURLAdd((e) => {
-    console.log("URL 添加触发:", e.url.url);
+onURLAdd(function(event) {
+    log("info", "=== config_demo onURLAdd 事件触发 ===", "config_demo");
+    log("info", "URL ID: " + event.url.id, "config_demo");
+    log("info", "URL Title: " + event.url.title, "config_demo");
+    log("info", "URL: " + event.url.url, "config_demo");
 
     // 在这里添加你的自定义逻辑
     // 例如：自动分类、标签提取、通知等
+    if (event.url.url && event.url.url.includes("github.com")) {
+        log("info", "检测到GitHub URL，建议分类为: 开发工具", "config_demo");
+    }
 
-    return e.next();
+    log("info", "=== config_demo onURLAdd 事件处理完成 ===", "config_demo");
 });
 
 // 示例：监听用户登录事件
-onUserLogin((e) => {
-    console.log("用户登录:", e.user.username);
+onUserLogin(function(event) {
+    log("info", "=== config_demo onUserLogin 事件触发 ===", "config_demo");
+    log("info", "用户ID: " + event.user.id, "config_demo");
+    log("info", "用户名: " + event.user.username, "config_demo");
+    log("info", "邮箱: " + event.user.email, "config_demo");
 
     // 在这里添加登录后处理逻辑
     // 例如：日志记录、欢迎消息、权限检查等
-
-    return e.next();
+    log("info", "欢迎 " + event.user.username + " 登录系统！", "config_demo");
+    log("info", "=== config_demo onUserLogin 事件处理完成 ===", "config_demo");
 });
 
 // 示例：添加自定义路由 - 获取配置信息
