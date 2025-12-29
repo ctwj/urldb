@@ -88,7 +88,7 @@ routerAdd("GET", "/api/config-demo", (e) => {
 
 // 添加新的路由 - 手动触发配置处理
 routerAdd("POST", "/api/config-demo/refresh", (e) => {
-    console.log("手动触发配置处理");
+    log("info", "手动触发配置处理", "config_demo");
 
     const result = processConfigDemo();
 
@@ -124,7 +124,7 @@ routerAdd("GET", "/api/config-demo/summary", (e) => {
 
 // 示例：添加定时任务 - 重新启用，每1分钟执行一次
 cronAdd("config_demo_task", "*/1 * * * *", () => {
-    console.log("执行定时任务: config_demo - 每1分钟执行一次");
+    log("info", "执行定时任务: config_demo - 每1分钟执行一次", "config_demo");
 
     try {
         // 调用提取的函数
@@ -132,11 +132,11 @@ cronAdd("config_demo_task", "*/1 * * * *", () => {
 
         // 记录执行结果
         if (result && result.success) {
-            console.log("定时任务执行成功，配置已处理");
+            log("info", "定时任务执行成功，配置已处理", "config_demo");
         } else {
-            console.log("定时任务执行失败:", (result && result.error) || "未知错误");
+            log("error", "定时任务执行失败: " + ((result && result.error) || "未知错误"), "config_demo");
         }
     } catch (error) {
-        console.log("定时任务执行异常:", error.message || error);
+        log("error", "定时任务执行异常: " + (error.message || error), "config_demo");
     }
 });

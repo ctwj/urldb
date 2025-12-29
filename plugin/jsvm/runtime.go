@@ -203,6 +203,11 @@ func (p *plugin) registerMigrations() error {
 		process.Enable(vm)
 		buffer.Enable(vm)
 
+		// 设置当前插件名称
+		pluginName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+		vm.Set("_currentPluginName", pluginName)
+		vm.Set("_repoManager", p.repoManager)
+
 		baseBinds(vm)
 		dbxBinds(vm)
 		securityBinds(vm)
@@ -308,6 +313,78 @@ func (p *plugin) registerHooks() error {
 		vm.Set("$app", p.app)
 		vm.Set("__hooks", absHooksDir)
 
+		// 创建一个特殊的上下文获取函数，能够在执行时动态获取当前VM的上下文
+		vm.Set("getCurrentPluginContext", func() map[string]interface{} {
+			context := make(map[string]interface{})
+
+			// 获取当前插件名称
+			if cpn := vm.Get("_currentPluginName"); cpn != nil {
+				if name, ok := cpn.Export().(string); ok && name != "" {
+					context["pluginName"] = name
+				} else {
+					context["pluginName"] = "unknown"
+				}
+			} else {
+				context["pluginName"] = "unknown"
+			}
+
+			// 获取 RepositoryManager
+			if repoManager := vm.Get("_repoManager"); repoManager != nil {
+				if rm, ok := repoManager.Export().(*repo.RepositoryManager); ok && rm != nil {
+					context["repoManager"] = rm
+				}
+			}
+
+			return context
+		})
+
+		// 创建一个使用全局 RepositoryManager 的 log 函数
+		vm.Set("log", func(level, message, pluginName string) {
+			// 输出到系统日志
+			switch level {
+			case "debug":
+				utils.Debug(message)
+			case "info":
+				utils.Info(message)
+			case "warn":
+				utils.Warn(message)
+			case "error":
+				utils.Error(message)
+			default:
+				utils.Info(message)
+			}
+
+			// 如果没有提供插件名称，使用默认值
+			if pluginName == "" {
+				pluginName = "unknown"
+			}
+
+			// 使用全局的 RepositoryManager（从 p.repoManager 获取）
+			if p.repoManager != nil {
+				if pluginLogRepo := p.repoManager.PluginLogRepository; pluginLogRepo != nil {
+					log := &entity.PluginLog{
+						PluginName: pluginName,
+						HookName:   "custom_log",
+						Success:    level != "error", // error 级别的日志标记为不成功
+					}
+
+					if level == "error" {
+						log.ErrorMessage = &message
+					}
+
+					if err := pluginLogRepo.CreateLog(log); err != nil {
+						utils.Error("FINAL-LOG: Failed to save plugin log to database: %v", err)
+					} else {
+						utils.Info("FINAL-LOG: Plugin log saved successfully to database: %s - %s", pluginName, message)
+					}
+				} else {
+					utils.Error("FINAL-LOG: PLUGIN LOG REPO IS NIL")
+				}
+			} else {
+				utils.Error("FINAL-LOG: GLOBAL REPO MANAGER NOT FOUND")
+			}
+		})
+
 		if p.config.OnInit != nil {
 			p.config.OnInit(vm)
 		}
@@ -325,7 +402,7 @@ func (p *plugin) registerHooks() error {
 	sharedBinds(loader)
 	hooksBinds(p.app, loader, executors)
 	cronBinds(p.app, loader, executors, p.repoManager)
-	routerBinds(p.app, loader, executors, p.config.RouteRegister)
+	routerBinds(p.app, loader, executors, p.repoManager, p.config.RouteRegister)
 
 	for file, content := range files {
 		func() {

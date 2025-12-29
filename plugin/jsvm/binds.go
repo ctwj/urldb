@@ -33,24 +33,6 @@ func init() {
 
 // baseBinds 基础API绑定
 func baseBinds(vm *goja.Runtime) {
-	// 日志函数 - 记录到插件日志表和系统日志
-	vm.Set("log", func(level, message string) {
-		switch level {
-		case "debug":
-			utils.Debug(message)
-		case "info":
-			utils.Info(message)
-		case "warn":
-			utils.Warn(message)
-		case "error":
-			utils.Error(message)
-		default:
-			utils.Info(message)
-		}
-
-		// TODO: 记录到插件日志表，需要获取当前插件名称
-		// 这里需要传递插件名称和钩子名称信息
-	})
 
 	// 工具函数
 	vm.Set("jsonParse", func(str string) goja.Value {
@@ -314,6 +296,15 @@ func cronBinds(app core.App, vm *goja.Runtime, executors *vmsPool, repoManager *
 					executor := executors.Get()
 					defer executors.Put(executor)
 
+					// 设置当前插件上下文
+					pluginName := extractPluginNameFromCronJob(name)
+					if pluginName != "" {
+						executor.Set("_currentPluginName", pluginName)
+					} else {
+						executor.Set("_currentPluginName", "cron_job")
+					}
+					executor.Set("_repoManager", repoManager)
+
 					_, err := fn(goja.Undefined())
 					if err != nil {
 						utils.Error("Cron job '%s' execution error: %v", name, err)
@@ -373,6 +364,17 @@ func cronBinds(app core.App, vm *goja.Runtime, executors *vmsPool, repoManager *
 
 				executor := executors.Get()
 				defer executors.Put(executor)
+
+				// 设置当前插件上下文
+				if pluginName != "" {
+					executor.Set("_currentPluginName", pluginName)
+					utils.Info("CRON: Set _currentPluginName to %s for VM %p", pluginName, executor)
+				} else {
+					executor.Set("_currentPluginName", "cron_job")
+					utils.Info("CRON: Set _currentPluginName to cron_job for VM %p", executor)
+				}
+				executor.Set("_repoManager", repoManager)
+				utils.Info("CRON: Set _repoManager for VM %p", executor)
 
 				// 再次保护，防止VM调用时出错
 				func() {
@@ -465,7 +467,7 @@ func configBinds(vm *goja.Runtime, repoManager *repo.RepositoryManager) {
 }
 
 // routerBinds 路由绑定
-func routerBinds(app core.App, vm *goja.Runtime, executors *vmsPool, routeRegister func(method, path string, handler func() (interface{}, error)) error) {
+func routerBinds(app core.App, vm *goja.Runtime, executors *vmsPool, repoManager *repo.RepositoryManager, routeRegister func(method, path string, handler func() (interface{}, error)) error) {
 	vm.Set("router", map[string]interface{}{
 		"add": func(method, path string, handler goja.Value) error {
 			if _, ok := goja.AssertFunction(handler); ok {
@@ -526,6 +528,10 @@ func routerBinds(app core.App, vm *goja.Runtime, executors *vmsPool, routeRegist
 
 					vm := executors.Get()
 					defer executors.Put(vm)
+
+					// 设置当前插件上下文（从路由注册时推断）
+					vm.Set("_currentPluginName", "route_handler")
+					vm.Set("_repoManager", repoManager)
 
 					// 创建一个模拟的事件对象，提供 json 方法
 					event := map[string]interface{}{
