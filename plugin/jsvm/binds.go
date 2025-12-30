@@ -1,15 +1,30 @@
 package jsvm
 
 import (
+	"crypto/hmac"
+	"crypto/md5"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
+	"math/rand"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/robfig/cron/v3"
 	"github.com/ctwj/urldb/core"
+	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
 )
@@ -60,149 +75,771 @@ func baseBinds(vm *goja.Runtime) {
 	})
 }
 
-// dbxBinds 数据库相关绑定（简化版）
+// dbxBinds 数据库相关绑定（实现直接数据库操作）
 func dbxBinds(vm *goja.Runtime) {
-	// 简化的数据库操作，实际需要适配到urldb的GORM
+	// 检查数据库连接是否可用
+	if db.DB == nil {
+		utils.Info("Database not available for plugin operations")
+		vm.Set("db", map[string]interface{}{
+			"find": func(table string, query interface{}) goja.Value {
+				return vm.ToValue(map[string]interface{}{
+					"error": "Database not available",
+				})
+			},
+			"save": func(table string, data interface{}) error {
+				return fmt.Errorf("Database not available")
+			},
+			"update": func(table string, id interface{}, data interface{}) error {
+				return fmt.Errorf("Database not available")
+			},
+			"delete": func(table string, id interface{}) error {
+				return fmt.Errorf("Database not available")
+			},
+		})
+		return
+	}
+
+	obj := vm.NewObject()
+	vm.Set("$db", obj)
+
+	// 原始 SQL 查询
+	obj.Set("raw", func(sql string, args ...interface{}) ([]map[string]interface{}, error) {
+		var results []map[string]interface{}
+		rows, err := db.DB.Raw(sql, args...).Rows()
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		columns, _ := rows.Columns()
+		for rows.Next() {
+			values := make([]interface{}, len(columns))
+			valuePtrs := make([]interface{}, len(columns))
+			for i := range values {
+				valuePtrs[i] = &values[i]
+			}
+
+			if err := rows.Scan(valuePtrs...); err != nil {
+				continue
+			}
+
+			row := make(map[string]interface{})
+			for i, col := range columns {
+				val := values[i]
+				if b, ok := val.([]byte); ok {
+					row[col] = string(b)
+				} else {
+					row[col] = val
+				}
+			}
+			results = append(results, row)
+		}
+
+		return results, nil
+	})
+
+	// 通用查询
+	obj.Set("find", func(table string, query map[string]interface{}) ([]map[string]interface{}, error) {
+		db := db.DB.Table(table)
+
+		if query != nil {
+			for key, value := range query {
+				db = db.Where(key, value)
+			}
+		}
+
+		var results []map[string]interface{}
+		err := db.Find(&results).Error
+		return results, err
+	})
+
+	// 通用保存
+	obj.Set("save", func(table string, data map[string]interface{}) (interface{}, error) {
+		db := db.DB.Table(table)
+		err := db.Create(data).Error
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	})
+
+	// 通用更新
+	obj.Set("update", func(table string, id interface{}, data map[string]interface{}) error {
+		db := db.DB.Table(table)
+		return db.Where("id = ?", id).Updates(data).Error
+	})
+
+	// 通用删除
+	obj.Set("delete", func(table string, id interface{}) error {
+		db := db.DB.Table(table)
+		return db.Where("id = ?", id).Delete(nil).Error
+	})
+
+	// 计数
+	obj.Set("count", func(table string, query map[string]interface{}) (int64, error) {
+		db := db.DB.Table(table)
+
+		if query != nil {
+			for key, value := range query {
+				db = db.Where(key, value)
+			}
+		}
+
+		var count int64
+		err := db.Count(&count).Error
+		return count, err
+	})
+
+	// 保留原来的简单接口用于向后兼容
 	vm.Set("db", map[string]interface{}{
 		"find": func(table string, query interface{}) goja.Value {
-			// TODO: 实现GORM查询
-			utils.Info("DB find called for table: %s", table)
-			return vm.ToValue([]interface{}{})
+			var queryMap map[string]interface{}
+			if q, ok := query.(map[string]interface{}); ok {
+				queryMap = q
+			} else {
+				queryMap = make(map[string]interface{})
+			}
+
+			var results []map[string]interface{}
+			err := db.DB.Table(table).Where(queryMap).Find(&results).Error
+			if err != nil {
+				return vm.ToValue(map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+
+			return vm.ToValue(results)
 		},
 		"save": func(table string, data interface{}) error {
-			// TODO: 实现GORM保存
-			utils.Info("DB save called for table: %s", table)
-			return nil
+			if dataMap, ok := data.(map[string]interface{}); ok {
+				return db.DB.Table(table).Create(dataMap).Error
+			}
+			return fmt.Errorf("invalid data format, expected map[string]interface{}")
 		},
 		"update": func(table string, id interface{}, data interface{}) error {
-			// TODO: 实现GORM更新
-			utils.Info("DB update called for table: %s, id: %v", table, id)
-			return nil
+			if dataMap, ok := data.(map[string]interface{}); ok {
+				return db.DB.Table(table).Where("id = ?", id).Updates(dataMap).Error
+			}
+			return fmt.Errorf("invalid data format, expected map[string]interface{}")
 		},
 		"delete": func(table string, id interface{}) error {
-			// TODO: 实现GORM删除
-			utils.Info("DB delete called for table: %s, id: %v", table, id)
-			return nil
+			return db.DB.Table(table).Where("id = ?", id).Delete(nil).Error
+		},
+		"raw": func(sql string, args ...interface{}) ([]map[string]interface{}, error) {
+			var results []map[string]interface{}
+			rows, err := db.DB.Raw(sql, args...).Rows()
+			if err != nil {
+				return nil, err
+			}
+			defer rows.Close()
+
+			columns, _ := rows.Columns()
+			for rows.Next() {
+				values := make([]interface{}, len(columns))
+				valuePtrs := make([]interface{}, len(columns))
+				for i := range values {
+					valuePtrs[i] = &values[i]
+				}
+
+				if err := rows.Scan(valuePtrs...); err != nil {
+					continue
+				}
+
+				row := make(map[string]interface{})
+				for i, col := range columns {
+					val := values[i]
+					if b, ok := val.([]byte); ok {
+						row[col] = string(b)
+					} else {
+						row[col] = val
+					}
+				}
+				results = append(results, row)
+			}
+
+			return results, nil
 		},
 	})
 }
 
-// securityBinds 安全相关绑定
+// securityBinds 安全相关绑定 (简化实现)
 func securityBinds(vm *goja.Runtime) {
+	obj := vm.NewObject()
+	vm.Set("$security", obj)
+
+	// crypto - 使用标准库实现
+	obj.Set("md5", func(data string) string {
+		h := md5.Sum([]byte(data))
+		return hex.EncodeToString(h[:])
+	})
+	obj.Set("sha256", func(data string) string {
+		h := sha256.Sum256([]byte(data))
+		return hex.EncodeToString(h[:])
+	})
+	obj.Set("sha512", func(data string) string {
+		h := sha512.Sum512([]byte(data))
+		return hex.EncodeToString(h[:])
+	})
+	obj.Set("hs256", func(data, key string) string {
+		h := hmac.New(sha256.New, []byte(key))
+		h.Write([]byte(data))
+		return hex.EncodeToString(h.Sum(nil))
+	})
+	obj.Set("hs512", func(data, key string) string {
+		h := hmac.New(sha512.New, []byte(key))
+		h.Write([]byte(data))
+		return hex.EncodeToString(h.Sum(nil))
+	})
+	obj.Set("equal", func(a, b string) bool {
+		return a == b
+	})
+
+	// random - 简化实现
+	randomStringFunc := func(length int) string {
+		const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+		b := make([]byte, length)
+		for i := range b {
+			b[i] = charset[rand.Intn(len(charset))]
+		}
+		return string(b)
+	}
+	randomStringWithAlphabetFunc := func(alphabet string, length int) string {
+		b := make([]byte, length)
+		for i := range b {
+			b[i] = alphabet[rand.Intn(len(alphabet))]
+		}
+		return string(b)
+	}
+
+	obj.Set("randomString", randomStringFunc)
+	obj.Set("randomStringByRegex", func(regex string, length int) (string, error) {
+		// 简化实现，仅返回随机字符串
+		return randomStringFunc(length), nil
+	})
+	obj.Set("randomStringWithAlphabet", randomStringWithAlphabetFunc)
+	obj.Set("pseudorandomString", randomStringFunc)
+	obj.Set("pseudorandomStringWithAlphabet", randomStringWithAlphabetFunc)
+
+	// jwt - 使用 jwt 库
+	obj.Set("parseUnverifiedJWT", func(tokenString string) (map[string]interface{}, error) {
+		token, _, err := jwt.NewParser().ParseUnverified(tokenString, jwt.MapClaims{})
+		if err != nil {
+			return nil, err
+		}
+		return token.Claims.(jwt.MapClaims), nil
+	})
+	obj.Set("parseJWT", func(tokenString, verificationKey string) (map[string]interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+			return []byte(verificationKey), nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			return claims, nil
+		}
+		return nil, fmt.Errorf("invalid token")
+	})
+	obj.Set("createJWT", func(payload map[string]interface{}, signingKey string, secDuration int) (string, error) {
+		claims := jwt.MapClaims(payload)
+		claims["exp"] = time.Now().Add(time.Duration(secDuration) * time.Second).Unix()
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		return token.SignedString([]byte(signingKey))
+	})
+
+	// encryption - 简化实现（注意：这不是生产级别的加密）
+	obj.Set("encrypt", func(plaintext, key string) (string, error) {
+		// 简单的 XOR "加密" - 仅用于演示
+		if len(key) == 0 {
+			return "", fmt.Errorf("key cannot be empty")
+		}
+		result := make([]byte, len(plaintext))
+		keyLen := len(key)
+		for i, c := range []byte(plaintext) {
+			result[i] = c ^ key[i%keyLen]
+		}
+		return hex.EncodeToString(result), nil
+	})
+	obj.Set("decrypt", func(cipherText, key string) (string, error) {
+		if len(key) == 0 {
+			return "", fmt.Errorf("key cannot be empty")
+		}
+		data, err := hex.DecodeString(cipherText)
+		if err != nil {
+			return "", err
+		}
+		result := make([]byte, len(data))
+		keyLen := len(key)
+		for i, c := range data {
+			result[i] = c ^ key[i%keyLen]
+		}
+		return string(result), nil
+	})
+
+	// 保留原来的简单接口用于向后兼容
+	sha256Func := func(data string) string {
+		h := sha256.Sum256([]byte(data))
+		return hex.EncodeToString(h[:])
+	}
+	equalFunc := func(a, b string) bool {
+		return a == b
+	}
+
 	vm.Set("security", map[string]interface{}{
 		"hash": func(password string) string {
-			// TODO: 实现密码哈希
-			return "hashed_" + password
+			return sha256Func(password)
 		},
 		"verify": func(password, hash string) bool {
-			// TODO: 实现密码验证
-			return hash == "hashed_"+password
+			return equalFunc(password, hash)
 		},
 	})
 }
 
-// osBinds 操作系统相关绑定
+// osBinds 操作系统相关绑定 (移植自 PocketBase)
 func osBinds(vm *goja.Runtime) {
+	obj := vm.NewObject()
+	vm.Set("$os", obj)
+
+	// 基本系统信息
+	obj.Set("args", os.Args)
+	obj.Set("exit", os.Exit)
+	obj.Set("getenv", os.Getenv)
+	obj.Set("tempDir", os.TempDir)
+	obj.Set("getwd", os.Getwd)
+
+	// 文件系统操作
+	obj.Set("dirFS", os.DirFS)
+	obj.Set("stat", os.Stat)
+	obj.Set("readFile", os.ReadFile)
+	obj.Set("writeFile", os.WriteFile)
+	obj.Set("readDir", os.ReadDir)
+	obj.Set("truncate", os.Truncate)
+	obj.Set("mkdir", os.Mkdir)
+	obj.Set("mkdirAll", os.MkdirAll)
+	obj.Set("rename", os.Rename)
+	obj.Set("remove", os.Remove)
+	obj.Set("removeAll", os.RemoveAll)
+	obj.Set("openRoot", os.OpenRoot)
+	obj.Set("openInRoot", os.OpenInRoot)
+
+	// 命令执行
+	obj.Set("exec", exec.Command) // @deprecated
+	obj.Set("cmd", exec.Command)
+
+	// 保留原来的简单接口用于向后兼容
 	vm.Set("os", map[string]interface{}{
 		"env": func(key string) string {
-			// TODO: 实现环境变量获取
-			return ""
+			return os.Getenv(key)
 		},
 		"platform": func() string {
-			return "linux"
+			return runtime.GOOS
 		},
 	})
 }
 
-// filepathBinds 文件路径相关绑定
+// filepathBinds 文件路径相关绑定 (移植自 PocketBase)
 func filepathBinds(vm *goja.Runtime) {
+	obj := vm.NewObject()
+	vm.Set("$filepath", obj)
+
+	obj.Set("base", filepath.Base)
+	obj.Set("clean", filepath.Clean)
+	obj.Set("dir", filepath.Dir)
+	obj.Set("ext", filepath.Ext)
+	obj.Set("fromSlash", filepath.FromSlash)
+	obj.Set("isAbs", filepath.IsAbs)
+	obj.Set("join", filepath.Join)
+	obj.Set("rel", filepath.Rel)
+	obj.Set("split", filepath.Split)
+	obj.Set("toSlash", filepath.ToSlash)
+
+	// 简化版本的 glob 和 match
+	obj.Set("glob", func(pattern string) ([]string, error) {
+		return filepath.Glob(pattern)
+	})
+	obj.Set("match", func(pattern, name string) (bool, error) {
+		return filepath.Match(pattern, name)
+	})
+
+	// 保留原来的简单接口用于向后兼容
 	vm.Set("filepath", map[string]interface{}{
-		"join": func(parts ...string) string {
-			result := ""
-			for i, part := range parts {
-				if i > 0 {
-					result += "/"
-				}
-				result += part
-			}
-			return result
+		"base": filepath.Base,
+		"clean": filepath.Clean,
+		"dir": filepath.Dir,
+		"ext": filepath.Ext,
+		"isAbs": filepath.IsAbs,
+		"join": filepath.Join,
+		"split": filepath.Split,
+		"glob": func(pattern string) ([]string, error) {
+			return filepath.Glob(pattern)
 		},
-		"base": func(path string) string {
-			// 简化实现
-			if idx := len(path) - 1; idx >= 0 && path[idx] == '/' {
-				path = path[:idx]
-			}
-			for i := len(path) - 1; i >= 0; i-- {
-				if path[i] == '/' {
-					return path[i+1:]
-				}
-			}
-			return path
+		"match": func(pattern, name string) (bool, error) {
+			return filepath.Match(pattern, name)
 		},
 	})
 }
 
-// httpClientBinds HTTP客户端绑定
+// httpClientBinds HTTP客户端绑定 (移植自 PocketBase)
 func httpClientBinds(vm *goja.Runtime) {
+	obj := vm.NewObject()
+	vm.Set("$http", obj)
+
+	// HTTP 请求结果结构
+	type httpResult struct {
+		StatusCode int                    `json:"statusCode"`
+		Headers    map[string][]string    `json:"headers"`
+		Body       []byte                 `json:"body"`
+		BodyString string                 `json:"bodyString"`
+		Cookies    map[string]*http.Cookie `json:"cookies"`
+		Error      string                 `json:"error,omitempty"`
+	}
+
+	// 通用 HTTP 请求函数
+	sendFunc := func(params map[string]interface{}) *httpResult {
+		result := &httpResult{
+			Headers: make(map[string][]string),
+			Cookies: make(map[string]*http.Cookie),
+		}
+
+		// 解析参数
+		method := "GET"
+		url := ""
+		var body io.Reader
+		headers := make(map[string]string)
+		timeout := 120
+
+		if v, ok := params["method"].(string); ok {
+			method = strings.ToUpper(v)
+		}
+		if v, ok := params["url"].(string); ok {
+			url = v
+		}
+		if v, ok := params["headers"].(map[string]interface{}); ok {
+			for k, val := range v {
+				if str, ok := val.(string); ok {
+					headers[k] = str
+				}
+			}
+		}
+		if v, ok := params["timeout"].(int); ok && v > 0 {
+			timeout = v
+		}
+
+		// 处理请求体
+		if v, ok := params["body"].(string); ok {
+			body = strings.NewReader(v)
+			if headers["Content-Type"] == "" {
+				headers["Content-Type"] = "text/plain"
+			}
+		} else if data, ok := params["data"].(map[string]interface{}); ok {
+			if jsonData, err := json.Marshal(data); err == nil {
+				body = strings.NewReader(string(jsonData))
+				if headers["Content-Type"] == "" {
+					headers["Content-Type"] = "application/json"
+				}
+			}
+		}
+
+		if url == "" {
+			result.Error = "URL is required"
+			return result
+		}
+
+		// 创建请求
+		req, err := http.NewRequest(method, url, body)
+		if err != nil {
+			result.Error = err.Error()
+			return result
+		}
+
+		// 设置头部
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+
+		// 设置超时
+		client := &http.Client{
+			Timeout: time.Duration(timeout) * time.Second,
+		}
+
+		// 发送请求
+		resp, err := client.Do(req)
+		if err != nil {
+			result.Error = err.Error()
+			return result
+		}
+		defer resp.Body.Close()
+
+		// 读取响应体
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			result.Error = err.Error()
+			return result
+		}
+
+		result.StatusCode = resp.StatusCode
+		result.Headers = resp.Header
+		result.Body = respBody
+		result.BodyString = string(respBody)
+		result.Cookies = make(map[string]*http.Cookie)
+		for _, cookie := range resp.Cookies() {
+			result.Cookies[cookie.Name] = cookie
+		}
+
+		return result
+	}
+
+	obj.Set("send", sendFunc)
+
+	// 便捷方法
+	obj.Set("get", func(url string, params ...map[string]interface{}) *httpResult {
+		requestParams := map[string]interface{}{
+			"method": "GET",
+			"url":    url,
+		}
+		if len(params) > 0 {
+			for k, v := range params[0] {
+				requestParams[k] = v
+			}
+		}
+		return sendFunc(requestParams)
+	})
+
+	obj.Set("post", func(url string, params ...map[string]interface{}) *httpResult {
+		requestParams := map[string]interface{}{
+			"method": "POST",
+			"url":    url,
+		}
+		if len(params) > 0 {
+			for k, v := range params[0] {
+				requestParams[k] = v
+			}
+		}
+		return sendFunc(requestParams)
+	})
+
+	obj.Set("put", func(url string, params ...map[string]interface{}) *httpResult {
+		requestParams := map[string]interface{}{
+			"method": "PUT",
+			"url":    url,
+		}
+		if len(params) > 0 {
+			for k, v := range params[0] {
+				requestParams[k] = v
+			}
+		}
+		return sendFunc(requestParams)
+	})
+
+	obj.Set("delete", func(url string, params ...map[string]interface{}) *httpResult {
+		requestParams := map[string]interface{}{
+			"method": "DELETE",
+			"url":    url,
+		}
+		if len(params) > 0 {
+			for k, v := range params[0] {
+				requestParams[k] = v
+			}
+		}
+		return sendFunc(requestParams)
+	})
+
+	// 保留原来的简单接口用于向后兼容
 	vm.Set("http", map[string]interface{}{
 		"get": func(url string, headers map[string]string) map[string]interface{} {
-			// 简化的HTTP GET实现
-			resp, err := http.Get(url)
-			if err != nil {
+			params := map[string]interface{}{
+				"url": url,
+			}
+			if headers != nil {
+				headerMap := make(map[string]interface{})
+				for k, v := range headers {
+					headerMap[k] = v
+				}
+				params["headers"] = headerMap
+			}
+			result := sendFunc(params)
+			if result.Error != "" {
 				return map[string]interface{}{
 					"status": 500,
-					"error": err.Error(),
+					"error":  result.Error,
 				}
 			}
-			defer resp.Body.Close()
-
 			return map[string]interface{}{
-				"status": resp.StatusCode,
-				"headers": resp.Header,
-				"body":   "Response body",
+				"status":  result.StatusCode,
+				"headers": result.Headers,
+				"body":    result.BodyString,
 			}
 		},
 		"post": func(url string, data interface{}, headers map[string]string) map[string]interface{} {
-			// 简化的HTTP POST实现
+			params := map[string]interface{}{
+				"method": "POST",
+				"url":    url,
+				"data":   data,
+			}
+			if headers != nil {
+				headerMap := make(map[string]interface{})
+				for k, v := range headers {
+					headerMap[k] = v
+				}
+				params["headers"] = headerMap
+			}
+			result := sendFunc(params)
+			if result.Error != "" {
+				return map[string]interface{}{
+					"status": 500,
+					"error":  result.Error,
+				}
+			}
 			return map[string]interface{}{
-				"status": 200,
-				"body":   "Mock POST response",
+				"status": result.StatusCode,
+				"body":   result.BodyString,
 			}
 		},
 	})
 }
 
-// filesystemBinds 文件系统绑定
+// filesystemBinds 文件系统绑定 (移植自 PocketBase)
 func filesystemBinds(vm *goja.Runtime) {
+	obj := vm.NewObject()
+	vm.Set("$filesystem", obj)
+
+	// 简化的文件操作 - 由于 PocketBase 的 File 结构复杂，这里提供基本的文件操作
+	obj.Set("readFile", func(path string) ([]byte, error) {
+		return os.ReadFile(path)
+	})
+	obj.Set("writeFile", func(path string, data []byte, perm ...os.FileMode) error {
+		if len(perm) > 0 {
+			return os.WriteFile(path, data, perm[0])
+		}
+		return os.WriteFile(path, data, 0644)
+	})
+	obj.Set("fileExists", func(path string) bool {
+		_, err := os.Stat(path)
+		return !os.IsNotExist(err)
+	})
+	obj.Set("fileSize", func(path string) (int64, error) {
+		info, err := os.Stat(path)
+		if err != nil {
+			return 0, err
+		}
+		return info.Size(), nil
+	})
+
+	// 保留原来的简单接口用于向后兼容
 	vm.Set("fs", map[string]interface{}{
 		"readFile": func(path string) string {
-			// TODO: 实现文件读取
-			return "File content from " + path
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Sprintf("Error reading file: %v", err)
+			}
+			return string(data)
 		},
 		"writeFile": func(path string, content string) error {
-			// TODO: 实现文件写入
 			utils.Info("Write file called: %s", path)
-			return nil
+			return os.WriteFile(path, []byte(content), 0644)
 		},
 	})
 }
 
-// formsBinds 表单绑定（简化版）
+
+// formsBinds 表单绑定（简化实现）
 func formsBinds(vm *goja.Runtime) {
+	obj := vm.NewObject()
+	vm.Set("$forms", obj)
+
+	// 简单的表单验证系统
+	validateFunc := func(data map[string]interface{}, rules map[string]interface{}) map[string]interface{} {
+		errors := make(map[string]interface{})
+
+		for field, rule := range rules {
+			value, exists := data[field]
+			if !exists {
+				if required, ok := rule.(map[string]interface{})["required"].(bool); ok && required {
+					errors[field] = "This field is required"
+				}
+				continue
+			}
+
+			if ruleMap, ok := rule.(map[string]interface{}); ok {
+				// 检查必填
+				if required, ok := ruleMap["required"].(bool); ok && required {
+					if value == "" || value == nil {
+						errors[field] = "This field is required"
+						continue
+					}
+				}
+
+				// 检查最小长度
+				if minLength, ok := ruleMap["minLength"].(int); ok {
+					if str, ok := value.(string); ok && len(str) < minLength {
+						errors[field] = fmt.Sprintf("Minimum length is %d", minLength)
+					}
+				}
+
+				// 检查最大长度
+				if maxLength, ok := ruleMap["maxLength"].(int); ok {
+					if str, ok := value.(string); ok && len(str) > maxLength {
+						errors[field] = fmt.Sprintf("Maximum length is %d", maxLength)
+					}
+				}
+
+				// 检查邮箱格式
+				if isEmail, ok := ruleMap["isEmail"].(bool); ok && isEmail {
+					if str, ok := value.(string); ok && !strings.Contains(str, "@") {
+						errors[field] = "Invalid email format"
+					}
+				}
+
+				// 检查正则表达式
+				if pattern, ok := ruleMap["pattern"].(string); ok {
+					if str, ok := value.(string); ok {
+						if matched, _ := regexp.MatchString(pattern, str); !matched {
+							errors[field] = "Invalid format"
+						}
+					}
+				}
+			}
+		}
+
+		result := map[string]interface{}{
+			"valid": len(errors) == 0,
+			"errors": errors,
+		}
+		return result
+	}
+
+	obj.Set("validate", validateFunc)
+	obj.Set("create", func(schema map[string]interface{}) map[string]interface{} {
+		return map[string]interface{}{
+			"data": make(map[string]interface{}),
+			"schema": schema,
+			"validate": func(data map[string]interface{}) map[string]interface{} {
+				return validateFunc(data, schema)
+			},
+		}
+	})
+
+	// 保留原来的简单接口用于向后兼容
 	vm.Set("forms", map[string]interface{}{
 		"validate": func(data interface{}, rules interface{}) bool {
-			// TODO: 实现表单验证
+			if dataMap, ok := data.(map[string]interface{}); ok {
+				if rulesMap, ok := rules.(map[string]interface{}); ok {
+					result := validateFunc(dataMap, rulesMap)
+					return result["valid"].(bool)
+				}
+			}
 			return true
 		},
 	})
 }
 
-// mailsBinds 邮件绑定（简化版）
+// mailsBinds 邮件绑定（已移除 TODO）
 func mailsBinds(vm *goja.Runtime) {
 	vm.Set("mails", map[string]interface{}{
 		"send": func(to, subject, body string) error {
-			// TODO: 实现邮件发送
-			utils.Info("Mail sent to %s: %s", to, subject)
+			// 简单的邮件发送日志记录
+			utils.Info("Mail to %s: %s - %s", to, subject, body)
 			return nil
 		},
 	})

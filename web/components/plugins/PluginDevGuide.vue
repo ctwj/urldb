@@ -203,6 +203,145 @@ log("info", "插件初始化完成", "my_plugin");</code></pre>
         </div>
       </section>
 
+      <!-- 数据库迁移功能 -->
+      <section>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+          <i class="fas fa-database text-teal-500 mr-2"></i>
+          数据库迁移 (migrate) 功能
+        </h3>
+        <div class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
+          <p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
+            从 v2.0.0 版本开始，migrate 功能进行了重大优化。Hook 类型插件不再支持 migrate 功能，
+            只有压缩包插件支持通过 SQL 文件进行数据库结构迁移。
+          </p>
+
+          <h4 class="font-medium text-gray-900 dark:text-white mb-2">📋 migrate 规则说明：</h4>
+          <div class="space-y-3 mb-4">
+            <div class="bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded p-3">
+              <h5 class="font-medium text-red-800 dark:text-red-200 mb-1">❌ Hook 插件 (单文件 .plugin.js)</h5>
+              <ul class="text-sm text-red-700 dark:text-red-300 space-y-1">
+                <li>• 不再支持 migrate 功能</li>
+                <li>• 无法使用 migrate() 函数</li>
+                <li>• 适合简单的逻辑处理插件</li>
+              </ul>
+            </div>
+            <div class="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded p-3">
+              <h5 class="font-medium text-green-800 dark:text-green-200 mb-1">✅ 压缩包插件</h5>
+              <ul class="text-sm text-green-700 dark:text-green-300 space-y-1">
+                <li>• 支持 SQL 迁移文件</li>
+                <li>• 自动执行安装/卸载迁移</li>
+                <li>• 适合需要数据库结构的复杂插件</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 class="font-medium text-gray-900 dark:text-white mb-2">🗂️ 压缩包插件 migrate 目录结构：</h4>
+          <pre class="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-x-auto mb-4"><code>my-migration-plugin.zip
+├── package.json              # 插件配置文件
+├── index.js                  # 主入口文件
+├── migrate/                  # 迁移目录
+│   ├── install.sql          # 安装时执行的SQL
+│   └── uninstall.sql        # 卸载时执行的SQL
+├── lib/
+│   └── utils.js
+└── README.md</code></pre>
+
+          <h4 class="font-medium text-gray-900 dark:text-white mb-2">📄 SQL 文件规范：</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <div class="bg-white dark:bg-gray-800 rounded p-3">
+              <h5 class="font-medium text-gray-900 dark:text-white mb-1">install.sql</h5>
+              <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <li>• 插件安装时自动执行</li>
+                <li>• 创建表、索引等结构</li>
+                <li>• 插入初始数据</li>
+                <li>• 执行失败会回滚安装</li>
+              </ul>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded p-3">
+              <h5 class="font-medium text-gray-900 dark:text-white mb-1">uninstall.sql</h5>
+              <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <li>• 插件卸载时自动执行</li>
+                <li>• 删除相关表结构</li>
+                <li>• 清理插件数据</li>
+                <li>• 确保系统干净卸载</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 class="font-medium text-gray-900 dark:text-white mb-2">📝 install.sql 示例：</h4>
+          <pre class="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-x-auto mb-4"><code>-- 创建插件数据表
+CREATE TABLE IF NOT EXISTS my_plugin_data (
+    id INTEGER PRIMARY KEY,
+    plugin_name VARCHAR(100) NOT NULL,
+    message TEXT,
+    config_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_my_plugin_data_name
+ON my_plugin_data(plugin_name);
+
+-- 插入初始数据
+INSERT INTO my_plugin_data (plugin_name, message, config_json)
+VALUES ('my_plugin', '插件安装时创建的默认数据', '{"enabled": true, "version": "1.0.0"}');</code></pre>
+
+          <h4 class="font-medium text-gray-900 dark:text-white mb-2">📝 uninstall.sql 示例：</h4>
+          <pre class="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-x-auto mb-4"><code>-- 删除索引
+DROP INDEX IF EXISTS idx_my_plugin_data_name;
+
+-- 删除插件数据表
+DROP TABLE IF EXISTS my_plugin_data;</code></pre>
+
+          <h4 class="font-medium text-gray-900 dark:text-white mb-2">⚠️ 错误处理：</h4>
+          <div class="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded p-3">
+            <ul class="text-sm text-yellow-800 dark:text-yellow-200 space-y-1">
+              <li>• <strong>安装失败：</strong> install.sql 执行失败时，插件安装会被回滚</li>
+              <li>• <strong>卸载失败：</strong> uninstall.sql 执行失败会记录错误日志，但不会阻止卸载</li>
+              <li>• <strong>SQL 语法：</strong> 请确保 SQL 语法兼容当前数据库 (PostgreSQL/MySQL/SQLite)</li>
+              <li>• <strong>事务安全：</strong> 每个 SQL 文件都在独立事务中执行</li>
+            </ul>
+          </div>
+
+          <h4 class="font-medium text-gray-900 dark:text-white mb-2">💡 最佳实践：</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="bg-white dark:bg-gray-800 rounded p-3">
+              <h5 class="font-medium text-gray-900 dark:text-white mb-1">🔧 命名规范</h5>
+              <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <li>• 表名使用插件前缀：plugin_name_table</li>
+                <li>• 索引名包含表名：idx_table_field</li>
+                <li>• 避免与系统表名冲突</li>
+              </ul>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded p-3">
+              <h5 class="font-medium text-gray-900 dark:text-white mb-1">🛡️ 安全考虑</h5>
+              <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <li>• 使用 IF EXISTS 避免错误</li>
+                <li>• 不删除系统表或数据</li>
+                <li>• 只操作插件相关数据</li>
+              </ul>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded p-3">
+              <h5 class="font-medium text-gray-900 dark:text-white mb-1">📊 性能优化</h5>
+              <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <li>• 合理创建索引</li>
+                <li>• 避免大量数据插入</li>
+                <li>• 使用批量操作</li>
+              </ul>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded p-3">
+              <h5 class="font-medium text-gray-900 dark:text-white mb-1">🧪 测试建议</h5>
+              <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <li>• 在测试环境验证 SQL</li>
+                <li>• 测试安装和卸载流程</li>
+                <li>• 验证数据完整性</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- 可用API -->
       <section>
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">

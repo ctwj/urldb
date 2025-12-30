@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"archive/zip"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +32,7 @@ type PluginInstaller struct {
 	pluginsDir   string
 	installedDir string
 	tempDir      string
+	db           *sql.DB // 数据库连接，用于执行迁移
 }
 
 // NewPluginInstaller 创建插件安装器
@@ -44,6 +46,13 @@ func NewPluginInstaller(baseDir string) *PluginInstaller {
 		installedDir: installedDir,
 		tempDir:      tempDir,
 	}
+}
+
+// NewPluginInstallerWithDB 创建带数据库连接的插件安装器
+func NewPluginInstallerWithDB(baseDir string, db *sql.DB) *PluginInstaller {
+	installer := NewPluginInstaller(baseDir)
+	installer.db = db
+	return installer
 }
 
 // ensureDirectories 确保目录存在
@@ -89,6 +98,12 @@ func (pi *PluginInstaller) InstallFromFile(zipPath string) error {
 	if err := pi.installToDirectory(tempPluginDir, installDir); err != nil {
 		pi.cleanupTemp(tempPluginDir)
 		return fmt.Errorf("failed to install plugin: %w", err)
+	}
+
+	// 执行安装迁移
+	if err := pi.executeInstallMigration(installDir); err != nil {
+		pi.cleanupTemp(tempPluginDir)
+		return fmt.Errorf("failed to execute install migration: %w", err)
 	}
 
 	// 清理临时文件
@@ -300,6 +315,11 @@ func (pi *PluginInstaller) Uninstall(pluginName string) error {
 		return fmt.Errorf("plugin '%s' is not installed", pluginName)
 	}
 
+	// 执行卸载迁移
+	if err := pi.executeUninstallMigration(installDir); err != nil {
+		return fmt.Errorf("failed to execute uninstall migration: %w", err)
+	}
+
 	// 删除插件目录
 	if err := os.RemoveAll(installDir); err != nil {
 		return fmt.Errorf("failed to uninstall plugin '%s': %w", pluginName, err)
@@ -417,4 +437,51 @@ func (pi *PluginInstaller) InstallSingleFile(filePath string) error {
 
 	utils.Info("Single-file plugin '%s' v%s installed successfully", pkg.Name, pkg.Version)
 	return nil
+}
+
+// executeMigration 执行迁移 SQL 文件
+func (pi *PluginInstaller) executeMigration(pluginDir, migrationType string) error {
+	utils.Info("Starting %s migration execution for plugin: %s", migrationType, pluginDir)
+
+	if pi.db == nil {
+		utils.Warn("Database connection not available, skipping migration")
+		return nil
+	}
+
+	migrationFile := filepath.Join(pluginDir, "migrate", migrationType+".sql")
+	utils.Info("Checking migration file: %s", migrationFile)
+
+	if _, err := os.Stat(migrationFile); os.IsNotExist(err) {
+		// 迁移文件不存在，不是错误
+		utils.Info("Migration file does not exist: %s", migrationFile)
+		return nil
+	}
+
+	utils.Info("Executing %s migration for plugin: %s", migrationType, pluginDir)
+
+	content, err := os.ReadFile(migrationFile)
+	if err != nil {
+		return fmt.Errorf("failed to read migration file %s: %w", migrationFile, err)
+	}
+
+	utils.Info("Migration SQL content: %s", string(content))
+
+	// 执行 SQL
+	_, err = pi.db.Exec(string(content))
+	if err != nil {
+		return fmt.Errorf("failed to execute %s migration: %w", migrationType, err)
+	}
+
+	utils.Info("Successfully executed %s migration for plugin", migrationType)
+	return nil
+}
+
+// executeInstallMigration 执行安装迁移
+func (pi *PluginInstaller) executeInstallMigration(pluginDir string) error {
+	return pi.executeMigration(pluginDir, "install")
+}
+
+// executeUninstallMigration 执行卸载迁移
+func (pi *PluginInstaller) executeUninstallMigration(pluginDir string) error {
+	return pi.executeMigration(pluginDir, "uninstall")
 }

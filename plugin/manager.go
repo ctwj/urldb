@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"database/sql"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/ctwj/urldb/core"
+	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/plugin/jsvm"
 	"github.com/ctwj/urldb/utils"
@@ -27,9 +29,28 @@ type Manager struct {
 
 // NewManager 创建插件管理器
 func NewManager(app core.App) *Manager {
+	// 尝试获取数据库连接用于迁移
+	var db *sql.DB
+	if dbConn := app.DB(); dbConn != nil {
+		db = dbConn
+		utils.Info("Database connection obtained for plugin manager")
+	} else {
+		utils.Warn("Database connection not available for plugin manager")
+	}
+
+	// 如果 app.DB() 为 nil，尝试使用全局数据库连接
+	if db == nil {
+		if globalDB := getGlobalDB(); globalDB != nil {
+			db = globalDB
+			utils.Info("Using global database connection for plugin manager")
+		}
+	}
+
+	utils.Info("Creating plugin installer with DB connection: %v", db != nil)
+
 	return &Manager{
 		app:           app,
-		installer:     NewPluginInstaller("."),
+		installer:     NewPluginInstallerWithDB(".", db),
 		loadedPlugins: make(map[string]bool),
 	}
 }
@@ -305,5 +326,18 @@ func (m *Manager) registerPluginRoute(method, path string, handler func() (inter
 	// 这里可以实现动态路由注册
 	// 由于架构限制，暂时只记录日志
 	utils.Info("Plugin route registered: %s %s", method, path)
+	return nil
+}
+
+// getGlobalDB 获取全局数据库连接
+func getGlobalDB() *sql.DB {
+	if db.DB != nil {
+		sqlDB, err := db.DB.DB()
+		if err != nil {
+			utils.Warn("Failed to get underlying SQL DB from GORM: %v", err)
+			return nil
+		}
+		return sqlDB
+	}
 	return nil
 }

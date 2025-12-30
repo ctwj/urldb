@@ -174,14 +174,25 @@ func RegisterWithRepo(app core.App, config Config, repoManager *repo.RepositoryM
 	return nil
 }
 
+// MigrationEntry 存储迁移信息
+type MigrationEntry struct {
+	Name string
+	Up   func(core.App) error
+	Down func(core.App) error
+}
+
 type plugin struct {
 	app         core.App
 	config      Config
 	repoManager *repo.RepositoryManager // RepositoryManager
+	migrations  map[string]*MigrationEntry // 注册的迁移
 }
 
 // registerMigrations registers the JS migrations loader.
 func (p *plugin) registerMigrations() error {
+	// 初始化迁移存储
+	p.migrations = make(map[string]*MigrationEntry)
+
 	// fetch all js migrations sorted by their filename
 	files, err := filesContent(p.config.MigrationsDir, p.config.MigrationsFilesPattern)
 	if err != nil {
@@ -221,8 +232,16 @@ func (p *plugin) registerMigrations() error {
 		vm.Set("__hooks", absHooksDir)
 
 		vm.Set("migrate", func(up, down func(txApp core.App) error) {
-			// TODO: 实现迁移注册
-			utils.Info("Migration registered: %s", file)
+			// 实现简化的迁移注册
+			migrationName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+
+			// 注册迁移到内存中，实际执行可以通过 API 触发
+			if !p.migrationRegistered(migrationName) {
+				p.registerMigration(migrationName, up, down)
+				utils.Info("Migration registered: %s (%s)", migrationName, file)
+			} else {
+				utils.Warn("Migration already registered: %s", migrationName)
+			}
 		})
 
 		if p.config.OnInit != nil {
@@ -772,4 +791,55 @@ func (p *plugin) recordPluginLog(pluginName, hookName string, startTime time.Tim
 func normalizeException(err error) error {
 	// Simple implementation - in real PocketBase this would be more sophisticated
 	return err
+}
+
+// migrationRegistered 检查迁移是否已注册
+func (p *plugin) migrationRegistered(name string) bool {
+	_, exists := p.migrations[name]
+	return exists
+}
+
+// registerMigration 注册迁移到内存中
+func (p *plugin) registerMigration(name string, up, down func(core.App) error) {
+	p.migrations[name] = &MigrationEntry{
+		Name: name,
+		Up:   up,
+		Down: down,
+	}
+}
+
+// GetRegisteredMigrations 返回已注册的迁移列表（可用于API端点）
+func (p *plugin) GetRegisteredMigrations() map[string]*MigrationEntry {
+	if p.migrations == nil {
+		return make(map[string]*MigrationEntry)
+	}
+
+	// 返回副本以避免外部修改
+	result := make(map[string]*MigrationEntry)
+	for k, v := range p.migrations {
+		result[k] = v
+	}
+	return result
+}
+
+// ExecuteMigration 执行指定的迁移
+func (p *plugin) ExecuteMigration(name string) error {
+	if p.migrations == nil {
+		return fmt.Errorf("no migrations registered")
+	}
+
+	migration, exists := p.migrations[name]
+	if !exists {
+		return fmt.Errorf("migration '%s' not found", name)
+	}
+
+	utils.Info("Executing migration: %s", name)
+	err := migration.Up(p.app)
+	if err != nil {
+		utils.Error("Migration '%s' failed: %v", name, err)
+		return fmt.Errorf("migration '%s' execution failed: %w", name, err)
+	}
+
+	utils.Info("Migration '%s' executed successfully", name)
+	return nil
 }
