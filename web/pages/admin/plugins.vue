@@ -20,6 +20,12 @@
             </template>
             安装插件
           </n-button>
+          <n-button @click="showDevGuideModal = true" type="info">
+            <template #icon>
+              <i class="fas fa-code"></i>
+            </template>
+            插件开发说明
+          </n-button>
         </div>
         <div class="flex gap-2">
           <div class="relative">
@@ -284,6 +290,13 @@
       </div>
     </template>
   </n-modal>
+
+  <!-- 插件开发说明模态框 -->
+  <PluginDevGuide
+    v-model="showDevGuideModal"
+    :show-plugin-manager-button="false"
+    @go-to-plugin-manager="goToPluginManager"
+  />
 </template>
 
 <script setup lang="ts">
@@ -303,6 +316,7 @@ definePageMeta({
 
 import { h } from 'vue'
 import PluginConfigForm from '~/components/plugins/PluginConfigForm.vue'
+import PluginDevGuide from '~/components/plugins/PluginDevGuide.vue'
 const message = useMessage()
 const notification = useNotification()
 
@@ -312,6 +326,7 @@ const showDetailModal = ref(false)
 const showConfigModal = ref(false)
 const showLogsModal = ref(false)
 const showInstallModal = ref(false)
+const showDevGuideModal = ref(false)
 const selectedPlugin = ref<any>(null)
 const configPlugin = ref<any>(null)
 const logsPlugin = ref<any>(null)
@@ -897,6 +912,11 @@ const uninstallPlugin = async (plugin: any) => {
       })
     }
   }
+}
+
+// 前往插件管理（已经在插件管理页面，不需要导航）
+const goToPluginManager = () => {
+  // 当前已经在插件管理页面，不需要做任何操作
 }
 
 // 初始化数据

@@ -70,14 +70,45 @@
             查看API文档
           </n-button>
         </div>
+
+        <!-- 插件开发说明 -->
+        <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+          <h3 class="text-lg font-medium text-green-900 dark:text-green-100 mb-2">
+            插件开发
+          </h3>
+          <p class="text-sm text-green-700 dark:text-green-300 mb-3">
+            学习如何开发自定义插件，扩展系统功能
+          </p>
+          <div class="flex gap-2">
+            <n-button type="success" @click="showPluginDevGuide">
+              <template #icon>
+                <i class="fas fa-code"></i>
+              </template>
+              插件开发说明
+            </n-button>
+            <n-button type="info" @click="goToPluginManager">
+              <template #icon>
+                <i class="fas fa-plug"></i>
+              </template>
+              插件管理
+            </n-button>
+          </div>
+        </div>
       </div>
     </template>
   </AdminPageLayout>
+
+  <!-- 插件开发说明模态框 -->
+  <PluginDevGuide
+    v-model="showDevGuideModal"
+    @go-to-plugin-manager="goToPluginManager"
+  />
 </template>
 
 <script setup lang="ts">
 import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
 import AdminPageLayout from '~/components/AdminPageLayout.vue'
+import PluginDevGuide from '~/components/plugins/PluginDevGuide.vue'
 
 // 设置页面布局
 definePageMeta({
@@ -107,6 +138,7 @@ const {
 
 const notification = useNotification()
 const saving = ref(false)
+const showDevGuideModal = ref(false)
 
 // 配置表单数据
 const configForm = ref<DevConfigForm>({
@@ -254,6 +286,16 @@ const openApiDocs = () => {
 // 打开API测试工具
 const openApiTest = () => {
   window.open('/api-test', '_blank')
+}
+
+// 显示插件开发说明
+const showPluginDevGuide = () => {
+  showDevGuideModal.value = true
+}
+
+// 前往插件管理
+const goToPluginManager = () => {
+  navigateTo('/admin/plugins')
 }
 
 // 导出配置
