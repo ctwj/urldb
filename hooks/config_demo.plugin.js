@@ -88,9 +88,33 @@ onUserLogin(function(event) {
 routerAdd("GET", "/api/config-demo", (e) => {
     const result = processConfigDemo();
 
+    // 尝试获取随机资源作为附加信息
+    let randomResource = null;
+    try {
+        const randomResult = db.raw(`
+            SELECT id, name, url, category
+            FROM resources
+            WHERE deleted_at IS NULL OR deleted_at = '' OR deleted_at IS NULL
+            ORDER BY RANDOM()
+            LIMIT 1
+        `);
+
+        if (randomResult && randomResult.length > 0) {
+            randomResource = {
+                id: randomResult[0].id,
+                name: randomResult[0].name || randomResult[0].url || "未命名资源",
+                url: randomResult[0].url,
+                category: randomResult[0].category || "未分类"
+            };
+        }
+    } catch (error) {
+        // 静默处理错误，不影响主要功能
+    }
+
     return e.json(200, {
         message: "来自 config_demo 插件的自定义 API",
         data: result,
+        random_resource: randomResource,
         timestamp: new Date().toISOString()
     });
 });
@@ -106,6 +130,77 @@ routerAdd("POST", "/api/config-demo/refresh", (e) => {
         data: result,
         timestamp: new Date().toISOString()
     });
+});
+
+// 临时解决方案：在现有refresh API中添加随机资源功能
+routerAdd("GET", "/api/config-demo/refresh", (e) => {
+    log("info", "获取随机资源（临时实现）", "config_demo");
+
+    try {
+        // 尝试获取随机资源
+        let randomResource = null;
+
+        try {
+            const randomResult = db.raw(`
+                SELECT id, name, url, category
+                FROM resources
+                WHERE deleted_at IS NULL OR deleted_at = '' OR deleted_at IS NULL
+                ORDER BY RANDOM()
+                LIMIT 1
+            `);
+
+            if (randomResult && randomResult.length > 0) {
+                randomResource = randomResult[0];
+            }
+        } catch (error) {
+            log("warn", "随机查询失败: " + error.message, "config_demo");
+
+            // 备选方案：获取第一个资源
+            try {
+                const allResources = db.find("resources", {});
+                if (allResources && allResources.length > 0) {
+                    const activeResources = allResources.filter(resource =>
+                        !resource.deleted_at || resource.deleted_at === ''
+                    );
+                    if (activeResources.length > 0) {
+                        randomResource = activeResources[0];
+                    }
+                }
+            } catch (fallbackError) {
+                log("warn", "备选方案也失败: " + fallbackError.message, "config_demo");
+            }
+        }
+
+        if (randomResource) {
+            return e.json(200, {
+                success: true,
+                message: "成功获取随机资源",
+                data: {
+                    id: randomResource.id,
+                    name: randomResource.name || randomResource.url || "未命名资源",
+                    url: randomResource.url,
+                    category: randomResource.category || "未分类",
+                    selected_at: new Date().toISOString()
+                },
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            return e.json(404, {
+                success: false,
+                message: "未找到任何资源记录",
+                suggestion: "请确保数据库中有资源记录",
+                timestamp: new Date().toISOString()
+            });
+        }
+
+    } catch (error) {
+        return e.json(500, {
+            success: false,
+            error: error.message,
+            message: "获取随机资源时发生错误",
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 // 添加新的路由 - 获取配置摘要
@@ -314,26 +409,48 @@ routerAdd("GET", "/api/bindings-test", (e) => {
         log("info", "测试数据库函数...", "config_demo");
         try {
             const dbTests = {
-                // 测试查询系统配置表（如果存在）
-                testQuery: null,
-                testCount: null,
-                testRaw: null
+                // 测试查询resources表
+                resourcesQuery: null,
+                resourcesCount: null,
+                testRaw: null,
+                randomResource: null
             };
 
-            // 尝试查询系统配置
+            // 尝试查询resources表
             try {
-                const configResult = db.find("system_configs", { key: "app_name" });
-                dbTests.testQuery = { success: true, count: Array.isArray(configResult) ? configResult.length : 0 };
+                const resourcesResult = db.find("resources", {});
+                dbTests.resourcesQuery = {
+                    success: true,
+                    count: Array.isArray(resourcesResult) ? resourcesResult.length : 0,
+                    sample: resourcesResult ? resourcesResult.slice(0, 3) : []
+                };
             } catch (dbError) {
-                dbTests.testQuery = { success: false, error: dbError.message };
+                dbTests.resourcesQuery = { success: false, error: dbError.message };
             }
 
-            // 尝试计数查询
+            // 尝试resources计数查询
             try {
-                const countResult = db.count("system_configs", {});
-                dbTests.testCount = { success: true, count: countResult };
+                const countResult = db.count("resources", {});
+                dbTests.resourcesCount = { success: true, count: countResult };
             } catch (countError) {
-                dbTests.testCount = { success: false, error: countError.message };
+                dbTests.resourcesCount = { success: false, error: countError.message };
+            }
+
+            // 尝试原始SQL查询 - 获取随机资源
+            try {
+                const randomResult = db.raw(`
+                    SELECT id, title, url, category
+                    FROM resources
+                    WHERE deleted_at IS NULL OR deleted_at = '' OR deleted_at IS NULL
+                    ORDER BY RANDOM()
+                    LIMIT 1
+                `);
+                dbTests.randomResource = {
+                    success: true,
+                    result: randomResult && randomResult.length > 0 ? randomResult[0] : null
+                };
+            } catch (randomError) {
+                dbTests.randomResource = { success: false, error: randomError.message };
             }
 
             // 尝试原始SQL查询
@@ -571,3 +688,4 @@ routerAdd("GET", "/api/config-demo/migration-test", (e) => {
         timestamp: new Date().toISOString()
     });
 });
+// 触发热重载: 2026年 1月 3日 星期六 23时55分02秒 CST
