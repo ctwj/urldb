@@ -170,7 +170,7 @@
                 </div>
 
                 <div class="flex items-center space-x-2 ml-4">
-                  <n-button v-show="false" size="small" type="primary" @click="editResource(resource)">
+                  <n-button size="small" type="primary" @click="editResource(resource)">
                     <template #icon>
                       <i class="fas fa-edit"></i>
                     </template>
@@ -422,6 +422,9 @@ const editRules = {
 
 // 获取资源API
 import { useResourceApi, useCategoryApi, useTagApi, usePanApi } from '~/composables/useApi'
+
+// 用户状态管理
+const userStore = useUserStore()
 const resourceApi = useResourceApi()
 const categoryApi = useCategoryApi()
 const tagApi = useTagApi()
@@ -659,39 +662,39 @@ const editResource = (resource: Resource) => {
 
 // 删除资源
 const deleteResource = async (resource: Resource) => {
-  dialog.value?.warning({
-    title: '警告',
-    content: `确定要删除资源"${resource.title}"吗？`,
-    positiveText: '确定',
-    negativeText: '取消',
-    draggable: true,
-    onPositiveClick: async () => {
-      try {
-        await resourceApi.deleteResource(resource.id)
-        notification.value?.success({
-          content: '删除成功',
-          duration: 3000
-        })
-        // 从当前列表中移除
-        const index = resources.value.findIndex(r => r.id === resource.id)
-        if (index > -1) {
-          resources.value.splice(index, 1)
-          total.value = Math.max(0, total.value - 1)
-        }
-        // 从选择列表中移除
-        const selectedIndex = selectedResources.value.indexOf(resource.id)
-        if (selectedIndex > -1) {
-          selectedResources.value.splice(selectedIndex, 1)
-        }
-      } catch (error) {
-        console.error('删除失败:', error)
-        notification.value?.error({
-          content: '删除失败',
-          duration: 3000
-        })
+  console.log('删除资源被点击:', resource.title, 'ID:', resource.id)
+
+  // 使用原生确认对话框
+  if (confirm(`确定要删除资源"${resource.title}"吗？`)) {
+    try {
+      console.log('开始删除资源:', resource.id)
+      await resourceApi.deleteResource(resource.id)
+      console.log('删除成功')
+
+      notification.value?.success({
+        content: '删除成功',
+        duration: 3000
+      })
+
+      // 从当前列表中移除
+      const index = resources.value.findIndex(r => r.id === resource.id)
+      if (index > -1) {
+        resources.value.splice(index, 1)
+        total.value = Math.max(0, total.value - 1)
       }
+      // 从选择列表中移除
+      const selectedIndex = selectedResources.value.indexOf(resource.id)
+      if (selectedIndex > -1) {
+        selectedResources.value.splice(selectedIndex, 1)
+      }
+    } catch (error) {
+      console.error('删除失败:', error)
+      notification.value?.error({
+        content: '删除失败: ' + (error as Error).message,
+        duration: 3000
+      })
     }
-  })
+  }
 }
 
 // 批量删除
@@ -787,6 +790,10 @@ const handleEditSubmit = async () => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  // 初始化用户认证状态
+  const userStore = useUserStore()
+  userStore.initAuth()
+
   fetchData()
 })
 

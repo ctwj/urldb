@@ -22,7 +22,7 @@
     </n-card>
 
     <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <!-- 今日资源/总资源数 -->
       <n-card>
         <div class="flex items-center">

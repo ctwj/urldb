@@ -3,6 +3,7 @@ import { useApiFetch } from './useApiFetch'
 // Bing API 相关类型定义
 export interface BingIndexConfig {
   enabled: boolean
+  apiKey?: string
   submitInterval?: number
   batchSize?: number
   retryCount?: number
@@ -10,6 +11,7 @@ export interface BingIndexConfig {
 
 export interface UpdateBingConfigRequest {
   enabled: boolean
+  apiKey?: string
 }
 
 // Bing API Hook

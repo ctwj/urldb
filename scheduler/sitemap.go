@@ -436,8 +436,18 @@ func (s *SitemapScheduler) shouldTriggerBingSubmit() bool {
 func (s *SitemapScheduler) submitSitemapToBing(baseURL string) {
 	utils.Info("开始自动提交sitemap到Bing...")
 
+	// 使用系统配置中的网站URL（最根本的配置）
+	siteURL, err := s.BaseScheduler.systemConfigRepo.GetConfigValue(entity.ConfigKeyWebsiteURL)
+	if err != nil || siteURL == "" {
+		// 如果系统配置中没有网站URL，使用传入的baseURL
+		siteURL = baseURL
+		utils.Debug("系统配置中未找到网站URL，使用baseURL: %s", baseURL)
+	} else {
+		utils.Debug("使用系统配置中的网站URL: %s", siteURL)
+	}
+
 	// 构建sitemap URL
-	sitemapURL := baseURL
+	sitemapURL := siteURL
 	if !strings.HasSuffix(sitemapURL, "/") {
 		sitemapURL += "/"
 	}
@@ -445,9 +455,17 @@ func (s *SitemapScheduler) submitSitemapToBing(baseURL string) {
 
 	utils.Info("提交sitemap到Bing: %s", sitemapURL)
 
+	// 获取Bing API密钥
+	apiKey, err := s.BaseScheduler.systemConfigRepo.GetConfigValue(entity.BingIndexConfigKeyAPIKey)
+	if err != nil {
+		utils.Debug("获取Bing API密钥失败: %v，将使用默认配置", err)
+		apiKey = ""
+	}
+
 	// 创建Bing客户端配置
 	config := &bing.Config{
-		SiteURL: baseURL,
+		SiteURL: siteURL,
+		APIKey:  apiKey,
 	}
 
 	// 创建Bing客户端
@@ -465,7 +483,7 @@ func (s *SitemapScheduler) submitSitemapToBing(baseURL string) {
 	}
 
 	if response.Success {
-		utils.Info("sitemap提交到Bing成功: %s", sitemapURL)
+		utils.Info("sitemap提交到Bing成功: %s - %s", sitemapURL, response.Message)
 		// 更新最后提交时间
 		s.updateLastBingSitemapSubmitTime()
 	} else {

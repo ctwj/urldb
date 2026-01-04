@@ -25,11 +25,14 @@ func NewBingHandler(siteURL string, repoManager *repo.RepositoryManager) *BingHa
 func (h *BingHandler) GetBingIndexConfig(c *gin.Context) {
 	enabledValue := h.getConfigValue(entity.BingIndexConfigKeyEnabled, "false")
 	enabled := enabledValue == "true"
-	
-	fmt.Printf("[Bing] 获取配置 - 原始值: %s, 转换后: %v\n", enabledValue, enabled)
-	
+
+	apiKeyValue := h.getConfigValue(entity.BingIndexConfigKeyAPIKey, "")
+
+	fmt.Printf("[Bing] 获取配置 - enabled: %v, apiKey: %s\n", enabled, apiKeyValue)
+
 	config := gin.H{
 		"enabled": enabled,
+		"apiKey":  apiKeyValue,
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -41,7 +44,8 @@ func (h *BingHandler) GetBingIndexConfig(c *gin.Context) {
 // UpdateBingIndexConfig 更新Bing索引配置
 func (h *BingHandler) UpdateBingIndexConfig(c *gin.Context) {
 	var request struct {
-		Enabled bool `json:"enabled"`
+		Enabled bool   `json:"enabled"`
+		APIKey  string `json:"apiKey"`
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -52,13 +56,29 @@ func (h *BingHandler) UpdateBingIndexConfig(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("[Bing] 更新配置 - 接收到的值: %v\n", request.Enabled)
+	fmt.Printf("[Bing] 更新配置 - enabled: %v, apiKey: %s\n",
+		request.Enabled, request.APIKey)
 
-	// 保存配置
-	valueToSave := fmt.Sprintf("%t", request.Enabled)
-	fmt.Printf("[Bing] 保存配置 - 键: %s, 值: %s\n", entity.BingIndexConfigKeyEnabled, valueToSave)
-	
-	err := h.setConfigValue(entity.BingIndexConfigKeyEnabled, valueToSave)
+	// 准备要保存的配置
+	configs := []entity.SystemConfig{
+		{
+			Key:   entity.BingIndexConfigKeyEnabled,
+			Value: fmt.Sprintf("%t", request.Enabled),
+			Type:  entity.ConfigTypeBool,
+		},
+	}
+
+	// 如果提供了API密钥，则保存
+	if request.APIKey != "" {
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.BingIndexConfigKeyAPIKey,
+			Value: request.APIKey,
+			Type:  entity.ConfigTypeString,
+		})
+	}
+
+	// 批量保存配置
+	err := h.systemConfigRepo.UpsertConfigs(configs)
 	if err != nil {
 		fmt.Printf("[Bing] 保存配置失败: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{

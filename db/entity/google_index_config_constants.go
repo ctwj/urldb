@@ -40,4 +40,5 @@ const (
 const (
 	// 通用配置
 	BingIndexConfigKeyEnabled = "bing_index_enabled" // 是否启用Bing索引功能
+	BingIndexConfigKeyAPIKey  = "bing_index_api_key"  // Bing Webmaster API密钥
 )

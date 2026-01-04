@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ctwj/urldb/cmd/cmdplugin"
 	"github.com/ctwj/urldb/config"
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/entity"
@@ -45,9 +46,9 @@ func main() {
 			return
 		case "plugin":
 			// 处理插件命令
-			initPluginCommands()
+			cmdplugin.InitPluginCommands()
 			rootCmd := &cobra.Command{Use: "urldb"}
-			rootCmd.AddCommand(pluginCmd)
+			rootCmd.AddCommand(cmdplugin.GetPluginCmd())
 			if err := rootCmd.Execute(); err != nil {
 				utils.Error("插件命令执行失败: %v", err)
 				os.Exit(1)
@@ -127,7 +128,7 @@ func main() {
 	taskManager.RegisterProcessor(transferProcessor)
 
 	// 初始化插件系统
-	if err := InitializePluginSystem(repoManager); err != nil {
+	if err := cmdplugin.InitializePluginSystem(repoManager); err != nil {
 		utils.Error("插件系统初始化失败: %v", err)
 	} else {
 		utils.Info("插件系统启动成功")
@@ -135,8 +136,9 @@ func main() {
 
 	// 创建插件管理器
 	var pluginManager *plugin.Manager
+	globalPluginIntegration := cmdplugin.GetGlobalPluginIntegration()
 	if globalPluginIntegration != nil {
-		pluginManager = globalPluginIntegration.pluginManager
+		pluginManager = globalPluginIntegration.GetPluginManager()
 	} else {
 		pluginManager = plugin.NewManager(nil)
 		pluginManager.SetRepoManager(repoManager)
@@ -190,7 +192,7 @@ func main() {
 	handlers.SetRepositoryManager(repoManager)
 
 	// 加载插件配置并初始化插件系统
-	pluginConfig := LoadPluginConfig()
+	pluginConfig := cmdplugin.LoadPluginConfig()
 
 	// 如果启用了插件系统，则设置路由器
 	if pluginConfig.Enabled && globalPluginIntegration != nil {

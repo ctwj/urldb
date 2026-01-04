@@ -118,6 +118,9 @@ uploads/*
 # Build artifacts
 build/
 dist/
+pocketbase-src/
+
+urldb
 
 # Docker
 .dockerignore

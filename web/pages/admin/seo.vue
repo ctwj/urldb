@@ -58,44 +58,14 @@
           <!-- Bing索引 Tab -->
           <n-tab-pane name="bing-index" tab="Bing索引">
             <BingTab
-              :system-config="systemConfig"
               :bing-index-config="bingIndexConfig"
-              :submit-history="bingSubmitHistory"
-              :last-submit-status="bingLastSubmitStatus"
-              :last-submit-time="bingLastSubmitTime"
               :config-loading="configLoading"
-              :submit-sitemap-loading="bingSubmitSitemapLoading"
-              :batch-submit-loading="bingBatchSubmitLoading"
-              :status-loading="bingStatusLoading"
-              :history-loading="bingHistoryLoading"
-              :pagination="bingPagination"
               @update:bing-index-config="updateBingIndexConfig"
-              @refresh-status="refreshBingStatus"
+              @save-config="saveBingConfig"
             />
           </n-tab-pane>
 
-          <!-- 站点提交 Tab -->
-          <n-tab-pane name="site-submit" tab="站点提交">
-            <SiteSubmitTab
-              :last-submit-time="lastSubmitTime"
-              @update:last-submit-time="updateLastSubmitTime"
-            />
-          </n-tab-pane>
-
-          <!-- 外链建设 Tab -->
-          <n-tab-pane name="link-building" tab="外链建设">
-            <LinkBuildingTab
-              :link-stats="linkStats"
-              :link-list="linkList"
-              :loading="linkLoading"
-              :pagination="linkPagination"
-              @add-new-link="addNewLink"
-              @edit-link="editLink"
-              @delete-link="deleteLink"
-              @load-link-list="loadLinkList"
-            />
-          </n-tab-pane>
-        </n-tabs>
+                  </n-tabs>
       </div>
     </template>
   </AdminPageLayout>
@@ -553,9 +523,7 @@
 import AdminPageLayout from '~/components/AdminPageLayout.vue'
 import GoogleIndexTab from '~/components/Admin/GoogleIndexTab.vue'
 import SitemapTab from '~/components/Admin/SitemapTab.vue'
-import SiteSubmitTab from '~/components/Admin/SiteSubmitTab.vue'
 import BingTab from '~/components/Admin/BingTab.vue'
-import LinkBuildingTab from '~/components/Admin/LinkBuildingTab.vue'
 
 // SEO管理页面
 definePageMeta({
@@ -684,70 +652,6 @@ const sitemapStats = ref({
 const isGenerating = ref(false)
 const generateStatus = ref('')
 
-// 最后提交时间
-const lastSubmitTime = ref({
-  baidu: '',
-  google: '',
-  bing: '',
-  sogou: '',
-  shenma: '',
-  so360: ''
-})
-
-// 外链统计
-const linkStats = ref({
-  total: 156,
-  valid: 142,
-  pending: 8,
-  invalid: 6
-})
-
-// 外链列表
-const linkList = ref([
-  {
-    id: 1,
-    url: 'https://example1.com',
-    title: '示例外链1',
-    status: 'valid',
-    domain: 'example1.com',
-    created_at: '2024-01-15'
-  },
-  {
-    id: 2,
-    url: 'https://example2.com',
-    title: '示例外链2',
-    status: 'pending',
-    domain: 'example2.com',
-    created_at: '2024-01-16'
-  },
-  {
-    id: 3,
-    url: 'https://example3.com',
-    title: '示例外链3',
-    status: 'invalid',
-    domain: 'example3.com',
-    created_at: '2024-01-17'
-  }
-])
-
-const linkLoading = ref(false)
-
-// 分页配置
-const linkPagination = ref({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50],
-  onChange: (page: number) => {
-    linkPagination.value.page = page
-    loadLinkList()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    linkPagination.value.pageSize = pageSize
-    linkPagination.value.page = 1
-    loadLinkList()
-  }
-})
 
 // Bing分页配置
 const bingPagination = ref({
@@ -1294,33 +1198,6 @@ const refreshSitemapStatus = async () => {
   }
 }
 
-// 更新最后提交时间
-const updateLastSubmitTime = (engine: string, time: string) => {
-  lastSubmitTime.value[engine as keyof typeof lastSubmitTime.value] = time
-}
-
-// 加载外链列表
-const loadLinkList = () => {
-  linkLoading.value = true
-  setTimeout(() => {
-    linkLoading.value = false
-  }, 1000)
-}
-
-// 添加新外链
-const addNewLink = () => {
-  message.info('添加外链功能开发中')
-}
-
-// 编辑外链
-const editLink = (row: any) => {
-  message.info(`编辑外链: ${row.title}`)
-}
-
-// 删除外链
-const deleteLink = (row: any) => {
-  message.warning(`删除外链: ${row.title}`)
-}
 
 // 加载Bing索引配置
 const loadBingIndexConfig = async () => {
@@ -1365,7 +1242,7 @@ const updateBingIndexConfig = async (value: boolean) => {
     if (response?.success) {
       message.success(response.message || 'Bing索引配置已更新')
       console.log('Bing索引配置更新成功:', response)
-      
+
       // 延迟重新加载配置以验证后端状态（在后台进行，不阻塞UI）
       setTimeout(async () => {
         try {
@@ -1390,6 +1267,42 @@ const updateBingIndexConfig = async (value: boolean) => {
   }
 }
 
+// 保存Bing配置
+const saveBingConfig = async (config: { enabled: boolean; apiKey: string }) => {
+  configLoading.value = true
+  try {
+    const api = useApi()
+
+    // 调用后端API保存配置
+    const response = await api.bingApi.updateConfig({
+      enabled: config.enabled,
+      apiKey: config.apiKey
+    })
+
+    if (response?.success) {
+      message.success(response.message || 'Bing配置已保存')
+      console.log('Bing配置保存成功:', response)
+
+      // 延迟重新加载配置以验证后端状态
+      setTimeout(async () => {
+        try {
+          await loadBingIndexConfig()
+        } catch (error) {
+          console.error('重新加载配置失败:', error)
+        }
+      }, 1000)
+    } else {
+      message.error(response?.message || '保存配置失败')
+    }
+  } catch (error: any) {
+    console.error('保存Bing配置失败:', error)
+    const errorMsg = error?.response?.data?.message || error?.message || '保存配置失败'
+    message.error('保存配置失败: ' + errorMsg)
+  } finally {
+    configLoading.value = false
+  }
+}
+
 // 刷新Bing状态
 const refreshBingStatus = async () => {
   try {
@@ -1408,7 +1321,6 @@ onMounted(async () => {
   await loadSitemapConfig()
   await refreshSitemapStatus()
   await loadBingIndexConfig()
-  loadLinkList()
 })
 </script>
 
