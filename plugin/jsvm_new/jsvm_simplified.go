@@ -512,6 +512,30 @@ declare global {
     next(): void;
   }
 
+  interface ReadyResource {
+    id: string;
+    key: string;
+    title: string;
+    description: string;
+    url: string;
+    category: string;
+    tags: string[];
+    img: string;
+    source: string;
+    extra: string;
+    ip: string;
+    error_msg: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+
+  interface ReadyResourceEvent {
+    app: App;
+    ready_resource: ReadyResource;
+    data: Record<string, any>;
+    next(): void;
+  }
+
   interface APIEvent {
     app: App;
     request: any;
@@ -527,6 +551,7 @@ declare global {
 declare function onURLAdd(handler: (e: URLEvent) => void): void;
 declare function onURLAccess(handler: (e: URLEvent) => void): void;
 declare function onUserLogin(handler: (e: UserEvent) => void): void;
+declare function onReadyResourceAdd(handler: (e: ReadyResourceEvent) => void): void;
 declare function onAPIRequest(handler: (e: APIEvent) => void): void;
 
 // 路由函数声明

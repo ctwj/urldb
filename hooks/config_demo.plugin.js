@@ -84,6 +84,77 @@ onUserLogin(function(event) {
     log("info", "=== config_demo onUserLogin 事件处理完成 ===", "config_demo");
 });
 
+// 示例：监听待处理资源添加事件
+onReadyResourceAdd(function(event) {
+    log("info", "=== config_demo onReadyResourceAdd 事件触发 ===", "config_demo");
+
+    // 输出待处理资源的基本信息
+    if (event.ready_resource) {
+        log("info", "资源ID: " + event.ready_resource.id, "config_demo");
+        log("info", "资源Key: " + event.ready_resource.key, "config_demo");
+        log("info", "资源标题: " + event.ready_resource.title, "config_demo");
+        log("info", "资源描述: " + event.ready_resource.description, "config_demo");
+        log("info", "资源URL: " + event.ready_resource.url, "config_demo");
+        log("info", "资源分类: " + event.ready_resource.category, "config_demo");
+        log("info", "资源标签: " + JSON.stringify(event.ready_resource.tags), "config_demo");
+        log("info", "资源图片: " + event.ready_resource.img, "config_demo");
+        log("info", "资源来源: " + event.ready_resource.source, "config_demo");
+        log("info", "资源额外信息: " + event.ready_resource.extra, "config_demo");
+        log("info", "资源IP: " + event.ready_resource.ip, "config_demo");
+        log("info", "资源错误信息: " + event.ready_resource.error_msg, "config_demo");
+        log("info", "创建时间: " + event.ready_resource.created_at, "config_demo");
+        log("info", "更新时间: " + event.ready_resource.updated_at, "config_demo");
+    }
+
+    // 输出事件数据（重点关注过滤信息）
+    if (event.data) {
+        log("info", "=== 事件数据详情 ===", "config_demo");
+        log("info", "请求ID: " + event.data.request_id, "config_demo");
+        log("info", "用户代理: " + event.data.user_agent, "config_demo");
+        log("info", "客户端IP: " + event.data.ip, "config_demo");
+        log("info", "是否批量: " + event.data.batch, "config_demo");
+        log("info", "来源: " + (event.data.source || "未知"), "config_demo");
+
+        // 重点：输出过滤状态和原因
+        log("info", "是否被过滤: " + event.data.is_filtered, "config_demo");
+        log("info", "过滤原因: " + (event.data.filter_reason || "无"), "config_demo");
+
+        // 根据过滤状态输出不同的处理信息
+        if (event.data.is_filtered) {
+            log("warn", "*** URL被过滤 ***", "config_demo");
+            log("warn", "过滤原因: " + event.data.filter_reason, "config_demo");
+
+            if (event.data.filter_reason === "exists_in_ready_table") {
+                log("warn", "URL已存在于待处理资源表中", "config_demo");
+            } else if (event.data.filter_reason === "exists_in_resource_table") {
+                log("warn", "URL已存在于正式资源表中", "config_demo");
+            }
+        } else {
+            log("info", "*** URL将被正常创建 ***", "config_demo");
+        }
+
+        // 输出所有数据（用于调试）
+        log("info", "完整事件数据: " + JSON.stringify(event.data), "config_demo");
+    }
+
+    // 输出应用信息
+    if (event.app) {
+        log("info", "应用名称: " + event.app.name, "config_demo");
+        log("info", "应用版本: " + event.app.version, "config_demo");
+    }
+
+    // 示例处理逻辑
+    if (event.ready_resource && event.ready_resource.url) {
+        if (event.ready_resource.url.includes("github.com")) {
+            log("info", "检测到GitHub链接，建议分类为: 开源项目", "config_demo");
+        } else if (event.ready_resource.url.includes("pan.baidu.com")) {
+            log("info", "检测到百度网盘链接，建议分类为: 网盘资源", "config_demo");
+        }
+    }
+
+    log("info", "=== config_demo onReadyResourceAdd 事件处理完成 ===", "config_demo");
+});
+
 // 示例：添加自定义路由 - 获取配置信息
 routerAdd("GET", "/api/config-demo", (e) => {
     const result = processConfigDemo();

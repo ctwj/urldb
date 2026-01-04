@@ -10,6 +10,7 @@ type PluginApp interface {
 	TriggerURLAdd(url *entity.Resource, data map[string]interface{}) error
 	TriggerUserLogin(user *entity.User, data map[string]interface{}) error
 	TriggerURLAccess(url *entity.Resource, accessLog interface{}, request, response interface{}) error
+	TriggerReadyResourceAdd(readyResource *entity.ReadyResource, data map[string]interface{}) error
 }
 
 var (
@@ -56,6 +57,17 @@ func TriggerURLAccess(url *entity.Resource, accessLog interface{}, request, resp
 			utils.Error("Failed to trigger URL access event: %v", err)
 		} else {
 			utils.Info("URL access event triggered for: %s", url.URL)
+		}
+	}
+}
+
+// TriggerReadyResourceAdd 触发待处理资源添加事件
+func TriggerReadyResourceAdd(readyResource *entity.ReadyResource, data map[string]interface{}) {
+	if pluginApp != nil {
+		if err := pluginApp.TriggerReadyResourceAdd(readyResource, data); err != nil {
+			utils.Error("Failed to trigger ready resource add event: %v", err)
+		} else {
+			utils.Info("Ready resource add event triggered for: %s", readyResource.URL)
 		}
 	}
 }

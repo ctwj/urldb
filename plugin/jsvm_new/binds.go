@@ -253,6 +253,22 @@ func hooksBinds(app core.App, vm *goja.Runtime, executors *pool) {
 		}
 	})
 
+	vm.Set("onReadyResourceAdd", func(handler goja.Value) {
+		if goja.IsFunction(handler) {
+			app.OnReadyResourceAdd().BindFunc(func(e *core.ReadyResourceEvent) error {
+				vm := executors.Get()
+				defer executors.Put(vm)
+
+				_, err := vm.CallFunction(handler.(goja.Callable), nil, e.ReadyResource, e.Data)
+				if err != nil {
+					utils.Error("JavaScript hook error: %v", err)
+				}
+
+				return e.Next()
+			})
+		}
+	})
+
 	vm.Set("onAPIRequest", func(handler goja.Value) {
 		if goja.IsFunction(handler) {
 			// TODO: 实现API请求钩子

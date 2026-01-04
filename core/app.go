@@ -54,6 +54,9 @@ type App interface {
 
 	// 自定义事件钩子
 	OnCustomEvent() *hook.Hook[*CustomEvent]
+
+	// 待处理资源钩子
+	OnReadyResourceAdd() *hook.Hook[*ReadyResourceEvent]
 }
 
 // RouterInterface 路由接口（适配你的路由框架）
@@ -174,4 +177,12 @@ type CustomEvent struct {
 	App  App
 	Name string
 	Data map[string]interface{}
+}
+
+// ReadyResourceEvent 待处理资源事件
+type ReadyResourceEvent struct {
+	hook.Event
+	App            App
+	ReadyResource  *entity.ReadyResource
+	Data           map[string]interface{} // 额外数据
 }

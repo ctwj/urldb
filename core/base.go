@@ -39,7 +39,8 @@ type BaseApp struct {
 	onAPIRequest     *hook.Hook[*APIEvent]
 	onAPIResponse    *hook.Hook[*APIResponseEvent]
 
-	onCustomEvent    *hook.Hook[*CustomEvent]
+	onCustomEvent       *hook.Hook[*CustomEvent]
+	onReadyResourceAdd  *hook.Hook[*ReadyResourceEvent]
 }
 
 // NewBaseApp 创建新的基础应用实例
@@ -64,7 +65,8 @@ func NewBaseApp() *BaseApp {
 		onAPIRequest:     &hook.Hook[*APIEvent]{},
 		onAPIResponse:    &hook.Hook[*APIResponseEvent]{},
 
-		onCustomEvent:    &hook.Hook[*CustomEvent]{},
+		onCustomEvent:       &hook.Hook[*CustomEvent]{},
+		onReadyResourceAdd:  &hook.Hook[*ReadyResourceEvent]{},
 	}
 
 	return app
@@ -191,6 +193,10 @@ func (app *BaseApp) OnCustomEvent() *hook.Hook[*CustomEvent] {
 	return app.onCustomEvent
 }
 
+func (app *BaseApp) OnReadyResourceAdd() *hook.Hook[*ReadyResourceEvent] {
+	return app.onReadyResourceAdd
+}
+
 // --- 设置方法 ---
 
 func (app *BaseApp) SetDB(db *sql.DB) {
@@ -255,4 +261,14 @@ func (app *BaseApp) TriggerCustomEvent(name string, data map[string]interface{})
 		Data: data,
 	}
 	return app.onCustomEvent.Trigger(event)
+}
+
+// TriggerReadyResourceAdd 触发待处理资源添加事件
+func (app *BaseApp) TriggerReadyResourceAdd(readyResource *entity.ReadyResource, data map[string]interface{}) error {
+	event := &ReadyResourceEvent{
+		App:            app,
+		ReadyResource:  readyResource,
+		Data:           data,
+	}
+	return app.onReadyResourceAdd.Trigger(event)
 }

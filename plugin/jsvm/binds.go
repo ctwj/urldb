@@ -1010,6 +1010,57 @@ func hooksBinds(app core.App, vm *goja.Runtime, executors *vmsPool) {
 			})
 		}
 	})
+
+	vm.Set("onReadyResourceAdd", func(handler goja.Value) {
+		if _, ok := goja.AssertFunction(handler); ok {
+			app.OnReadyResourceAdd().BindFunc(func(e *core.ReadyResourceEvent) error {
+				vm := executors.Get()
+				defer executors.Put(vm)
+
+				// 创建事件对象，包含 ready_resource 和 data 属性
+				eventObj := vm.NewObject()
+				if e.ReadyResource != nil {
+					readyResourceObj := vm.NewObject()
+					readyResourceObj.Set("id", e.ReadyResource.ID)
+					readyResourceObj.Set("key", e.ReadyResource.Key)
+					readyResourceObj.Set("title", e.ReadyResource.Title)
+					readyResourceObj.Set("description", e.ReadyResource.Description)
+					readyResourceObj.Set("url", e.ReadyResource.URL)
+					readyResourceObj.Set("category", e.ReadyResource.Category)
+					readyResourceObj.Set("tags", e.ReadyResource.Tags)
+					readyResourceObj.Set("img", e.ReadyResource.Img)
+					readyResourceObj.Set("source", e.ReadyResource.Source)
+					readyResourceObj.Set("extra", e.ReadyResource.Extra)
+					readyResourceObj.Set("ip", e.ReadyResource.IP)
+					readyResourceObj.Set("error_msg", e.ReadyResource.ErrorMsg)
+					readyResourceObj.Set("created_at", e.ReadyResource.CreatedAt)
+					readyResourceObj.Set("updated_at", e.ReadyResource.UpdatedAt)
+					eventObj.Set("ready_resource", readyResourceObj)
+				}
+
+				if e.Data != nil {
+					eventObj.Set("data", vm.ToValue(e.Data))
+				}
+
+				// 添加应用信息
+				if e.App != nil {
+					appObj := vm.NewObject()
+					appObj.Set("name", "URLDB")
+					appObj.Set("version", "1.0.0")
+					eventObj.Set("app", appObj)
+				}
+
+				// 调用JavaScript处理器
+				fn, _ := goja.AssertFunction(handler)
+				_, err := fn(goja.Undefined(), eventObj)
+				if err != nil {
+					utils.Error("JavaScript hook error: %v", err)
+				}
+
+				return e.Next()
+			})
+		}
+	})
 }
 
 // cronBinds 定时任务绑定
