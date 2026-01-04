@@ -13,6 +13,7 @@ import (
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/plugins"
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
@@ -220,6 +221,18 @@ func GetResourceByID(c *gin.Context) {
 		return
 	}
 
+	// 触发 URL 访问事件
+	accessLog := map[string]interface{}{
+		"access_time": time.Now(),
+		"user_agent":  c.GetHeader("User-Agent"),
+		"ip":         c.ClientIP(),
+		"path":       c.Request.URL.Path,
+		"method":     c.Request.Method,
+	}
+
+	// 触发 URL 访问事件
+	plugins.TriggerURLAccess(resource, accessLog, c.Request, c.Writer)
+
 	response := converter.ToResourceResponse(resource)
 	SuccessResponse(c, response)
 }
@@ -343,6 +356,13 @@ func CreateResource(c *gin.Context) {
 			}
 		}()
 	}
+
+	// 触发插件系统 URL 添加事件
+	plugins.TriggerURLAdd(resource, map[string]interface{}{
+		"request_id": c.GetString("request_id"),
+		"user_agent": c.GetHeader("User-Agent"),
+		"ip":        c.ClientIP(),
+	})
 
 	SuccessResponse(c, gin.H{
 		"message":  "资源创建成功",

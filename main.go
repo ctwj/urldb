@@ -17,6 +17,8 @@ import (
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
 	"github.com/ctwj/urldb/monitor"
+	"github.com/ctwj/urldb/plugin"
+	"github.com/ctwj/urldb/routes"
 	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/task"
@@ -25,19 +27,33 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/spf13/cobra"
 )
 
 func main() {
 	// 检查命令行参数
-	if len(os.Args) > 1 && os.Args[1] == "version" {
-		versionInfo := utils.GetVersionInfo()
-		fmt.Printf("版本: v%s\n", versionInfo.Version)
-		fmt.Printf("构建时间: %s\n", versionInfo.BuildTime.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Git提交: %s\n", versionInfo.GitCommit)
-		fmt.Printf("Git分支: %s\n", versionInfo.GitBranch)
-		fmt.Printf("Go版本: %s\n", versionInfo.GoVersion)
-		fmt.Printf("平台: %s/%s\n", versionInfo.Platform, versionInfo.Arch)
-		return
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "version":
+			versionInfo := utils.GetVersionInfo()
+			fmt.Printf("版本: v%s\n", versionInfo.Version)
+			fmt.Printf("构建时间: %s\n", versionInfo.BuildTime.Format("2006-01-02 15:04:05"))
+			fmt.Printf("Git提交: %s\n", versionInfo.GitCommit)
+			fmt.Printf("Git分支: %s\n", versionInfo.GitBranch)
+			fmt.Printf("Go版本: %s\n", versionInfo.GoVersion)
+			fmt.Printf("平台: %s/%s\n", versionInfo.Platform, versionInfo.Arch)
+			return
+		case "plugin":
+			// 处理插件命令
+			initPluginCommands()
+			rootCmd := &cobra.Command{Use: "urldb"}
+			rootCmd.AddCommand(pluginCmd)
+			if err := rootCmd.Execute(); err != nil {
+				utils.Error("插件命令执行失败: %v", err)
+				os.Exit(1)
+			}
+			return
+		}
 	}
 
 	// 初始化日志系统
@@ -110,6 +126,22 @@ func main() {
 	transferProcessor := task.NewTransferProcessor(repoManager)
 	taskManager.RegisterProcessor(transferProcessor)
 
+	// 初始化插件系统
+	if err := InitializePluginSystem(repoManager); err != nil {
+		utils.Error("插件系统初始化失败: %v", err)
+	} else {
+		utils.Info("插件系统启动成功")
+	}
+
+	// 创建插件管理器
+	var pluginManager *plugin.Manager
+	if globalPluginIntegration != nil {
+		pluginManager = globalPluginIntegration.pluginManager
+	} else {
+		pluginManager = plugin.NewManager(nil)
+		pluginManager.SetRepoManager(repoManager)
+	}
+
 	// 注册扩容任务处理器
 	expansionProcessor := task.NewExpansionProcessor(repoManager)
 	taskManager.RegisterProcessor(expansionProcessor)
@@ -156,6 +188,15 @@ func main() {
 
 	// 将Repository管理器注入到handlers中
 	handlers.SetRepositoryManager(repoManager)
+
+	// 加载插件配置并初始化插件系统
+	pluginConfig := LoadPluginConfig()
+
+	// 如果启用了插件系统，则设置路由器
+	if pluginConfig.Enabled && globalPluginIntegration != nil {
+		globalPluginIntegration.SetRouter(r)
+		utils.Info("插件路由器已设置")
+	}
 
 	// 将Repository管理器注入到services中
 	services.SetRepositoryManager(repoManager)
@@ -577,6 +618,9 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 			api.GET("/bing/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), bingHandler.GetBingIndexConfig)
 			api.POST("/bing/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), bingHandler.UpdateBingIndexConfig)
 		}
+
+		// 插件管理API
+		routes.SetupPluginRoutes(r, repoManager, pluginManager)
 	}
 
 	// 设置监控系统

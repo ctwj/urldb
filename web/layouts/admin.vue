@@ -515,6 +515,12 @@ const systemConfigItems = ref([
     active: (route: any) => route.path.startsWith('/admin/dev-config')
   },
   {
+    to: '/admin/plugins',
+    label: '插件管理',
+    icon: 'fas fa-plug',
+    active: (route: any) => route.path.startsWith('/admin/plugins')
+  },
+  {
     to: '/admin/users',
     label: '用户管理',
     icon: 'fas fa-users',
@@ -573,7 +579,7 @@ const autoExpandCurrentGroup = () => {
   // 检查当前页面属于哪个分组并展开
   if (currentPath.startsWith('/admin/resources') || currentPath.startsWith('/admin/ready-resources') || currentPath.startsWith('/admin/tags') || currentPath.startsWith('/admin/categories') || currentPath.startsWith('/admin/accounts') || currentPath.startsWith('/admin/files') || currentPath.startsWith('/admin/reports') || currentPath.startsWith('/admin/copyright-claims')) {
     expandedGroups.value.dataManagement = true
-  } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/users') || currentPath.startsWith('/admin/version')) {
+  } else if (currentPath.startsWith('/admin/site-config') || currentPath.startsWith('/admin/feature-config') || currentPath.startsWith('/admin/dev-config') || currentPath.startsWith('/admin/plugins') || currentPath.startsWith('/admin/users') || currentPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
   } else if (currentPath.startsWith('/admin/data-transfer') || currentPath.startsWith('/admin/seo') || currentPath.startsWith('/admin/data-push') || currentPath.startsWith('/admin/bot')) {
     expandedGroups.value.operation = true
@@ -595,7 +601,7 @@ watch(() => useRoute().path, (newPath) => {
   // 根据新路径展开对应分组
   if (newPath.startsWith('/admin/resources') || newPath.startsWith('/admin/ready-resources') || newPath.startsWith('/admin/tags') || newPath.startsWith('/admin/categories') || newPath.startsWith('/admin/accounts') || newPath.startsWith('/admin/files') || newPath.startsWith('/admin/reports') || newPath.startsWith('/admin/copyright-claims')) {
     expandedGroups.value.dataManagement = true
-  } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/users') || newPath.startsWith('/admin/version')) {
+  } else if (newPath.startsWith('/admin/site-config') || newPath.startsWith('/admin/feature-config') || newPath.startsWith('/admin/dev-config') || newPath.startsWith('/admin/plugins') || newPath.startsWith('/admin/users') || newPath.startsWith('/admin/version')) {
     expandedGroups.value.systemConfig = true
   } else if (newPath.startsWith('/admin/data-transfer') || newPath.startsWith('/admin/seo') || newPath.startsWith('/admin/data-push') || newPath.startsWith('/admin/bot')) {
     expandedGroups.value.operation = true

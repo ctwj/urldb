@@ -8,6 +8,7 @@ import (
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/plugins"
 
 	"github.com/gin-gonic/gin"
 )
@@ -86,6 +87,53 @@ func BatchCreateReadyResources(c *gin.Context) {
 		resourceList, _ := repoManager.ResourceRepository.BatchFindByURLs(uniqueUrls)
 		for _, r := range resourceList {
 			existResourceUrls[r.URL] = struct{}{}
+		}
+	}
+
+	// 4. 在过滤之前触发插件系统待处理资源添加事件（包括被过滤的URL）
+	for _, reqResource := range req.Resources {
+		if len(reqResource.URL) == 0 {
+			continue
+		}
+		for _, url := range reqResource.URL {
+			if url == "" {
+				continue
+			}
+
+			// 检查URL是否已存在，用于标识过滤状态
+			isFiltered := false
+			filterReason := ""
+			if _, ok := existReadyUrls[url]; ok {
+				isFiltered = true
+				filterReason = "exists_in_ready_table"
+			} else if _, ok := existResourceUrls[url]; ok {
+				isFiltered = true
+				filterReason = "exists_in_resource_table"
+			}
+
+			// 创建临时资源对象用于事件触发
+			tempResource := entity.ReadyResource{
+				Title:       reqResource.Title,
+				Description: reqResource.Description,
+				URL:         url,
+				Category:    reqResource.Category,
+				Tags:        reqResource.Tags,
+				Img:         reqResource.Img,
+				Source:      reqResource.Source,
+				Extra:       reqResource.Extra,
+				IP:          reqResource.IP,
+				Key:         "",
+			}
+
+			// 触发插件事件
+			plugins.TriggerReadyResourceAdd(&tempResource, map[string]interface{}{
+				"request_id":    c.GetString("request_id"),
+				"user_agent":    c.GetHeader("User-Agent"),
+				"ip":            c.ClientIP(),
+				"batch":         true,
+				"is_filtered":   isFiltered,
+				"filter_reason": filterReason,
+			})
 		}
 	}
 
@@ -182,6 +230,16 @@ func CreateReadyResourcesFromText(c *gin.Context) {
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// 触发插件系统待处理资源添加事件
+	for _, resource := range resources {
+		plugins.TriggerReadyResourceAdd(&resource, map[string]interface{}{
+			"request_id": c.GetString("request_id"),
+			"user_agent": c.GetHeader("User-Agent"),
+			"ip":         c.ClientIP(),
+			"source":     "text",
+		})
 	}
 
 	SuccessResponse(c, gin.H{
