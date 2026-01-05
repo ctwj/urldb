@@ -20,19 +20,12 @@ func NewPluginUtils() *PluginUtils {
 
 // CreatePluginTemplate 创建插件模板文件
 func (p *PluginUtils) CreatePluginTemplate(pluginName, pluginType string) error {
-	var template string
-	var filename string
-
-	switch pluginType {
-	case "hook":
-		template = p.generateHookTemplate(pluginName)
-		filename = filepath.Join("./hooks", pluginName+".plugin.js")
-	case "migration":
-		template = p.generateMigrationTemplate(pluginName)
-		filename = filepath.Join("./migrations", pluginName+".js")
-	default:
-		return fmt.Errorf("Unsupported plugin type: %s", pluginType)
+	if pluginType != "hook" {
+		return fmt.Errorf("只支持钩子插件类型，不支持: %s", pluginType)
 	}
+
+	template := p.generateHookTemplate(pluginName)
+	filename := filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")
 
 	// 确保目录存在
 	dir := filepath.Dir(filename)
@@ -45,7 +38,7 @@ func (p *PluginUtils) CreatePluginTemplate(pluginName, pluginType string) error 
 		return fmt.Errorf("Failed to write template file %s: %v", filename, err)
 	}
 
-	utils.Info("Plugin template created: %s", filename)
+	utils.Info("插件模板创建成功: %s", filename)
 	return nil
 }
 
@@ -97,62 +90,11 @@ cronAdd("` + pluginName + `_task", "0 */6 * * *", () => {
 	return template.String()
 }
 
-// generateMigrationTemplate 生成迁移模板
-func (p *PluginUtils) generateMigrationTemplate(pluginName string) string {
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-
-	var template strings.Builder
-	template.WriteString(`/**
- * ` + pluginName + ` 数据库迁移
- * 创建时间: ` + timestamp + `
- */
-
-migrate(
-    // up 迁移
-    (app) => {
-        console.log("执行向上迁移: ` + pluginName + `");
-
-        // 在这里添加向上迁移逻辑
-        // 例如：创建表、添加字段、插入数据等
-
-        // 示例：创建新表
-        /*
-        const createTable = "CREATE TABLE IF NOT EXISTS example_table (" +
-            "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-            "name TEXT NOT NULL," +
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP" +
-            ")";
-
-        app.db.run(createTable);
-        */
-    },
-
-    // down 回滚
-    (app) => {
-        console.log("执行回滚迁移: ` + pluginName + `");
-
-        // 在这里添加回滚逻辑
-        // 例如：删除表、移除字段、清理数据等
-
-        // 示例：删除表
-        /*
-        app.db.run("DROP TABLE IF EXISTS example_table");
-        */
-    }
-);
-`)
-	return template.String()
-}
 
 // ListPlugins 列出所有插件文件
 func (p *PluginUtils) ListPlugins() error {
-	utils.Info("=== 钩子文件 ===")
-	if err := p.listFilesInDir("./hooks", "*.plugin.js"); err != nil {
-		return err
-	}
-
-	utils.Info("=== 迁移文件 ===")
-	if err := p.listFilesInDir("./migrations", "*.js"); err != nil {
+	utils.Info("=== 钩子插件文件 ===")
+	if err := p.listFilesInDir("./plugin-system/hooks", "*.plugin.js"); err != nil {
 		return err
 	}
 
@@ -225,17 +167,12 @@ func (p *PluginUtils) GetPluginStats() map[string]interface{} {
 	stats := make(map[string]interface{})
 
 	// 统计钩子文件
-	hooksDir := "./hooks"
+	hooksDir := "./plugin-system/hooks"
 	hooksCount := p.countFiles(hooksDir, "*.plugin.js")
 	stats["hooks_count"] = hooksCount
 
-	// 统计迁移文件
-	migrationsDir := "./migrations"
-	migrationsCount := p.countFiles(migrationsDir, "*.js")
-	stats["migrations_count"] = migrationsCount
-
 	// 统计类型文件
-	typesDir := "./pb_data"
+	typesDir := "./plugin-system/types"
 	typesFile := filepath.Join(typesDir, "types.d.ts")
 	if _, err := os.Stat(typesFile); err == nil {
 		stats["types_file_exists"] = true

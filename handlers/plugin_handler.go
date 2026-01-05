@@ -35,7 +35,7 @@ func NewPluginHandler(repoManager *repo.RepositoryManager, pluginManager *plugin
 // 新的命名系统：使用插件元数据中的@name字段，而不是文件名+.plugin
 func (h *PluginHandler) getPluginConfigName(pluginName string) string {
 	// 尝试从插件元数据获取真实的插件名称
-	if metadata, err := h.metadataParser.ParseFile(filepath.Join("./hooks", pluginName+".plugin.js")); err == nil {
+	if metadata, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")); err == nil {
 		return metadata.Name // 使用@name字段的值
 	}
 
@@ -96,7 +96,7 @@ func (h *PluginHandler) GetPlugins(c *gin.Context) {
 	category := c.Query("category")
 
 	// 扫描插件目录 - 包括 hooks 和已安装的插件
-	hooksPlugins, err := h.metadataParser.ScanDirectory("./hooks")
+	hooksPlugins, err := h.metadataParser.ScanDirectory("./plugin-system/hooks")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -244,7 +244,7 @@ func (h *PluginHandler) GetPlugin(c *gin.Context) {
 	pluginName := c.Param("name")
 
 	// 扫描插件文件
-	metadata, err := h.metadataParser.ParseFile(filepath.Join("./hooks", pluginName+".plugin.js"))
+	metadata, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js"))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
@@ -327,7 +327,7 @@ func (h *PluginHandler) EnablePlugin(c *gin.Context) {
 	pluginName := c.Param("name")
 
 	// 检查插件是否存在
-	if _, err := h.metadataParser.ParseFile(filepath.Join("./hooks", pluginName+".plugin.js")); err != nil {
+	if _, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
 			"error":   "Plugin not found",
@@ -360,7 +360,7 @@ func (h *PluginHandler) DisablePlugin(c *gin.Context) {
 	pluginName := c.Param("name")
 
 	// 检查插件是否存在
-	if _, err := h.metadataParser.ParseFile(filepath.Join("./hooks", pluginName+".plugin.js")); err != nil {
+	if _, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
 			"error":   "Plugin not found",
@@ -405,7 +405,7 @@ func (h *PluginHandler) UpdatePluginConfig(c *gin.Context) {
 	}
 
 	// 检查插件是否存在
-	if _, err := h.metadataParser.ParseFile(filepath.Join("./hooks", pluginName+".plugin.js")); err != nil {
+	if _, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
 			"error":   "Plugin not found",
@@ -436,7 +436,7 @@ func (h *PluginHandler) UpdatePluginConfig(c *gin.Context) {
 // GetPluginStats 获取插件统计信息
 func (h *PluginHandler) GetPluginStats(c *gin.Context) {
 	// 扫描所有插件
-	plugins, err := h.metadataParser.ScanDirectory("./hooks")
+	plugins, err := h.metadataParser.ScanDirectory("./plugin-system/hooks")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -647,7 +647,7 @@ func (h *PluginHandler) UninstallPlugin(c *gin.Context) {
 
 	// 如果不在已安装目录中，检查hooks目录
 	if !isInstalled {
-		hooksFile := filepath.Join("./hooks", pluginName+".plugin.js")
+		hooksFile := filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")
 		if _, err := os.Stat(hooksFile); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{
 				"success": false,
@@ -664,7 +664,7 @@ func (h *PluginHandler) UninstallPlugin(c *gin.Context) {
 	var err error
 	if isHooksPlugin {
 		// 对于hooks目录中的插件，直接删除文件
-		hooksFile := filepath.Join("./hooks", pluginName+".plugin.js")
+		hooksFile := filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")
 		err = os.Remove(hooksFile)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{

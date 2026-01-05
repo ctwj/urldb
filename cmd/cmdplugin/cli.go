@@ -26,18 +26,13 @@ func GetPluginCmd() *cobra.Command {
 
 // createCmd 创建插件命令
 var createCmd = &cobra.Command{
-	Use:   "create [name] [type]",
+	Use:   "create [name]",
 	Short: "创建新的插件模板",
-	Long: `创建一个新的插件模板文件
-
-支持的类型:
-  hook     - 创建钩子插件模板
-  migration - 创建数据库迁移模板
+	Long: `创建一个新的钩子插件模板文件
 
 示例:
-  urldb plugin create my_hook hook
-  urldb plugin create add_user_table migration`,
-	Args: cobra.MinimumNArgs(2),
+  urldb plugin create my_hook`,
+	Args: cobra.ExactArgs(1),
 	Run:  runCreatePlugin,
 }
 
@@ -45,7 +40,7 @@ var createCmd = &cobra.Command{
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "列出所有插件文件",
-	Long: `显示系统中所有的钩子文件和迁移文件`,
+	Long: `显示系统中所有的钩子插件文件`,
 	Run:  runListPlugins,
 }
 
@@ -56,7 +51,7 @@ var validateCmd = &cobra.Command{
 	Long: `验证插件文件的格式和内容
 
 示例:
-  urldb plugin validate ./hooks/my_hook.plugin.js`,
+  urldb plugin validate ./plugin-system/hooks/my_hook.plugin.js`,
 	Args: cobra.ExactArgs(1),
 	Run:  runValidatePlugin,
 }
@@ -65,7 +60,7 @@ var validateCmd = &cobra.Command{
 var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "显示插件统计信息",
-	Long: `显示插件系统的统计信息，包括文件数量、大小等`,
+	Long: `显示插件系统的统计信息，包括钩子文件数量等`,
 	Run:  runPluginStats,
 }
 
@@ -80,25 +75,18 @@ func InitPluginCommands() {
 // runCreatePlugin 运行创建插件命令
 func runCreatePlugin(cmd *cobra.Command, args []string) {
 	pluginName := args[0]
-	pluginType := args[1]
 
 	pluginUtils := NewPluginUtils()
 
-	if err := pluginUtils.CreatePluginTemplate(pluginName, pluginType); err != nil {
+	if err := pluginUtils.CreatePluginTemplate(pluginName, "hook"); err != nil {
 		utils.Error("创建插件模板失败: %v", err)
 		os.Exit(1)
 	}
 
 	utils.Info("插件模板创建成功！")
 	utils.Info("文件位置: %s", filepath.Join(
-		map[string]string{
-			"hook":      "./hooks",
-			"migration": "./migrations",
-		}[pluginType],
-		pluginName+map[string]string{
-			"hook":      ".plugin.js",
-			"migration": ".js",
-		}[pluginType],
+		"./plugin-system/hooks",
+		pluginName+".plugin.js",
 	))
 }
 
@@ -133,8 +121,7 @@ func runPluginStats(cmd *cobra.Command, args []string) {
 	stats := pluginUtils.GetPluginStats()
 
 	fmt.Println("=== 插件系统统计 ===")
-	fmt.Printf("钩子文件数量: %d\n", stats["hooks_count"])
-	fmt.Printf("迁移文件数量: %d\n", stats["migrations_count"])
+	fmt.Printf("钩子插件数量: %d\n", stats["hooks_count"])
 	fmt.Printf("类型文件存在: %v\n", stats["types_file_exists"])
 	fmt.Printf("最后更新时间: %s\n", stats["last_updated"])
 }

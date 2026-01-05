@@ -129,7 +129,7 @@ func RegisterWithRepo(app core.App, config Config, repoManager *repo.RepositoryM
 	p := &plugin{app: app, config: config, repoManager: repoManager}
 
 	if p.config.HooksDir == "" {
-		p.config.HooksDir = filepath.Join(".", "hooks")
+		p.config.HooksDir = filepath.Join(".", "plugin-system", "hooks")
 	}
 
 	if p.config.MigrationsDir == "" {
@@ -152,6 +152,15 @@ func RegisterWithRepo(app core.App, config Config, repoManager *repo.RepositoryM
 		err := e.Next()
 		if err != nil {
 			return err
+		}
+
+		// ensure that the required directories exist
+		dirsToCreate := []string{p.config.HooksDir, p.config.MigrationsDir, p.config.TypesDir}
+		for _, dir := range dirsToCreate {
+			if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+				utils.Error("Failed to create directory %s: %v", dir, err)
+				return err
+			}
 		}
 
 		// ensure that the user has the latest types declaration
