@@ -23,7 +23,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/robfig/cron/v3"
-	"github.com/ctwj/urldb/core"
+	"github.com/ctwj/urldb/plugin-system/core"
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"

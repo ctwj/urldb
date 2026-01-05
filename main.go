@@ -18,7 +18,7 @@ import (
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
 	"github.com/ctwj/urldb/monitor"
-	"github.com/ctwj/urldb/plugin"
+	"github.com/ctwj/urldb/plugin-system/manager/plugin"
 	"github.com/ctwj/urldb/routes"
 	"github.com/ctwj/urldb/scheduler"
 	"github.com/ctwj/urldb/services"

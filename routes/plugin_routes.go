@@ -3,7 +3,7 @@ package routes
 import (
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/handlers"
-	"github.com/ctwj/urldb/plugin"
+	"github.com/ctwj/urldb/plugin-system/manager/plugin"
 	"github.com/gin-gonic/gin"
 )
 

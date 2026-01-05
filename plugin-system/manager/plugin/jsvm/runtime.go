@@ -17,7 +17,7 @@ import (
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/fatih/color"
 	"github.com/fsnotify/fsnotify"
-	"github.com/ctwj/urldb/core"
+	"github.com/ctwj/urldb/plugin-system/core"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"

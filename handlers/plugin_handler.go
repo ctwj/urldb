@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/ctwj/urldb/db/repo"
-	"github.com/ctwj/urldb/plugin"
+	"github.com/ctwj/urldb/plugin-system/manager/plugin"
 	"github.com/gin-gonic/gin"
 )
 

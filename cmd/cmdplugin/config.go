@@ -37,9 +37,9 @@ func LoadPluginConfig() *PluginConfig {
 	config := &PluginConfig{
 		Enabled:      getEnvBool("PLUGIN_ENABLED", true),
 		HotReload:    getEnvBool("PLUGIN_HOT_RELOAD", true),
-		HooksDir:     getEnvString("PLUGIN_HOOKS_DIR", "./hooks"),
+		HooksDir:     getEnvString("PLUGIN_HOOKS_DIR", "./plugin-system/hooks"),
 		MigrationsDir: getEnvString("PLUGIN_MIGRATIONS_DIR", "./migrations"),
-		TypesDir:      getEnvString("PLUGIN_TYPES_DIR", "./pb_data"),
+		TypesDir:      getEnvString("PLUGIN_TYPES_DIR", "./plugin-system/types"),
 		VMPoolSize:    getEnvInt("PLUGIN_VM_POOL_SIZE", 10),
 		Debug:        getEnvBool("PLUGIN_DEBUG", false),
 	}

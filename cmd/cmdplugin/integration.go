@@ -4,12 +4,12 @@ import (
 	"strings"
 	"github.com/gin-gonic/gin"
 	"github.com/dop251/goja"
-	"github.com/ctwj/urldb/core"
+	"github.com/ctwj/urldb/plugin-system/core"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
-	"github.com/ctwj/urldb/plugin"
-	"github.com/ctwj/urldb/plugin/jsvm"
-	"github.com/ctwj/urldb/plugins"
+	"github.com/ctwj/urldb/plugin-system/manager/plugin"
+	"github.com/ctwj/urldb/plugin-system/manager/plugin/jsvm"
+	"github.com/ctwj/urldb/plugin-system/triggers/plugins"
 	"github.com/ctwj/urldb/utils"
 )
 
@@ -39,7 +39,7 @@ func NewPluginIntegration(repoManager *repo.RepositoryManager) *PluginIntegratio
 	pi.app = core.NewBaseApp()
 
 	// 设置基础配置
-	pi.app.SetDataDir("./pb_data")
+	pi.app.SetDataDir("./plugin-system/types")
 	pi.app.SetConfig(&PluginConfigWrapper{repoManager.SystemConfigRepository})
 	pi.app.SetLogger(&PluginLoggerWrapper{})
 	pi.app.SetRouter(&PluginRouterWrapper{})
@@ -271,9 +271,9 @@ func (pi *PluginIntegration) Initialize() error {
 	err := pi.pluginManager.RegisterJSVMWithRepo(jsvm.Config{
 		HooksWatch:      true,
 		HooksPoolSize:   10,
-		HooksDir:        "./hooks",
+		HooksDir:        "./plugin-system/hooks",
 		MigrationsDir:   "./migrations",
-		TypesDir:        "./pb_data",
+		TypesDir:        "./plugin-system/types",
 		RouteRegister:   routeRegister,
 		OnInit: func(vm *goja.Runtime) {
 			utils.Info("Plugin system initialized")

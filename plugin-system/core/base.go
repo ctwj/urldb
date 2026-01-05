@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/ctwj/urldb/plugin/hook"
+	"github.com/ctwj/urldb/plugin-system/manager/plugin/hook"
 	"github.com/ctwj/urldb/db/entity"
 )
 

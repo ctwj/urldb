@@ -10,7 +10,7 @@ import (
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/middleware"
-	"github.com/ctwj/urldb/plugins"
+	"github.com/ctwj/urldb/plugin-system/triggers/plugins"
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"

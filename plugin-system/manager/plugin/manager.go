@@ -10,10 +10,10 @@ import (
 	"sync"
 
 	"github.com/dop251/goja"
-	"github.com/ctwj/urldb/core"
+	"github.com/ctwj/urldb/plugin-system/core"
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/repo"
-	"github.com/ctwj/urldb/plugin/jsvm"
+	"github.com/ctwj/urldb/plugin-system/manager/plugin/jsvm"
 	"github.com/ctwj/urldb/utils"
 )
 
