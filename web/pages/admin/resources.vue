@@ -289,9 +289,14 @@
           <n-select
             v-model:value="editForm.tag_ids"
             :options="tagOptions"
-            placeholder="请选择标签"
+            :loading="tagLoading"
+            :filterable="true"
+            :remote="true"
+            :clearable="true"
+            placeholder="请选择标签，支持搜索"
             multiple
-            clearable
+            @search="handleTagSearch"
+            @scroll="handleTagScroll"
           />
         </n-form-item>
 
@@ -422,6 +427,7 @@ const editRules = {
 
 // 获取资源API
 import { useResourceApi, useCategoryApi, useTagApi, usePanApi } from '~/composables/useApi'
+import { useMessage } from 'naive-ui'
 
 // 用户状态管理
 const userStore = useUserStore()
@@ -429,12 +435,20 @@ const resourceApi = useResourceApi()
 const categoryApi = useCategoryApi()
 const tagApi = useTagApi()
 const panApi = usePanApi()
+const message = useMessage()
 
 // 获取分类数据
 const { data: categoriesData } = await useAsyncData('resourceCategories', () => categoryApi.getCategories())
 
-// 获取标签数据
-const { data: tagsData } = await useAsyncData('resourceTags', () => tagApi.getTags())
+// 标签搜索和加载相关状态
+const tagSearchKeyword = ref('')
+const tagLoading = ref(false)
+const tagOptions = ref([])
+const tagPagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0
+})
 
 // 获取平台数据
 const { data: platformsData } = await useAsyncData('resourcePlatforms', () => panApi.getPans())
@@ -456,22 +470,6 @@ const categoryOptions = computed(() => {
   }))
 })
 
-// 标签选项
-const tagOptions = computed(() => {
-  const data = tagsData.value as any
-  const tags = data?.data || data || []
-  
-  // 确保tags是数组
-  if (!Array.isArray(tags)) {
-    console.warn('tagOptions: tags不是数组', tags)
-    return []
-  }
-  
-  return tags.map((tag: any) => ({
-    label: tag.name,
-    value: tag.id
-  }))
-})
 
 // 平台选项
 const platformOptions = computed(() => {
@@ -501,6 +499,73 @@ const getPlatformName = (platformId: number) => {
   // console.log('platformId', platformId, platformsData.value)
   const platform = (platformsData.value as any)?.find((plat: any) => plat.id === platformId)
   return platform?.remark || platform?.name || '未知平台'
+}
+
+// 加载标签选项（支持搜索和分页）
+const loadTagOptions = async (search = '', page = 1, pageSize = 20) => {
+  tagLoading.value = true
+  try {
+    const params = {
+      page,
+      page_size: pageSize,
+      search
+    }
+
+    const response = await tagApi.getTags(params)
+    const data = response?.items || response?.data || []
+    const total = response?.total || 0
+
+    // 确保tags是数组
+    if (!Array.isArray(data)) {
+      console.warn('loadTagOptions: tags不是数组', data)
+      return { options: [], total: 0 }
+    }
+
+    const options = data.map((tag: any) => ({
+      label: tag.name,
+      value: tag.id
+    }))
+
+    tagPagination.total = total
+
+    return { options, total }
+  } catch (error) {
+    console.error('加载标签选项失败:', error)
+    message.error('加载标签失败')
+    return { options: [], total: 0 }
+  } finally {
+    tagLoading.value = false
+  }
+}
+
+// 标签搜索处理函数
+const handleTagSearch = async (query = '') => {
+  tagSearchKeyword.value = query
+  const { options } = await loadTagOptions(query, 1, tagPagination.pageSize)
+  tagOptions.value = options
+}
+
+// 标签滚动加载更多函数
+const handleTagScroll = async (e: any) => {
+  const { scrollTop, scrollHeight, clientHeight } = e
+
+  // 检查是否滚动到底部
+  if (scrollTop + clientHeight >= scrollHeight - 10 &&
+      tagOptions.value.length < tagPagination.total &&
+      !tagLoading.value) {
+
+    tagPagination.page++
+    const { options } = await loadTagOptions(
+      tagSearchKeyword.value,
+      tagPagination.page,
+      tagPagination.pageSize
+    )
+
+    // 合并选项，避免重复
+    const existingIds = new Set(tagOptions.value.map((opt: any) => opt.value))
+    const newOptions = options.filter((opt: any) => !existingIds.has(opt.value))
+    tagOptions.value = [...tagOptions.value, ...newOptions]
+  }
 }
 
 // 获取数据
@@ -631,9 +696,9 @@ const openBatchModal = () => {
 }
 
 // 编辑资源
-const editResource = (resource: Resource) => {
+const editResource = async (resource: Resource) => {
   editingResource.value = resource
-  
+
   // 从资源的tags数组中提取tag_ids，确保tags是数组
   let tagIds: number[] = []
   if (resource.tags && Array.isArray(resource.tags)) {
@@ -642,7 +707,48 @@ const editResource = (resource: Resource) => {
     // 如果tags不存在但tag_ids存在，直接使用tag_ids
     tagIds = resource.tag_ids
   }
-  
+
+  // 如果存在已选择的标签ID，确保这些标签在选项中显示
+  if (tagIds && tagIds.length > 0) {
+    // 获取已选择的标签详情，以便显示标签名称
+    const selectedTags = []
+    for (const tagId of tagIds) {
+      // 检查标签是否已在当前选项中
+      const existingTag = tagOptions.value.find((opt: any) => opt.value === tagId)
+      if (existingTag) {
+        selectedTags.push(existingTag)
+      } else {
+        // 如果标签不在当前选项中，单独获取其信息
+        try {
+          const tagDetail = await tagApi.getTag(tagId)
+          if (tagDetail) {
+            selectedTags.push({
+              label: tagDetail.name,
+              value: tagDetail.id
+            })
+          }
+        } catch (error) {
+          console.error('获取标签详情失败:', error)
+          // 作为回退，添加一个临时标签
+          selectedTags.push({
+            label: `标签${tagId}`,
+            value: tagId
+          })
+        }
+      }
+    }
+
+    // 确保这些标签出现在选项中
+    const newOptions = [...tagOptions.value]
+    for (const selectedTag of selectedTags) {
+      const exists = newOptions.some((opt: any) => opt.value === selectedTag.value)
+      if (!exists) {
+        newOptions.push(selectedTag)
+      }
+    }
+    tagOptions.value = newOptions
+  }
+
   editForm.value = {
     title: resource.title,
     description: resource.description || '',
@@ -789,10 +895,14 @@ const handleEditSubmit = async () => {
 }
 
 // 页面加载时获取数据
-onMounted(() => {
+onMounted(async () => {
   // 初始化用户认证状态
   const userStore = useUserStore()
   userStore.initAuth()
+
+  // 初始化加载第一页标签
+  const { options } = await loadTagOptions('', 1, tagPagination.pageSize)
+  tagOptions.value = options
 
   fetchData()
 })

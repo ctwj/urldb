@@ -694,6 +694,27 @@ declare function routerAdd(method: string, path: string, handler: (ctx: any) => 
 // 定时任务函数声明
 declare function cronAdd(name: string, schedule: string, handler: () => void): void;
 
+// 配置管理函数声明
+declare function getPluginConfig(pluginName: string): any;
+declare function setPluginConfig(pluginName: string, config: any): void;
+
+// 事件钩子（当前实现）
+interface URLAccessEvent {
+  app: App;
+  url: URL;
+  access_log: any;
+  request: any;
+  response: any;
+  next(): void;
+}
+
+interface ReadyResourceEvent {
+  app: App;
+  ready_resource: ReadyResource;
+  data: Record<string, any>;
+  next(): void;
+}
+
 // 全局变量
 declare const $app: App;
 declare const __hooks: string;
