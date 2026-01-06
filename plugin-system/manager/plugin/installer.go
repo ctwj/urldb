@@ -35,6 +35,14 @@ type PluginInstaller struct {
 	db           *sql.DB // 数据库连接，用于执行迁移
 }
 
+// getMin 返回两个整数中的较小值
+func getMin(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // NewPluginInstaller 创建插件安装器
 func NewPluginInstaller(baseDir string) *PluginInstaller {
 	pluginsDir := filepath.Join(baseDir, "plugins")
@@ -115,15 +123,122 @@ func (pi *PluginInstaller) InstallFromFile(zipPath string) error {
 
 // InstallFromURL 从URL安装插件
 func (pi *PluginInstaller) InstallFromURL(url string) error {
-	// 下载插件包
-	zipPath, err := pi.downloadPlugin(url)
+	// 检查URL是否指向JS文件
+	isJSFile := strings.HasSuffix(strings.ToLower(url), ".plugin.js")
+	isZipFile := strings.HasSuffix(strings.ToLower(url), ".zip")
+
+	// 下载插件文件
+	downloadedPath, err := pi.downloadPlugin(url)
 	if err != nil {
 		return fmt.Errorf("failed to download plugin: %w", err)
 	}
-	defer os.Remove(zipPath)
+	defer os.Remove(downloadedPath)
 
-	// 安装插件
-	return pi.InstallFromFile(zipPath)
+	// 检查下载的文件类型并进行相应处理
+	if isJSFile || strings.HasSuffix(strings.ToLower(downloadedPath), ".plugin.js") {
+		// 这是一个JS单文件插件，为了与您提到的手动放置在hooks目录的行为一致，
+		// 我们直接将其复制到hooks目录下
+		return pi.installJSSingleFileToHooks(downloadedPath)
+	} else if isZipFile || strings.HasSuffix(strings.ToLower(downloadedPath), ".zip") {
+		// 这是一个ZIP压缩包，使用InstallFromFile方法
+		return pi.InstallFromFile(downloadedPath)
+	} else {
+		// 尝试检测文件类型
+		content, err := os.ReadFile(downloadedPath)
+		if err != nil {
+			return fmt.Errorf("failed to read downloaded file: %w", err)
+		}
+		contentStr := string(content)
+
+		// 检查是否是JavaScript插件文件（通常包含plugin.js标识符或JSDoc注释）
+		if strings.Contains(contentStr, "@name") || strings.Contains(contentStr, "onURLAdd") || strings.Contains(contentStr, "onUserLogin") || strings.Contains(contentStr, "onURLAccess") || strings.Contains(contentStr, "routerAdd") || strings.Contains(contentStr, "cronAdd") {
+			// 假设是插件JS文件，直接复制到hooks目录
+			return pi.installJSSingleFileToHooks(downloadedPath)
+		} else {
+			// 默认作为ZIP文件处理
+			return pi.InstallFromFile(downloadedPath)
+		}
+	}
+}
+
+// installJSSingleFileToHooks 安装JS单文件到hooks目录
+func (pi *PluginInstaller) installJSSingleFileToHooks(filePath string) error {
+	utils.Info("Installing JS single file to hooks: %s", filePath)
+
+	// 读取插件文件
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		utils.Error("Failed to read plugin file: %v", err)
+		return fmt.Errorf("failed to read plugin file: %w", err)
+	}
+
+	utils.Info("Downloaded file size: %d bytes", len(content))
+
+	// 解析插件元数据
+	metadataParser := NewMetadataParser()
+	metadata, err := metadataParser.ParseContent(content)
+	if err != nil {
+		utils.Error("Failed to parse plugin metadata: %v", err)
+		utils.Info("File content preview: %s", string(content[:getMin(len(content), 200)]))
+		return fmt.Errorf("failed to parse plugin metadata: %w", err)
+	}
+
+	utils.Info("Parsed plugin metadata - Name: %s, Version: %s, Description: %s",
+		metadata.Name, metadata.Version, metadata.Description)
+
+	// 确保hooks目录存在
+	hooksDir := "./plugin-system/hooks"
+	if err := os.MkdirAll(hooksDir, 0755); err != nil {
+		utils.Error("Failed to create hooks directory: %v", err)
+		return fmt.Errorf("failed to create hooks directory: %w", err)
+	}
+
+	// 从元数据中获取插件名称，如果获取不到则从文件名推断
+	pluginName := metadata.Name
+	if pluginName == "" {
+		// 从文件名推断插件名
+		baseName := filepath.Base(filePath)
+		pluginName = strings.TrimSuffix(baseName, filepath.Ext(baseName))
+		utils.Info("Using filename-based plugin name: %s", pluginName)
+	} else {
+		utils.Info("Using metadata-based plugin name: %s", pluginName)
+	}
+
+	// 确保插件名称是有效的文件名
+	origPluginName := pluginName
+	pluginName = strings.ReplaceAll(pluginName, " ", "_")  // 替换空格为下划线
+	pluginName = strings.ReplaceAll(pluginName, "/", "_")  // 替换斜杠为下划线
+	pluginName = strings.ReplaceAll(pluginName, "\\", "_") // 替换反斜杠为下划线
+	pluginName = strings.ReplaceAll(pluginName, ":", "_")  // 替换冒号为下划线
+	pluginName = strings.ReplaceAll(pluginName, "*", "_")  // 替换星号为下划线
+	pluginName = strings.ReplaceAll(pluginName, "?", "_")  // 替换问号为下划线
+	pluginName = strings.ReplaceAll(pluginName, "\"", "_") // 替换引号为下划线
+	pluginName = strings.ReplaceAll(pluginName, "<", "_")  // 替换小于号为下划线
+	pluginName = strings.ReplaceAll(pluginName, ">", "_")  // 替换大于号为下划线
+	pluginName = strings.ReplaceAll(pluginName, "|", "_")  // 替换竖线为下划线
+
+	if origPluginName != pluginName {
+		utils.Info("Plugin name sanitized from '%s' to '%s'", origPluginName, pluginName)
+	}
+
+	// 创建目标文件路径
+	destFile := filepath.Join(hooksDir, pluginName+".plugin.js")
+	utils.Info("Target file path: %s", destFile)
+
+	// 检查文件是否已存在
+	if _, err := os.Stat(destFile); err == nil {
+		utils.Warn("Plugin file already exists: %s", destFile)
+		return fmt.Errorf("plugin file already exists: %s", destFile)
+	}
+
+	// 复制插件文件到hooks目录
+	if err := os.WriteFile(destFile, content, 0644); err != nil {
+		utils.Error("Failed to copy plugin file to hooks directory: %v", err)
+		return fmt.Errorf("failed to copy plugin file to hooks directory: %w", err)
+	}
+
+	utils.Info("JS file plugin '%s' installed to hooks directory successfully", pluginName)
+	return nil
 }
 
 // extractToTemp 解压插件包到临时目录
@@ -274,19 +389,34 @@ func (pi *PluginInstaller) installToDirectory(srcDir, destDir string) error {
 
 // downloadPlugin 下载插件包
 func (pi *PluginInstaller) downloadPlugin(url string) (string, error) {
+	utils.Info("Starting download from URL: %s", url)
+
 	resp, err := http.Get(url)
 	if err != nil {
+		utils.Error("Failed to make HTTP request: %v", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		utils.Error("Download failed with status: %d", resp.StatusCode)
 		return "", fmt.Errorf("failed to download plugin: HTTP %d", resp.StatusCode)
 	}
 
-	// 创建临时文件
-	tempFile, err := os.CreateTemp(pi.tempDir, "download-*.zip")
+	// 检查内容类型
+	contentType := resp.Header.Get("Content-Type")
+	utils.Info("Downloaded content type: %s", contentType)
+
+	// 根据URL后缀创建相应类型的临时文件
+	var tempFile *os.File
+	if strings.HasSuffix(strings.ToLower(url), ".plugin.js") {
+		tempFile, err = os.CreateTemp(pi.tempDir, "download-*.js")
+	} else {
+		tempFile, err = os.CreateTemp(pi.tempDir, "download-*")
+	}
+
 	if err != nil {
+		utils.Error("Failed to create temp file: %v", err)
 		return "", err
 	}
 	defer tempFile.Close()
@@ -294,10 +424,12 @@ func (pi *PluginInstaller) downloadPlugin(url string) (string, error) {
 	// 保存文件
 	_, err = io.Copy(tempFile, resp.Body)
 	if err != nil {
+		utils.Error("Failed to save downloaded file: %v", err)
 		os.Remove(tempFile.Name())
 		return "", err
 	}
 
+	utils.Info("File downloaded successfully to: %s", tempFile.Name())
 	return tempFile.Name(), nil
 }
 

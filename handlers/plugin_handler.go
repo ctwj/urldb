@@ -34,13 +34,29 @@ func NewPluginHandler(repoManager *repo.RepositoryManager, pluginManager *plugin
 // getPluginConfigName 根据插件名称获取配置名称
 // 新的命名系统：使用插件元数据中的@name字段，而不是文件名+.plugin
 func (h *PluginHandler) getPluginConfigName(pluginName string) string {
-	// 尝试从插件元数据获取真实的插件名称
-	if metadata, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")); err == nil {
-		return metadata.Name // 使用@name字段的值
+	// 首先尝试从hooks目录获取元数据
+	hooksFile := filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")
+	if _, statErr := os.Stat(hooksFile); statErr == nil {
+		// 尝试从插件元数据获取真实的插件名称
+		if metadata, err := h.metadataParser.ParseFile(hooksFile); err == nil {
+			return metadata.Name // 使用@name字段的值
+		}
 	}
 
 	// 如果解析失败，返回原始名称（兼容旧逻辑）
 	return pluginName
+}
+
+// isPluginExists 检查插件是否存在（支持hooks目录和已安装目录）
+func (h *PluginHandler) isPluginExists(pluginName string) bool {
+	// 检查hooks目录中的插件
+	hooksFile := filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")
+	if _, err := os.Stat(hooksFile); err == nil {
+		return true
+	}
+
+	// 检查已安装目录中的插件
+	return h.pluginManager.IsPluginInstalled(pluginName)
 }
 
 // PluginListResponse 插件列表响应
@@ -243,12 +259,99 @@ func (h *PluginHandler) GetPlugins(c *gin.Context) {
 func (h *PluginHandler) GetPlugin(c *gin.Context) {
 	pluginName := c.Param("name")
 
-	// 扫描插件文件
-	metadata, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js"))
+	var metadata *plugin.PluginMetadata
+	var err error
+
+	// 首先尝试从hooks目录获取插件元数据
+	hooksFile := filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")
+	if _, statErr := os.Stat(hooksFile); statErr == nil {
+		metadata, err = h.metadataParser.ParseFile(hooksFile)
+	} else {
+		// 如果hooks目录中没有，检查已安装的插件
+		if h.pluginManager.IsPluginInstalled(pluginName) {
+			// 从已安装插件目录中解析插件元数据
+			installedPluginDir := filepath.Join("plugins", "installed", pluginName)
+			pluginHooksDir := filepath.Join(installedPluginDir, "hooks")
+
+			// 获取插件包信息
+			packageJSONPath := filepath.Join(installedPluginDir, "package.json")
+			if _, err := os.Stat(packageJSONPath); err == nil {
+				// 读取package.json获取插件基本信息
+				packageContent, err := os.ReadFile(packageJSONPath)
+				if err == nil {
+					var pkg plugin.PluginPackage
+					if err := json.Unmarshal(packageContent, &pkg); err == nil {
+						// 解析hooks目录中的所有JS文件来获取完整的元数据
+						metadata = &plugin.PluginMetadata{
+							Name:        pkg.Name,
+							Version:     pkg.Version,
+							Description: pkg.Description,
+							Author:      pkg.Author,
+							DisplayName: pkg.Name,
+							Category:    "utility",
+							Status:      "installed",
+							ConfigFields: make(map[string]*plugin.ConfigField),
+							ScheduledTasks: []*plugin.ScheduledTask{},
+						}
+
+						// 解析hooks目录中的JS文件以获取配置字段和定时任务
+						if _, err := os.Stat(pluginHooksDir); err == nil {
+							// 扫描hooks目录中的所有.plugin.js文件
+							files, err := os.ReadDir(pluginHooksDir)
+							if err == nil {
+								metadataParser := plugin.NewMetadataParser()
+								for _, file := range files {
+									if strings.HasSuffix(file.Name(), ".plugin.js") {
+										jsFilePath := filepath.Join(pluginHooksDir, file.Name())
+										fileMetadata, err := metadataParser.ParseFile(jsFilePath)
+										if err == nil {
+											// 合并配置字段
+											for name, field := range fileMetadata.ConfigFields {
+												metadata.ConfigFields[name] = field
+											}
+											// 合并定时任务
+											metadata.ScheduledTasks = append(metadata.ScheduledTasks, fileMetadata.ScheduledTasks...)
+											if fileMetadata.HasScheduledTask {
+												metadata.HasScheduledTask = true
+											}
+											// 如果还没有设置显示名称、描述等，从第一个解析的文件获取
+											if metadata.DisplayName == pkg.Name {
+												metadata.DisplayName = fileMetadata.DisplayName
+												metadata.Description = fileMetadata.Description
+												metadata.Author = fileMetadata.Author
+												metadata.Version = fileMetadata.Version
+												metadata.Category = fileMetadata.Category
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			} else {
+				// 如果没有package.json，创建一个基本的元数据对象
+				metadata = &plugin.PluginMetadata{
+					Name:        pluginName,
+					DisplayName: pluginName,
+					Status:      "installed",
+					ConfigFields: make(map[string]*plugin.ConfigField),
+					ScheduledTasks: []*plugin.ScheduledTask{},
+				}
+			}
+		} else {
+			c.JSON(http.StatusNotFound, gin.H{
+				"success": false,
+				"error":   "Plugin not found",
+			})
+			return
+		}
+	}
+
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
+		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"error":   "Plugin not found",
+			"error":   "Failed to parse plugin metadata",
 		})
 		return
 	}
@@ -326,8 +429,8 @@ func (h *PluginHandler) GetPlugin(c *gin.Context) {
 func (h *PluginHandler) EnablePlugin(c *gin.Context) {
 	pluginName := c.Param("name")
 
-	// 检查插件是否存在
-	if _, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")); err != nil {
+	// 检查插件是否存在（支持hooks目录和已安装目录）
+	if !h.isPluginExists(pluginName) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
 			"error":   "Plugin not found",
@@ -359,8 +462,8 @@ func (h *PluginHandler) EnablePlugin(c *gin.Context) {
 func (h *PluginHandler) DisablePlugin(c *gin.Context) {
 	pluginName := c.Param("name")
 
-	// 检查插件是否存在
-	if _, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")); err != nil {
+	// 检查插件是否存在（支持hooks目录和已安装目录）
+	if !h.isPluginExists(pluginName) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
 			"error":   "Plugin not found",
@@ -404,8 +507,8 @@ func (h *PluginHandler) UpdatePluginConfig(c *gin.Context) {
 		return
 	}
 
-	// 检查插件是否存在
-	if _, err := h.metadataParser.ParseFile(filepath.Join("./plugin-system/hooks", pluginName+".plugin.js")); err != nil {
+	// 检查插件是否存在（支持hooks目录和已安装目录）
+	if !h.isPluginExists(pluginName) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
 			"error":   "Plugin not found",
@@ -435,23 +538,58 @@ func (h *PluginHandler) UpdatePluginConfig(c *gin.Context) {
 
 // GetPluginStats 获取插件统计信息
 func (h *PluginHandler) GetPluginStats(c *gin.Context) {
-	// 扫描所有插件
-	plugins, err := h.metadataParser.ScanDirectory("./plugin-system/hooks")
+	// 获取所有插件（hooks目录和已安装目录）
+	var allPlugins []*plugin.PluginMetadata
+
+	// 扫描hooks目录中的插件
+	hooksPlugins, err := h.metadataParser.ScanDirectory("./plugin-system/hooks")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"error":   "Failed to scan plugins",
+			"error":   "Failed to scan hooks plugins",
 		})
 		return
 	}
+	allPlugins = append(allPlugins, hooksPlugins...)
 
-	totalPlugins := len(plugins)
+	// 获取已安装的插件并转换为PluginMetadata
+	installedPlugins, err := h.pluginManager.ListInstalledPlugins()
+	if err == nil {
+		for _, pkg := range installedPlugins {
+			// 检查是否已经在hooks列表中（避免重复）
+			found := false
+			for _, hookPkg := range hooksPlugins {
+				if hookPkg.Name == pkg.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// 将PluginPackage转换为PluginMetadata
+				metadata := &plugin.PluginMetadata{
+					Name:        pkg.Name,
+					Version:     pkg.Version,
+					Description: pkg.Description,
+					Author:      pkg.Author,
+					DisplayName: pkg.Name,
+					Category:    "utility",
+					Status:      "installed",
+					Hooks:       pkg.Hooks,
+					ConfigFields: make(map[string]*plugin.ConfigField),
+					ScheduledTasks: []*plugin.ScheduledTask{},
+				}
+				allPlugins = append(allPlugins, metadata)
+			}
+		}
+	}
+
+	totalPlugins := len(allPlugins)
 	enabledPlugins := 0
 	disabledPlugins := 0
 	totalExecutions := int64(0)
 	totalErrors := int64(0)
 
-	for _, metadata := range plugins {
+	for _, metadata := range allPlugins {
 		// 获取插件状态（使用新的命名系统）
 		configPluginName := metadata.Name
 		pluginConfig, _ := h.repoManager.PluginConfigRepository.GetConfig(configPluginName)

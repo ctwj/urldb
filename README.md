@@ -55,10 +55,9 @@
 - [Telegram机器人](https://ecn5khs4t956.feishu.cn/wiki/SwkQw6AzRiFes7kxJXac3pd2ncb?from=from_copylink)
 - [微信公众号自动回复](https://ecn5khs4t956.feishu.cn/wiki/APOEwOyDYicKGHk7gTzcQKpynkf?from=from_copylink)
 
-### v1.3.5
-1. 优化SEO
-2. 新增sitemap
-3. bug fix
+### v1.3.6
+1. 插件
+2. bug fix
 
 [详细改动记录](https://github.com/ctwj/urldb/blob/main/ChangeLog.md) 
 

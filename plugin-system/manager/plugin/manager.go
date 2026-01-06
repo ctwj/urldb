@@ -1,7 +1,9 @@
 package plugin
 
 import (
+	"archive/zip"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -94,17 +96,81 @@ func (m *Manager) defaultOnInit(vm *goja.Runtime) {
 func (m *Manager) InstallPlugin(source string) error {
 	// 判断是URL
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		return m.installer.InstallFromURL(source)
+		// 检查URL是否指向JS文件
+		isJSFile := strings.HasSuffix(strings.ToLower(source), ".plugin.js")
+
+		err := m.installer.InstallFromURL(source)
+		if err != nil {
+			return err
+		}
+
+		// 如果是JS单文件插件，也需要创建默认配置
+		if isJSFile {
+			// 从URL获取文件名来推断插件名称
+			pluginName := m.getPluginNameFromURL(source)
+
+			// 为已安装的插件创建默认配置
+			if m.repoManager != nil {
+				// 设置插件默认为启用状态
+				if err := m.repoManager.PluginConfigRepository.SetEnabled(pluginName, true); err != nil {
+					utils.Warn("Failed to create default config for plugin %s: %v", pluginName, err)
+				}
+			}
+		}
+
+		return nil
 	}
 
 	// 判断是ZIP文件
 	if len(source) > 4 && source[len(source)-4:] == ".zip" {
-		return m.installer.InstallFromFile(source)
+		err := m.installer.InstallFromFile(source)
+		if err != nil {
+			return err
+		}
+
+		// 从ZIP文件路径中提取插件名称来创建默认配置
+		zipPath := source
+		// 需要解析插件配置文件获取插件名称
+		pluginName, err := m.getPluginNameFromZip(zipPath)
+		if err != nil {
+			utils.Warn("Failed to get plugin name from ZIP: %v", err)
+			return nil // 不返回错误，因为插件已经安装成功
+		}
+
+		// 为已安装的插件创建默认配置
+		if m.repoManager != nil {
+			// 设置插件默认为启用状态
+			if err := m.repoManager.PluginConfigRepository.SetEnabled(pluginName, true); err != nil {
+				utils.Warn("Failed to create default config for plugin %s: %v", pluginName, err)
+			}
+		}
+
+		return nil
 	}
 
 	// 处理单文件插件 (.plugin.js)
-	if len(source) > 10 && source[len(source)-10:] == ".plugin.js" {
-		return m.installer.InstallSingleFile(source)
+	if len(source) > 10 && strings.HasSuffix(source, ".plugin.js") {
+		err := m.installer.InstallSingleFile(source)
+		if err != nil {
+			return err
+		}
+
+		// 从文件内容解析插件名称来创建默认配置
+		pluginName, err := m.getPluginNameFromJSFile(source)
+		if err != nil {
+			utils.Warn("Failed to get plugin name from JS file: %v", err)
+			return nil // 不返回错误，因为插件已经安装成功
+		}
+
+		// 为已安装的插件创建默认配置
+		if m.repoManager != nil {
+			// 设置插件默认为启用状态
+			if err := m.repoManager.PluginConfigRepository.SetEnabled(pluginName, true); err != nil {
+				utils.Warn("Failed to create default config for plugin %s: %v", pluginName, err)
+			}
+		}
+
+		return nil
 	}
 
 	return fmt.Errorf("unsupported plugin source: %s (must be .zip, .plugin.js file or URL)", source)
@@ -327,6 +393,75 @@ func (m *Manager) registerPluginRoute(method, path string, handler func() (inter
 	// 由于架构限制，暂时只记录日志
 	utils.Info("Plugin route registered: %s %s", method, path)
 	return nil
+}
+
+// getPluginNameFromURL 从URL中获取插件名称
+func (m *Manager) getPluginNameFromURL(url string) string {
+	// 从URL路径中提取文件名
+	parts := strings.Split(url, "/")
+	filename := parts[len(parts)-1]
+
+	// 去掉.plugin.js后缀
+	name := strings.TrimSuffix(filename, ".plugin.js")
+
+	// 从元数据中获取插件名称，如果获取不到则从文件名推断
+	// 这里我们无法访问文件内容，所以直接返回从URL解析的名称
+	return name
+}
+
+// getPluginNameFromJSFile 从JS文件中获取插件名称
+func (m *Manager) getPluginNameFromJSFile(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	// 使用MetadataParser来解析插件元数据
+	metadataParser := NewMetadataParser()
+	metadata, err := metadataParser.ParseContent(content)
+	if err != nil {
+		// 如果解析失败，尝试从文件名推断
+		baseName := strings.TrimSuffix(filepath.Base(filePath), ".plugin.js")
+		return baseName, nil
+	}
+
+	return metadata.Name, nil
+}
+
+// getPluginNameFromZip 从ZIP文件中获取插件名称
+func (m *Manager) getPluginNameFromZip(zipPath string) (string, error) {
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+
+	// 查找plugin.json文件
+	for _, file := range reader.File {
+		if strings.ToLower(filepath.Base(file.Name)) == "plugin.json" {
+			rc, err := file.Open()
+			if err != nil {
+				return "", err
+			}
+			defer rc.Close()
+
+			content, err := io.ReadAll(rc)
+			if err != nil {
+				return "", err
+			}
+
+			var pkg PluginPackage
+			if err := json.Unmarshal(content, &pkg); err != nil {
+				return "", err
+			}
+
+			return pkg.Name, nil
+		}
+	}
+
+	// 如果没有找到plugin.json，尝试从文件路径中推断
+	zipName := strings.TrimSuffix(filepath.Base(zipPath), ".zip")
+	return zipName, nil
 }
 
 // getGlobalDB 获取全局数据库连接
