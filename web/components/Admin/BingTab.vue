@@ -3,7 +3,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
       <!-- Bing索引配置 -->
       <div class="mb-6">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Bing索引配置</h3>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Bing索引配置(功能测试中)</h3>
         <p class="text-gray-600 dark:text-gray-400">配置Bing网站地图提交相关设置</p>
       </div>
 

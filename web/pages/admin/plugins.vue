@@ -4,7 +4,7 @@
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
           <i class="fas fa-plug text-blue-500 mr-2"></i>
-          插件管理
+          插件管理(功能测试中)
         </h1>
         <p class="text-gray-600 dark:text-gray-400">管理系统插件，配置插件参数，监控插件运行状态</p>
       </div>
