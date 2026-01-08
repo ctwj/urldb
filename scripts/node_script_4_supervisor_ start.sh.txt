@@ -1,0 +1,35 @@
+#!/bin/bash
+# 宝塔环境专用启动脚本
+
+# 加载宝塔环境变量
+if [ -f "/etc/profile" ]; then source /etc/profile; fi
+if [ -f "/etc/bashrc" ]; then source /etc/bashrc; fi
+if [ -f "/root/.bash_profile" ]; then source /root/.bash_profile; fi
+if [ -f "/root/.bashrc" ]; then source /root/.bashrc; fi
+
+# 设置宝塔Node环境
+export PATH="/www/server/nodejs/v24.11.0/bin:$PATH"
+
+# 进入项目目录
+cd /mnt/data/www/urldb
+
+# 设置Nuxt环境变量
+export PORT=3031
+export NUXT_PUBLIC_API_SERVER="http://localhost:8080/api"
+export NODE_ENV=production
+export HOST=0.0.0.0
+
+# 输出环境信息（调试用）
+echo "=== 宝塔Nuxt3启动信息 ==="
+echo "时间: $(date)"
+echo "用户: $(whoami)"
+echo "目录: $(pwd)"
+echo "Node: $(which node)"
+echo "版本: $(node --version)"
+echo "NPM: $(npm --version)"
+echo "PATH: $PATH"
+echo "PORT: $PORT"
+echo "========================"
+
+# 启动Nuxt3
+exec node .output/server/index.mjs
