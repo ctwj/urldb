@@ -82,6 +82,21 @@ const (
 
 	// 网站URL配置
 	ConfigKeyWebsiteURL = "website_url"
+
+	// AI 配置
+	ConfigKeyAIAPIKey       = "ai_api_key"
+	ConfigKeyAIAPIURL       = "ai_api_url"
+	ConfigKeyAIModel        = "ai_model"
+	ConfigKeyAIMaxTokens    = "ai_max_tokens"
+	ConfigKeyAITemperature  = "ai_temperature"
+	ConfigKeyAIOrganization = "ai_organization"
+	ConfigKeyAIProxy        = "ai_proxy"
+	ConfigKeyAITimeout      = "ai_timeout"
+	ConfigKeyAIRetryCount   = "ai_retry_count"
+
+	// MCP 配置
+	ConfigKeyMCPEnabled     = "mcp_enabled"
+	ConfigKeyMCPConfigPath  = "mcp_config_path"
 )
 
 // ConfigType 配置类型常量
@@ -173,6 +188,21 @@ const (
 
 	// 网站URL配置字段
 	ConfigResponseFieldWebsiteURL = "site_url"
+
+	// AI 配置字段
+	ConfigResponseFieldAIAPIKey       = "ai_api_key"
+	ConfigResponseFieldAIAPIURL       = "ai_api_url"
+	ConfigResponseFieldAIModel        = "ai_model"
+	ConfigResponseFieldAIMaxTokens    = "ai_max_tokens"
+	ConfigResponseFieldAITemperature  = "ai_temperature"
+	ConfigResponseFieldAIOrganization = "ai_organization"
+	ConfigResponseFieldAIProxy        = "ai_proxy"
+	ConfigResponseFieldAITimeout      = "ai_timeout"
+	ConfigResponseFieldAIRetryCount   = "ai_retry_count"
+
+	// MCP 配置字段
+	ConfigResponseFieldMCPEnabled    = "mcp_enabled"
+	ConfigResponseFieldMCPConfigPath = "mcp_config_path"
 )
 
 // ConfigDefaultValue 配置默认值常量
@@ -251,4 +281,19 @@ const (
 
 	// 网站URL配置默认值
 	ConfigDefaultWebsiteURL = "https://example.com"
+
+	// AI 配置默认值
+	ConfigDefaultAIAPIKey       = ""
+	ConfigDefaultAIAPIURL       = "https://api.openai.com/v1"
+	ConfigDefaultAIModel        = "gpt-3.5-turbo"
+	ConfigDefaultAIMaxTokens    = "1000"
+	ConfigDefaultAITemperature  = "0.7"
+	ConfigDefaultAIOrganization = ""
+	ConfigDefaultAIProxy        = ""
+	ConfigDefaultAITimeout      = "30"
+	ConfigDefaultAIRetryCount   = "3"
+
+	// MCP 配置默认值
+	ConfigDefaultMCPEnabled    = "false"
+	ConfigDefaultMCPConfigPath = "./data/mcp_config.json"
 )

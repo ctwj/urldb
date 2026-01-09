@@ -31,6 +31,17 @@ type Resource struct {
 	SyncedToMeilisearch bool           `json:"synced_to_meilisearch" gorm:"default:false;comment:是否已同步到Meilisearch"`
 	SyncedAt            *time.Time     `json:"synced_at" gorm:"comment:同步时间"`
 
+	// SEO 相关字段
+	SEOKeywords      *[]string `json:"seo_keywords,omitempty" gorm:"column:seo_keywords;type:text[];comment:SEO关键词"`
+	SEOTitle         *string   `json:"seo_title,omitempty" gorm:"column:seo_title;size:500;comment:SEO标题"`
+	SEODescription   *string   `json:"seo_description,omitempty" gorm:"column:seo_description;type:text;comment:SEO描述"`
+
+	// AI 相关字段
+	AIModelUsed             *string    `json:"ai_model_used,omitempty" gorm:"column:ai_model_used;size:100;comment:使用的AI模型"`
+	AIGenerationStatus      *string    `json:"ai_generation_status,omitempty" gorm:"column:ai_generation_status;size:20;default:'none';comment:AI生成状态"`
+	AIGenerationTimestamp   *time.Time `json:"ai_generation_timestamp,omitempty" gorm:"column:ai_generation_timestamp;comment:AI生成时间戳"`
+	AILastRegeneration      *time.Time `json:"ai_last_regeneration,omitempty" gorm:"column:ai_last_regeneration;comment:最后一次重新生成时间"`
+
 	// 关联关系
 	Category Category `json:"category" gorm:"foreignKey:CategoryID"`
 	Pan      Pan      `json:"pan" gorm:"foreignKey:PanID"`

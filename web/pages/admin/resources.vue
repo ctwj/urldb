@@ -255,12 +255,28 @@
         </n-form-item>
 
         <n-form-item label="描述" path="description">
-          <n-input
-            v-model:value="editForm.description"
-            type="textarea"
-            placeholder="请输入资源描述"
-            :rows="3"
-          />
+          <div class="flex flex-col space-y-2">
+            <n-input
+              v-model:value="editForm.description"
+              type="textarea"
+              placeholder="请输入资源描述"
+              :rows="3"
+            />
+            <div class="flex space-x-2">
+              <n-button size="small" @click="generateContentForField('description')" :loading="aiGenerating.description">
+                <template #icon>
+                  <i class="fas fa-robot"></i>
+                </template>
+                AI 生成描述
+              </n-button>
+              <n-button size="small" @click="generateContentForField('title')" :loading="aiGenerating.title">
+                <template #icon>
+                  <i class="fas fa-robot"></i>
+                </template>
+                AI 生成标题
+              </n-button>
+            </div>
+          </div>
         </n-form-item>
 
         <n-form-item label="URL" path="url">
@@ -268,12 +284,20 @@
         </n-form-item>
 
         <n-form-item label="分类" path="category_id">
-          <n-select
-            v-model:value="editForm.category_id"
-            :options="categoryOptions"
-            placeholder="请选择分类"
-            clearable
-          />
+          <div class="flex flex-col space-y-2">
+            <n-select
+              v-model:value="editForm.category_id"
+              :options="categoryOptions"
+              placeholder="请选择分类"
+              clearable
+            />
+            <n-button size="small" @click="classifyResourceWithAI" :loading="aiGenerating.classification">
+              <template #icon>
+                <i class="fas fa-robot"></i>
+              </template>
+              AI 智能分类
+            </n-button>
+          </div>
         </n-form-item>
 
         <n-form-item label="平台" path="pan_id">
@@ -411,6 +435,13 @@ const editForm = ref({
   is_public: true
 })
 
+// AI生成状态
+const aiGenerating = ref({
+  title: false,
+  description: false,
+  classification: false
+})
+
 // 编辑验证规则
 const editRules = {
   title: {
@@ -426,7 +457,7 @@ const editRules = {
 }
 
 // 获取资源API
-import { useResourceApi, useCategoryApi, useTagApi, usePanApi } from '~/composables/useApi'
+import { useResourceApi, useCategoryApi, useTagApi, usePanApi, useAIApi } from '~/composables/useApi'
 import { useMessage } from 'naive-ui'
 
 // 用户状态管理
@@ -435,6 +466,7 @@ const resourceApi = useResourceApi()
 const categoryApi = useCategoryApi()
 const tagApi = useTagApi()
 const panApi = usePanApi()
+const aiApi = useAIApi()
 const message = useMessage()
 
 // 获取分类数据
@@ -891,6 +923,137 @@ const handleEditSubmit = async () => {
     })
   } finally {
     editing.value = false
+  }
+}
+
+// AI生成内容函数
+const generateContentForField = async (field: 'title' | 'description') => {
+  if (!editingResource.value) {
+    message.error('请选择要编辑的资源')
+    return
+  }
+
+  try {
+    // 根据字段设置loading状态
+    if (field === 'title') {
+      aiGenerating.value.title = true
+    } else {
+      aiGenerating.value.description = true
+    }
+
+    // 准备提示词
+    let prompt = ''
+    const resource = editingResource.value
+
+    if (field === 'title') {
+      prompt = `根据以下资源信息生成一个简洁、吸引人的标题：\n\n资源URL: ${resource.url || ''}\n\n现有标题: ${resource.title || ''}\n\n现有描述: ${resource.description || ''}`
+    } else {
+      prompt = `根据以下资源信息生成一个详细、有吸引力的描述：\n\n资源标题: ${resource.title || ''}\n\n资源URL: ${resource.url || ''}\n\n现有描述: ${resource.description || ''}`
+    }
+
+    // 调用AI生成内容
+    const response = await aiApi.generateText({
+      prompt: prompt,
+      options: [
+        { type: 'max_tokens', value: 200 },
+        { type: 'temperature', value: 0.7 }
+      ]
+    })
+
+    if (response && response.result) {
+      // 根据字段更新表单
+      if (field === 'title') {
+        editForm.value.title = response.result
+      } else {
+        editForm.value.description = response.result
+      }
+
+      message.success(`${field === 'title' ? '标题' : '描述'}生成成功`)
+    } else {
+      message.error(`${field === 'title' ? '标题' : '描述'}生成失败`)
+    }
+  } catch (error) {
+    console.error(`AI生成${field === 'title' ? '标题' : '描述'}失败:`, error)
+    message.error(`AI生成${field === 'title' ? '标题' : '描述'}失败`)
+  } finally {
+    // 重置loading状态
+    if (field === 'title') {
+      aiGenerating.value.title = false
+    } else {
+      aiGenerating.value.description = false
+    }
+  }
+}
+
+// AI智能分类函数
+const classifyResourceWithAI = async () => {
+  if (!editingResource.value) {
+    message.error('请选择要编辑的资源')
+    return
+  }
+
+  try {
+    aiGenerating.value.classification = true
+
+    // 获取所有分类信息
+    const categoriesResponse = await categoryApi.getCategories()
+    const categories = categoriesResponse || []
+
+    if (!categories || categories.length === 0) {
+      message.error('没有可用的分类')
+      return
+    }
+
+    // 准备分类信息
+    const categoryList = categories.map((cat: any) => `${cat.id}: ${cat.name}`).join('\n')
+
+    // 准备提示词
+    const resource = editingResource.value
+    const prompt = `根据以下资源信息，为其选择一个最合适的分类：\n\n资源标题: ${resource.title || ''}\n\n资源描述: ${resource.description || ''}\n\n资源URL: ${resource.url || ''}\n\n\n可用分类列表：\n${categoryList}\n\n\n请直接返回最适合的分类ID，不要返回其他内容。`
+
+    // 调用AI进行分类
+    const response = await aiApi.generateText({
+      prompt: prompt,
+      options: [
+        { type: 'max_tokens', value: 10 },
+        { type: 'temperature', value: 0.3 }
+      ]
+    })
+
+    if (response && response.result) {
+      // 解析AI返回的分类ID
+      const result = response.result.trim()
+      const categoryId = parseInt(result)
+
+      // 检查返回的ID是否有效
+      const validCategory = categories.find((cat: any) => cat.id === categoryId)
+      if (validCategory) {
+        editForm.value.category_id = categoryId
+        message.success(`智能分类完成: ${validCategory.name}`)
+      } else {
+        // 如果AI返回的内容无法解析为有效分类ID，尝试从响应中提取
+        const match = result.match(/\d+/)
+        if (match) {
+          const id = parseInt(match[0])
+          const validCategory = categories.find((cat: any) => cat.id === id)
+          if (validCategory) {
+            editForm.value.category_id = id
+            message.success(`智能分类完成: ${validCategory.name}`)
+          } else {
+            message.error('AI返回的分类ID无效')
+          }
+        } else {
+          message.error('无法从AI返回结果中解析分类')
+        }
+      }
+    } else {
+      message.error('AI分类失败')
+    }
+  } catch (error) {
+    console.error('AI分类失败:', error)
+    message.error('AI分类失败')
+  } finally {
+    aiGenerating.value.classification = false
   }
 }
 

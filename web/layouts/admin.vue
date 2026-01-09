@@ -515,6 +515,12 @@ const systemConfigItems = ref([
     active: (route: any) => route.path.startsWith('/admin/dev-config')
   },
   {
+    to: '/admin/ai-config',
+    label: 'AI配置',
+    icon: 'fas fa-robot',
+    active: (route: any) => route.path.startsWith('/admin/ai-config')
+  },
+  {
     to: '/admin/plugins',
     label: '插件管理',
     icon: 'fas fa-plug',

@@ -291,6 +291,58 @@ export const useTaskApi = () => {
   return { createBatchTransferTask, createExpansionTask, getExpansionAccounts, getTasks, getTaskStatus, startTask, stopTask, pauseTask, deleteTask, getTaskItems, getExpansionOutput }
 }
 
+// AI功能API
+export const useAIApi = () => {
+  const getAIConfig = () => useApiFetch('/ai/config').then(parseApiResponse)
+  const updateAIConfig = (data: any) => useApiFetch('/ai/config', { method: 'PUT', body: data }).then(parseApiResponse)
+  const testAIConnection = () => useApiFetch('/ai/test', { method: 'POST' }).then(parseApiResponse)
+  const generateText = (data: any) => useApiFetch('/ai/generate/text', { method: 'POST', body: data }).then(parseApiResponse)
+  const askQuestion = (data: any) => useApiFetch('/ai/ask', { method: 'POST', body: data }).then(parseApiResponse)
+  const generateContentPreview = (data: any) => useApiFetch('/ai/generate/content/preview', { method: 'POST', body: data }).then(parseApiResponse)
+  const applyGeneratedContent = (data: any) => useApiFetch('/ai/generate/content/apply', { method: 'POST', body: data }).then(parseApiResponse)
+  const classifyResourcePreview = (data: any) => useApiFetch('/ai/classify/preview', { method: 'POST', body: data }).then(parseApiResponse)
+  const applyClassification = (data: any) => useApiFetch('/ai/classify/apply', { method: 'POST', body: data }).then(parseApiResponse)
+
+  return {
+    getAIConfig,
+    updateAIConfig,
+    testAIConnection,
+    generateText,
+    askQuestion,
+    generateContentPreview,
+    applyGeneratedContent,
+    classifyResourcePreview,
+    applyClassification
+  }
+}
+
+// MCP功能API
+export const useMCPApi = () => {
+  const getMCPConfig = () => useApiFetch('/mcp/config').then(parseApiResponse)
+  const updateMCPConfig = (config: any) => useApiFetch('/mcp/config', { method: 'PUT', body: config }).then(parseApiResponse)
+  const listMCPServices = () => useApiFetch('/mcp/services').then(parseApiResponse)
+  const getMCPService = (name: string) => useApiFetch(`/mcp/services/${name}`).then(parseApiResponse)
+  const startMCPService = (name: string) => useApiFetch(`/mcp/services/${name}/start`, { method: 'POST' }).then(parseApiResponse)
+  const stopMCPService = (name: string) => useApiFetch(`/mcp/services/${name}/stop`, { method: 'POST' }).then(parseApiResponse)
+  const restartMCPService = (name: string) => useApiFetch(`/mcp/services/${name}/restart`, { method: 'POST' }).then(parseApiResponse)
+  const callMCPTool = (data: any) => useApiFetch('/mcp/tools', { method: 'POST', body: data }).then(parseApiResponse)
+  const listMCPTools = () => useApiFetch('/mcp/tools').then(parseApiResponse)
+  const listServiceTools = (serviceName: string) => useApiFetch(`/mcp/tools/${serviceName}`).then(parseApiResponse)
+
+  return {
+    getMCPConfig,
+    updateMCPConfig,
+    listMCPServices,
+    getMCPService,
+    startMCPService,
+    stopMCPService,
+    restartMCPService,
+    callMCPTool,
+    listMCPTools,
+    listServiceTools
+  }
+}
+
 // 日志函数：只在开发环境打印
 function log(...args: any[]) {
   if (process.env.NODE_ENV !== 'production') {

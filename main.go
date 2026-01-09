@@ -18,6 +18,8 @@ import (
 	"github.com/ctwj/urldb/handlers"
 	"github.com/ctwj/urldb/middleware"
 	"github.com/ctwj/urldb/monitor"
+	"github.com/ctwj/urldb/pkg/ai/mcp"
+	"github.com/ctwj/urldb/pkg/ai/service"
 	"github.com/ctwj/urldb/plugin-system/manager/plugin"
 	"github.com/ctwj/urldb/routes"
 	"github.com/ctwj/urldb/scheduler"
@@ -112,6 +114,9 @@ func main() {
 	// 创建配置管理器
 	configManager := config.NewConfigManager(repoManager)
 
+	// 创建配置管理器包装器
+	repoConfigManager := service.NewRepositoryConfigManager(repoManager)
+
 	// 设置全局配置管理器
 	config.SetGlobalConfigManager(configManager)
 
@@ -120,12 +125,38 @@ func main() {
 		utils.Error("加载配置缓存失败: %v", err)
 	}
 
+	// 初始化MCP管理器
+	mcpManager := mcp.NewMCPManager()
+
+	// 尝试加载MCP配置
+	mcpConfigPath, _ := repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyMCPConfigPath)
+	if mcpConfigPath == "" {
+		mcpConfigPath = entity.ConfigDefaultMCPConfigPath
+	}
+
+	if err := mcpManager.LoadConfig(mcpConfigPath); err != nil {
+		utils.Error("加载MCP配置失败: %v", err)
+	} else {
+		utils.Info("MCP配置加载成功: %s", mcpConfigPath)
+	}
+
 	// 创建任务管理器
 	taskManager := task.NewTaskManager(repoManager)
 
 	// 注册转存任务处理器
 	transferProcessor := task.NewTransferProcessor(repoManager)
 	taskManager.RegisterProcessor(transferProcessor)
+
+	// 初始化AI服务
+	aiHandler, err := handlers.NewAIHandlerWithConfig(repoConfigManager, repoManager, mcpManager)
+	if err != nil {
+		utils.Error("初始化AI服务失败: %v", err)
+	} else {
+		utils.Info("AI服务初始化成功")
+	}
+
+	// 创建MCP处理器
+	mcpHandler := handlers.NewMCPHandler(mcpManager)
 
 	// 初始化插件系统
 	if err := cmdplugin.InitializePluginSystem(repoManager); err != nil {
@@ -619,6 +650,50 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 			// Bing配置API
 			api.GET("/bing/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), bingHandler.GetBingIndexConfig)
 			api.POST("/bing/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), bingHandler.UpdateBingIndexConfig)
+		}
+
+		// AI相关路由
+		if aiHandler != nil {
+			ai := api.Group("/ai", middleware.AuthMiddleware(), middleware.AdminMiddleware())
+			{
+				// 配置管理
+				ai.GET("/config", aiHandler.GetAIConfig)
+				ai.PUT("/config", aiHandler.UpdateAIConfig)
+				ai.POST("/test", aiHandler.TestAIConnection)
+
+				// 通用AI功能
+				ai.POST("/generate/text", aiHandler.GenerateText)
+				ai.POST("/ask", aiHandler.AskQuestion)
+				ai.POST("/analyze", aiHandler.AnalyzeText)
+
+				// 内容生成功能
+				ai.POST("/generate/content/preview", aiHandler.GenerateContentPreview)
+				ai.POST("/generate/content/apply", aiHandler.ApplyGeneratedContent)
+
+				// 分类功能
+				ai.POST("/classify/preview", aiHandler.ClassifyResourcePreview)
+				ai.POST("/classify/apply", aiHandler.ApplyClassification)
+			}
+		}
+
+		// MCP相关路由
+		mcp := api.Group("/mcp", middleware.AuthMiddleware(), middleware.AdminMiddleware())
+		{
+			// 服务管理
+			mcp.GET("/services", mcpHandler.ListServices)
+			mcp.GET("/services/:name", mcpHandler.GetServiceInfo)
+			mcp.POST("/services/:name/start", mcpHandler.StartService)
+			mcp.POST("/services/:name/stop", mcpHandler.StopService)
+			mcp.POST("/services/:name/restart", mcpHandler.RestartService)
+
+			// 工具管理
+			mcp.GET("/tools", mcpHandler.ListAllTools)
+			mcp.GET("/tools/:service", mcpHandler.ListServiceTools)
+			mcp.POST("/tools/:service/:tool", mcpHandler.CallTool)
+
+			// 配置管理
+			mcp.GET("/config", mcpHandler.GetConfig)
+			mcp.PUT("/config", mcpHandler.UpdateConfig)
 		}
 
 		// 插件管理API

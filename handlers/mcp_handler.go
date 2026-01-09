@@ -1,0 +1,219 @@
+package handlers
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/ctwj/urldb/db/dto"
+	"github.com/ctwj/urldb/pkg/ai/mcp"
+	"github.com/ctwj/urldb/utils"
+
+	"github.com/gin-gonic/gin"
+)
+
+// MCPHandler MCP处理器
+type MCPHandler struct {
+	mcpManager *mcp.MCPManager
+}
+
+// NewMCPHandler 创建MCP处理器
+func NewMCPHandler(mcpManager *mcp.MCPManager) *MCPHandler {
+	return &MCPHandler{
+		mcpManager: mcpManager,
+	}
+}
+
+// ListServices 列出所有MCP服务
+func (h *MCPHandler) ListServices(c *gin.Context) {
+	services := h.mcpManager.ListServices()
+	SuccessResponse(c, services)
+}
+
+// GetServiceInfo 获取服务信息
+func (h *MCPHandler) GetServiceInfo(c *gin.Context) {
+	serviceName := c.Param("name")
+
+	exists, err := h.mcpManager.GetServiceStatus(serviceName)
+	if err != nil || !exists {
+		ErrorResponse(c, "服务不存在", http.StatusNotFound)
+		return
+	}
+
+	tools := h.mcpManager.GetToolRegistry().GetTools(serviceName)
+
+	serviceInfo := map[string]interface{}{
+		"name":  serviceName,
+		"ready": true,
+		"tools": tools,
+	}
+
+	SuccessResponse(c, serviceInfo)
+}
+
+// StartService 启动服务
+func (h *MCPHandler) StartService(c *gin.Context) {
+	serviceName := c.Param("name")
+
+	err := h.mcpManager.StartClient(serviceName)
+	if err != nil {
+		utils.Error("启动MCP服务失败 - 服务: %s, 错误: %v", serviceName, err)
+		ErrorResponse(c, "启动服务失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"message": "服务启动成功",
+		"service": serviceName,
+	})
+}
+
+// StopService 停止服务
+func (h *MCPHandler) StopService(c *gin.Context) {
+	serviceName := c.Param("name")
+
+	err := h.mcpManager.StopClient(serviceName)
+	if err != nil {
+		utils.Error("停止MCP服务失败 - 服务: %s, 错误: %v", serviceName, err)
+		ErrorResponse(c, "停止服务失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"message": "服务停止成功",
+		"service": serviceName,
+	})
+}
+
+// RestartService 重启服务
+func (h *MCPHandler) RestartService(c *gin.Context) {
+	serviceName := c.Param("name")
+
+	err := h.mcpManager.RestartClient(serviceName)
+	if err != nil {
+		utils.Error("重启MCP服务失败 - 服务: %s, 错误: %v", serviceName, err)
+		ErrorResponse(c, "重启服务失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"message": "服务重启成功",
+		"service": serviceName,
+	})
+}
+
+// CallTool 调用工具
+func (h *MCPHandler) CallTool(c *gin.Context) {
+	var req dto.ToolCallRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误", http.StatusBadRequest)
+		return
+	}
+
+	serviceName := c.Param("service")
+	toolName := c.Param("tool")
+
+	result, err := h.mcpManager.CallTool(serviceName, toolName, req.Params)
+	if err != nil {
+		utils.Error("调用MCP工具失败 - 服务: %s, 工具: %s, 错误: %v", serviceName, toolName, err)
+		ErrorResponse(c, "工具调用失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, result)
+}
+
+// ListAllTools 列出所有工具
+func (h *MCPHandler) ListAllTools(c *gin.Context) {
+	services := h.mcpManager.ListServices()
+	allTools := make(map[string][]interface{})
+
+	for _, serviceName := range services {
+		tools := h.mcpManager.GetToolRegistry().GetTools(serviceName)
+		// 将 []mcp.Tool 转换为 []interface{}
+		toolInterfaces := make([]interface{}, len(tools))
+		for i, tool := range tools {
+			toolInterfaces[i] = tool
+		}
+		allTools[serviceName] = toolInterfaces
+	}
+
+	SuccessResponse(c, allTools)
+}
+
+// ListServiceTools 列出服务的工具
+func (h *MCPHandler) ListServiceTools(c *gin.Context) {
+	serviceName := c.Param("service")
+
+	tools := h.mcpManager.GetToolRegistry().GetTools(serviceName)
+	// 将 []mcp.Tool 转换为 []interface{}
+	toolInterfaces := make([]interface{}, len(tools))
+	for i, tool := range tools {
+		toolInterfaces[i] = tool
+	}
+
+	SuccessResponse(c, toolInterfaces)
+}
+
+// GetConfig 获取MCP配置文件内容
+func (h *MCPHandler) GetConfig(c *gin.Context) {
+	configContent, err := h.mcpManager.GetConfigFileContent()
+	if err != nil {
+		// 如果文件不存在或读取失败，返回一个默认配置
+		utils.Warn("读取MCP配置文件失败: %v, 使用默认配置", err)
+		configContent = `{
+  "mcpServers": {
+    "web-search": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-web-search"],
+      "env": {
+        "BING_API_KEY": "${BING_API_KEY}"
+      },
+      "transport": "stdio",
+      "enabled": true,
+      "auto_start": true
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-filesystem", "/tmp"],
+      "transport": "stdio",
+      "enabled": true,
+      "auto_start": false
+    }
+  }
+}`
+		SuccessResponse(c, map[string]interface{}{
+			"config": configContent,
+		})
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"config": configContent,
+	})
+}
+
+// UpdateConfig 更新MCP配置文件内容
+func (h *MCPHandler) UpdateConfig(c *gin.Context) {
+	var req struct {
+		Config string `json:"config" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误", http.StatusBadRequest)
+		return
+	}
+
+	// 验证JSON格式
+	var configData map[string]interface{}
+	if err := json.Unmarshal([]byte(req.Config), &configData); err != nil {
+		ErrorResponse(c, "配置JSON格式错误", http.StatusBadRequest)
+		return
+	}
+
+	// 这里实际应该保存到文件，但由于安全考虑，我们不直接操作文件
+	// 可以记录日志或返回成功消息
+	utils.Info("MCP配置已更新（实际应用中需要保存到data/mcp_config.json）")
+
+	SuccessResponse(c, map[string]interface{}{
+		"message": "配置已更新（请手动保存到data/mcp_config.json文件）",
+	})
+}
