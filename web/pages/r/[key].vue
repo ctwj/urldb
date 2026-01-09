@@ -268,14 +268,14 @@
                       </button>
 
                       <!-- 复制转存链接按钮 -->
-                      <button
+                      <!-- <button
                         v-if="resource.save_url && !resource.forbidden"
                         class="p-2 text-sm rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
                         @click="copyToClipboard(resource.save_url)"
                         title="复制转存链接"
                       >
                         <i class="fas fa-copy"></i>
-                      </button>
+                      </button> -->
                     </template>
                   </div>
                 </li>
