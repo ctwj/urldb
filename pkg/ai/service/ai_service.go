@@ -2,10 +2,23 @@ package service
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/sashabaranov/go-openai"
 )
+
+// AIConfig AI配置结构
+type AIConfig struct {
+	APIKey      *string
+	APIURL      *string
+	Model       *string
+	MaxTokens   *int
+	Temperature *float32
+	Timeout     *int
+	RetryCount  *int
+}
 
 // AIService 主AI服务，提供通用AI能力供其他模块调用
 type AIService struct {
@@ -101,8 +114,111 @@ func (as *AIService) ApplyClassification(preview *ClassificationPreview) error {
 
 // TestConnection 测试AI连接
 func (as *AIService) TestConnection() error {
-	_, err := as.GenerateText("你好，请回复'连接正常'。", WithMaxTokens(10))
+	_, err := as.GenerateText("你是什么AI模型？请详细介绍你的名称、版本和能力。")
 	return err
+}
+
+// TestConnectionWithResponse 测试AI连接并返回响应
+func (as *AIService) TestConnectionWithResponse() (string, error) {
+	response, err := as.GenerateText("你是什么AI模型？请详细介绍你的名称、版本和能力。")
+	return response, err
+}
+
+// TestConnectionWithConfig 使用临时配置测试AI连接
+func (as *AIService) TestConnectionWithConfig(config *AIConfig) error {
+	// 创建临时客户端
+	tempClient, err := as.createTempClient(config)
+	if err != nil {
+		return fmt.Errorf("创建临时客户端失败: %v", err)
+	}
+
+	// 创建临时 AIService
+	tempAIService := &AIService{
+		client:      tempClient,
+		contentGen:  NewContentGenerator(tempClient, as.repoManager),
+		classifier:  NewClassifier(tempClient, as.repoManager),
+		repoManager: as.repoManager,
+	}
+
+	// 使用临时 AIService 询问模型信息
+	_, err = tempAIService.GenerateText("你是什么AI模型？请详细介绍你的名称、版本和能力。")
+	return err
+}
+
+// TestConnectionWithConfigAndResponse 使用临时配置测试AI连接并返回响应
+func (as *AIService) TestConnectionWithConfigAndResponse(config *AIConfig) (string, error) {
+	// 创建临时客户端
+	tempClient, err := as.createTempClient(config)
+	if err != nil {
+		return "", fmt.Errorf("创建临时客户端失败: %v", err)
+	}
+
+	// 创建临时 AIService
+	tempAIService := &AIService{
+		client:      tempClient,
+		contentGen:  NewContentGenerator(tempClient, as.repoManager),
+		classifier:  NewClassifier(tempClient, as.repoManager),
+		repoManager: as.repoManager,
+	}
+
+	// 使用临时 AIService 询问模型信息
+	response, err := tempAIService.GenerateText("你是什么AI模型？请详细介绍你的名称、版本和能力。")
+	return response, err
+}
+
+// createTempClient 创建临时客户端
+func (as *AIService) createTempClient(config *AIConfig) (*OpenAIClient, error) {
+	if config.APIKey == nil || *config.APIKey == "" {
+		return nil, fmt.Errorf("API Key 不能为空")
+	}
+
+	// 设置默认值
+	baseURL := "https://api.openai.com/v1"
+	if config.APIURL != nil && *config.APIURL != "" {
+		baseURL = *config.APIURL
+	}
+
+	model := "gpt-3.5-turbo"
+	if config.Model != nil && *config.Model != "" {
+		model = *config.Model
+	}
+
+	timeout := 30 * time.Second
+	if config.Timeout != nil {
+		timeout = time.Duration(*config.Timeout) * time.Second
+	}
+
+	retryCount := 3
+	if config.RetryCount != nil {
+		retryCount = *config.RetryCount
+	}
+
+	// 创建 OpenAI 客户端配置
+	clientConfig := openai.DefaultConfig(*config.APIKey)
+	clientConfig.BaseURL = baseURL
+
+	// 设置超时
+	clientConfig.HTTPClient = &http.Client{
+		Timeout: timeout,
+	}
+
+	// 创建 OpenAI 客户端
+	openaiClient := openai.NewClientWithConfig(clientConfig)
+
+	// 创建临时 OpenAI 客户端包装器
+	tempOpenAIClient := &OpenAIClient{
+		apiKey:       *config.APIKey,
+		baseURL:      baseURL,
+		model:        model,
+		organization: "",
+		proxy:        "",
+		timeout:      timeout,
+		retryCount:   retryCount,
+		client:       openaiClient,
+		config:       nil,
+	}
+
+	return tempOpenAIClient, nil
 }
 
 // ReloadClient 重新加载客户端配置

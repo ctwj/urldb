@@ -295,7 +295,10 @@ export const useTaskApi = () => {
 export const useAIApi = () => {
   const getAIConfig = () => useApiFetch('/ai/config').then(parseApiResponse)
   const updateAIConfig = (data: any) => useApiFetch('/ai/config', { method: 'PUT', body: data }).then(parseApiResponse)
-  const testAIConnection = () => useApiFetch('/ai/test', { method: 'POST' }).then(parseApiResponse)
+  const testAIConnection = (config?: any) => useApiFetch('/ai/test', {
+    method: 'POST',
+    body: config || {}
+  }).then(parseApiResponse)
   const generateText = (data: any) => useApiFetch('/ai/generate/text', { method: 'POST', body: data }).then(parseApiResponse)
   const askQuestion = (data: any) => useApiFetch('/ai/ask', { method: 'POST', body: data }).then(parseApiResponse)
   const generateContentPreview = (data: any) => useApiFetch('/ai/generate/content/preview', { method: 'POST', body: data }).then(parseApiResponse)

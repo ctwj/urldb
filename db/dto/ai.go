@@ -3,14 +3,25 @@ package dto
 // UpdateAIConfigRequest 更新AI配置请求
 type UpdateAIConfigRequest struct {
 	APIKey       *string  `json:"api_key,omitempty"`
-	APIURL       *string  `json:"api_url,omitempty"`
-	Model        *string  `json:"model,omitempty"`
-	MaxTokens    *int     `json:"max_tokens,omitempty"`
-	Temperature  *float32 `json:"temperature,omitempty"`
-	Organization *string  `json:"organization,omitempty"`
-	Proxy        *string  `json:"proxy,omitempty"`
-	Timeout      *int     `json:"timeout,omitempty"`
-	RetryCount   *int     `json:"retry_count,omitempty"`
+	APIURL       *string  `json:"ai_api_url,omitempty"`
+	Model        *string  `json:"ai_model,omitempty"`
+	MaxTokens    *int     `json:"ai_max_tokens,omitempty"`
+	Temperature  *float32 `json:"ai_temperature,omitempty"`
+	Organization *string  `json:"ai_organization,omitempty"`
+	Proxy        *string  `json:"ai_proxy,omitempty"`
+	Timeout      *int     `json:"ai_timeout,omitempty"`
+	RetryCount   *int     `json:"ai_retry_count,omitempty"`
+}
+
+// TestAIConnectionRequest 测试AI连接请求
+type TestAIConnectionRequest struct {
+	APIKey      *string  `json:"api_key,omitempty"`
+	APIURL      *string  `json:"ai_api_url,omitempty"`
+	Model       *string  `json:"ai_model,omitempty"`
+	MaxTokens   *int     `json:"ai_max_tokens,omitempty"`
+	Temperature *float32 `json:"ai_temperature,omitempty"`
+	Timeout     *int     `json:"ai_timeout,omitempty"`
+	RetryCount  *int     `json:"ai_retry_count,omitempty"`
 }
 
 // GenerateTextRequest 通用文本生成请求

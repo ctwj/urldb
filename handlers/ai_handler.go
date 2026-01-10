@@ -54,11 +54,13 @@ func (h *AIHandler) GetAIConfig(c *gin.Context) {
 	timeout, _ := repoManager.SystemConfigRepository.GetConfigInt(entity.ConfigKeyAITimeout)
 	retryCount, _ := repoManager.SystemConfigRepository.GetConfigInt(entity.ConfigKeyAIRetryCount)
 
-	// 检查API Key是否已配置（不返回实际的API Key值）
+	// 获取API Key
 	apiKey, _ := repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyAIAPIKey)
 	apiKeyConfigured := apiKey != ""
 
 	config := map[string]interface{}{
+		"api_key":           apiKey,
+		"ai_api_key_configured": apiKeyConfigured,
 		"ai_api_url":        apiURL,
 		"ai_model":          model,
 		"ai_max_tokens":     maxTokens,
@@ -67,7 +69,6 @@ func (h *AIHandler) GetAIConfig(c *gin.Context) {
 		"ai_proxy":          proxy,
 		"ai_timeout":        timeout,
 		"ai_retry_count":    retryCount,
-		"ai_api_key_configured": apiKeyConfigured,
 	}
 
 	SuccessResponse(c, config)
@@ -175,15 +176,53 @@ func (h *AIHandler) UpdateAIConfig(c *gin.Context) {
 
 // TestAIConnection 测试AI连接
 func (h *AIHandler) TestAIConnection(c *gin.Context) {
-	err := h.aiService.TestConnection()
-	if err != nil {
-		utils.Error("AI 连接测试失败: %v", err)
-		ErrorResponse(c, "连接测试失败，请检查配置", http.StatusBadRequest)
-		return
+	var req dto.TestAIConnectionRequest
+	var response string
+	var err error
+
+	// 尝试解析请求体，如果没有提供则使用保存的配置
+	if bindErr := c.ShouldBindJSON(&req); bindErr != nil {
+		// 如果没有提供配置参数，使用保存的配置进行测试
+		utils.Info("使用保存的配置进行AI连接测试")
+		response, err = h.aiService.TestConnectionWithResponse()
+		if err != nil {
+			utils.Error("AI 连接测试失败: %v", err)
+			c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"success": false,
+				"message": "连接测试失败",
+				"error":   err.Error(),
+			})
+			return
+		}
+	} else {
+		// 使用提供的临时配置进行测试
+		utils.Info("使用临时配置进行AI连接测试")
+		response, err = h.aiService.TestConnectionWithConfigAndResponse(&service.AIConfig{
+			APIKey:      req.APIKey,
+			APIURL:      req.APIURL,
+			Model:       req.Model,
+			MaxTokens:   req.MaxTokens,
+			Temperature: req.Temperature,
+			Timeout:     req.Timeout,
+			RetryCount:  req.RetryCount,
+		})
+		if err != nil {
+			utils.Error("AI 连接测试失败: %v", err)
+			c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"success": false,
+				"message": "连接测试失败",
+				"error":   err.Error(),
+			})
+			return
+		}
 	}
 
-	utils.Info("AI 连接测试成功")
-	SuccessResponse(c, "连接测试成功")
+	utils.Info("AI 连接测试成功，返回响应: %s", response)
+	SuccessResponse(c, map[string]interface{}{
+		"success": true,
+		"message": "连接测试成功",
+		"response": response,
+	})
 }
 
 // GenerateText 通用文本生成功能
