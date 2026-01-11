@@ -31,7 +31,14 @@ func NewAIHandler(aiService *service.AIService, mcpManager *mcp.MCPManager) *AIH
 
 // NewAIHandlerWithConfig 创建AI处理器（使用配置管理器）
 func NewAIHandlerWithConfig(configManager service.ConfigManager, repoManager *repo.RepositoryManager, mcpManager *mcp.MCPManager) (*AIHandler, error) {
-	aiService, err := service.NewAIServiceWithConfig(configManager, repoManager)
+	// 先创建OpenAI客户端
+	client, err := service.NewOpenAIClientWithConfig(configManager)
+	if err != nil {
+		return nil, fmt.Errorf("创建OpenAI客户端失败: %v", err)
+	}
+
+	// 创建支持MCP的AI服务
+	aiService, err := service.NewAIServiceWithMCP(client, repoManager, mcpManager)
 	if err != nil {
 		return nil, fmt.Errorf("创建AI服务失败: %v", err)
 	}
@@ -397,5 +404,78 @@ func (h *AIHandler) ApplyClassification(c *gin.Context) {
 
 	SuccessResponse(c, map[string]interface{}{
 		"message": "分类已成功应用",
+	})
+}
+
+// GetAvailableTools 获取所有可用的MCP工具
+func (h *AIHandler) GetAvailableTools(c *gin.Context) {
+	tools, err := h.aiService.GetAvailableTools()
+	if err != nil {
+		utils.Error("获取可用工具失败: %v", err)
+		ErrorResponse(c, "获取工具失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"tools": tools,
+		"count": len(tools),
+	})
+}
+
+// CallTool 调用指定的MCP工具
+func (h *AIHandler) CallTool(c *gin.Context) {
+	var req dto.CallToolRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误", http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.aiService.CallTool(req.ToolName, req.Params)
+	if err != nil {
+		utils.Error("工具调用失败: %v", err)
+		ErrorResponse(c, "工具调用失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, result)
+}
+
+// GenerateTextWithTools 使用工具的文本生成
+func (h *AIHandler) GenerateTextWithTools(c *gin.Context) {
+	var req dto.GenerateTextWithToolsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误", http.StatusBadRequest)
+		return
+	}
+
+	// 转换 DTO ChatOption 到 service ChatOption
+	options := make([]service.ChatOption, 0, len(req.Options))
+	for _, opt := range req.Options {
+		switch opt.Type {
+		case "max_tokens":
+			if tokens, ok := opt.Value.(float64); ok {
+				options = append(options, service.WithMaxTokens(int(tokens)))
+			}
+		case "temperature":
+			if temp, ok := opt.Value.(float64); ok {
+				options = append(options, service.WithTemperature(float32(temp)))
+			}
+		case "system_prompt":
+			if prompt, ok := opt.Value.(string); ok {
+				options = append(options, service.WithSystemPrompt(prompt))
+			}
+		}
+	}
+
+	result, err := h.aiService.GenerateTextWithTools(req.Prompt, options...)
+	if err != nil {
+		utils.Error("工具增强文本生成失败: %v", err)
+		ErrorResponse(c, "文本生成失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"result": result,
+		"with_tools": true,
 	})
 }

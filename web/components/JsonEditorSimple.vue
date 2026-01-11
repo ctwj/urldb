@@ -62,9 +62,9 @@
           @scroll="handleScroll"
           @click="updateCursorPosition"
           @keyup="updateCursorPosition"
-          class="editor-textarea w-full h-full p-3 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none outline-none border-none rounded-b-lg"
+          class="editor-textarea w-full p-3 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none outline-none border-none rounded-b-lg overflow-y-auto"
           :class="{ 'word-wrap': wordWrap }"
-          :style="{ minHeight: minHeight }"
+          :style="{ height: minHeight || '400px', maxHeight: minHeight || '400px' }"
           spellcheck="false"
           :placeholder="placeholder"
         ></textarea>

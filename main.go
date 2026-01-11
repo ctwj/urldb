@@ -673,6 +673,11 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 				// 分类功能
 				ai.POST("/classify/preview", aiHandler.ClassifyResourcePreview)
 				ai.POST("/classify/apply", aiHandler.ApplyClassification)
+
+				// MCP工具功能
+				ai.GET("/tools", aiHandler.GetAvailableTools)
+				ai.POST("/tools/call", aiHandler.CallTool)
+				ai.POST("/generate/text-with-tools", aiHandler.GenerateTextWithTools)
 			}
 		}
 

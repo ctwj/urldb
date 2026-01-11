@@ -1,11 +1,14 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/ctwj/urldb/db/repo"
+	"github.com/ctwj/urldb/pkg/ai/mcp"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -20,12 +23,27 @@ type AIConfig struct {
 	RetryCount  *int
 }
 
+// ToolDefinition OpenAI工具定义结构
+type ToolDefinition struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"`
+}
+
+// ToolCallResult 工具调用结果
+type ToolCallResult struct {
+	ToolName string                 `json:"tool_name"`
+	Result   interface{}            `json:"result"`
+	Error    string                 `json:"error,omitempty"`
+}
+
 // AIService 主AI服务，提供通用AI能力供其他模块调用
 type AIService struct {
 	client        *OpenAIClient
 	contentGen    *ContentGenerator
 	classifier    *Classifier
 	repoManager   *repo.RepositoryManager
+	mcpManager    *mcp.MCPManager
 }
 
 // NewAIServiceWithConfig 创建AI服务
@@ -56,6 +74,20 @@ func NewAIService(client *OpenAIClient, repoManager *repo.RepositoryManager) (*A
 		contentGen:  contentGen,
 		classifier:  classifier,
 		repoManager: repoManager,
+	}, nil
+}
+
+// NewAIServiceWithMCP 创建支持MCP的AI服务
+func NewAIServiceWithMCP(client *OpenAIClient, repoManager *repo.RepositoryManager, mcpManager *mcp.MCPManager) (*AIService, error) {
+	contentGen := NewContentGenerator(client, repoManager)
+	classifier := NewClassifier(client, repoManager)
+
+	return &AIService{
+		client:      client,
+		contentGen:  contentGen,
+		classifier:  classifier,
+		repoManager: repoManager,
+		mcpManager:  mcpManager,
 	}, nil
 }
 
@@ -229,4 +261,166 @@ func (as *AIService) ReloadClient() error {
 // GetModel 获取当前使用的模型
 func (as *AIService) GetModel() string {
 	return as.client.model
+}
+
+// GetAvailableTools 获取所有可用的MCP工具
+func (as *AIService) GetAvailableTools() ([]ToolDefinition, error) {
+	if as.mcpManager == nil {
+		return nil, fmt.Errorf("MCP管理器未初始化")
+	}
+
+	var tools []ToolDefinition
+	services := as.mcpManager.ListServices()
+
+	for _, serviceName := range services {
+		mcpTools := as.mcpManager.GetToolRegistry().GetTools(serviceName)
+		for _, tool := range mcpTools {
+			// 转换为OpenAI工具定义格式
+			toolDef := ToolDefinition{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters:  tool.InputSchema,
+			}
+			tools = append(tools, toolDef)
+		}
+	}
+
+	log.Printf("获取到 %d 个可用工具", len(tools))
+	return tools, nil
+}
+
+// CallTool 调用指定的MCP工具
+func (as *AIService) CallTool(toolName string, params map[string]interface{}) (*ToolCallResult, error) {
+	if as.mcpManager == nil {
+		return nil, fmt.Errorf("MCP管理器未初始化")
+	}
+
+	log.Printf("调用工具: %s, 参数: %+v", toolName, params)
+
+	// 查找包含该工具的服务
+	services := as.mcpManager.ListServices()
+	for _, serviceName := range services {
+		tools := as.mcpManager.GetToolRegistry().GetTools(serviceName)
+		for _, tool := range tools {
+			if tool.Name == toolName {
+				// 调用工具
+				result, err := as.mcpManager.CallTool(serviceName, toolName, params)
+				if err != nil {
+					log.Printf("工具调用失败: %v", err)
+					return &ToolCallResult{
+						ToolName: toolName,
+						Error:    err.Error(),
+					}, err
+				}
+
+				log.Printf("工具调用成功: %s", toolName)
+				return &ToolCallResult{
+					ToolName: toolName,
+					Result:   result,
+				}, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("未找到工具: %s", toolName)
+}
+
+// GenerateTextWithTools 使用工具的文本生成
+func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption) (string, error) {
+	// 获取可用工具
+	tools, err := as.GetAvailableTools()
+	if err != nil {
+		log.Printf("获取工具失败，使用普通生成: %v", err)
+		return as.GenerateText(prompt, options...)
+	}
+
+	if len(tools) == 0 {
+		log.Printf("没有可用工具，使用普通生成")
+		return as.GenerateText(prompt, options...)
+	}
+
+	// 创建OpenAI函数调用格式
+	var functions []openai.FunctionDefinition
+	for _, tool := range tools {
+		functionDef := openai.FunctionDefinition{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Parameters:  tool.Parameters,
+		}
+		functions = append(functions, functionDef)
+	}
+
+	// 创建消息
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: prompt,
+		},
+	}
+
+	// 添加工具调用选项
+	toolOptions := append(options, WithFunctions(functions))
+
+	// 调用AI
+	resp, err := as.client.Chat(messages, toolOptions...)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("AI 未返回任何内容")
+	}
+
+	choice := resp.Choices[0]
+
+	// 检查是否有工具调用
+	if choice.Message.FunctionCall != nil {
+		toolCall := choice.Message.FunctionCall
+		log.Printf("AI决定调用工具: %s", toolCall.Name)
+
+		// 解析参数
+		var params map[string]interface{}
+		if toolCall.Arguments != "" {
+			if err := json.Unmarshal([]byte(toolCall.Arguments), &params); err != nil {
+				return "", fmt.Errorf("解析工具参数失败: %v", err)
+			}
+		}
+
+		// 调用工具
+		toolResult, err := as.CallTool(toolCall.Name, params)
+		if err != nil {
+			return "", fmt.Errorf("工具调用失败: %v", err)
+		}
+
+		// 将工具结果添加到对话中
+		messages = append(messages,
+			openai.ChatCompletionMessage{
+				Role: openai.ChatMessageRoleAssistant,
+				Content: "",
+				FunctionCall: &openai.FunctionCall{
+					Name:      toolCall.Name,
+					Arguments: toolCall.Arguments,
+				},
+			},
+			openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleFunction,
+				Name:    toolCall.Name,
+				Content: fmt.Sprintf("%v", toolResult.Result),
+			},
+		)
+
+		// 再次调用AI处理工具结果
+		resp, err = as.client.Chat(messages, options...)
+		if err != nil {
+			return "", err
+		}
+
+		if len(resp.Choices) == 0 {
+			return "", fmt.Errorf("AI 处理工具结果后未返回任何内容")
+		}
+
+		return resp.Choices[0].Message.Content, nil
+	}
+
+	return choice.Message.Content, nil
 }

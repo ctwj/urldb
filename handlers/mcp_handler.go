@@ -25,26 +25,28 @@ func NewMCPHandler(mcpManager *mcp.MCPManager) *MCPHandler {
 
 // ListServices 列出所有MCP服务
 func (h *MCPHandler) ListServices(c *gin.Context) {
-	services := h.mcpManager.ListServices()
-	SuccessResponse(c, services)
+	serviceStatuses := h.mcpManager.ListServiceStatuses()
+	SuccessResponse(c, serviceStatuses)
 }
 
 // GetServiceInfo 获取服务信息
 func (h *MCPHandler) GetServiceInfo(c *gin.Context) {
 	serviceName := c.Param("name")
 
-	exists, err := h.mcpManager.GetServiceStatus(serviceName)
-	if err != nil || !exists {
+	serviceStatuses := h.mcpManager.ListServiceStatuses()
+	serviceStatus, exists := serviceStatuses[serviceName]
+	if !exists {
 		ErrorResponse(c, "服务不存在", http.StatusNotFound)
 		return
 	}
 
-	tools := h.mcpManager.GetToolRegistry().GetTools(serviceName)
-
 	serviceInfo := map[string]interface{}{
-		"name":  serviceName,
-		"ready": true,
-		"tools": tools,
+		"name":       serviceName,
+		"status":     serviceStatus.Status,
+		"ready":      serviceStatus.Status == "running",
+		"tools":      serviceStatus.Tools,
+		"config":     serviceStatus.Config,
+		"last_error": serviceStatus.LastError,
 	}
 
 	SuccessResponse(c, serviceInfo)
@@ -209,11 +211,18 @@ func (h *MCPHandler) UpdateConfig(c *gin.Context) {
 		return
 	}
 
-	// 这里实际应该保存到文件，但由于安全考虑，我们不直接操作文件
-	// 可以记录日志或返回成功消息
-	utils.Info("MCP配置已更新（实际应用中需要保存到data/mcp_config.json）")
+	// 实际保存配置到文件
+	err := h.mcpManager.UpdateConfigFileContent(req.Config)
+	if err != nil {
+		utils.Error("保存MCP配置文件失败: %v", err)
+		ErrorResponse(c, "保存配置失败", http.StatusInternalServerError)
+		return
+	}
+
+	utils.Info("MCP配置文件已成功更新")
 
 	SuccessResponse(c, map[string]interface{}{
-		"message": "配置已更新（请手动保存到data/mcp_config.json文件）",
+		"message": "配置保存成功",
+		"services_updated": false,
 	})
 }

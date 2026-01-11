@@ -84,3 +84,15 @@ type ApplyClassificationRequest struct {
 type ToolCallRequest struct {
 	Params map[string]interface{} `json:"params" binding:"required"`
 }
+
+// CallToolRequest 调用工具请求
+type CallToolRequest struct {
+	ToolName string                 `json:"tool_name" binding:"required"`
+	Params   map[string]interface{} `json:"params"`
+}
+
+// GenerateTextWithToolsRequest 使用工具的文本生成请求
+type GenerateTextWithToolsRequest struct {
+	Prompt  string       `json:"prompt" binding:"required"`
+	Options []ChatOption `json:"options,omitempty"`
+}

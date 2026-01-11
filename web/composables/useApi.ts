@@ -300,6 +300,7 @@ export const useAIApi = () => {
     body: config || {}
   }).then(parseApiResponse)
   const generateText = (data: any) => useApiFetch('/ai/generate/text', { method: 'POST', body: data }).then(parseApiResponse)
+  const generateTextWithTools = (data: any) => useApiFetch('/ai/generate/text-with-tools', { method: 'POST', body: data }).then(parseApiResponse)
   const askQuestion = (data: any) => useApiFetch('/ai/ask', { method: 'POST', body: data }).then(parseApiResponse)
   const generateContentPreview = (data: any) => useApiFetch('/ai/generate/content/preview', { method: 'POST', body: data }).then(parseApiResponse)
   const applyGeneratedContent = (data: any) => useApiFetch('/ai/generate/content/apply', { method: 'POST', body: data }).then(parseApiResponse)
@@ -311,6 +312,7 @@ export const useAIApi = () => {
     updateAIConfig,
     testAIConnection,
     generateText,
+    generateTextWithTools,
     askQuestion,
     generateContentPreview,
     applyGeneratedContent,

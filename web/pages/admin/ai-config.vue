@@ -7,11 +7,11 @@
         <p class="text-gray-600 dark:text-gray-400">管理AI服务配置和设置</p>
       </div>
       <div class="flex space-x-2">
-        <n-button @click="testAIConnectionClick" :loading="testingConnection">
+        <n-button @click="showChatModal = true" type="info">
           <template #icon>
-            <i class="fas fa-plug"></i>
+            <i class="fas fa-comments"></i>
           </template>
-          测试连接
+          AI聊天
         </n-button>
         <n-button type="primary" @click="saveConfig" :loading="saving">
           <template #icon>
@@ -177,52 +177,78 @@
           </n-tab-pane>
 
           <n-tab-pane name="mcp" tab="MCP 配置">
-            <div class="tab-content-container h-[600px]">
-              <div class="flex h-full gap-6">
+            <div class="tab-content-container min-h-[700px]">
+              <div class="flex gap-6" style="height: 650px;">
                 <!-- 左侧：MCP 服务状态 -->
                 <div class="w-1/3 space-y-4 flex flex-col">
                   <div class="flex items-center space-x-2 flex-shrink-0">
                     <label class="text-base font-semibold text-gray-800 dark:text-gray-200">MCP 服务状态</label>
                     <span class="text-xs text-gray-500 dark:text-gray-400">当前运行的MCP服务</span>
                   </div>
-                  <div class="border rounded-lg p-4 flex-1 overflow-y-auto bg-white dark:bg-gray-800">
+                  <div class="border rounded-lg p-4 flex-1 overflow-y-auto bg-white dark:bg-gray-800" style="min-height: 200px;">
                     <div v-if="mcpServices.length === 0" class="text-gray-500 text-center py-8">
                       暂无MCP服务
                     </div>
                     <div v-else class="space-y-3">
-                      <div v-for="service in mcpServices" :key="service.name" class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-                        <div class="flex items-center justify-between mb-3">
-                          <div class="flex items-center space-x-2">
-                            <div class="w-3 h-3 rounded-full" :class="{
-                              'bg-green-400': service.status === 'running',
-                              'bg-red-400': service.status === 'stopped',
-                              'bg-yellow-400': service.status === 'starting' || service.status === 'stopping'
-                            }"></div>
-                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ service.name }}</div>
+                      <div v-for="service in mcpServices" :key="service.name" class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-700" style="min-height: 140px;">
+                        <div class="flex flex-col h-full">
+                          <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                              <div class="w-3 h-3 rounded-full" :class="{
+                                'bg-green-400': service.connected,
+                                'bg-red-400': !service.connected
+                              }"></div>
+                              <div class="font-medium text-gray-900 dark:text-gray-100">{{ service.name }}</div>
+                            </div>
+                            <n-switch
+                              v-model:value="service.enabled"
+                              @update:value="(value) => toggleMCPService(service.name, value)"
+                              size="small"
+                            />
                           </div>
-                        </div>
-                        <div class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          状态: {{ service.status }}
-                        </div>
-                        <div class="flex space-x-2">
-                          <n-button size="small" type="primary" @click="startMCPService(service.name)" :disabled="service.status === 'running'">
-                            <template #icon>
-                              <i class="fas fa-play"></i>
-                            </template>
-                            启动
-                          </n-button>
-                          <n-button size="small" @click="stopMCPService(service.name)" :disabled="service.status === 'stopped'">
-                            <template #icon>
-                              <i class="fas fa-stop"></i>
-                            </template>
-                            停止
-                          </n-button>
-                          <n-button size="small" @click="restartMCPService(service.name)">
-                            <template #icon>
-                              <i class="fas fa-redo"></i>
-                            </template>
-                            重启
-                          </n-button>
+                          <div class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            {{ service.connected ? '已连接' : '未连接' }}
+                          </div>
+                          <div class="flex space-x-2 mt-auto">
+                            <n-button
+                              v-if="!service.connected && service.enabled"
+                              size="small"
+                              type="primary"
+                              @click="connectMCPService(service.name)"
+                            >
+                              <template #icon>
+                                <i class="fas fa-link"></i>
+                              </template>
+                              连接
+                            </n-button>
+                            <n-button size="small" @click="restartMCPService(service.name)" :disabled="!service.connected">
+                              <template #icon>
+                                <i class="fas fa-redo"></i>
+                              </template>
+                              重启
+                            </n-button>
+                            <n-button
+                              size="small"
+                              @click="stopMCPService(service.name)"
+                              :disabled="!service.connected"
+                            >
+                              <template #icon>
+                                <i class="fas fa-unlink"></i>
+                              </template>
+                              断开
+                            </n-button>
+                            <n-button
+                              size="small"
+                              @click="loadMCPServiceTools(service.name)"
+                              :disabled="!service.connected"
+                              :loading="loadingMCPTools && selectedService === service.name"
+                            >
+                              <template #icon>
+                                <i class="fas fa-info-circle"></i>
+                              </template>
+                              详情
+                            </n-button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -231,7 +257,7 @@
 
                 <!-- 右侧：MCP 配置编辑器 -->
                 <div class="w-2/3 space-y-4 flex flex-col">
-                  <div class="flex items-center justify-between flex-shrink-0">
+                  <div class="flex items-center justify-between flex-shrink-0" style="min-height: 40px;">
                     <div class="flex items-center space-x-2">
                       <label class="text-base font-semibold text-gray-800 dark:text-gray-200">MCP 配置文件</label>
                       <span class="text-xs text-gray-500 dark:text-gray-400">MCP服务配置文件编辑器</span>
@@ -256,16 +282,17 @@
                   </div>
 
                   <!-- JSON 编辑器组件 -->
-                  <div class="flex-1 border rounded-lg overflow-hidden min-h-0">
+                  <div class="flex-1 border rounded-lg overflow-hidden" style="height: 350px; max-height: 350px;">
                     <JsonEditorSimple
                       v-model="mcpConfigContent"
                       @validate="onEditorValidate"
                       @change="onEditorChange"
-                      :min-height="'400px'"
+                      :min-height="'350px'"
+                      :style="{ height: '350px', maxHeight: '350px' }"
                     />
                   </div>
 
-                  <div class="flex items-center justify-between flex-shrink-0">
+                  <div class="flex items-center justify-between flex-shrink-0" style="min-height: 50px;">
                     <div class="text-sm text-gray-600 dark:text-gray-400">
                       <span v-if="mcpConfigValid" class="text-green-600 dark:text-green-400">
                         <i class="fas fa-check-circle mr-1"></i> JSON格式正确
@@ -297,6 +324,19 @@
       </div>
     </template>
   </AdminPageLayout>
+
+  <!-- AI聊天组件 -->
+  <AIChatModal
+    v-model="showChatModal"
+    :config="{
+      api_url: configForm.api_url,
+      model: configForm.model,
+      max_tokens: configForm.max_tokens,
+      temperature: configForm.temperature,
+      timeout: configForm.timeout,
+      retry_count: configForm.retry_count
+    }"
+  />
 
   <!-- AI 测试弹窗 -->
   <n-modal v-model:show="showTestModal" :mask-closable="false" preset="card" :style="{ width: '900px', maxWidth: '90vw' }">
@@ -437,6 +477,86 @@
       </div>
     </template>
   </n-modal>
+
+    <!-- MCP服务详情模态框 -->
+    <n-modal v-model:show="showMCPDetailModal" preset="card" style="width: 800px;" title="MCP服务详情">
+      <template #header-extra>
+        <n-button size="small" @click="showMCPDetailModal = false">
+          <template #icon>
+            <i class="fas fa-times"></i>
+          </template>
+        </n-button>
+      </template>
+
+      <div class="space-y-4">
+        <!-- 服务信息 -->
+        <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+          <h3 class="font-semibold text-lg mb-2">{{ selectedService }}</h3>
+          <div class="flex items-center space-x-2">
+            <div class="w-3 h-3 rounded-full bg-green-400"></div>
+            <span class="text-sm text-gray-600 dark:text-gray-400">服务已连接</span>
+          </div>
+        </div>
+
+        <!-- 工具列表 -->
+        <div>
+          <h4 class="font-semibold text-base mb-3">可用工具</h4>
+          <div v-if="loadingMCPTools" class="flex justify-center py-8">
+            <n-spin size="large" />
+          </div>
+          <div v-else-if="mcpServiceTools.length === 0" class="text-center py-8 text-gray-500">
+            暂无可用工具
+          </div>
+          <div v-else class="space-y-4">
+            <div v-for="(tool, index) in mcpServiceTools" :key="index" class="border rounded-lg p-4 bg-white dark:bg-gray-900">
+              <div class="flex items-start justify-between mb-3">
+                <div>
+                  <h5 class="font-medium text-base mb-1">{{ tool.name }}</h5>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">{{ tool.description }}</p>
+                </div>
+                <n-tag size="small" type="info">
+                  工具
+                </n-tag>
+              </div>
+
+              <!-- 参数信息 -->
+              <div v-if="tool.inputSchema" class="mt-4">
+                <h6 class="text-sm font-medium mb-2">参数说明：</h6>
+                <div class="bg-gray-50 dark:bg-gray-800 rounded p-3">
+                  <div v-if="tool.inputSchema.properties">
+                    <div v-for="(param, paramName) in tool.inputSchema.properties" :key="paramName" class="mb-2 last:mb-0">
+                      <div class="flex items-center space-x-2 mb-1">
+                        <span class="font-mono text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                          {{ paramName }}
+                        </span>
+                        <span class="text-xs text-gray-500">({{ param.type }})</span>
+                        <n-tag v-if="tool.inputSchema.required?.includes(paramName)" size="tiny" type="warning">
+                          必需
+                        </n-tag>
+                      </div>
+                      <p v-if="param.description" class="text-sm text-gray-600 dark:text-gray-400 ml-2">
+                        {{ param.description }}
+                      </p>
+                    </div>
+                  </div>
+                  <div v-else class="text-sm text-gray-500">
+                    无参数说明
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end">
+          <n-button @click="showMCPDetailModal = false">
+            关闭
+          </n-button>
+        </div>
+      </template>
+    </n-modal>
 </template>
 
 <script setup lang="ts">
@@ -448,30 +568,18 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
 import { useAIApi, useMCPApi } from '~/composables/useApi'
 import JsonEditorSimple from '~/components/JsonEditorSimple.vue'
+import AIChatModal from '~/components/AIChatModal.vue'
 
 // MCP 配置模板
 const templateOptions = [
   {
-    label: '基础模板 - 空配置',
-    key: 'basic',
-    icon: 'i-carbon-document-blank'
-  },
-  {
-    label: 'Web搜索模板 - Bing搜索',
-    key: 'web-search',
-    icon: 'i-carbon-search'
-  },
-  {
-    label: '文件系统模板 - 本地文件',
-    key: 'filesystem',
-    icon: 'i-carbon-folder'
-  },
-  {
-    label: '完整模板 - 所有服务',
-    key: 'full',
-    icon: 'i-carbon-document-add'
+    label: 'DuckDuckGo搜索',
+    key: 'duckduckgo'
   }
 ]
+
+// MCP配置验证状态
+const mcpConfigValid = ref(true)
 const activeTab = ref('openai')
 const saving = ref(false)
 const testingConnection = ref(false)
@@ -488,6 +596,15 @@ const testData = ref({
   loading: false,
   error: null as string | null
 })
+
+// 聊天模态框相关
+const showChatModal = ref(false)
+
+// MCP详情弹窗相关
+const showMCPDetailModal = ref(false)
+const selectedService = ref('')
+const mcpServiceTools = ref([])
+const loadingMCPTools = ref(false)
 
 // 格式化后的 AI 回答
 const formattedAIResponse = computed(() => {
@@ -557,7 +674,7 @@ const rules = {
 
 // 获取AI配置API
 const { getAIConfig, updateAIConfig, testAIConnection } = useAIApi()
-const { getMCPConfig, updateMCPConfig, listMCPServices, startMCPService: startMCP, stopMCPService: stopMCP, restartMCPService: restartMCP } = useMCPApi()
+const { getMCPConfig, updateMCPConfig, listMCPServices, startMCPService: startMCP, stopMCPService: stopMCP, restartMCPService: restartMCP, listServiceTools } = useMCPApi()
 
 // 使用配置改动检测
 const {
@@ -608,71 +725,38 @@ const loadAIConfig = async () => {
 const loadMCPConfig = async () => {
   try {
     loadingMCPConfig.value = true
-    console.log('正在加载MCP配置...')
     const response = await getMCPConfig()
-    console.log('MCP配置响应:', response)
 
     if (response && response.config) {
       mcpConfigContent.value = response.config
-      console.log('已加载MCP配置:', response.config)
-      notification.success({
-        content: 'MCP配置加载成功',
-        duration: 2000
-      })
+    } else if (response && typeof response === 'string') {
+      // 如果直接返回字符串配置
+      mcpConfigContent.value = response
     } else {
-      console.log('API未返回配置，使用默认配置')
       // 如果API没有返回配置，则使用默认配置
       mcpConfigContent.value = '{\n' +
   '  "mcpServers": {\n' +
-  '    "web-search": {\n' +
+  '    "duckduckgo": {\n' +
   '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-web-search"],\n' +
-  '      "env": {\n' +
-  '        "BING_API_KEY": "${BING_API_KEY}"\n' +
-  '      },\n' +
+  '      "args": ["duckduckgo-websearch"],\n' +
   '      "transport": "stdio",\n' +
   '      "enabled": true,\n' +
   '      "auto_start": true\n' +
-  '    },\n' +
-  '    "filesystem": {\n' +
-  '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-filesystem", "/tmp"],\n' +
-  '      "transport": "stdio",\n' +
-  '      "enabled": true,\n' +
-  '      "auto_start": false\n' +
   '    }\n' +
   '  }\n' +
   '}'
-      notification.info({
-        content: '已加载默认MCP配置',
-        duration: 2000
-      })
     }
   } catch (error) {
     console.error('获取MCP配置失败:', error)
-    notification.error({
-      content: '获取MCP配置失败',
-      duration: 3000
-    })
     // 如果API失败，也提供一个默认配置
     mcpConfigContent.value = '{\n' +
   '  "mcpServers": {\n' +
-  '    "web-search": {\n' +
+  '    "duckduckgo": {\n' +
   '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-web-search"],\n' +
-  '      "env": {\n' +
-  '        "BING_API_KEY": "${BING_API_KEY}"\n' +
-  '      },\n' +
+  '      "args": ["duckduckgo-websearch"],\n' +
   '      "transport": "stdio",\n' +
   '      "enabled": true,\n' +
   '      "auto_start": true\n' +
-  '    },\n' +
-  '    "filesystem": {\n' +
-  '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-filesystem", "/tmp"],\n' +
-  '      "transport": "stdio",\n' +
-  '      "enabled": true,\n' +
-  '      "auto_start": false\n' +
   '    }\n' +
   '  }\n' +
   '}'
@@ -685,10 +769,39 @@ const loadMCPConfig = async () => {
 const loadMCPStatus = async () => {
   try {
     const services = await listMCPServices()
-    mcpServices.value = services || []
+    console.log('获取到的MCP服务列表:', services)
+
+    // 后端返回的是对象结构，需要转换为数组格式
+    if (services && typeof services === 'object') {
+      // 将对象转换为数组
+      const servicesArray = Object.entries(services).map(([name, serviceData]) => ({
+        name: name,
+        status: serviceData.status || 'stopped',
+        connected: serviceData.status === 'running',
+        enabled: true, // 默认启用
+        tools: serviceData.tools || null,
+        config: serviceData.config || null
+      }))
+      mcpServices.value = servicesArray
+    } else if (Array.isArray(services)) {
+      // 兼容旧的字符串数组格式
+      mcpServices.value = services.map(serviceName => ({
+        name: serviceName,
+        status: 'running',
+        connected: true,
+        enabled: true,
+        tools: null,
+        config: null
+      }))
+    } else {
+      mcpServices.value = []
+    }
+
+    console.log('转换后的MCP服务列表:', mcpServices.value)
   } catch (error) {
     console.error('获取MCP服务状态失败:', error)
     // 不显示错误，因为MCP可能未配置
+    mcpServices.value = []
   }
 }
 
@@ -745,11 +858,14 @@ const saveConfig = async () => {
 const saveMCPConfig = async () => {
   try {
     savingMCPConfig.value = true
+    console.log('开始保存MCP配置...')
 
     // 验证JSON格式
     try {
       JSON.parse(mcpConfigContent.value)
+      console.log('JSON格式验证通过')
     } catch (e) {
+      console.error('JSON格式错误:', e)
       notification.error({
         content: 'MCP配置JSON格式错误',
         duration: 3000
@@ -758,12 +874,19 @@ const saveMCPConfig = async () => {
     }
 
     // 调用API保存MCP配置
+    console.log('调用API保存配置...')
     await updateMCPConfig({ config: mcpConfigContent.value })
+    console.log('API调用完成')
 
     notification.success({
-      content: 'MCP配置保存成功（请手动重启服务以应用更改）',
-      duration: 5000
+      content: 'MCP配置保存成功',
+      duration: 3000
     })
+
+    // 保存成功后重新加载配置以确保同步
+    console.log('重新加载配置...')
+    await loadMCPConfig()
+    console.log('配置重新加载完成')
 
   } catch (error) {
     console.error('保存MCP配置失败:', error)
@@ -773,76 +896,20 @@ const saveMCPConfig = async () => {
     })
   } finally {
     savingMCPConfig.value = false
+    console.log('保存状态已重置')
   }
 }
 
 // 配置模板定义
 const configTemplates = {
-  basic: `{
-  "mcpServers": {
-
-  }
-}`,
-  'web-search': '{\n' +
+  duckduckgo: '{\n' +
   '  "mcpServers": {\n' +
-  '    "web-search": {\n' +
+  '    "duckduckgo": {\n' +
   '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-web-search"],\n' +
-  '      "env": {\n' +
-  '        "BING_API_KEY": "${BING_API_KEY}"\n' +
-  '      },\n' +
+  '      "args": ["duckduckgo-websearch"],\n' +
   '      "transport": "stdio",\n' +
   '      "enabled": true,\n' +
   '      "auto_start": true\n' +
-  '    }\n' +
-  '  }\n' +
-  '}',
-  filesystem: `{
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-filesystem", "/tmp"],
-      "transport": "stdio",
-      "enabled": true,
-      "auto_start": false
-    }
-  }
-}`,
-  full: '{\n' +
-  '  "mcpServers": {\n' +
-  '    "web-search": {\n' +
-  '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-web-search"],\n' +
-  '      "env": {\n' +
-  '        "BING_API_KEY": "${BING_API_KEY}"\n' +
-  '      },\n' +
-  '      "transport": "stdio",\n' +
-  '      "enabled": true,\n' +
-  '      "auto_start": true\n' +
-  '    },\n' +
-  '    "filesystem": {\n' +
-  '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-filesystem", "/tmp"],\n' +
-  '      "transport": "stdio",\n' +
-  '      "enabled": true,\n' +
-  '      "auto_start": false\n' +
-  '    },\n' +
-  '    "git": {\n' +
-  '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-git", "/path/to/repo"],\n' +
-  '      "transport": "stdio",\n' +
-  '      "enabled": false,\n' +
-  '      "auto_start": false\n' +
-  '    },\n' +
-  '    "postgres": {\n' +
-  '      "command": "npx",\n' +
-  '      "args": ["@modelcontextprotocol/server-postgres"],\n' +
-  '      "env": {\n' +
-  '        "POSTGRES_CONNECTION_STRING": "postgresql://user:password@localhost:5432/dbname"\n' +
-  '      },\n' +
-  '      "transport": "stdio",\n' +
-  '      "enabled": false,\n' +
-  '      "auto_start": false\n' +
   '    }\n' +
   '  }\n' +
   '}'
@@ -965,6 +1032,81 @@ const restartMCPService = async (name: string) => {
   }
 }
 
+// 切换MCP服务启用状态
+const toggleMCPService = async (name: string, enabled: boolean) => {
+  try {
+    const service = mcpServices.value.find(s => s.name === name)
+    if (service) {
+      service.enabled = enabled
+      if (!enabled && service.connected) {
+        // 禁用时断开连接
+        await stopMCP(name)
+        service.connected = false
+        service.status = 'stopped'
+      } else if (enabled && !service.connected) {
+        // 启用时尝试连接
+        await startMCP(name)
+        service.connected = true
+        service.status = 'running'
+      }
+      notification.success({
+        content: `MCP服务 ${name} 已${enabled ? '启用' : '禁用'}`,
+        duration: 3000
+      })
+    }
+  } catch (error) {
+    console.error(`切换MCP服务 ${name} 状态失败:`, error)
+    notification.error({
+      content: `切换MCP服务 ${name} 状态失败`,
+      duration: 3000
+    })
+  }
+}
+
+// 连接MCP服务
+const connectMCPService = async (name: string) => {
+  try {
+    await startMCP(name)
+    const service = mcpServices.value.find(s => s.name === name)
+    if (service) {
+      service.connected = true
+      service.status = 'running'
+    }
+    notification.success({
+      content: `MCP服务 ${name} 连接成功`,
+      duration: 3000
+    })
+  } catch (error) {
+    console.error(`连接MCP服务 ${name} 失败:`, error)
+    notification.error({
+      content: `连接MCP服务 ${name} 失败`,
+      duration: 3000
+    })
+  }
+}
+
+// 获取MCP服务工具列表
+const loadMCPServiceTools = async (serviceName: string) => {
+  try {
+    loadingMCPTools.value = true
+    selectedService.value = serviceName
+
+    const tools = await listServiceTools(serviceName)
+    console.log(`MCP服务 ${serviceName} 的工具列表:`, tools)
+
+    mcpServiceTools.value = tools || []
+    showMCPDetailModal.value = true
+  } catch (error) {
+    console.error(`获取MCP服务 ${serviceName} 工具列表失败:`, error)
+    notification.error({
+      content: `获取MCP服务 ${serviceName} 工具列表失败`,
+      duration: 3000
+    })
+  } finally {
+    loadingMCPTools.value = false
+  }
+}
+
 // 页面加载时获取配置
 onMounted(async () => {
   await loadAIConfig()
@@ -1042,6 +1184,7 @@ const testAIConnectionClick = async () => {
     testData.value.loading = false
   }
 }
+
 </script>
 
 <style scoped>

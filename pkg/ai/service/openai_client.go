@@ -192,6 +192,13 @@ func WithSystemPrompt(prompt string) ChatOption {
 	}
 }
 
+// WithFunctions 设置函数调用
+func WithFunctions(functions []openai.FunctionDefinition) ChatOption {
+	return func(req *openai.ChatCompletionRequest) {
+		req.Functions = functions
+	}
+}
+
 // CreateChatCompletion 创建对话完成
 func (c *OpenAIClient) CreateChatCompletion(prompt string) (*openai.ChatCompletionResponse, error) {
 	messages := []openai.ChatCompletionMessage{
