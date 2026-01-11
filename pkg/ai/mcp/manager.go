@@ -603,6 +603,26 @@ func (m *MCPManager) GetToolRegistry() *ToolRegistry {
 	return m.toolReg
 }
 
+// CheckServiceHealth 检查服务健康状态
+func (m *MCPManager) CheckServiceHealth(serviceName string) bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	client, exists := m.clients[serviceName]
+	if !exists {
+		log.Printf("[MCP] 服务 %s 未找到", serviceName)
+		return false
+	}
+
+	// 检查客户端是否已初始化
+	if client.MCPCli == nil {
+		log.Printf("[MCP] 服务 %s 的客户端未初始化", serviceName)
+		return false
+	}
+
+	return true
+}
+
 // RestartClient 重启MCP客户端
 func (m *MCPManager) RestartClient(name string) error {
 	if err := m.StopClient(name); err != nil {

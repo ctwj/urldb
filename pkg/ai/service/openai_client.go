@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -147,10 +148,39 @@ func (c *OpenAIClient) Chat(messages []openai.ChatCompletionMessage, options ...
 		option(&request)
 	}
 
+	// 添加调试日志
+	log.Printf("[OpenAI] 发送请求 - Model: %s, Messages: %d, Functions: %d",
+		request.Model, len(request.Messages), len(request.Functions))
+
+	if len(request.Functions) > 0 {
+		for i, fn := range request.Functions {
+			log.Printf("[OpenAI] Function %d: %s - %s", i, fn.Name, fn.Description)
+		}
+	}
+
+	// 记录 FunctionCall 设置
+	if request.FunctionCall != "" {
+		log.Printf("[OpenAI] FunctionCall 设置: %s", request.FunctionCall)
+	}
+
 	resp, err := c.client.CreateChatCompletion(context.Background(), request)
 	if err != nil {
+		log.Printf("[OpenAI] 请求失败: %v", err)
 		return nil, err
 	}
+
+	// 记录响应
+	if len(resp.Choices) > 0 {
+		choice := resp.Choices[0]
+		log.Printf("[OpenAI] 收到响应 - FinishReason: %s", choice.FinishReason)
+		log.Printf("[OpenAI] 响应内容: %s", choice.Message.Content)
+		if choice.Message.FunctionCall != nil {
+			log.Printf("[OpenAI] AI 调用了函数: %s, 参数: %s", choice.Message.FunctionCall.Name, choice.Message.FunctionCall.Arguments)
+		} else {
+			log.Printf("[OpenAI] AI 没有调用函数")
+		}
+	}
+
 	return &resp, nil
 }
 
@@ -195,7 +225,12 @@ func WithSystemPrompt(prompt string) ChatOption {
 // WithFunctions 设置函数调用
 func WithFunctions(functions []openai.FunctionDefinition) ChatOption {
 	return func(req *openai.ChatCompletionRequest) {
-		req.Functions = functions
+		if len(functions) > 0 {
+			req.Functions = functions
+			// 设置 FunctionCall 为 auto，让 AI 自动决定是否使用函数
+			req.FunctionCall = "auto"
+			log.Printf("[OpenAI] 设置了 %d 个函数，FunctionCall: auto", len(functions))
+		}
 	}
 }
 
