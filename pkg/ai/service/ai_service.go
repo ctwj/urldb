@@ -193,7 +193,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 
 	// 如果没有匹配到 JSON 格式，尝试匹配简单标签格式：<tool_name> 或 <tool_name/> 或 <tool_name\n
 	if len(toolCalls) == 0 {
-		simpleRe := regexp.MustCompile(`<(\w+)(?=[\s\n>]|$)`)
+		simpleRe := regexp.MustCompile(`<(\w+)[\s\n>]`)
 		simpleMatches := simpleRe.FindAllStringSubmatch(content, -1)
 		log.Printf("[parseToolCallsFromContent] 简单标签格式匹配到 %d 个结果", len(simpleMatches))
 
@@ -305,7 +305,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 func cleanToolCallMarkers(content string) string {
 	// 移除工具调用标记：<tool_name>...</tool_name> 或 <tool_name/> 或 <tool_name: {}> 等
 	// 也支持没有闭合标签的格式：<tool_name\n⟶
-	re := regexp.MustCompile(`(?s)<\w+(?::\s*{[^}]*})?\s*/?>\s*</\w+>|<\w+(?::\s*{[^}]*})?\s*/?>|<\w+>|<\w+(?=[\s\n]|$)`)
+	re := regexp.MustCompile(`<\w+(?::\s*{[^}]*})?\s*/?>\s*</\w+>|<\w+(?::\s*{[^}]*})?\s*/?>|<\w+>|<\w+[\s\n]`)
 	cleanContent := re.ReplaceAllString(content, "")
 
 	// 清理多余的空行
@@ -575,12 +575,16 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 1. 如果用户询问时间、日期、搜索信息或其他需要实时数据的问题，你必须使用相应的工具
 2. 不要猜测或编造信息，必须使用工具获取准确的数据
 3. 调用工具后，根据工具返回的结果给用户准确的回答
+4. 调用工具时，必须提供所有必需的参数，不要省略任何 required 参数
+5. 根据工具的参数定义和用户的问题，智能选择合适的参数值
 
 工具调用格式要求：
-- 当需要调用工具时，请使用以下格式：<工具名称: {}>
-- 示例：<current_time: {}> 或 <search: {"query": "北京现在几点"}>
+- 当需要调用工具时，请使用以下格式：<工具名称: {"参数名": "参数值"}>
+- 示例：<search: {"query": "人工智能最新进展"}> 或 <current_time: {"format": "YYYY-MM-DD"}>
+- 不要使用空对象 {}，必须提供所有必需的参数
 - 不要使用其他格式，如 <工具名称> 或 <工具名称/> 等
 - 确保工具名称与可用工具列表中的名称完全一致
+- 根据用户问题的具体需求，选择最合适的参数值（例如：如果用户问"今天几号"，使用 "YYYY-MM-DD" 格式；如果用户问"现在几点"，使用 "HH:mm:ss" 格式）
 
 可用工具列表：` + getToolListSummary(tools),
 		},

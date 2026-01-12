@@ -888,6 +888,11 @@ const saveMCPConfig = async () => {
     await loadMCPConfig()
     console.log('配置重新加载完成')
 
+    // 刷新服务状态列表
+    console.log('刷新服务状态列表...')
+    await loadMCPStatus()
+    console.log('服务状态列表已刷新')
+
   } catch (error) {
     console.error('保存MCP配置失败:', error)
     notification.error({

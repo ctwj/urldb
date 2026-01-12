@@ -12,7 +12,6 @@ import (
 
 	"github.com/ctwj/urldb/utils"
 	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -273,15 +272,15 @@ func (m *MCPManager) StartClient(name string) error {
 	switch config.Transport {
 	case "stdio":
 		// 解析命令和参数
-		args := config.Args
-		if len(args) == 0 {
+		// 使用 config.Command 作为命令，config.Args 作为参数
+		if config.Command == "" {
 			cancel()
-			log.Printf("MCP 启动失败: stdio 传输需要指定命令")
-			return fmt.Errorf("stdio 传输需要指定命令")
+			log.Printf("MCP 启动失败: stdio 传输需要指定 command")
+			return fmt.Errorf("stdio 传输需要指定 command")
 		}
 
-		command := args[0]
-		cmdArgs := args[1:]
+		command := config.Command
+		cmdArgs := config.Args
 
 		// 在Windows上处理PowerShell执行策略问题
 		if runtime.GOOS == "windows" {
@@ -289,19 +288,32 @@ func (m *MCPManager) StartClient(name string) error {
 			if command == "npx" {
 				log.Printf("检测到Windows系统和npx命令，尝试使用npm.cmd exec")
 				log.Printf("原始命令: %s, 参数: %v", command, cmdArgs)
-				
+
 				// 使用npm.cmd exec作为包装器
-				newArgs := []string{"exec", "npx", "--", cmdArgs[0]}
-				newArgs = append(newArgs, cmdArgs[1:]...)
-				
-				log.Printf("修改后的命令: npm.cmd, 参数: %v", newArgs)
-				
-				// 创建 stdio 传输
-				stdioTransport := transport.NewStdio("npm.cmd", nil, newArgs...)
-				
-				// 创建客户端
-				mcpClient = client.NewClient(stdioTransport)
-			} else {
+
+								newArgs := []string{"exec", "npx", "--", cmdArgs[0]}
+
+								newArgs = append(newArgs, cmdArgs[1:]...)
+
+								
+
+								log.Printf("修改后的命令: npm.cmd, 参数: %v", newArgs)
+
+								// 设置环境变量
+								env := os.Environ()
+								for k, v := range config.Env {
+									env = append(env, fmt.Sprintf("%s=%s", k, v))
+									log.Printf("设置环境变量: %s=%s", k, v)
+								}
+
+								// 使用 NewStdioMCPClientWithOptions 创建客户端（自动启动子进程）
+								var err error
+								mcpClient, err = client.NewStdioMCPClientWithOptions("npm.cmd", env, newArgs)
+								if err != nil {
+									cancel()
+									log.Printf("MCP 启动失败: 创建客户端失败 - %v", err)
+									return fmt.Errorf("创建客户端失败: %v", err)
+								}			} else {
 				log.Printf("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
 
 				// 设置环境变量
@@ -311,11 +323,14 @@ func (m *MCPManager) StartClient(name string) error {
 					log.Printf("设置环境变量: %s=%s", k, v)
 				}
 
-				// 创建 stdio 传输
-				stdioTransport := transport.NewStdio(command, env, cmdArgs...)
-
-				// 创建客户端
-				mcpClient = client.NewClient(stdioTransport)
+				// 使用 NewStdioMCPClientWithOptions 创建客户端（自动启动子进程）
+				var err error
+				mcpClient, err = client.NewStdioMCPClientWithOptions(command, env, cmdArgs)
+				if err != nil {
+					cancel()
+					log.Printf("MCP 启动失败: 创建客户端失败 - %v", err)
+					return fmt.Errorf("创建客户端失败: %v", err)
+				}
 			}
 		} else {
 			log.Printf("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
@@ -327,11 +342,14 @@ func (m *MCPManager) StartClient(name string) error {
 				log.Printf("设置环境变量: %s=%s", k, v)
 			}
 
-			// 创建 stdio 传输
-			stdioTransport := transport.NewStdio(command, env, cmdArgs...)
-
-			// 创建客户端
-			mcpClient = client.NewClient(stdioTransport)
+			// 使用 NewStdioMCPClientWithOptions 创建客户端（自动启动子进程）
+			var err error
+			mcpClient, err = client.NewStdioMCPClientWithOptions(command, env, cmdArgs)
+			if err != nil {
+				cancel()
+				log.Printf("MCP 启动失败: 创建客户端失败 - %v", err)
+				return fmt.Errorf("创建客户端失败: %v", err)
+			}
 		}
 
 	default:
@@ -341,6 +359,7 @@ func (m *MCPManager) StartClient(name string) error {
 	}
 
 	// 启动客户端
+	// 注意：NewStdioMCPClientWithOptions 已经启动了子进程，但 client.Start() 仍然需要调用以完成客户端初始化
 	log.Printf("正在启动 MCP 客户端...")
 	if err := mcpClient.Start(ctx); err != nil {
 		cancel()
