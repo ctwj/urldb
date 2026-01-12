@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
+	"runtime"
 	"sync"
 	"time"
 
@@ -159,11 +159,8 @@ func (m *MCPManager) LoadConfig(configFile string) error {
 		return fmt.Errorf("读取 MCP 配置文件失败: %v", err)
 	}
 
-	// 环境变量替换
-	expandedData := m.expandEnvVars(string(data))
-
 	var config MCPConfig
-	if err := json.Unmarshal([]byte(expandedData), &config); err != nil {
+	if err := json.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("解析 MCP 配置失败: %v", err)
 	}
 
@@ -195,28 +192,6 @@ func (m *MCPManager) LoadConfig(configFile string) error {
 }
 
 // expandEnvVars 环境变量替换，支持默认值
-func (m *MCPManager) expandEnvVars(data string) string {
-	// 匹配 ${VAR} 或 ${VAR:-default} 格式
-	re := regexp.MustCompile(`\$\{([^}:]+)(?::([^}]*))?\}`)
-
-	return re.ReplaceAllStringFunc(data, func(match string) string {
-		parts := re.FindStringSubmatch(match)
-		if len(parts) < 2 {
-			return match
-		}
-
-		varName := parts[1]
-		defaultValue := ""
-		if len(parts) > 2 && parts[2] != "" {
-			defaultValue = parts[2]
-		}
-
-		if value := os.Getenv(varName); value != "" {
-			return value
-		}
-		return defaultValue
-	})
-}
 
 // getDefaultTools 获取默认工具列表（当无法获取真实工具时使用）
 func getDefaultTools(serviceName string) []mcp.Tool {
@@ -289,7 +264,7 @@ func (m *MCPManager) StartClient(name string) error {
 	log.Printf("配置 - 命令: %s, 参数: %v, 传输: %s", config.Command, config.Args, config.Transport)
 
 	// 创建上下文 - 用于初始化，工具调用时会使用单独的context
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 
 	// 根据传输类型创建客户端
 	var mcpClient *client.Client
@@ -308,20 +283,56 @@ func (m *MCPManager) StartClient(name string) error {
 		command := args[0]
 		cmdArgs := args[1:]
 
-		log.Printf("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
+		// 在Windows上处理PowerShell执行策略问题
+		if runtime.GOOS == "windows" {
+			// 检查命令是否为npx，如果是，使用npm.cmd exec绕过执行策略
+			if command == "npx" {
+				log.Printf("检测到Windows系统和npx命令，尝试使用npm.cmd exec")
+				log.Printf("原始命令: %s, 参数: %v", command, cmdArgs)
+				
+				// 使用npm.cmd exec作为包装器
+				newArgs := []string{"exec", "npx", "--", cmdArgs[0]}
+				newArgs = append(newArgs, cmdArgs[1:]...)
+				
+				log.Printf("修改后的命令: npm.cmd, 参数: %v", newArgs)
+				
+				// 创建 stdio 传输
+				stdioTransport := transport.NewStdio("npm.cmd", nil, newArgs...)
+				
+				// 创建客户端
+				mcpClient = client.NewClient(stdioTransport)
+			} else {
+				log.Printf("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
 
-		// 设置环境变量
-		env := os.Environ()
-		for k, v := range config.Env {
-			env = append(env, fmt.Sprintf("%s=%s", k, v))
-			log.Printf("设置环境变量: %s=%s", k, v)
+				// 设置环境变量
+				env := os.Environ()
+				for k, v := range config.Env {
+					env = append(env, fmt.Sprintf("%s=%s", k, v))
+					log.Printf("设置环境变量: %s=%s", k, v)
+				}
+
+				// 创建 stdio 传输
+				stdioTransport := transport.NewStdio(command, env, cmdArgs...)
+
+				// 创建客户端
+				mcpClient = client.NewClient(stdioTransport)
+			}
+		} else {
+			log.Printf("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
+
+			// 设置环境变量
+			env := os.Environ()
+			for k, v := range config.Env {
+				env = append(env, fmt.Sprintf("%s=%s", k, v))
+				log.Printf("设置环境变量: %s=%s", k, v)
+			}
+
+			// 创建 stdio 传输
+			stdioTransport := transport.NewStdio(command, env, cmdArgs...)
+
+			// 创建客户端
+			mcpClient = client.NewClient(stdioTransport)
 		}
-
-		// 创建 stdio 传输
-		stdioTransport := transport.NewStdio(command, env, cmdArgs...)
-
-		// 创建客户端
-		mcpClient = client.NewClient(stdioTransport)
 
 	default:
 		cancel()
@@ -483,7 +494,7 @@ func (m *MCPManager) CallTool(serviceName, toolName string, params map[string]in
 	}
 
 	// 为工具调用创建单独的context，避免使用初始化时的短超时context
-	toolCtx, toolCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	toolCtx, toolCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer toolCancel()
 
 	// 调用真实的MCP工具
