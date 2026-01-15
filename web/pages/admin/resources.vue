@@ -102,93 +102,133 @@
       <div v-else class="flex-1 h-full overflow-hidden">
         <n-virtual-list
           :items="resources"
-          :item-size="100"
+          :item-size="120"
           :key-field="'id'"
           class="h-full"
         >
           <template #default="{ item: resource }">
-            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mb-4">
-              <div class="flex items-start justify-between">
-                <div class="flex-1">
-                  <div class="flex items-center space-x-2 mb-2">
-                    <n-checkbox
-                      :value="resource.id"
-                      :checked="selectedResources.includes(resource.id)"
-                      @update:checked="(checked) => toggleResourceSelection(resource.id, checked)"
+            <div class="border m-2 border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mb-2">
+              <!-- 头部：标题和操作按钮 -->
+              <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
+                <!-- 左侧：标题和元信息 -->
+                <div class="flex items-center space-x-2 flex-1 min-w-0">
+                  <n-checkbox
+                    :value="resource.id"
+                    :checked="selectedResources.includes(resource.id)"
+                    @update:checked="(checked) => toggleResourceSelection(resource.id, checked)"
+                  />
+                  <span class="text-xs text-gray-500 dark:text-gray-400 font-mono flex-shrink-0">#{{ resource.id }}</span>
+
+                  <!-- 转存标记 - 头部显示 -->
+                  <div v-if="resource.save_url" class="flex items-center space-x-1 flex-shrink-0 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-md">
+                    <i class="fas fa-save text-green-600 dark:text-green-400 text-xs"></i>
+                    <span class="text-xs font-medium text-green-700 dark:text-green-300">已转存</span>
+                  </div>
+
+                  <span v-if="resource.pan_id" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded flex-shrink-0">
+                    {{ getPlatformName(resource.pan_id) }}
+                  </span>
+
+                  <h3 class="text-base font-medium text-gray-900 dark:text-white line-clamp-1 flex-1 min-w-0">
+                    {{ resource.title }}
+                  </h3>
+
+                  <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded flex-shrink-0">
+                    {{ getCategoryName(resource.category_id) }}
+                  </span>
+                </div>
+
+                <!-- 右侧：操作按钮 -->
+                <div class="flex items-center space-x-1 ml-2 flex-shrink-0">
+                  <n-button size="tiny" type="info" @click="openSmartManage(resource)">
+                    <template #icon>
+                      <i class="fas fa-robot text-xs"></i>
+                    </template>
+                  </n-button>
+                  <n-button size="tiny" type="primary" @click="editResource(resource)">
+                    <template #icon>
+                      <i class="fas fa-edit text-xs"></i>
+                    </template>
+                  </n-button>
+                  <n-button size="tiny" type="error" @click="deleteResource(resource)">
+                    <template #icon>
+                      <i class="fas fa-trash text-xs"></i>
+                    </template>
+                  </n-button>
+                </div>
+              </div>
+
+              <!-- 主体：图片和内容 -->
+              <div class="flex p-3">
+                <!-- 左侧：预览图片 -->
+                <div class="flex-shrink-0 mr-3">
+                  <div class="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-md overflow-hidden flex items-center justify-center">
+                    <img
+                      v-if="resource.cover"
+                      :src="resource.cover"
+                      :alt="resource.title"
+                      class="w-full h-full object-cover"
+                      @error="handleImageError"
                     />
-                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ resource.id }}</span>
-
-                    <span v-if="resource.pan_id" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded flex-shrink-0">
-                      {{ getPlatformName(resource.pan_id) }}
-                    </span>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white flex-1 line-clamp-1">
-                      {{ resource.title }}
-                    </h3>
-                    <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded flex-shrink-0">
-                      {{ getCategoryName(resource.category_id) }}
-                    </span>
-
-                  </div>
-
-                  <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
-                    {{ resource.description }}
-                  </p>
-
-                  <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                    <span>
-                      <i class="fas fa-link mr-1"></i>
-                      {{ resource.url }}
-                    </span>
-                    <span v-if="resource.author">
-                      <i class="fas fa-user mr-1"></i>
-                      {{ resource.author }}
-                    </span>
-                    <span v-if="resource.file_size">
-                      <i class="fas fa-file mr-1"></i>
-                      {{ resource.file_size }}
-                    </span>
-                    <span>
-                      <i class="fas fa-eye mr-1"></i>
-                      {{ resource.view_count || 0 }}
-                    </span>
-                    <span>
-                      <i class="fas fa-clock mr-1"></i>
-                      {{ resource.updated_at }}
-                    </span>
-                  </div>
-
-                  <div v-if="resource.tags && resource.tags.length > 0" class="mt-2">
-                    <div class="flex flex-wrap gap-1">
-                      <span
-                        v-for="tag in resource.tags"
-                        :key="tag.id"
-                        class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
-                      >
-                        {{ tag.name }}
-                      </span>
+                    <div v-else class="text-gray-400 dark:text-gray-500 text-center">
+                      <i class="fas fa-image text-lg"></i>
                     </div>
                   </div>
                 </div>
 
-                <div class="flex items-center space-x-2 ml-4">
-                  <n-button size="small" type="info" @click="openSmartManage(resource)">
-                    <template #icon>
-                      <i class="fas fa-robot"></i>
-                    </template>
-                    AI优化
-                  </n-button>
-                  <n-button size="small" type="primary" @click="editResource(resource)">
-                    <template #icon>
-                      <i class="fas fa-edit"></i>
-                    </template>
-                    编辑
-                  </n-button>
-                  <n-button size="small" type="error" @click="deleteResource(resource)">
-                    <template #icon>
-                      <i class="fas fa-trash"></i>
-                    </template>
-                    删除
-                  </n-button>
+                <!-- 右侧：描述和其他信息 -->
+                <div class="flex-1 min-w-0">
+                  <!-- 描述 -->
+                  <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 text-sm mb-2 line-clamp-2">
+                    {{ resource.description }}
+                  </p>
+
+                  <!-- 元信息行 -->
+                  <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <!-- 转存标记 -->
+                    <div v-if="resource.save_url" class="flex items-center space-x-1 flex-shrink-0">
+                      <i class="fas fa-save text-green-600 dark:text-green-400"></i>
+                      <span class="text-green-600 dark:text-green-400 font-medium">已转存</span>
+                    </div>
+                    <!-- 访问次数 -->
+                    <div class="flex items-center space-x-1 flex-shrink-0">
+                      <i class="fas fa-eye text-blue-600 dark:text-blue-400"></i>
+                      <span class="text-blue-600 dark:text-blue-400 font-medium">{{ resource.view_count || 0 }}</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                      <i class="fas fa-user flex-shrink-0"></i>
+                      <span class="truncate">{{ resource.author || '未知作者' }}</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                      <i class="fas fa-file flex-shrink-0"></i>
+                      <span class="truncate">{{ resource.file_size || '未知大小' }}</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                      <i class="fas fa-link flex-shrink-0"></i>
+                      <span class="truncate max-w-[150px]">{{ resource.url }}</span>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                      <i class="fas fa-clock flex-shrink-0"></i>
+                      <span>{{ formatDate(resource.updated_at) }}</span>
+                    </div>
+                  </div>
+
+                  <!-- 标签 -->
+                  <div v-if="resource.tags && resource.tags.length > 0" class="flex flex-wrap gap-1">
+                    <span
+                      v-for="tag in resource.tags.slice(0, 6)"
+                      :key="tag.id"
+                      class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      {{ tag.name }}
+                    </span>
+                    <span
+                      v-if="resource.tags.length > 6"
+                      class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded"
+                    >
+                      +{{ resource.tags.length - 6 }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -645,6 +685,33 @@ const getCategoryName = (categoryId?: number) => {
   if (!categoryId || !categoryOptions.value) return null
   const category = categoryOptions.value.find(opt => opt.value === categoryId)
   return category?.label
+}
+
+// 格式化日期
+const formatDate = (dateString: string) => {
+  if (!dateString) return '未知时间'
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch {
+    return dateString
+  }
+}
+
+// 处理图片加载错误
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.style.display = 'none'
+  const parent = img.parentElement
+  if (parent) {
+    parent.innerHTML = '<div class="text-gray-400 dark:text-gray-500 text-center p-2"><i class="fas fa-image text-2xl"></i></div>'
+  }
 }
 
 

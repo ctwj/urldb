@@ -24,9 +24,9 @@
       </div>
 
       <!-- 左右分栏内容区 -->
-      <div class="grid grid-cols-2 gap-4 h-full flex-grow" style="height: calc(100vh - 200px);">
+      <div class="grid grid-cols-2 gap-4 h-full flex-grow overflow-hidden" style="height: calc(100% - 50px);">
         <!-- 左侧：当前内容预览 -->
-        <div class="flex flex-col h-full">
+        <div class="flex flex-col h-full overflow-y-auto">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">当前内容</h3>
           <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 flex-grow overflow-auto">
             <div class="space-y-4">
@@ -74,7 +74,7 @@
         </div>
 
         <!-- 右侧：AI处理结果 -->
-        <div class="flex flex-col h-full">
+        <div class="flex flex-col h-full overflow-y-auto">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">AI处理结果</h3>
           <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 flex-grow overflow-auto">
             <div class="space-y-4">
