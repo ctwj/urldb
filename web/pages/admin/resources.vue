@@ -144,6 +144,7 @@
                     <template #icon>
                       <i class="fas fa-robot text-xs"></i>
                     </template>
+                    AI优化
                   </n-button>
                   <n-button size="tiny" type="primary" @click="editResource(resource)">
                     <template #icon>

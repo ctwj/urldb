@@ -27,46 +27,67 @@
       <div class="grid grid-cols-2 gap-4 h-full flex-grow overflow-hidden" style="height: calc(100% - 50px);">
         <!-- 左侧：当前内容预览 -->
         <div class="flex flex-col h-full overflow-y-auto">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">当前内容</h3>
-          <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 flex-grow overflow-auto">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+            <i class="fas fa-file-alt mr-2 text-blue-500"></i>
+            当前内容
+          </h3>
+          <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 flex-grow overflow-auto border border-gray-200 dark:border-gray-700">
             <div class="space-y-4">
               <!-- 标题 -->
-              <div>
-                <label class="text-sm font-medium text-gray-600 dark:text-gray-400">标题</label>
-                <p class="mt-1 text-gray-900 dark:text-white whitespace-pre-wrap break-words">{{ resource?.title || '暂无标题' }}</p>
+              <div class="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                <label class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center mb-2">
+                  <i class="fas fa-heading mr-2 text-blue-400"></i>
+                  标题
+                </label>
+                <p class="text-gray-900 dark:text-white whitespace-pre-wrap break-words leading-relaxed">{{ resource?.title || '暂无标题' }}</p>
               </div>
 
               <!-- 描述 -->
-              <div>
-                <label class="text-sm font-medium text-gray-600 dark:text-gray-400">描述</label>
-                <p class="mt-1 text-gray-900 dark:text-white whitespace-pre-wrap break-words">{{ resource?.description || '暂无描述' }}</p>
+              <div class="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                <label class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center mb-2">
+                  <i class="fas fa-align-left mr-2 text-green-400"></i>
+                  描述
+                </label>
+                <p class="mt-1 text-gray-900 dark:text-white whitespace-pre-wrap break-words leading-relaxed">{{ resource?.description || '暂无描述' }}</p>
               </div>
 
               <!-- 分类 -->
-              <div>
-                <label class="text-sm font-medium text-gray-600 dark:text-gray-400">分类</label>
-                <p class="mt-1 text-gray-900 dark:text-white">{{ getCategoryName(resource?.category_id) || '未分类' }}</p>
+              <div class="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                <label class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center mb-2">
+                  <i class="fas fa-folder mr-2 text-yellow-400"></i>
+                  分类
+                </label>
+                <div class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  {{ getCategoryName(resource?.category_id) || '未分类' }}
+                </div>
               </div>
 
               <!-- 标签 -->
-              <div v-if="resource?.tags && resource.tags.length > 0">
-                <label class="text-sm font-medium text-gray-600 dark:text-gray-400">标签</label>
-                <div class="mt-1 flex flex-wrap gap-1">
+              <div v-if="resource?.tags && resource.tags.length > 0" class="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                <label class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center mb-2">
+                  <i class="fas fa-tags mr-2 text-purple-400"></i>
+                  标签
+                </label>
+                <div class="flex flex-wrap gap-2">
                   <span
                     v-for="tag in resource.tags"
                     :key="tag.id"
-                    class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
                   >
+                    <i class="fas fa-tag mr-1 text-purple-400"></i>
                     {{ tag.name }}
                   </span>
                 </div>
               </div>
 
               <!-- 封面 -->
-              <div v-if="resource?.cover">
-                <label class="text-sm font-medium text-gray-600 dark:text-gray-400">封面图片</label>
-                <div class="mt-1">
-                  <img :src="resource.cover" alt="封面" class="max-w-full h-auto rounded" />
+              <div v-if="resource?.cover" class="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                <label class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center mb-2">
+                  <i class="fas fa-image mr-2 text-indigo-400"></i>
+                  封面图片
+                </label>
+                <div class="mt-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                  <img :src="resource.cover" alt="封面" class="w-full h-auto object-cover" />
                 </div>
               </div>
             </div>
@@ -75,67 +96,86 @@
 
         <!-- 右侧：AI处理结果 -->
         <div class="flex flex-col h-full overflow-y-auto">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">AI处理结果</h3>
-          <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 flex-grow overflow-auto">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+            <i class="fas fa-magic mr-2 text-purple-500"></i>
+            AI处理结果
+          </h3>
+          <div class="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-4 flex-grow overflow-auto border border-blue-200 dark:border-blue-700">
             <div class="space-y-4">
               <!-- 处理中状态 -->
               <div v-if="processing.any" class="flex items-center justify-center h-32">
                 <div class="text-center">
                   <n-spin size="medium" />
-                  <p class="mt-2 text-gray-600 dark:text-gray-400">AI正在处理中...</p>
+                  <p class="mt-3 text-gray-600 dark:text-gray-400 font-medium">AI正在处理中...</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">请稍候，正在为您生成优化内容</p>
                 </div>
               </div>
 
               <!-- 处理结果 -->
               <div v-else-if="hasResults" class="space-y-4">
                 <!-- 优化后的标题 -->
-                <div v-if="aiResult.title">
-                  <div class="flex items-center justify-between mb-1">
-                    <label class="text-sm font-medium text-gray-600 dark:text-gray-400">优化后的标题</label>
-                    <n-button size="tiny" @click="applyTitle" :loading="applying.title">
+                <div v-if="aiResult.title" class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md border-l-4 border-blue-500">
+                  <div class="flex items-center justify-between mb-3">
+                    <label class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
+                      <i class="fas fa-heading mr-2 text-blue-400"></i>
+                      优化后的标题
+                    </label>
+                    <n-button size="small" type="primary" @click="applyTitle" :loading="applying.title">
                       <template #icon>
                         <i class="fas fa-check"></i>
                       </template>
                       应用标题
                     </n-button>
                   </div>
-                  <p class="text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded whitespace-pre-wrap break-words">{{ aiResult.title }}</p>
+                  <p class="text-gray-900 dark:text-white whitespace-pre-wrap break-words leading-relaxed bg-gray-50 dark:bg-gray-700 p-3 rounded-md">{{ aiResult.title }}</p>
                 </div>
 
                 <!-- 优化后的描述 -->
-                <div v-if="aiResult.description">
-                  <div class="flex items-center justify-between mb-1">
-                    <label class="text-sm font-medium text-gray-600 dark:text-gray-400">优化后的描述</label>
-                    <n-button size="tiny" @click="applyDescription" :loading="applying.description">
+                <div v-if="aiResult.description" class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md border-l-4 border-green-500">
+                  <div class="flex items-center justify-between mb-3">
+                    <label class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
+                      <i class="fas fa-align-left mr-2 text-green-400"></i>
+                      优化后的描述
+                    </label>
+                    <n-button size="small" type="primary" @click="applyDescription" :loading="applying.description">
                       <template #icon>
                         <i class="fas fa-check"></i>
                       </template>
                       应用描述
                     </n-button>
                   </div>
-                  <p class="text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded whitespace-pre-wrap break-words">{{ aiResult.description }}</p>
+                  <p class="text-gray-900 dark:text-white whitespace-pre-wrap break-words leading-relaxed bg-gray-50 dark:bg-gray-700 p-3 rounded-md max-h-32 overflow-y-auto">{{ aiResult.description }}</p>
                 </div>
 
                 <!-- 建议分类 -->
-                <div v-if="aiResult.category">
-                  <div class="flex items-center justify-between mb-1">
-                    <label class="text-sm font-medium text-gray-600 dark:text-gray-400">建议分类</label>
-                    <n-button size="tiny" @click="applyCategory" :loading="applying.category">
+                <div v-if="aiResult.category" class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md border-l-4 border-yellow-500">
+                  <div class="flex items-center justify-between mb-3">
+                    <label class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
+                      <i class="fas fa-folder mr-2 text-yellow-400"></i>
+                      建议分类
+                    </label>
+                    <n-button size="small" type="primary" @click="applyCategory" :loading="applying.category">
                       <template #icon>
                         <i class="fas fa-check"></i>
                       </template>
                       应用分类
                     </n-button>
                   </div>
-                  <p class="text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded">{{ aiResult.category.name }}</p>
+                  <div class="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                    <i class="fas fa-star mr-2 text-yellow-400"></i>
+                    {{ aiResult.category.name }}
+                  </div>
                 </div>
               </div>
 
               <!-- 空状态 -->
               <div v-else class="flex items-center justify-center h-32">
                 <div class="text-center text-gray-500 dark:text-gray-400">
-                  <i class="fas fa-robot text-4xl mb-2"></i>
-                  <p>点击上方按钮开始AI处理</p>
+                  <div class="bg-gray-100 dark:bg-gray-700 rounded-full p-4 w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                    <i class="fas fa-robot text-2xl text-gray-400"></i>
+                  </div>
+                  <p class="font-medium">点击上方按钮开始AI处理</p>
+                  <p class="text-xs text-gray-400 mt-1">AI将为您优化标题、描述和分类</p>
                 </div>
               </div>
             </div>
@@ -385,6 +425,52 @@ const classifyResource = async () => {
   processing.classification = true
 
   try {
+    // 使用专门的分类预览API
+    const response = await aiApi.classifyResourcePreview({
+      resource_id: props.resource.id
+    })
+
+    if (response && response.suggested_category_id) {
+      const validCategory = categories.value.find(cat => cat.id === response.suggested_category_id)
+      if (validCategory) {
+        aiResult.category = {
+          id: validCategory.id,
+          name: validCategory.name
+        }
+        message.success(`智能分类完成: ${validCategory.name}`)
+      } else {
+        // 如果返回的分类ID无效，尝试使用分类名称查找
+        if (response.suggested_category_name) {
+          const validCategory = categories.value.find(cat =>
+            cat.name === response.suggested_category_name
+          )
+          if (validCategory) {
+            aiResult.category = {
+              id: validCategory.id,
+              name: validCategory.name
+            }
+            message.success(`智能分类完成: ${validCategory.name}`)
+          }
+        } else {
+          message.warning('AI建议的分类无效，请手动选择分类')
+        }
+      }
+    } else {
+      // 如果专用API失败，回退到通用AI生成
+      await fallbackClassifyWithAI()
+    }
+  } catch (error) {
+    console.error('智能分类API调用失败:', error)
+    // 回退到通用AI生成
+    await fallbackClassifyWithAI()
+  } finally {
+    processing.classification = false
+  }
+}
+
+// 回退分类方法：使用通用AI生成
+const fallbackClassifyWithAI = async () => {
+  try {
     const categoryList = categories.value.map(cat => `${cat.id}: ${cat.name}`).join('\n')
 
     const prompt = `根据以下资源信息，为其选择一个最合适的分类：
@@ -396,7 +482,7 @@ const classifyResource = async () => {
 可用分类列表：
 ${categoryList}
 
-请直接返回最适合的分类ID，不要返回其他内容。`
+请直接返回最适合的分类ID（数字），不要返回其他内容。`
 
     const response = await aiApi.generateText({
       prompt: prompt,
@@ -415,6 +501,7 @@ ${categoryList}
         aiResult.category = { id: validCategory.id, name: validCategory.name }
         message.success(`智能分类完成: ${validCategory.name}`)
       } else {
+        // 尝试从结果中提取数字
         const match = result.match(/\d+/)
         if (match) {
           const id = parseInt(match[0])
@@ -422,15 +509,19 @@ ${categoryList}
           if (validCategory) {
             aiResult.category = { id: validCategory.id, name: validCategory.name }
             message.success(`智能分类完成: ${validCategory.name}`)
+          } else {
+            message.warning('无法识别AI建议的分类，请手动选择分类')
           }
+        } else {
+          message.warning('AI返回的分类格式无效，请手动选择分类')
         }
       }
+    } else {
+      message.warning('AI分类返回结果为空，请手动选择分类')
     }
   } catch (error) {
-    console.error('智能分类失败:', error)
-    message.error('智能分类失败')
-  } finally {
-    processing.classification = false
+    console.error('回退分类方法失败:', error)
+    message.error('智能分类失败，请手动选择分类')
   }
 }
 
