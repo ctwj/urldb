@@ -690,6 +690,7 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 			mcp.POST("/services/:name/start", mcpHandler.StartService)
 			mcp.POST("/services/:name/stop", mcpHandler.StopService)
 			mcp.POST("/services/:name/restart", mcpHandler.RestartService)
+			mcp.DELETE("/services/:name", mcpHandler.DeleteService)
 
 			// 工具管理
 			mcp.GET("/tools", mcpHandler.ListAllTools)

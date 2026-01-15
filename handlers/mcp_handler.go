@@ -103,6 +103,31 @@ func (h *MCPHandler) RestartService(c *gin.Context) {
 	})
 }
 
+// DeleteService 删除服务
+func (h *MCPHandler) DeleteService(c *gin.Context) {
+	serviceName := c.Param("name")
+
+	// 1. 停止服务（如果正在运行）
+	if err := h.mcpManager.StopClient(serviceName); err != nil {
+		// 服务可能已经停止，忽略错误
+		utils.Warn("停止MCP服务失败: %v", err)
+	}
+
+	// 2. 从配置中删除服务
+	err := h.mcpManager.RemoveServiceFromConfig(serviceName)
+	if err != nil {
+		utils.Error("删除MCP服务失败 - 服务: %s, 错误: %v", serviceName, err)
+		ErrorResponse(c, "删除服务失败", http.StatusInternalServerError)
+		return
+	}
+
+	utils.Info("MCP服务删除成功 - 服务: %s", serviceName)
+	SuccessResponse(c, map[string]interface{}{
+		"message": "服务删除成功",
+		"service": serviceName,
+	})
+}
+
 // CallTool 调用工具
 func (h *MCPHandler) CallTool(c *gin.Context) {
 	var req dto.ToolCallRequest

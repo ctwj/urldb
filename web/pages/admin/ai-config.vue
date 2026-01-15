@@ -178,19 +178,19 @@
 
           <n-tab-pane name="mcp" tab="MCP 配置">
             <div class="tab-content-container min-h-[700px]">
-              <div class="flex gap-6" style="height: 650px;">
+              <div class="flex gap-6" style="min-height: 650px; height: auto; max-height: 80vh;">
                 <!-- 左侧：MCP 服务状态 -->
                 <div class="w-1/3 space-y-4 flex flex-col">
                   <div class="flex items-center space-x-2 flex-shrink-0">
                     <label class="text-base font-semibold text-gray-800 dark:text-gray-200">MCP 服务状态</label>
                     <span class="text-xs text-gray-500 dark:text-gray-400">当前运行的MCP服务</span>
                   </div>
-                  <div class="border rounded-lg p-4 flex-1 overflow-y-auto bg-white dark:bg-gray-800" style="min-height: 200px;">
+                  <div class="border rounded-lg p-4 flex-1 overflow-y-auto bg-white dark:bg-gray-800" style="min-height: 200px; max-height: calc(80vh - 150px);">
                     <div v-if="mcpServices.length === 0" class="text-gray-500 text-center py-8">
                       暂无MCP服务
                     </div>
                     <div v-else class="space-y-3">
-                      <div v-for="service in mcpServices" :key="service.name" class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-700" style="min-height: 140px;">
+                      <div v-for="service in mcpServices" :key="service.name" class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-700" style="min-height: 120px;">
                         <div class="flex flex-col h-full">
                           <div class="flex items-center justify-between mb-3">
                             <div class="flex items-center space-x-2">
@@ -248,6 +248,16 @@
                               </template>
                               详情
                             </n-button>
+                            <n-button
+                              size="small"
+                              type="error"
+                              @click="confirmDeleteMCPService(service.name)"
+                            >
+                              <template #icon>
+                                <i class="fas fa-trash"></i>
+                              </template>
+                              卸载
+                            </n-button>
                           </div>
                         </div>
                       </div>
@@ -262,24 +272,21 @@
                       <label class="text-base font-semibold text-gray-800 dark:text-gray-200">MCP 配置文件</label>
                       <span class="text-xs text-gray-500 dark:text-gray-400">MCP服务配置文件编辑器</span>
                     </div>
-                    <div class="flex space-x-2">
-                      <!-- 配置模板下拉菜单 -->
-                      <n-dropdown trigger="click" :options="templateOptions" @select="applyTemplate">
-                        <n-button size="small">
-                          <template #icon>
-                            <i class="fas fa-file-alt"></i>
-                          </template>
-                          配置模板
-                        </n-button>
-                      </n-dropdown>
-                      <n-button @click="loadMCPConfig" :loading="loadingMCPConfig" size="small">
-                        <template #icon>
-                          <i class="fas fa-sync"></i>
-                        </template>
-                        重新加载
-                      </n-button>
-                    </div>
-                  </div>
+                                        <div class="flex space-x-2">
+                                          <!-- 配置模板抽屉按钮 -->
+                                          <n-button @click="showTemplateDrawer" size="small">
+                                            <template #icon>
+                                              <i class="fas fa-file-alt"></i>
+                                            </template>
+                                            配置模板
+                                          </n-button>
+                                          <n-button @click="loadMCPConfig" :loading="loadingMCPConfig" size="small">
+                                            <template #icon>
+                                                <i class="fas fa-sync"></i>
+                                            </template>
+                                            重新加载
+                                          </n-button>
+                                        </div>                  </div>
 
                   <!-- JSON 编辑器组件 -->
                   <div class="flex-1 border rounded-lg overflow-hidden" style="height: 350px; max-height: 350px;">
@@ -557,6 +564,105 @@
         </div>
       </template>
     </n-modal>
+
+    <!-- MCP服务卸载确认对话框 -->
+    <n-modal v-model:show="showDeleteConfirmDialog" preset="dialog" title="确认卸载" :positive-text="'确认'" :negative-text="'取消'" @positive-click="deleteMCPService">
+      <template #icon>
+        <i class="fas fa-exclamation-triangle" style="color: #f56c6c;"></i>
+      </template>
+      <div class="py-4">
+        <p class="text-base">确定要卸载 MCP 服务 <strong>{{ serviceToDelete }}</strong> 吗？</p>
+        <p class="text-sm text-gray-500 mt-2">此操作将从配置文件中删除该服务，并且无法恢复。</p>
+      </div>
+    </n-modal>
+
+    <!-- MCP配置模板抽屉 -->
+    <n-drawer v-model:show="showMCPTemplateDrawer" :width="800" placement="right" :trap-focus="false" :block-scroll="false">
+      <n-drawer-content title="MCP配置模板" closable>
+        <template #header>
+          <div class="flex items-center justify-between w-full">
+            <h3 class="text-lg font-semibold">MCP配置模板</h3>
+          </div>
+        </template>
+        
+        <div class="space-y-6">
+          <!-- 完整配置文件预览 -->
+          <div>
+            <div class="mb-3">
+              <h4 class="font-medium text-gray-800 dark:text-gray-200">完整配置文件示例</h4>
+            </div>
+            <div class="border rounded-lg bg-gray-50 dark:bg-gray-800 p-4 font-mono text-sm overflow-x-auto">
+              <pre class="text-gray-700 dark:text-gray-300">{{ fullConfigExample }}</pre>
+            </div>
+          </div>
+          
+          <!-- 不同类型的配置代码 -->
+          <div class="space-y-4">
+            <h4 class="font-medium text-gray-800 dark:text-gray-200">不同类型的MCP工具配置</h4>
+            
+            <!-- DuckDuckGo搜索配置 -->
+            <div class="border rounded-lg p-4">
+              <div class="mb-2">
+                <h5 class="font-medium text-gray-700 dark:text-gray-300">DuckDuckGo搜索</h5>
+              </div>
+              <div class="font-mono text-sm bg-gray-50 dark:bg-gray-700 p-3 rounded text-gray-700 dark:text-gray-300 overflow-x-auto">
+                <pre>{{ configTemplates.duckduckgo }}</pre>
+              </div>
+            </div>
+            
+            <!-- Windows配置 -->
+            <div class="border rounded-lg p-4">
+              <div class="mb-2">
+                <h5 class="font-medium text-gray-700 dark:text-gray-300">Windows配置</h5>
+              </div>
+              <div class="font-mono text-sm bg-gray-50 dark:bg-gray-700 p-3 rounded text-gray-700 dark:text-gray-300 overflow-x-auto">
+                <pre>{{ configTemplates.windows }}</pre>
+              </div>
+            </div>
+            
+            <!-- Linux配置 -->
+            <div class="border rounded-lg p-4">
+              <div class="mb-2">
+                <h5 class="font-medium text-gray-700 dark:text-gray-300">Linux/Unix配置</h5>
+              </div>
+              <div class="font-mono text-sm bg-gray-50 dark:bg-gray-700 p-3 rounded text-gray-700 dark:text-gray-300 overflow-x-auto">
+                <pre>{{ configTemplates.linux }}</pre>
+              </div>
+            </div>
+            
+            <!-- 测试配置 -->
+            <div class="border rounded-lg p-4">
+              <div class="mb-2">
+                <h5 class="font-medium text-gray-700 dark:text-gray-300">测试配置</h5>
+              </div>
+              <div class="font-mono text-sm bg-gray-50 dark:bg-gray-700 p-3 rounded text-gray-700 dark:text-gray-300 overflow-x-auto">
+                <pre>{{ configTemplates.test }}</pre>
+              </div>
+            </div>
+            
+            <!-- HTTP/HTTPS远程配置示例 -->
+            <div class="border rounded-lg p-4">
+              <div class="mb-2">
+                <h5 class="font-medium text-gray-700 dark:text-gray-300">HTTP/HTTPS远程配置</h5>
+              </div>
+              <div class="font-mono text-sm bg-gray-50 dark:bg-gray-700 p-3 rounded text-gray-700 dark:text-gray-300 overflow-x-auto">
+                <pre>{{ httpConfigExample }}</pre>
+              </div>
+            </div>
+            
+            <!-- SSE远程配置示例 -->
+            <div class="border rounded-lg p-4">
+              <div class="mb-2">
+                <h5 class="font-medium text-gray-700 dark:text-gray-300">SSE远程配置</h5>
+              </div>
+              <div class="font-mono text-sm bg-gray-50 dark:bg-gray-700 p-3 rounded text-gray-700 dark:text-gray-300 overflow-x-auto">
+                <pre>{{ sseConfigExample }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </n-drawer-content>
+    </n-drawer>
 </template>
 
 <script setup lang="ts">
@@ -570,13 +676,7 @@ import { useAIApi, useMCPApi } from '~/composables/useApi'
 import JsonEditorSimple from '~/components/JsonEditorSimple.vue'
 import AIChatModal from '~/components/AIChatModal.vue'
 
-// MCP 配置模板
-const templateOptions = [
-  {
-    label: 'DuckDuckGo搜索',
-    key: 'duckduckgo'
-  }
-]
+
 
 // MCP配置验证状态
 const mcpConfigValid = ref(true)
@@ -605,6 +705,60 @@ const showMCPDetailModal = ref(false)
 const selectedService = ref('')
 const mcpServiceTools = ref([])
 const loadingMCPTools = ref(false)
+
+// MCP配置模板抽屉相关
+const showMCPTemplateDrawer = ref(false)
+
+// MCP服务删除确认对话框相关
+const showDeleteConfirmDialog = ref(false)
+const serviceToDelete = ref('')
+
+// MCP配置示例常量
+const fullConfigExample = `{
+  "mcpServers": {
+    "duckduckgo": {
+      "command": "npx",
+      "args": ["duckduckgo-websearch"],
+      "transport": "stdio",
+      "enabled": true,
+      "auto_start": true
+    },
+    "web-search": {
+      "endpoint": "https://example.com/mcp",
+      "transport": "https",
+      "enabled": true,
+      "auto_start": true
+    }
+  }
+}`
+
+const httpConfigExample = `{
+  "mcpServers": {
+    "remote-web-search": {
+      "endpoint": "https://example.com/mcp",
+      "transport": "https",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      },
+      "enabled": true,
+      "auto_start": true
+    }
+  }
+}`
+
+const sseConfigExample = `{
+  "mcpServers": {
+    "remote-sse-service": {
+      "endpoint": "https://example.com/mcp-sse",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      },
+      "enabled": true,
+      "auto_start": true
+    }
+  }
+}`
 
 // 格式化后的 AI 回答
 const formattedAIResponse = computed(() => {
@@ -888,6 +1042,10 @@ const saveMCPConfig = async () => {
     await loadMCPConfig()
     console.log('配置重新加载完成')
 
+    // 等待后端完成配置重新加载处理
+    console.log('等待后端处理配置更新...')
+    await new Promise(resolve => setTimeout(resolve, 1000)) // 等待1秒让后端处理
+    
     // 刷新服务状态列表
     console.log('刷新服务状态列表...')
     await loadMCPStatus()
@@ -917,17 +1075,87 @@ const configTemplates = {
   '      "auto_start": true\n' +
   '    }\n' +
   '  }\n' +
+  '}',
+  windows: '{\n' +
+  '  "mcpServers": {\n' +
+  '    "duckduckgo": {\n' +
+  '      "command": "cmd.exe",\n' +
+  '      "args": ["/c", "npx duckduckgo-websearch"],\n' +
+  '      "transport": "stdio",\n' +
+  '      "enabled": true,\n' +
+  '      "auto_start": true\n' +
+  '    },\n' +
+  '    "filesystem": {\n' +
+  '      "command": "cmd.exe",\n' +
+  '      "args": ["/c", "npx mcp-server-filesystem ."],\n' +
+  '      "transport": "stdio",\n' +
+  '      "enabled": true,\n' +
+  '      "auto_start": true\n' +
+  '    }\n' +
+  '  }\n' +
+  '}',
+  linux: '{\n' +
+  '  "mcpServers": {\n' +
+  '    "duckduckgo": {\n' +
+  '      "command": "npx",\n' +
+  '      "args": ["duckduckgo-websearch"],\n' +
+  '      "transport": "stdio",\n' +
+  '      "enabled": true,\n' +
+  '      "auto_start": true\n' +
+  '    },\n' +
+  '    "filesystem": {\n' +
+  '      "command": "npx",\n' +
+  '      "args": ["mcp-server-filesystem", "."],\n' +
+  '      "transport": "stdio",\n' +
+  '      "enabled": true,\n' +
+  '      "auto_start": true\n' +
+  '    }\n' +
+  '  }\n' +
+  '}',
+  test: '{\n' +
+  '  "mcpServers": {\n' +
+  '    "echo": {\n' +
+  '      "command": "node",\n' +
+  '      "args": ["-e", "const input = require(\\\\\\"fs\\\\\\").readFileSync(0, \\\\\\"utf-8\\\\\\"); console.log(`Echo: ${input}`);"],\n' +
+  '      "transport": "stdio",\n' +
+  '      "enabled": true,\n' +
+  '      "auto_start": false\n' +
+  '    },\n' +
+  '    "test": {\n' +
+  '      "command": "node",\n' +
+  '      "args": ["-e", "console.log(JSON.stringify({success: true, message: \\\\\\"MCP connection test successful\\\\\\"}));"],\n' +
+  '      "transport": "stdio",\n' +
+  '      "enabled": true,\n' +
+  '      "auto_start": false\n' +
+  '    }\n' +
+  '  }\n' +
   '}'
 }
 
-// 应用配置模板
-const applyTemplate = (templateKey: string) => {
-  const template = configTemplates[templateKey as keyof typeof configTemplates]
-  if (template) {
-    mcpConfigContent.value = template
+// 显示配置模板抽屉
+const showTemplateDrawer = () => {
+  showMCPTemplateDrawer.value = true
+}
+
+// 复制配置到剪贴板
+const copyToClipboard = async (text: string, description: string = '配置') => {
+  try {
+    await navigator.clipboard.writeText(text)
     notification.success({
-      content: `已应用${templateOptions.find(t => t.key === templateKey)?.label}`,
-      duration: 3000
+      content: `${description}已复制到剪贴板`,
+      duration: 2000
+    })
+  } catch (error) {
+    // 降级方案
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+    notification.success({
+      content: `${description}已复制到剪贴板`,
+      duration: 2000
     })
   }
 }
@@ -1112,6 +1340,36 @@ const loadMCPServiceTools = async (serviceName: string) => {
   }
 }
 
+// 确认删除MCP服务
+const confirmDeleteMCPService = (name: string) => {
+  serviceToDelete.value = name
+  showDeleteConfirmDialog.value = true
+}
+
+// 删除MCP服务
+const deleteMCPService = async () => {
+  try {
+    const { deleteMCPService: deleteService } = useMCPApi()
+    await deleteService(serviceToDelete.value)
+    notification.success({
+      content: `MCP服务 ${serviceToDelete.value} 卸载成功`,
+      duration: 3000
+    })
+    showDeleteConfirmDialog.value = false
+
+    // 刷新配置和服务列表
+    await loadMCPConfig()
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    await loadMCPStatus()
+  } catch (error) {
+    console.error(`卸载MCP服务 ${serviceToDelete.value} 失败:`, error)
+    notification.error({
+      content: `卸载MCP服务 ${serviceToDelete.value} 失败`,
+      duration: 3000
+    })
+  }
+}
+
 // 页面加载时获取配置
 onMounted(async () => {
   await loadAIConfig()
@@ -1119,28 +1377,7 @@ onMounted(async () => {
   await loadMCPStatus()
 })
 
-// 复制到剪贴板
-const copyToClipboard = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    notification.success({
-      content: '已复制到剪贴板',
-      duration: 2000
-    })
-  } catch (error) {
-    // 降级方案
-    const textArea = document.createElement('textarea')
-    textArea.value = text
-    document.body.appendChild(textArea)
-    textArea.select()
-    document.execCommand('copy')
-    document.body.removeChild(textArea)
-    notification.success({
-      content: '已复制到剪贴板',
-      duration: 2000
-    })
-  }
-}
+
 
 // 测试AI连接
 const testAIConnectionClick = async () => {

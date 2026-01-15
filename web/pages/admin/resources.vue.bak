@@ -103,7 +103,6 @@
         <n-virtual-list
           :items="resources"
           :item-size="100"
-          :key-field="'id'"
           class="h-full"
         >
           <template #default="{ item: resource }">
@@ -246,12 +245,103 @@
     </div>
   </n-modal>
 
-  <!-- 资源编辑抽屉 -->
-  <ResourceEditDrawer
-    v-model:show="showEditDrawer"
-    :resource="editingResource"
-    @updated="handleResourceUpdated"
-  />
+  <!-- 编辑资源模态框 -->
+  <n-modal v-model:show="showEditModal" preset="card" title="编辑资源" style="width: 700px; max-height: 80vh">
+    <n-scrollbar style="max-height: 60vh">
+      <n-form
+        ref="editFormRef"
+        :model="editForm"
+        :rules="editRules"
+        label-placement="left"
+        label-width="80px"
+        require-mark-placement="right-hanging"
+      >
+        <n-form-item label="标题" path="title">
+          <n-input v-model:value="editForm.title" placeholder="请输入资源标题" />
+        </n-form-item>
+
+        <n-form-item label="描述" path="description">
+          <n-input
+            v-model:value="editForm.description"
+            type="textarea"
+            placeholder="请输入资源描述"
+            :rows="3"
+            class="w-full"
+          />
+        </n-form-item>
+
+        <n-form-item label="URL" path="url">
+          <n-input v-model:value="editForm.url" placeholder="请输入资源链接" />
+        </n-form-item>
+
+        <n-form-item label="分类" path="category_id">
+          <n-select
+            v-model:value="editForm.category_id"
+            :options="categoryOptions"
+            placeholder="请选择分类"
+            clearable
+          />
+        </n-form-item>
+
+        <n-form-item label="平台" path="pan_id">
+          <n-select
+            v-model:value="editForm.pan_id"
+            :options="platformOptions"
+            placeholder="请选择平台"
+            clearable
+          />
+        </n-form-item>
+
+        <n-form-item label="标签" path="tag_ids">
+          <n-select
+            v-model:value="editForm.tag_ids"
+            :options="tagOptions"
+            :loading="tagLoading"
+            :filterable="true"
+            :remote="true"
+            :clearable="true"
+            placeholder="请选择标签，支持搜索"
+            multiple
+            @search="handleTagSearch"
+            @scroll="handleTagScroll"
+          />
+        </n-form-item>
+
+        <n-form-item label="作者" path="author">
+          <n-input v-model:value="editForm.author" placeholder="请输入作者" />
+        </n-form-item>
+
+        <n-form-item label="文件大小" path="file_size">
+          <n-input v-model:value="editForm.file_size" placeholder="如：2.5GB" />
+        </n-form-item>
+
+        <n-form-item label="封面图片" path="cover">
+          <n-input v-model:value="editForm.cover" placeholder="请输入封面图片URL" />
+        </n-form-item>
+
+        <n-form-item label="转存链接" path="save_url">
+          <n-input v-model:value="editForm.save_url" placeholder="请输入转存链接" />
+        </n-form-item>
+
+        <n-form-item label="是否有效" path="is_valid">
+          <n-switch v-model:value="editForm.is_valid" />
+        </n-form-item>
+
+        <n-form-item label="是否公开" path="is_public">
+          <n-switch v-model:value="editForm.is_public" />
+        </n-form-item>
+      </n-form>
+    </n-scrollbar>
+
+    <template #footer>
+      <div class="flex justify-end space-x-3">
+        <n-button @click="showEditModal = false">取消</n-button>
+        <n-button type="primary" @click="handleEditSubmit" :loading="editing">
+          保存
+        </n-button>
+      </div>
+    </template>
+  </n-modal>
 
   <!-- 智能管理抽屉 -->
   <ResourceSmartManageDrawer
@@ -311,14 +401,52 @@ const selectedCategory = ref(null)
 const selectedPlatform = ref(null)
 const selectedResources = ref<number[]>([])
 const showBatchModal = ref(false)
-const showEditDrawer = ref(false)
+const showEditModal = ref(false)
+const editing = ref(false)
 const editingResource = ref<Resource | null>(null)
+const editFormRef = ref()
+
+// 编辑表单
+const editForm = ref({
+  title: '',
+  description: '',
+  url: '',
+  category_id: null as number | null,
+  pan_id: null as number | null,
+  tag_ids: [] as number[],
+  author: '',
+  file_size: '',
+  cover: '',
+  save_url: '',
+  is_valid: true,
+  is_public: true
+})
+
+// AI生成状态
+const aiGenerating = ref({
+  title: false,
+  description: false,
+  classification: false
+})
+
+// 表单验证规则
+const editRules = {
+  title: {
+    required: true,
+    message: '请输入资源标题',
+    trigger: 'blur'
+  },
+  url: {
+    required: true,
+    message: '请输入资源链接',
+    trigger: 'blur'
+  }
+}
 
 // 获取资源API
 import { useResourceApi, useCategoryApi, useTagApi, usePanApi, useAIApi } from '~/composables/useApi'
 import { useMessage } from 'naive-ui'
 import ResourceSmartManageDrawer from '~/components/Admin/ResourceSmartManageDrawer.vue'
-import ResourceEditDrawer from '~/components/Admin/ResourceEditDrawer.vue'
 
 // 用户状态管理
 const userStore = useUserStore()
@@ -437,7 +565,21 @@ const openBatchModal = () => {
 // 编辑资源
 const editResource = (resource: Resource) => {
   editingResource.value = resource
-  showEditDrawer.value = true
+  editForm.value = {
+    title: resource.title,
+    description: resource.description || '',
+    url: resource.url,
+    category_id: resource.category_id || null,
+    pan_id: resource.pan_id || null,
+    tag_ids: resource.tag_ids || [],
+    author: resource.author || '',
+    file_size: resource.file_size || '',
+    cover: resource.cover || '',
+    save_url: resource.save_url || '',
+    is_valid: resource.is_valid !== undefined ? resource.is_valid : true,
+    is_public: resource.is_public !== undefined ? resource.is_public : true
+  }
+  showEditModal.value = true
 }
 
 // 打开智能管理抽屉
@@ -647,8 +789,173 @@ const getCategoryName = (categoryId?: number) => {
   return category?.label
 }
 
+// 提交编辑
+const handleEditSubmit = async () => {
+  if (!editingResource.value) return
 
+  try {
+    editing.value = true
 
+    const formData = {
+      ...editForm.value,
+      tag_ids: editForm.value.tag_ids || []
+    }
+
+    await resourceApi.updateResource(editingResource.value.id, formData)
+
+    notification.value?.success({
+      content: '资源更新成功',
+      duration: 2000
+    })
+
+    // 更新本地数据
+    const index = resources.value.findIndex(r => r.id === editingResource.value!.id)
+    if (index > -1) {
+      resources.value[index] = { ...resources.value[index], ...editForm.value }
+    }
+
+    showEditModal.value = false
+  } catch (error) {
+    console.error('更新资源失败:', error)
+    notification.value?.error({
+      content: '资源更新失败',
+      duration: 2000
+    })
+  } finally {
+    editing.value = false
+  }
+}
+
+// AI生成内容函数
+const generateContentForField = async (field: 'title' | 'description') => {
+  if (!editingResource.value) {
+    message.error('请选择要编辑的资源')
+    return
+  }
+
+  try {
+    // 根据字段设置loading状态
+    if (field === 'title') {
+      aiGenerating.value.title = true
+    } else {
+      aiGenerating.value.description = true
+    }
+
+    // 准备提示词
+    let prompt = ''
+    const resource = editingResource.value
+
+    if (field === 'title') {
+      prompt = `根据以下资源信息生成一个简洁、吸引人的标题：\n\n资源URL: ${resource.url || ''}\n\n现有标题: ${resource.title || ''}\n\n现有描述: ${resource.description || ''}`
+    } else {
+      prompt = `根据以下资源信息生成一个详细、有吸引力的描述：\n\n资源标题: ${resource.title || ''}\n\n资源URL: ${resource.url || ''}\n\n现有描述: ${resource.description || ''}`
+    }
+
+    // 调用AI生成内容
+    const response = await aiApi.generateText({
+      prompt: prompt,
+      options: [
+        { type: 'max_tokens', value: 200 },
+        { type: 'temperature', value: 0.7 }
+      ]
+    })
+
+    if (response && response.result) {
+      // 根据字段更新表单
+      if (field === 'title') {
+        editForm.value.title = response.result
+      } else {
+        editForm.value.description = response.result
+      }
+
+      message.success(`${field === 'title' ? '标题' : '描述'}生成成功`)
+    } else {
+      message.error(`${field === 'title' ? '标题' : '描述'}生成失败`)
+    }
+  } catch (error) {
+    console.error(`AI生成${field === 'title' ? '标题' : '描述'}失败:`, error)
+    message.error(`AI生成${field === 'title' ? '标题' : '描述'}失败`)
+  } finally {
+    // 重置loading状态
+    if (field === 'title') {
+      aiGenerating.value.title = false
+    } else {
+      aiGenerating.value.description = false
+    }
+  }
+}
+
+// AI智能分类函数
+const classifyResourceWithAI = async () => {
+  if (!editingResource.value) {
+    message.error('请选择要编辑的资源')
+    return
+  }
+
+  try {
+    aiGenerating.value.classification = true
+
+    // 获取所有分类信息
+    const categoriesResponse = await categoryApi.getCategories()
+    const categories = categoriesResponse || []
+
+    if (!categories || categories.length === 0) {
+      message.error('没有可用的分类')
+      return
+    }
+
+    // 准备分类信息
+    const categoryList = categories.map((cat: any) => `${cat.id}: ${cat.name}`).join('\n')
+
+    // 准备提示词
+    const resource = editingResource.value
+    const prompt = `根据以下资源信息，为其选择一个最合适的分类：\n\n资源标题: ${resource.title || ''}\n\n资源描述: ${resource.description || ''}\n\n资源URL: ${resource.url || ''}\n\n\n可用分类列表：\n${categoryList}\n\n\n请直接返回最适合的分类ID，不要返回其他内容。`
+
+    // 调用AI进行分类
+    const response = await aiApi.generateText({
+      prompt: prompt,
+      options: [
+        { type: 'max_tokens', value: 10 },
+        { type: 'temperature', value: 0.3 }
+      ]
+    })
+
+    if (response && response.result) {
+      // 解析AI返回的分类ID
+      const result = response.result.trim()
+      const categoryId = parseInt(result)
+
+      // 检查返回的ID是否有效
+      const validCategory = categories.find((cat: any) => cat.id === categoryId)
+      if (validCategory) {
+        editForm.value.category_id = categoryId
+        message.success(`智能分类完成: ${validCategory.name}`)
+      } else {
+        // 如果AI返回的内容无法解析为有效分类ID，尝试从响应中提取
+        const match = result.match(/\d+/)
+        if (match) {
+          const id = parseInt(match[0])
+          const validCategory = categories.find((cat: any) => cat.id === id)
+          if (validCategory) {
+            editForm.value.category_id = id
+            message.success(`智能分类完成: ${validCategory.name}`)
+          } else {
+            message.error('AI返回的分类ID无效')
+          }
+        } else {
+          message.error('无法从AI返回结果中解析分类')
+        }
+      }
+    } else {
+      message.error('AI分类失败')
+    }
+  } catch (error) {
+    console.error('AI分类失败:', error)
+    message.error('AI分类失败')
+  } finally {
+    aiGenerating.value.classification = false
+  }
+}
 
 // 批量更新处理
 const batchUpdate = async () => {
@@ -677,6 +984,25 @@ const handleResourceUpdated = (updatedResource: Resource) => {
   const index = resources.value.findIndex(r => r.id === updatedResource.id)
   if (index !== -1) {
     resources.value[index] = updatedResource
+
+    // 如果当前编辑的资源是这个资源，也要更新编辑表单
+    if (editingResource.value && editingResource.value.id === updatedResource.id) {
+      editingResource.value = updatedResource
+      editForm.value = {
+        title: updatedResource.title,
+        description: updatedResource.description || '',
+        url: updatedResource.url,
+        category_id: updatedResource.category_id || null,
+        pan_id: updatedResource.pan_id || null,
+        tag_ids: updatedResource.tag_ids || [],
+        author: updatedResource.author || '',
+        file_size: updatedResource.file_size || '',
+        cover: updatedResource.cover || '',
+        save_url: updatedResource.save_url || '',
+        is_valid: updatedResource.is_valid !== undefined ? updatedResource.is_valid : true,
+        is_public: updatedResource.is_public !== undefined ? updatedResource.is_public : true
+      }
+    }
   }
 
   message.success('资源已更新')

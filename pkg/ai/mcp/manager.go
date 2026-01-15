@@ -71,7 +71,8 @@ type MCPServerConfig struct {
 	Args        []string          `json:"args,omitempty"`
 	Env         map[string]string `json:"env,omitempty"`
 	Transport   string            `json:"transport"` // stdio, http, sse
-	URL         string            `json:"url,omitempty"`
+	Endpoint    string            `json:"endpoint,omitempty"`
+	URL         string            `json:"url,omitempty"`  // 保留以向后兼容
 	Headers     map[string]string `json:"headers,omitempty"`
 	Enabled     bool              `json:"enabled"`
 	AutoStart   bool              `json:"auto_start"`
@@ -290,30 +291,26 @@ func (m *MCPManager) StartClient(name string) error {
 				log.Printf("原始命令: %s, 参数: %v", command, cmdArgs)
 
 				// 使用npm.cmd exec作为包装器
+				newArgs := []string{"exec", "npx", "--", cmdArgs[0]}
+				newArgs = append(newArgs, cmdArgs[1:]...)
+				log.Printf("修改后的命令: npm.cmd, 参数: %v", newArgs)
 
-								newArgs := []string{"exec", "npx", "--", cmdArgs[0]}
+				// 设置环境变量
+				env := os.Environ()
+				for k, v := range config.Env {
+					env = append(env, fmt.Sprintf("%s=%s", k, v))
+					log.Printf("设置环境变量: %s=%s", k, v)
+				}
 
-								newArgs = append(newArgs, cmdArgs[1:]...)
-
-								
-
-								log.Printf("修改后的命令: npm.cmd, 参数: %v", newArgs)
-
-								// 设置环境变量
-								env := os.Environ()
-								for k, v := range config.Env {
-									env = append(env, fmt.Sprintf("%s=%s", k, v))
-									log.Printf("设置环境变量: %s=%s", k, v)
-								}
-
-								// 使用 NewStdioMCPClientWithOptions 创建客户端（自动启动子进程）
-								var err error
-								mcpClient, err = client.NewStdioMCPClientWithOptions("npm.cmd", env, newArgs)
-								if err != nil {
-									cancel()
-									log.Printf("MCP 启动失败: 创建客户端失败 - %v", err)
-									return fmt.Errorf("创建客户端失败: %v", err)
-								}			} else {
+				// 使用 NewStdioMCPClientWithOptions 创建客户端（自动启动子进程）
+				var err error
+				mcpClient, err = client.NewStdioMCPClientWithOptions("npm.cmd", env, newArgs)
+				if err != nil {
+					cancel()
+					log.Printf("MCP 启动失败: 创建客户端失败 - %v", err)
+					return fmt.Errorf("创建客户端失败: %v", err)
+				}
+			} else {
 				log.Printf("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
 
 				// 设置环境变量
@@ -351,7 +348,50 @@ func (m *MCPManager) StartClient(name string) error {
 				return fmt.Errorf("创建客户端失败: %v", err)
 			}
 		}
-
+	case "http", "https":
+		// HTTP/HTTPS 传输：连接到远程MCP服务
+		endpoint := config.Endpoint
+		if endpoint == "" {
+			endpoint = config.URL  // 向后兼容旧的URL字段
+		}
+		if endpoint == "" {
+			cancel()
+			log.Printf("MCP 启动失败: HTTP/HTTPS 传输需要指定 endpoint")
+			return fmt.Errorf("HTTP/HTTPS 传输需要指定 endpoint")
+		}
+		
+		log.Printf("创建 HTTP/HTTPS 传输 - 端点: %s", endpoint)
+		
+		// 使用 NewStreamableHttpClient 连接到远程MCP服务
+		var err error
+		mcpClient, err = client.NewStreamableHttpClient(endpoint)
+		if err != nil {
+			cancel()
+			log.Printf("MCP 启动失败: 创建HTTP客户端失败 - %v", err)
+			return fmt.Errorf("创建HTTP客户端失败: %v", err)
+		}
+	case "sse":
+		// SSE (Server-Sent Events) 传输：连接到远程MCP服务
+		endpoint := config.Endpoint
+		if endpoint == "" {
+			endpoint = config.URL  // 向后兼容旧的URL字段
+		}
+		if endpoint == "" {
+			cancel()
+			log.Printf("MCP 启动失败: SSE 传输需要指定 endpoint")
+			return fmt.Errorf("SSE 传输需要指定 endpoint")
+		}
+		
+		log.Printf("创建 SSE 传输 - 端点: %s", endpoint)
+		
+		// 使用 NewSSEMCPClient 连接到远程MCP服务
+		var err error
+		mcpClient, err = client.NewSSEMCPClient(endpoint)
+		if err != nil {
+			cancel()
+			log.Printf("MCP 启动失败: 创建SSE客户端失败 - %v", err)
+			return fmt.Errorf("创建SSE客户端失败: %v", err)
+		}
 	default:
 		cancel()
 		log.Printf("MCP 启动失败: 不支持的传输类型: %s", config.Transport)
@@ -733,6 +773,49 @@ func (m *MCPManager) UpdateConfigFileContent(content string) error {
 	return nil
 }
 
+// RemoveServiceFromConfig 从配置文件中删除服务
+func (m *MCPManager) RemoveServiceFromConfig(serviceName string) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	// 1. 读取当前配置
+	data, err := os.ReadFile(m.configPath)
+	if err != nil {
+		return fmt.Errorf("读取配置文件失败: %v", err)
+	}
+
+	var config MCPConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("解析配置文件失败: %v", err)
+	}
+
+	// 2. 检查服务是否存在
+	if _, exists := config.MCPServers[serviceName]; !exists {
+		return fmt.Errorf("服务 %s 不存在", serviceName)
+	}
+
+	// 3. 从配置中删除服务
+	delete(config.MCPServers, serviceName)
+
+	// 4. 从内存中删除服务
+	delete(m.configs, serviceName)
+	delete(m.services, serviceName)
+	m.toolReg.UnregisterService(serviceName)
+
+	// 5. 写回配置文件
+	newConfig, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %v", err)
+	}
+
+	if err := os.WriteFile(m.configPath, newConfig, 0644); err != nil {
+		return fmt.Errorf("写入配置文件失败: %v", err)
+	}
+
+	utils.Info("MCP服务 %s 已从配置中删除", serviceName)
+	return nil
+}
+
 // ReloadConfig 动态重新加载配置并更新服务
 func (m *MCPManager) ReloadConfig(configContent string) error {
 	m.mutex.Lock()
@@ -769,6 +852,8 @@ func (m *MCPManager) ReloadConfig(configContent string) error {
 			if err := m.stopClientUnsafe(name); err != nil {
 				fmt.Printf("停止服务 %s 时出错: %v\n", name, err)
 			}
+			// 同时从服务状态映射中删除该服务
+			delete(m.services, name)
 		}
 	}
 

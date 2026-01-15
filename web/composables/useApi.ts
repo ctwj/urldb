@@ -330,6 +330,7 @@ export const useMCPApi = () => {
   const startMCPService = (name: string) => useApiFetch(`/mcp/services/${name}/start`, { method: 'POST' }).then(parseApiResponse)
   const stopMCPService = (name: string) => useApiFetch(`/mcp/services/${name}/stop`, { method: 'POST' }).then(parseApiResponse)
   const restartMCPService = (name: string) => useApiFetch(`/mcp/services/${name}/restart`, { method: 'POST' }).then(parseApiResponse)
+  const deleteMCPService = (name: string) => useApiFetch(`/mcp/services/${name}`, { method: 'DELETE' }).then(parseApiResponse)
   const callMCPTool = (data: any) => useApiFetch('/mcp/tools', { method: 'POST', body: data }).then(parseApiResponse)
   const listMCPTools = () => useApiFetch('/mcp/tools').then(parseApiResponse)
   const listServiceTools = (serviceName: string) => useApiFetch(`/mcp/tools/${serviceName}`).then(parseApiResponse)
@@ -342,6 +343,7 @@ export const useMCPApi = () => {
     startMCPService,
     stopMCPService,
     restartMCPService,
+    deleteMCPService,
     callMCPTool,
     listMCPTools,
     listServiceTools
