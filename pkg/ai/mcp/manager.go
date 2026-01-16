@@ -12,6 +12,7 @@ import (
 
 	"github.com/ctwj/urldb/utils"
 	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -364,7 +365,12 @@ func (m *MCPManager) StartClient(name string) error {
 		
 		// 使用 NewStreamableHttpClient 连接到远程MCP服务
 		var err error
-		mcpClient, err = client.NewStreamableHttpClient(endpoint)
+		var options []transport.StreamableHTTPCOption
+		if len(config.Headers) > 0 {
+			options = append(options, transport.WithHTTPHeaders(config.Headers))
+			log.Printf("使用自定义 headers: %v", config.Headers)
+		}
+		mcpClient, err = client.NewStreamableHttpClient(endpoint, options...)
 		if err != nil {
 			cancel()
 			log.Printf("MCP 启动失败: 创建HTTP客户端失败 - %v", err)

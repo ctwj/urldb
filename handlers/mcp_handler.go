@@ -248,6 +248,6 @@ func (h *MCPHandler) UpdateConfig(c *gin.Context) {
 
 	SuccessResponse(c, map[string]interface{}{
 		"message": "配置保存成功",
-		"services_updated": false,
+		"services_updated": true,  // 标记服务已更新，前端可以刷新列表
 	})
 }

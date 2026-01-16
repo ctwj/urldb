@@ -13,7 +13,7 @@
           </template>
           AI聊天
         </n-button>
-        <n-button type="primary" @click="saveConfig" :loading="saving">
+        <n-button type="primary" @click="saveConfig" :loading="saving" :disabled="activeTab !== 'openai'" :title="activeTab !== 'openai' ? '此按钮仅适用于AI配置' : ''">
           <template #icon>
             <i class="fas fa-save"></i>
           </template>
@@ -216,15 +216,9 @@
                               type="primary"
                               @click="connectMCPService(service.name)"
                             >
-                              <template #icon>
-                                <i class="fas fa-link"></i>
-                              </template>
                               连接
                             </n-button>
                             <n-button size="small" @click="restartMCPService(service.name)" :disabled="!service.connected">
-                              <template #icon>
-                                <i class="fas fa-redo"></i>
-                              </template>
                               重启
                             </n-button>
                             <n-button
@@ -232,9 +226,6 @@
                               @click="stopMCPService(service.name)"
                               :disabled="!service.connected"
                             >
-                              <template #icon>
-                                <i class="fas fa-unlink"></i>
-                              </template>
                               断开
                             </n-button>
                             <n-button
@@ -243,9 +234,6 @@
                               :disabled="!service.connected"
                               :loading="loadingMCPTools && selectedService === service.name"
                             >
-                              <template #icon>
-                                <i class="fas fa-info-circle"></i>
-                              </template>
                               详情
                             </n-button>
                             <n-button
@@ -253,9 +241,6 @@
                               type="error"
                               @click="confirmDeleteMCPService(service.name)"
                             >
-                              <template #icon>
-                                <i class="fas fa-trash"></i>
-                              </template>
                               卸载
                             </n-button>
                           </div>
@@ -486,14 +471,7 @@
   </n-modal>
 
     <!-- MCP服务详情模态框 -->
-    <n-modal v-model:show="showMCPDetailModal" preset="card" style="width: 800px;" title="MCP服务详情">
-      <template #header-extra>
-        <n-button size="small" @click="showMCPDetailModal = false">
-          <template #icon>
-            <i class="fas fa-times"></i>
-          </template>
-        </n-button>
-      </template>
+    <n-modal v-model:show="showMCPDetailModal" preset="card" style="width: 800px;" title="MCP服务详情" :closable="true">
 
       <div class="space-y-4">
         <!-- 服务信息 -->
@@ -922,11 +900,12 @@ const loadMCPConfig = async () => {
 // 获取MCP服务状态
 const loadMCPStatus = async () => {
   try {
+    console.log('正在获取MCP服务状态...')
     const services = await listMCPServices()
     console.log('获取到的MCP服务列表:', services)
 
     // 后端返回的是对象结构，需要转换为数组格式
-    if (services && typeof services === 'object') {
+    if (services && typeof services === 'object' && !Array.isArray(services)) {
       // 将对象转换为数组
       const servicesArray = Object.entries(services).map(([name, serviceData]) => ({
         name: name,
@@ -937,6 +916,7 @@ const loadMCPStatus = async () => {
         config: serviceData.config || null
       }))
       mcpServices.value = servicesArray
+      console.log(`转换后的MCP服务列表: ${servicesArray.length} 个服务`, servicesArray)
     } else if (Array.isArray(services)) {
       // 兼容旧的字符串数组格式
       mcpServices.value = services.map(serviceName => ({
@@ -947,11 +927,12 @@ const loadMCPStatus = async () => {
         tools: null,
         config: null
       }))
+      console.log(`兼容格式MCP服务列表: ${mcpServices.value.length} 个服务`, mcpServices.value)
     } else {
+      console.log('MCP服务列表为空或格式不正确')
       mcpServices.value = []
     }
 
-    console.log('转换后的MCP服务列表:', mcpServices.value)
   } catch (error) {
     console.error('获取MCP服务状态失败:', error)
     // 不显示错误，因为MCP可能未配置
@@ -1029,11 +1010,11 @@ const saveMCPConfig = async () => {
 
     // 调用API保存MCP配置
     console.log('调用API保存配置...')
-    await updateMCPConfig({ config: mcpConfigContent.value })
-    console.log('API调用完成')
+    const result = await updateMCPConfig({ config: mcpConfigContent.value })
+    console.log('API调用完成', result)
 
     notification.success({
-      content: 'MCP配置保存成功',
+      content: 'MCP配置保存成功，正在刷新服务列表...',
       duration: 3000
     })
 
@@ -1042,14 +1023,20 @@ const saveMCPConfig = async () => {
     await loadMCPConfig()
     console.log('配置重新加载完成')
 
-    // 等待后端完成配置重新加载处理
+    // 等待一段时间让后端处理配置更新
     console.log('等待后端处理配置更新...')
-    await new Promise(resolve => setTimeout(resolve, 1000)) // 等待1秒让后端处理
-    
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
     // 刷新服务状态列表
     console.log('刷新服务状态列表...')
     await loadMCPStatus()
     console.log('服务状态列表已刷新')
+
+    // 显示成功消息
+    notification.success({
+      content: `MCP服务列表已更新，发现 ${mcpServices.value.length} 个服务`,
+      duration: 3000
+    })
 
   } catch (error) {
     console.error('保存MCP配置失败:', error)
