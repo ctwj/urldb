@@ -127,6 +127,8 @@ func InitDB() error {
 			&entity.ClassificationStats{},
 			&entity.DailyReport{},
 			&entity.SystemHealth{},
+			// AI 提示词管理表
+			&entity.AIPrompt{},
 		)
 		if err != nil {
 			utils.Fatal("数据库迁移失败: %v", err)

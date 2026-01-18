@@ -6,6 +6,7 @@ import (
 
 // RepositoryManager Repository管理器
 type RepositoryManager struct {
+	DB                        *gorm.DB
 	PanRepository             PanRepository
 	CksRepository             CksRepository
 	ResourceRepository        ResourceRepository
@@ -32,6 +33,7 @@ type RepositoryManager struct {
 // NewRepositoryManager 创建Repository管理器
 func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 	return &RepositoryManager{
+		DB:                        db,
 		PanRepository:             NewPanRepository(db),
 		CksRepository:             NewCksRepository(db),
 		ResourceRepository:        NewResourceRepository(db),
@@ -54,6 +56,11 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		PluginLogRepository:       NewPluginLogRepository(db),
 		CronJobRepository:         NewCronJobRepository(db),
 	}
+}
+
+// GetDB 获取数据库连接
+func (rm *RepositoryManager) GetDB() *gorm.DB {
+	return rm.DB
 }
 
 // GetPluginLogRepository 获取插件日志仓库

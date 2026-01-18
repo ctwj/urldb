@@ -17,15 +17,17 @@ import (
 
 // AIHandler AI处理器
 type AIHandler struct {
-	aiService  *service.AIService
-	mcpManager *mcp.MCPManager
+	aiService    *service.AIService
+	promptService *service.PromptService
+	mcpManager   *mcp.MCPManager
 }
 
 // NewAIHandler 创建AI处理器
-func NewAIHandler(aiService *service.AIService, mcpManager *mcp.MCPManager) *AIHandler {
+func NewAIHandler(aiService *service.AIService, promptService *service.PromptService, mcpManager *mcp.MCPManager) *AIHandler {
 	return &AIHandler{
-		aiService:  aiService,
-		mcpManager: mcpManager,
+		aiService:    aiService,
+		promptService: promptService,
+		mcpManager:   mcpManager,
 	}
 }
 
@@ -43,9 +45,13 @@ func NewAIHandlerWithConfig(configManager service.ConfigManager, repoManager *re
 		return nil, fmt.Errorf("创建AI服务失败: %v", err)
 	}
 
+	// 创建提示词服务
+	promptService := service.NewPromptService(repoManager.GetDB())
+
 	return &AIHandler{
-		aiService:  aiService,
-		mcpManager: mcpManager,
+		aiService:    aiService,
+		promptService: promptService,
+		mcpManager:   mcpManager,
 	}, nil
 }
 
@@ -477,5 +483,158 @@ func (h *AIHandler) GenerateTextWithTools(c *gin.Context) {
 	SuccessResponse(c, map[string]interface{}{
 		"result": result,
 		"with_tools": true,
+	})
+}
+
+// GetPrompts 获取所有提示词
+func (h *AIHandler) GetPrompts(c *gin.Context) {
+	prompts, err := h.promptService.GetAllPrompts()
+	if err != nil {
+		utils.Error("获取提示词列表失败: %v", err)
+		ErrorResponse(c, "获取提示词列表失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 为每个提示词添加类型信息
+	result := make([]map[string]interface{}, 0, len(prompts))
+	for _, prompt := range prompts {
+		promptData := map[string]interface{}{
+			"id":            prompt.ID,
+			"name":          prompt.Name,
+			"type":          prompt.Type,
+			"system_content": prompt.SystemContent,
+			"user_content":   prompt.UserContent,
+			"description":   prompt.Description,
+			"is_active":     prompt.IsActive,
+			"created_at":    prompt.CreatedAt,
+			"updated_at":    prompt.UpdatedAt,
+			"type_name":        entity.GetPromptTypeName(prompt.Type),
+			"type_description": entity.GetPromptTypeDescription(prompt.Type),
+		}
+
+		// 获取变量列表
+		variables, _ := h.promptService.GetPromptVariables(&prompt)
+		promptData["variables"] = variables
+
+		result = append(result, promptData)
+	}
+
+	SuccessResponse(c, result)
+}
+
+// UpdatePrompt 更新提示词
+func (h *AIHandler) UpdatePrompt(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的提示词ID", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		SystemContent *string `json:"system_content"`
+		UserContent   *string `json:"user_content"`
+		Description   *string `json:"description"`
+	}
+
+	utils.Info("开始解析提示词更新请求")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error("参数绑定失败: %v", err)
+		ErrorResponse(c, "参数错误", http.StatusBadRequest)
+		return
+	}
+	utils.Info("参数绑定成功: SystemContent=%v, UserContent=%v, Description=%v",
+		req.SystemContent != nil, req.UserContent != nil, req.Description != nil)
+
+	// 检查是否提供了任何更新内容
+	if req.SystemContent == nil && req.UserContent == nil && req.Description == nil {
+		ErrorResponse(c, "请提供要更新的内容", http.StatusBadRequest)
+		return
+	}
+
+	// 根据提供的字段进行智能更新
+	var systemContent, userContent, description string
+	if req.SystemContent != nil {
+		systemContent = *req.SystemContent
+	}
+	if req.UserContent != nil {
+		userContent = *req.UserContent
+	}
+	if req.Description != nil {
+		description = *req.Description
+	}
+
+	// 使用新的完整更新方法
+	err = h.promptService.UpdateFullPrompt(uint(id), systemContent, userContent, description)
+
+	if err != nil {
+		utils.Error("更新提示词失败: %v", err)
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"message": "提示词更新成功",
+		"id":      id,
+	})
+}
+
+// TogglePromptStatus 切换提示词状态
+func (h *AIHandler) TogglePromptStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的提示词ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.promptService.TogglePromptStatus(uint(id)); err != nil {
+		utils.Error("切换提示词状态失败: %v", err)
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"message": "提示词状态切换成功",
+		"id":      id,
+	})
+}
+
+// TestPrompt 测试提示词
+func (h *AIHandler) TestPrompt(c *gin.Context) {
+	var req struct {
+		Type string                 `json:"type" binding:"required"`
+		Data map[string]interface{} `json:"data" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "参数错误", http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.promptService.TestPrompt(req.Type, req.Data)
+	if err != nil {
+		utils.Error("测试提示词失败: %v", err)
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"type":   req.Type,
+		"result": result,
+		"data":   req.Data,
+	})
+}
+
+// InitDefaultPrompts 初始化默认提示词
+func (h *AIHandler) InitDefaultPrompts(c *gin.Context) {
+	if err := h.promptService.CreateDefaultPrompts(); err != nil {
+		utils.Error("初始化默认提示词失败: %v", err)
+		ErrorResponse(c, "初始化默认提示词失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, map[string]interface{}{
+		"message": "默认提示词初始化成功",
 	})
 }

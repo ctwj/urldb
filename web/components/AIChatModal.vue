@@ -174,7 +174,7 @@ const emit = defineEmits<{
 
 // 响应式数据
 const notification = useNotification()
-const { generateText } = useAIApi()
+const { generateTextWithTools } = useAIApi()
 const visible = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value)
@@ -221,15 +221,23 @@ const sendMessage = async () => {
   })
 
   try {
-    // 使用AI的普通文本生成接口
-    const result = await generateText({
+    // 使用AI的文本生成接口（支持工具调用）
+    const response = await generateTextWithTools({
       prompt: userMessage
     })
+
+    // 解析响应数据，获取result字段
+    let aiResponse = '抱歉，我暂时无法回复您的问题。'
+    if (response && response.result) {
+      aiResponse = response.result
+    } else if (typeof response === 'string') {
+      aiResponse = response
+    }
 
     // 添加AI回复
     messages.value.push({
       role: 'assistant',
-      content: result || '抱歉，我暂时无法回复您的问题。',
+      content: aiResponse,
       timestamp: Date.now()
     })
   } catch (error: any) {

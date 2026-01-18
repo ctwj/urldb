@@ -13,7 +13,7 @@
           </template>
           AI聊天
         </n-button>
-        <n-button type="primary" @click="saveConfig" :loading="saving" :disabled="activeTab !== 'openai'" :title="activeTab !== 'openai' ? '此按钮仅适用于AI配置' : ''">
+        <n-button type="primary" @click="saveConfig" :loading="saving">
           <template #icon>
             <i class="fas fa-save"></i>
           </template>
@@ -29,9 +29,10 @@
         <n-tabs
           v-model:value="activeTab"
           type="line"
+          class="h-full overflow-hidden"
           animated
         >
-          <n-tab-pane name="openai" tab="OpenAI 配置">
+          <n-tab-pane name="openai" tab="OpenAI 配置" class="h-full overflow-hidden">
             <div class="tab-content-container">
               <n-form
                 ref="formRef"
@@ -57,15 +58,12 @@
                         class="flex-1"
                       />
                       <n-button
-                        @click="testAIConnectionClick"
-                        :loading="testingConnection"
-                        type="primary"
-                        ghost
+                        @click="validateAPIKey"
+                        type="info"
                         size="medium"
+                        :loading="validatingAPIKey"
+                        :disabled="!configForm.api_key"
                       >
-                        <template #icon>
-                          <i class="fas fa-plug"></i>
-                        </template>
                         验证
                       </n-button>
                     </div>
@@ -171,21 +169,43 @@
                       class="w-full"
                     />
                   </div>
+
+                  <!-- 测试按钮 -->
+                  <div class="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center space-x-2">
+                      <label class="text-base font-semibold text-gray-800 dark:text-gray-200">连接测试</label>
+                      <span class="text-xs text-gray-500 dark:text-gray-400">测试AI服务连接是否正常</span>
+                    </div>
+                    <div class="flex space-x-2">
+                      <n-button
+                        @click="testAIConnectionHandler"
+                        type="info"
+                        :loading="testingConnection"
+                        :disabled="!configForm.api_key"
+                      >
+                        <template #icon>
+                          <i class="fas fa-plug"></i>
+                        </template>
+                        测试连接
+                      </n-button>
+                      <div v-if="configForm.api_key_configured && configForm.api_key" class="text-sm text-green-600 dark:text-green-400">
+                        <i class="fas fa-check-circle mr-1"></i> 连接已验证
+                      </div>
+                      <div v-if="configForm.api_key && !configForm.api_key_configured" class="text-sm text-yellow-600 dark:text-yellow-400">
+                        <i class="fas fa-exclamation-triangle mr-1"></i> 请验证连接
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </n-form>
             </div>
           </n-tab-pane>
 
-          <n-tab-pane name="mcp" tab="MCP 配置">
-            <div class="tab-content-container min-h-[700px]">
-              <div class="flex gap-6" style="min-height: 650px; height: auto; max-height: 80vh;">
-                <!-- 左侧：MCP 服务状态 -->
-                <div class="w-1/3 space-y-4 flex flex-col">
-                  <div class="flex items-center space-x-2 flex-shrink-0">
-                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">MCP 服务状态</label>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">当前运行的MCP服务</span>
-                  </div>
-                  <div class="border rounded-lg p-4 flex-1 overflow-y-auto bg-white dark:bg-gray-800" style="min-height: 200px; max-height: calc(80vh - 150px);">
+          <n-tab-pane name="mcp" tab="MCP 配置" class="h-full overflow-hidden">
+            <div class="tab-content-container h-full overflow-hidden flex">
+                              <!-- 左侧：MCP 服务状态 -->
+                <div class="h-full w-[200]px mr-2 flex flex-col">
+                  <div class="border h-full w-full rounded-lg p-4 flex-1 overflow-y-auto bg-white dark:bg-gray-800">
                     <div v-if="mcpServices.length === 0" class="text-gray-500 text-center py-8">
                       暂无MCP服务
                     </div>
@@ -251,30 +271,34 @@
                 </div>
 
                 <!-- 右侧：MCP 配置编辑器 -->
-                <div class="w-2/3 space-y-4 flex flex-col">
-                  <div class="flex items-center justify-between flex-shrink-0" style="min-height: 40px;">
+                <div class="relative flex-1 h-full w-1 flex flex-col">
+                  <div class=" flex w-full items-center justify-between flex-shrink-0" style="min-height: 40px;">
                     <div class="flex items-center space-x-2">
                       <label class="text-base font-semibold text-gray-800 dark:text-gray-200">MCP 配置文件</label>
-                      <span class="text-xs text-gray-500 dark:text-gray-400">MCP服务配置文件编辑器</span>
                     </div>
-                                        <div class="flex space-x-2">
-                                          <!-- 配置模板抽屉按钮 -->
-                                          <n-button @click="showTemplateDrawer" size="small">
-                                            <template #icon>
-                                              <i class="fas fa-file-alt"></i>
-                                            </template>
-                                            配置模板
-                                          </n-button>
-                                          <n-button @click="loadMCPConfig" :loading="loadingMCPConfig" size="small">
-                                            <template #icon>
-                                                <i class="fas fa-sync"></i>
-                                            </template>
-                                            重新加载
-                                          </n-button>
-                                        </div>                  </div>
+                    <div class="flex space-x-2">
+                      <!-- 配置模板抽屉按钮 -->
+                      <n-button @click="showTemplateDrawer" size="small">
+                        <template #icon>
+                          <i class="fas fa-file-alt"></i>
+                        </template>
+                        模板
+                      </n-button>
+                      <n-button @click="loadMCPConfig" :loading="loadingMCPConfig" size="small">
+                        重新加载
+                      </n-button>
+                      <n-button @click="validateMCPConfig" type="info" size="small" :loading="validatingMCPConfig">
+                        验证配置
+                      </n-button>
+                      <n-button type="primary" size="small" @click="saveMCPConfig" :loading="savingMCPConfig" :disabled="!mcpConfigValid">
+                        保存
+                      </n-button>
+                      
+                    </div>
+                  </div>
 
                   <!-- JSON 编辑器组件 -->
-                  <div class="flex-1 border rounded-lg overflow-hidden" style="height: 350px; max-height: 350px;">
+                  <div class="flex-1 border rounded-lg overflow-hidden">
                     <JsonEditorSimple
                       v-model="mcpConfigContent"
                       @validate="onEditorValidate"
@@ -283,36 +307,29 @@
                       :style="{ height: '350px', maxHeight: '350px' }"
                     />
                   </div>
-
-                  <div class="flex items-center justify-between flex-shrink-0" style="min-height: 50px;">
-                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                  <div class="text-sm text-gray-600 dark:text-gray-400 absolute bottom-2 right-2 z-50" size="small">
                       <span v-if="mcpConfigValid" class="text-green-600 dark:text-green-400">
                         <i class="fas fa-check-circle mr-1"></i> JSON格式正确
                       </span>
                       <span v-else class="text-red-600 dark:text-red-400">
                         <i class="fas fa-exclamation-circle mr-1"></i> JSON格式错误
                       </span>
-                    </div>
-                    <div class="flex space-x-2">
-                      <n-button type="primary" @click="saveMCPConfig" :loading="savingMCPConfig" :disabled="!mcpConfigValid">
-                        <template #icon>
-                          <i class="fas fa-save"></i>
-                        </template>
-                        保存MCP配置
-                      </n-button>
-                      <n-button @click="testMCPConfig">
-                        <template #icon>
-                          <i class="fas fa-check-circle"></i>
-                        </template>
-                        验证配置
-                      </n-button>
-                    </div>
                   </div>
                 </div>
-              </div>
             </div>
           </n-tab-pane>
-        </n-tabs>
+
+                  <n-tab-pane name="prompts" tab="提示词管理" class="h-full overflow-hidden">
+            <div class="tab-content-container h-full overflow-hidden flex">
+              <PromptManager
+                :saving="promptSaving"
+                @update:saving="promptSaving = $event"
+                class="h-full w-full overflow-hidden"
+              />
+            </div>
+          </n-tab-pane>
+
+                  </n-tabs>
       </div>
     </template>
   </AdminPageLayout>
@@ -335,7 +352,7 @@
     <template #header>
       <div class="flex items-center space-x-2">
         <i class="fas fa-plug text-blue-600"></i>
-        <span>AI 连接测试详情</span>
+        <span>{{ testData.mode === 'validate' ? 'API Key 验证详情' : 'AI 连接测试详情' }}</span>
       </div>
     </template>
 
@@ -415,7 +432,9 @@
         <div class="mt-4 flex items-center justify-between">
           <div class="flex items-center space-x-2">
             <i class="fas fa-check-circle text-green-500 text-xl"></i>
-            <span class="text-green-600 dark:text-green-400 font-medium">测试成功！AI 连接正常</span>
+            <span class="text-green-600 dark:text-green-400 font-medium">
+              {{ testData.mode === 'validate' ? '验证成功！API Key 有效' : '测试成功！AI 连接正常' }}
+            </span>
           </div>
           <n-tag type="success" size="small">
             响应时间: {{ new Date().toLocaleTimeString() }}
@@ -653,6 +672,7 @@ import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection
 import { useAIApi, useMCPApi } from '~/composables/useApi'
 import JsonEditorSimple from '~/components/JsonEditorSimple.vue'
 import AIChatModal from '~/components/AIChatModal.vue'
+import PromptManager from '~/components/PromptManager.vue'
 
 
 
@@ -660,7 +680,10 @@ import AIChatModal from '~/components/AIChatModal.vue'
 const mcpConfigValid = ref(true)
 const activeTab = ref('openai')
 const saving = ref(false)
+const promptSaving = ref(false)
 const testingConnection = ref(false)
+const validatingAPIKey = ref(false)
+const validatingMCPConfig = ref(false)
 const loadingMCPConfig = ref(false)
 const savingMCPConfig = ref(false)
 const formRef = ref()
@@ -672,8 +695,139 @@ const testData = ref({
   sent: {} as any,
   received: null as any,
   loading: false,
-  error: null as string | null
+  error: null as string | null,
+  mode: 'test' as 'test' | 'validate' // 区分测试模式和验证模式
 })
+
+// 测试AI连接
+const testAIConnectionHandler = async () => {
+  if (!configForm.value.api_key) {
+    notification.warning({
+      content: '请先输入API Key',
+      duration: 3000
+    })
+    return
+  }
+
+  // 立即显示测试模态框
+  showTestModal.value = true
+
+  // 初始化测试数据状态
+  testData.value.loading = true
+  testData.value.error = null
+  testData.value.received = null
+  testData.value.mode = 'test' // 设置为测试模式
+  testData.value.sent = {
+    prompt: '你好，请简单介绍一下你自己',
+    config: {
+      api_key: configForm.value.api_key,
+      ai_api_url: configForm.value.api_url,
+      ai_model: configForm.value.model,
+      ai_max_tokens: configForm.value.max_tokens,
+      ai_temperature: configForm.value.temperature,
+      ai_timeout: configForm.value.timeout,
+      ai_retry_count: configForm.value.retry_count
+    }
+  }
+
+  try {
+    testingConnection.value = true
+
+    // 调用测试API
+    const response = await testAIConnection(testData.value.sent.config)
+
+    testData.value.received = {
+      response: response.result || response
+    }
+
+    // 显示测试成功通知
+    notification.success({
+      content: 'AI连接测试成功',
+      duration: 3000
+    })
+
+  } catch (error: any) {
+    console.error('AI连接测试失败:', error)
+    testData.value.error = error.message || '连接测试失败'
+
+    notification.error({
+      content: 'AI连接测试失败',
+      duration: 3000
+    })
+  } finally {
+    testingConnection.value = false
+    testData.value.loading = false
+  }
+}
+
+// 验证API Key
+const validateAPIKey = async () => {
+  if (!configForm.value.api_key) {
+    notification.warning({
+      content: '请先输入API Key',
+      duration: 3000
+    })
+    return
+  }
+
+  // 立即显示验证弹窗
+  showTestModal.value = true
+
+  // 初始化验证数据状态
+  testData.value.loading = true
+  testData.value.error = null
+  testData.value.received = null
+  testData.value.mode = 'validate' // 设置为验证模式
+  testData.value.sent = {
+    prompt: '你是什么模型？',
+    config: {
+      api_key: configForm.value.api_key,
+      ai_api_url: configForm.value.api_url,
+      ai_model: configForm.value.model,
+      ai_max_tokens: 50, // 验证时使用适量tokens
+      ai_temperature: 0.1,
+      ai_timeout: 90, // 验证时使用更长超时
+      ai_retry_count: 2
+    }
+  }
+
+  try {
+    validatingAPIKey.value = true
+
+    // 调用测试API进行验证
+    const response = await testAIConnection(testData.value.sent.config)
+
+    testData.value.received = {
+      response: response.result || response.data?.response || response
+    }
+
+    notification.success({
+      content: 'API Key验证成功',
+      duration: 3000
+    })
+
+    // 更新配置状态
+    configForm.value.api_key_configured = true
+
+    // 验证成功后自动关闭弹窗，给用户时间看到成功状态
+    setTimeout(() => {
+      showTestModal.value = false
+    }, 2000) // 2秒后自动关闭弹窗
+
+  } catch (error) {
+    console.error('API Key验证失败:', error)
+    configForm.value.api_key_configured = false
+    testData.value.error = error.message || '验证失败'
+
+    notification.error({
+      content: 'API Key验证失败，请检查配置',
+      duration: 3000
+    })
+  } finally {
+    validatingAPIKey.value = false
+    testData.value.loading = false
+  }
+}
 
 // 聊天模态框相关
 const showChatModal = ref(false)
@@ -754,6 +908,9 @@ const formattedAIResponse = computed(() => {
   return formatted
 })
 
+
+
+
 // 格式化 AI 回答（切换显示模式）
 const formatAIResponse = () => {
   // 这里可以添加更多格式化逻辑，目前使用计算属性自动格式化
@@ -789,6 +946,7 @@ const configForm = ref<AIConfigForm>({
 // MCP配置
 const mcpConfigContent = ref('')
 const mcpServices = ref<any[]>([])
+
 
 // 表单验证规则
 const rules = {
@@ -989,6 +1147,79 @@ const saveConfig = async () => {
   }
 }
 
+// 验证MCP配置
+const validateMCPConfig = async () => {
+  try {
+    validatingMCPConfig.value = true
+
+    // 验证JSON格式
+    let configObj
+    try {
+      configObj = JSON.parse(mcpConfigContent.value)
+    } catch (error) {
+      notification.error({
+        content: '配置格式错误：无效的JSON格式',
+        duration: 3000
+      })
+      return
+    }
+
+    // 验证必需字段
+    if (!configObj.mcpServers || typeof configObj.mcpServers !== 'object') {
+      notification.error({
+        content: '配置错误：缺少mcpServers字段',
+        duration: 3000
+      })
+      return
+    }
+
+    // 验证每个服务配置
+    const serverNames = Object.keys(configObj.mcpServers)
+    if (serverNames.length === 0) {
+      notification.warning({
+        content: '警告：没有配置任何MCP服务',
+        duration: 3000
+      })
+      return
+    }
+
+    for (const [name, serverConfig] of Object.entries(configObj.mcpServers)) {
+      if (!serverConfig.command) {
+        notification.error({
+          content: `配置错误：服务"${name}"缺少command字段`,
+          duration: 3000
+        })
+        return
+      }
+
+      if (!serverConfig.args || !Array.isArray(serverConfig.args)) {
+        notification.error({
+          content: `配置错误：服务"${name}"的args字段必须是数组`,
+          duration: 3000
+        })
+        return
+      }
+    }
+
+    notification.success({
+      content: 'MCP配置验证通过',
+      duration: 3000
+    })
+
+    // 更新配置有效状态
+    mcpConfigValid.value = true
+
+  } catch (error) {
+    console.error('MCP配置验证失败:', error)
+    notification.error({
+      content: '配置验证失败',
+      duration: 3000
+    })
+  } finally {
+    validatingMCPConfig.value = false
+  }
+}
+
 // 保存MCP配置
 const saveMCPConfig = async () => {
   try {
@@ -1171,34 +1402,6 @@ const onMCPConfigChange = () => {
   }
 }
 
-// 测试MCP配置
-const testMCPConfig = () => {
-  try {
-    const parsed = JSON.parse(mcpConfigContent.value)
-    console.log('MCP配置验证成功:', parsed)
-
-    // 检查基本结构
-    if (!parsed.mcpServers) {
-      notification.warning({
-        content: 'MCP配置缺少 mcpServers 字段',
-        duration: 3000
-      })
-      return
-    }
-
-    const serverCount = Object.keys(parsed.mcpServers).length
-    notification.success({
-      content: `MCP配置格式正确，包含 ${serverCount} 个服务`,
-      duration: 3000
-    })
-  } catch (e: any) {
-    console.error('MCP配置验证失败:', e)
-    notification.error({
-      content: `MCP配置JSON格式错误: ${e.message}`,
-      duration: 5000
-    })
-  }
-}
 
 // MCP服务控制方法
 const startMCPService = async (name: string) => {
@@ -1357,6 +1560,7 @@ const deleteMCPService = async () => {
   }
 }
 
+
 // 页面加载时获取配置
 onMounted(async () => {
   await loadAIConfig()
@@ -1366,53 +1570,6 @@ onMounted(async () => {
 
 
 
-// 测试AI连接
-const testAIConnectionClick = async () => {
-  if (!configForm.value.api_key || !configForm.value.api_url) {
-    notification.warning({
-      content: '请先填写 API Key 和 API URL',
-      duration: 3000
-    })
-    return
-  }
-
-  // 构建测试配置，使用当前表单的参数
-  const testConfig = {
-    api_key: configForm.value.api_key,
-    ai_api_url: configForm.value.api_url,
-    ai_model: configForm.value.model,
-    ai_max_tokens: configForm.value.max_tokens,
-    ai_temperature: configForm.value.temperature,
-    ai_timeout: configForm.value.timeout,
-    ai_retry_count: configForm.value.retry_count
-  }
-
-  // 设置测试数据
-  testData.value.sent = {
-    prompt: "你是什么AI模型？请详细介绍你的名称、版本和能力。",
-    config: testConfig
-  }
-  testData.value.received = null
-  testData.value.loading = true
-  testData.value.error = null
-  showTestModal.value = true
-
-  try {
-    const response = await testAIConnection(testConfig)
-    testData.value.received = response
-
-    // 如果测试成功，更新 API Key 配置状态
-    configForm.value.api_key_configured = true
-  } catch (error: any) {
-    console.error('AI连接测试失败:', error)
-    testData.value.error = error?.response?.data?.message || error?.message || 'AI连接测试失败'
-
-    // 如果测试失败，标记 API Key 未配置
-    configForm.value.api_key_configured = false
-  } finally {
-    testData.value.loading = false
-  }
-}
 
 </script>
 

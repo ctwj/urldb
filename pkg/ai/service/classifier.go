@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
+	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 )
 
@@ -34,32 +34,17 @@ type CategorySuggestion struct {
 
 // Classifier 分类器
 type Classifier struct {
-	client    *OpenAIClient
-	promptTpl *template.Template
-	repoManager *repo.RepositoryManager  // 添加 RepositoryManager
+	client       *OpenAIClient
+	promptService *PromptService  // 添加提示词服务
+	repoManager  *repo.RepositoryManager
 }
 
 // NewClassifier 创建分类器
 func NewClassifier(client *OpenAIClient, repoManager *repo.RepositoryManager) *Classifier {
 	return &Classifier{
 		client: client,
+		promptService: NewPromptService(repoManager.GetDB()),
 		repoManager: repoManager,
-		promptTpl: template.Must(template.New("classification").Parse(
-			"请根据以下资源信息为其推荐最合适的分类：\n\n"+
-				"资源标题: {{.Title}}\n"+
-				"资源描述: {{.Description}}\n"+
-				"资源类型: {{.Type}}\n\n"+
-				"现有分类列表：\n"+
-				"{{range .Categories}}- {{.ID}}: {{.Name}}\n{{end}}\n\n"+
-				"请分析资源内容并推荐最适合的分类ID和分类名称，同时提供置信度（0-1之间的数值）和推荐理由。\n\n"+
-				"请以JSON格式返回结果，格式如下：\n"+
-				"{\n"+
-				"  \"category_id\": 1,\n"+
-				"  \"category_name\": \"分类名称\",\n"+
-				"  \"confidence\": 0.9,\n"+
-				"  \"reason\": \"推荐理由\"\n"+
-				"}",
-		)),
 	}
 }
 
@@ -77,36 +62,44 @@ func (c *Classifier) ClassifyResourcePreview(resourceID uint) (*ClassificationPr
 		return nil, fmt.Errorf("获取分类列表失败: %v", err)
 	}
 
-	// 构建提示词
-	var prompt strings.Builder
-	prompt.WriteString("请根据以下资源信息为其推荐最合适的分类：\n\n")
-	prompt.WriteString(fmt.Sprintf("资源标题: %s\n", resource.Title))
-	prompt.WriteString(fmt.Sprintf("资源描述: %s\n", resource.Description))
+	// 从数据库获取分类提示词
+	prompt, err := c.promptService.GetPromptByType("classification")
+	if err != nil {
+		return nil, fmt.Errorf("获取分类提示词失败: %v", err)
+	}
+
+	// 构建模板数据
+	data := struct {
+		Title       string
+		Description string
+		Type        string
+		Categories  []entity.Category
+	}{
+		Title:       resource.Title,
+		Description: resource.Description,
+		Categories:  categories,
+	}
+
+	// 设置资源类型
 	if resource.PanID != nil {
 		pan, err := c.repoManager.PanRepository.FindByID(*resource.PanID)
 		if err == nil && pan != nil {
-			prompt.WriteString(fmt.Sprintf("资源类型: %s\n", pan.Name))
+			data.Type = pan.Name
 		} else {
-			prompt.WriteString("资源类型: 未知\n")
+			data.Type = "未知"
 		}
 	} else {
-		prompt.WriteString("资源类型: 未知\n")
+		data.Type = "未知"
 	}
-	prompt.WriteString("\n现有分类列表：\n")
-	for _, category := range categories {
-		prompt.WriteString(fmt.Sprintf("- %d: %s\n", category.ID, category.Name))
+
+	// 渲染提示词
+	renderedPrompt, err := c.promptService.RenderPrompt(prompt, data)
+	if err != nil {
+		return nil, fmt.Errorf("渲染分类提示词失败: %v", err)
 	}
-	prompt.WriteString("\n请分析资源内容并推荐最适合的分类ID和分类名称，同时提供置信度（0-1之间的数值）和推荐理由。\n\n")
-	prompt.WriteString("请以JSON格式返回结果，格式如下：\n")
-	prompt.WriteString("{\n")
-	prompt.WriteString("  \"category_id\": 1,\n")
-	prompt.WriteString("  \"category_name\": \"分类名称\",\n")
-	prompt.WriteString("  \"confidence\": 0.9,\n")
-	prompt.WriteString("  \"reason\": \"推荐理由\"\n")
-	prompt.WriteString("}")
 
 	// 调用 AI API
-	resp, err := c.client.CreateChatCompletion(prompt.String())
+	resp, err := c.client.CreateChatCompletion(renderedPrompt)
 	if err != nil {
 		return nil, fmt.Errorf("AI 分类请求失败: %v", err)
 	}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -163,6 +164,25 @@ func (c *OpenAIClient) Chat(messages []openai.ChatCompletionMessage, options ...
 		log.Printf("[OpenAI] FunctionCall 设置: %s", request.FunctionCall)
 	}
 
+	// 详细的请求参数调试信息
+	log.Printf("[OpenAI] 请求参数详情:")
+	log.Printf("  Model: %s", request.Model)
+	log.Printf("  MaxTokens: %d", request.MaxTokens)
+	log.Printf("  Temperature: %.2f", request.Temperature)
+	log.Printf("  TopP: %.2f", request.TopP)
+	log.Printf("  FunctionCall: %v", request.FunctionCall)
+	log.Printf("  Stream: %v", request.Stream)
+	log.Printf("  N: %d", request.N)
+
+	// 完整的请求调试信息
+	log.Printf("=== [OpenAI] 完整API请求数据 ===")
+	if requestJSON, err := json.MarshalIndent(request, "", "  "); err == nil {
+		log.Printf("完整请求JSON:\n%s", string(requestJSON))
+	} else {
+		log.Printf("序列化请求JSON失败: %v", err)
+	}
+	log.Printf("==============================")
+
 	resp, err := c.client.CreateChatCompletion(context.Background(), request)
 	if err != nil {
 		log.Printf("[OpenAI] 请求失败: %v", err)
@@ -232,6 +252,11 @@ func WithFunctions(functions []openai.FunctionDefinition) ChatOption {
 			log.Printf("[OpenAI] 设置了 %d 个函数，FunctionCall: auto", len(functions))
 		}
 	}
+}
+
+// GetModel 获取当前模型名称
+func (c *OpenAIClient) GetModel() string {
+	return c.model
 }
 
 // CreateChatCompletion 创建对话完成

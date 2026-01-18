@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -31,36 +30,17 @@ type GeneratedContentPreview struct {
 
 // ContentGenerator 内容生成器
 type ContentGenerator struct {
-	client    *OpenAIClient
-	promptTpl *template.Template
-	repoManager *repo.RepositoryManager  // 添加 RepositoryManager
+	client       *OpenAIClient
+	promptService *PromptService  // 添加提示词服务
+	repoManager  *repo.RepositoryManager
 }
 
 // NewContentGenerator 创建内容生成器
 func NewContentGenerator(client *OpenAIClient, repoManager *repo.RepositoryManager) *ContentGenerator {
 	return &ContentGenerator{
 		client: client,
+		promptService: NewPromptService(repoManager.GetDB()),
 		repoManager: repoManager,
-		promptTpl: template.Must(template.New("content_gen").Parse(
-			"请根据以下资源信息生成更优的标题、描述和SEO内容：\n\n" +
-				"原始标题: {{.Title}}\n" +
-				"原始描述: {{.Description}}\n" +
-				"资源类型: {{.Type}}\n\n" +
-				"请提供：\n" +
-				"1. 优化后的标题\n" +
-				"2. 详细的资源描述\n" +
-				"3. SEO友好的标题\n" +
-				"4. SEO友好的描述\n" +
-				"5. 相关的SEO关键词（用逗号分隔）\n\n" +
-				"请以JSON格式返回结果，格式如下：\n" +
-				"{\n" +
-				"  \"title\": \"优化后的标题\",\n" +
-				"  \"description\": \"优化后的描述\",\n" +
-				"  \"seo_title\": \"SEO标题\",\n" +
-				"  \"seo_description\": \"SEO描述\",\n" +
-				"  \"seo_keywords\": [\"关键词1\", \"关键词2\"]\n" +
-				"}",
-		)),
 	}
 }
 
@@ -72,38 +52,42 @@ func (cg *ContentGenerator) GenerateContentPreview(resourceID uint) (*GeneratedC
 		return nil, err
 	}
 
-	// 构建提示词
-	var prompt strings.Builder
-	prompt.WriteString("请根据以下资源信息生成更优的标题、描述和SEO内容：\n\n")
-	prompt.WriteString(fmt.Sprintf("原始标题: %s\n", resource.Title))
-	prompt.WriteString(fmt.Sprintf("原始描述: %s\n", resource.Description))
+	// 从数据库获取内容生成提示词
+	prompt, err := cg.promptService.GetPromptByType("content_generation")
+	if err != nil {
+		return nil, fmt.Errorf("获取内容生成提示词失败: %v", err)
+	}
+
+	// 构建模板数据
+	data := struct {
+		Title       string
+		Description string
+		Type        string
+	}{
+		Title:       resource.Title,
+		Description: resource.Description,
+	}
+
+	// 设置资源类型
 	if resource.PanID != nil {
 		pan, err := cg.repoManager.PanRepository.FindByID(*resource.PanID)
 		if err == nil && pan != nil {
-			prompt.WriteString(fmt.Sprintf("资源类型: %s\n", pan.Name))
+			data.Type = pan.Name
 		} else {
-			prompt.WriteString("资源类型: 未知\n")
+			data.Type = "未知"
 		}
 	} else {
-		prompt.WriteString("资源类型: 未知\n")
+		data.Type = "未知"
 	}
-	prompt.WriteString("\n请提供：\n")
-	prompt.WriteString("1. 优化后的标题\n")
-	prompt.WriteString("2. 详细的资源描述\n")
-	prompt.WriteString("3. SEO友好的标题\n")
-	prompt.WriteString("4. SEO友好的描述\n")
-	prompt.WriteString("5. 相关的SEO关键词（用逗号分隔）\n\n")
-	prompt.WriteString("请以JSON格式返回结果，格式如下：\n")
-	prompt.WriteString("{\n")
-	prompt.WriteString("  \"title\": \"优化后的标题\",\n")
-	prompt.WriteString("  \"description\": \"优化后的描述\",\n")
-	prompt.WriteString("  \"seo_title\": \"SEO标题\",\n")
-	prompt.WriteString("  \"seo_description\": \"SEO描述\",\n")
-	prompt.WriteString("  \"seo_keywords\": [\"关键词1\", \"关键词2\"]\n")
-	prompt.WriteString("}")
+
+	// 渲染提示词
+	renderedPrompt, err := cg.promptService.RenderPrompt(prompt, data)
+	if err != nil {
+		return nil, fmt.Errorf("渲染内容生成提示词失败: %v", err)
+	}
 
 	// 调用 AI API
-	resp, err := cg.client.CreateChatCompletion(prompt.String())
+	resp, err := cg.client.CreateChatCompletion(renderedPrompt)
 	if err != nil {
 		return nil, err
 	}

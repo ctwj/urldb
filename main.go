@@ -678,6 +678,12 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 				ai.GET("/tools", aiHandler.GetAvailableTools)
 				ai.POST("/tools/call", aiHandler.CallTool)
 				ai.POST("/generate/text-with-tools", aiHandler.GenerateTextWithTools)
+				// 提示词管理
+				ai.GET("/prompts", aiHandler.GetPrompts)
+				ai.PUT("/prompts/:id", aiHandler.UpdatePrompt)
+				ai.PUT("/prompts/:id/toggle", aiHandler.TogglePromptStatus)
+				ai.POST("/prompts/test", aiHandler.TestPrompt)
+				ai.POST("/prompts/init", aiHandler.InitDefaultPrompts)
 			}
 		}
 
