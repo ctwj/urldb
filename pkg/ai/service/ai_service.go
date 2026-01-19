@@ -903,12 +903,50 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 	tools, err := as.GetAvailableTools()
 	if err != nil {
 		log.Printf("获取工具失败，使用普通生成: %v", err)
-		return as.GenerateText(prompt, options...)
+		// 直接使用 OpenAI 客户端生成，避免循环调用
+		systemPrompt := "你是一个有用的 AI 助手，擅长理解和回答各种问题。请提供准确、有帮助的回答。"
+		messages := []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: systemPrompt,
+			},
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: prompt,
+			},
+		}
+		resp, err := as.client.Chat(messages, options...)
+		if err != nil {
+			return "", err
+		}
+		if len(resp.Choices) == 0 {
+			return "", fmt.Errorf("AI 未返回任何内容")
+		}
+		return resp.Choices[0].Message.Content, nil
 	}
 
 	if len(tools) == 0 {
 		log.Printf("没有可用工具，使用普通生成")
-		return as.GenerateText(prompt, options...)
+		// 直接使用 OpenAI 客户端生成，避免循环调用
+		systemPrompt := "你是一个有用的 AI 助手，擅长理解和回答各种问题。请提供准确、有帮助的回答。"
+		messages := []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: systemPrompt,
+			},
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: prompt,
+			},
+		}
+		resp, err := as.client.Chat(messages, options...)
+		if err != nil {
+			return "", err
+		}
+		if len(resp.Choices) == 0 {
+			return "", fmt.Errorf("AI 未返回任何内容")
+		}
+		return resp.Choices[0].Message.Content, nil
 	}
 
 	log.Printf("[GenerateTextWithTools] === 新方案：将工具定义移到用户提示词中 ===")
