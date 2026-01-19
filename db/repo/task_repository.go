@@ -61,7 +61,6 @@ func (r *TaskRepositoryImpl) Delete(id uint) error {
 
 // GetList 获取任务列表
 func (r *TaskRepositoryImpl) GetList(page, pageSize int, taskType, status string) ([]*entity.Task, int64, error) {
-	startTime := utils.GetCurrentTime()
 	var tasks []*entity.Task
 	var total int64
 
@@ -76,26 +75,20 @@ func (r *TaskRepositoryImpl) GetList(page, pageSize int, taskType, status string
 	}
 
 	// 获取总数
-	countStart := utils.GetCurrentTime()
 	err := query.Count(&total).Error
-	countDuration := time.Since(countStart)
 	if err != nil {
-		utils.Error("GetList获取总数失败: 错误=%v, 查询耗时=%v", err, countDuration)
+		utils.Error("GetList获取总数失败: %v", err)
 		return nil, 0, err
 	}
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	queryStart := utils.GetCurrentTime()
 	err = query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&tasks).Error
-	queryDuration := time.Since(queryStart)
 	if err != nil {
-		utils.Error("GetList查询失败: 错误=%v, 查询耗时=%v", err, queryDuration)
+		utils.Error("GetList查询失败: %v", err)
 		return nil, 0, err
 	}
 
-	totalDuration := time.Since(startTime)
-	utils.Debug("GetList完成: 任务类型=%s, 状态=%s, 页码=%d, 页面大小=%d, 总数=%d, 结果数=%d, 总耗时=%v", taskType, status, page, pageSize, total, len(tasks), totalDuration)
 	return tasks, total, nil
 }
 

@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/pkg/ai/mcp"
+	"github.com/ctwj/urldb/utils"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -111,20 +111,20 @@ func NewAIServiceWithMCP(client *OpenAIClient, repoManager *repo.RepositoryManag
 
 // GenerateText 通用文本生成 - 供其他模块调用
 func (as *AIService) GenerateText(prompt string, options ...ChatOption) (string, error) {
-	log.Printf("[GenerateText] 开始处理请求，prompt: %s", prompt)
+	utils.Info("[AI] 开始处理文本生成请求")
 
 	// 如果有 MCP 管理器，尝试使用工具增强的生成
 	if as.mcpManager != nil {
-		log.Printf("[GenerateText] MCP 管理器已初始化，尝试使用工具增强生成")
+		utils.Debug("[AI] MCP 管理器已初始化，尝试使用工具增强生成")
 		result, err := as.GenerateTextWithTools(prompt, options...)
 		if err != nil {
-			log.Printf("[GenerateText] 工具增强生成失败，回退到普通生成: %v", err)
+			utils.Warn("[AI] 工具增强生成失败，回退到普通生成: %v", err)
 		} else {
-			log.Printf("[GenerateText] 工具增强生成成功")
+			utils.Info("[AI] 工具增强生成成功")
 			return result, nil
 		}
 	} else {
-		log.Printf("[GenerateText] MCP 管理器未初始化，使用普通生成")
+		utils.Debug("[AI] MCP 管理器未初始化，使用普通生成")
 	}
 
 	// 使用通用的系统提示词
@@ -343,15 +343,15 @@ type ToolCallFromContent struct {
 func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []ToolCallFromContent {
 	var toolCalls []ToolCallFromContent
 
-	log.Printf("[parseToolCallsFromContent] 原始内容: %q", content)
+	utils.Debug("[AI] 工具解析 原始内容: %q", content)
 
 	// 先尝试匹配 JSON 格式的工具调用：<tool_name: {}>
 	jsonRe := regexp.MustCompile(`(?s)<(\w+):\s*({[^}]*})>`)
 	jsonMatches := jsonRe.FindAllStringSubmatch(content, -1)
-	log.Printf("[parseToolCallsFromContent] JSON 格式匹配到 %d 个结果", len(jsonMatches))
+	utils.Debug("[AI] 工具解析 JSON 格式匹配到 %d 个结果", len(jsonMatches))
 
 	for i, match := range jsonMatches {
-		log.Printf("[parseToolCallsFromContent] JSON 匹配 %d: %v", i, match)
+		utils.Debug("[AI] 工具解析 JSON 匹配 %d: %v", i, match)
 		if len(match) < 3 {
 			continue
 		}
@@ -360,7 +360,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 
 		// 检查工具名称是否在已注册的工具列表中
 		if !toolNameSet[toolName] {
-			log.Printf("[parseToolCallsFromContent] 工具 %s 未注册，跳过", toolName)
+			utils.Debug("[AI] 工具解析 工具 %s 未注册，跳过", toolName)
 			continue
 		}
 
@@ -368,7 +368,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 		params := make(map[string]interface{})
 
 		if err := json.Unmarshal([]byte(jsonStr), &params); err != nil {
-			log.Printf("[parseToolCallsFromContent] 解析 JSON 参数失败: %v", err)
+			utils.Debug("[AI] 工具解析 解析 JSON 参数失败: %v", err)
 			params = map[string]interface{}{"args": jsonStr}
 		}
 
@@ -376,17 +376,17 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 			Name:   toolName,
 			Params: params,
 		})
-		log.Printf("[parseToolCallsFromContent] 解析工具: %s, 参数: %v", toolName, params)
+		utils.Debug("[AI] 工具解析 解析工具: %s, 参数: %v", toolName, params)
 	}
 
 	// 如果没有匹配到 JSON 格式，尝试匹配简单标签格式：<tool_name> 或 <tool_name/> 或 <tool_name\n
 	if len(toolCalls) == 0 {
 		simpleRe := regexp.MustCompile(`<(\w+)[\s\n>]`)
 		simpleMatches := simpleRe.FindAllStringSubmatch(content, -1)
-		log.Printf("[parseToolCallsFromContent] 简单标签格式匹配到 %d 个结果", len(simpleMatches))
+		utils.Debug("[AI] 工具解析 简单标签格式匹配到 %d 个结果", len(simpleMatches))
 
 		for i, match := range simpleMatches {
-			log.Printf("[parseToolCallsFromContent] 简单标签匹配 %d: %v", i, match)
+			utils.Debug("[AI] 工具解析 简单标签匹配 %d: %v", i, match)
 			if len(match) < 2 {
 				continue
 			}
@@ -395,7 +395,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 
 			// 检查工具名称是否在已注册的工具列表中
 			if !toolNameSet[toolName] {
-				log.Printf("[parseToolCallsFromContent] 工具 %s 未注册，跳过", toolName)
+				utils.Debug("[AI] 工具解析 工具 %s 未注册，跳过", toolName)
 				continue
 			}
 
@@ -403,7 +403,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 				Name:   toolName,
 				Params: map[string]interface{}{},
 			})
-			log.Printf("[parseToolCallsFromContent] 解析工具: %s, 参数: map[]", toolName)
+			utils.Debug("[AI] 工具解析 解析工具: %s, 参数: map[]", toolName)
 		}
 	}
 
@@ -411,10 +411,10 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 	if len(toolCalls) == 0 {
 		htmlRe := regexp.MustCompile(`<(\w+)(\s+[^>]*)>`)
 		htmlMatches := htmlRe.FindAllStringSubmatch(content, -1)
-		log.Printf("[parseToolCallsFromContent] HTML 格式匹配到 %d 个结果", len(htmlMatches))
+		utils.Debug("[AI] 工具解析 HTML 格式匹配到 %d 个结果", len(htmlMatches))
 
 		for i, match := range htmlMatches {
-			log.Printf("[parseToolCallsFromContent] HTML 匹配 %d: %v", i, match)
+			utils.Debug("[AI] 工具解析 HTML 匹配 %d: %v", i, match)
 			if len(match) < 3 {
 				continue
 			}
@@ -423,7 +423,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 
 			// 检查工具名称是否在已注册的工具列表中
 			if !toolNameSet[toolName] {
-				log.Printf("[parseToolCallsFromContent] 工具 %s 未注册，跳过", toolName)
+				utils.Debug("[AI] 工具解析 工具 %s 未注册，跳过", toolName)
 				continue
 			}
 
@@ -442,7 +442,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 				Name:   toolName,
 				Params: params,
 			})
-			log.Printf("[parseToolCallsFromContent] 解析工具: %s, 参数: %v", toolName, params)
+			utils.Debug("[AI] 工具解析 解析工具: %s, 参数: %v", toolName, params)
 		}
 	}
 
@@ -465,13 +465,13 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 		for _, pattern := range timePatterns {
 			if matched, _ := regexp.MatchString(pattern, content); matched {
 				hasResult = true
-				log.Printf("[parseToolCallsFromContent] 检测到时间数据: %s", pattern)
+				utils.Debug("[AI] 工具解析 检测到时间数据: %s", pattern)
 				break
 			}
 		}
 
 		if hasResult {
-			log.Printf("[parseToolCallsFromContent] 检测到响应中已包含工具结果，忽略工具调用")
+			utils.Debug("[AI] 工具解析 检测到响应中已包含工具结果，忽略工具调用")
 			return []ToolCallFromContent{}
 		}
 
@@ -480,9 +480,9 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 		cleanContent := regexp.MustCompile(`<[^>]+>`).ReplaceAllString(content, "")
 		cleanContent = strings.TrimSpace(cleanContent)
 		if len(cleanContent) < 10 {
-			log.Printf("[parseToolCallsFromContent] 响应内容过短，没有工具结果")
+			utils.Debug("[AI] 工具解析 响应内容过短，没有工具结果")
 		} else {
-			log.Printf("[parseToolCallsFromContent] 响应内容长度: %d", len(cleanContent))
+			utils.Debug("[AI] 工具解析 响应内容长度: %d", len(cleanContent))
 		}
 	}
 
@@ -739,17 +739,17 @@ func (as *AIService) GetAvailableTools() ([]ToolDefinition, error) {
 	var tools []ToolDefinition
 	services := as.mcpManager.ListServices()
 
-	log.Printf("[GetAvailableTools] 检查 %d 个服务", len(services))
+	utils.Info("[AI] 检查 %d 个服务", len(services))
 
 	for _, serviceName := range services {
 		// 检查服务健康状态
 		if !as.mcpManager.CheckServiceHealth(serviceName) {
-			log.Printf("[GetAvailableTools] 服务 %s 不健康，跳过", serviceName)
+			utils.Info("[AI] 服务 %s 不健康，跳过", serviceName)
 			continue
 		}
 
 		mcpTools := as.mcpManager.GetToolRegistry().GetTools(serviceName)
-		log.Printf("[GetAvailableTools] 服务 %s 有 %d 个工具", serviceName, len(mcpTools))
+		utils.Info("[AI] 服务 %s 有 %d 个工具", serviceName, len(mcpTools))
 
 		for _, tool := range mcpTools {
 			// 转换为OpenAI工具定义格式
@@ -762,7 +762,7 @@ func (as *AIService) GetAvailableTools() ([]ToolDefinition, error) {
 		}
 	}
 
-	log.Printf("[GetAvailableTools] 获取到 %d 个可用工具", len(tools))
+	utils.Info("[AI] 获取到 %d 个可用工具", len(tools))
 	return tools, nil
 }
 
@@ -798,7 +798,7 @@ func (as *AIService) validateParams(tool ToolDefinition, params map[string]inter
 		return nil // 没有参数定义，跳过验证
 	}
 
-	log.Printf("[validateParams] 验证工具 %s 的参数: %+v", tool.Name, params)
+	utils.Debug("[AI] 验证工具 %s 的参数: %+v", tool.Name, params)
 
 	// 检查必需参数
 	required := []string{}
@@ -810,7 +810,7 @@ func (as *AIService) validateParams(tool ToolDefinition, params map[string]inter
 		}
 	}
 
-	log.Printf("[validateParams] 工具 %s 的必需参数: %v", tool.Name, required)
+	utils.Debug("[AI] 工具 %s 的必需参数: %v", tool.Name, required)
 
 	// 验证所有必需参数是否都提供了
 	for _, reqParam := range required {
@@ -833,7 +833,7 @@ func (as *AIService) validateParams(tool ToolDefinition, params map[string]inter
 		}
 	}
 
-	log.Printf("[validateParams] 工具 %s 参数验证通过", tool.Name)
+	utils.Debug("[AI] 工具 %s 参数验证通过", tool.Name)
 	return nil
 }
 
@@ -858,11 +858,11 @@ func (as *AIService) CallTool(toolName string, params map[string]interface{}) (*
 		return nil, fmt.Errorf("MCP管理器未初始化")
 	}
 
-	log.Printf("调用工具: %s, 参数: %+v", toolName, params)
+	utils.Info("[AI] 调用工具: %s, 参数: %+v", toolName, params)
 
 	// 验证工具调用参数
 	if err := as.validateToolCallParams(toolName, params); err != nil {
-		log.Printf("工具参数验证失败: %v", err)
+		utils.Warn("[AI] 工具参数验证失败: %v", err)
 		return &ToolCallResult{
 			ToolName: toolName,
 			Error:    err.Error(),
@@ -878,14 +878,14 @@ func (as *AIService) CallTool(toolName string, params map[string]interface{}) (*
 				// 调用工具
 				result, err := as.mcpManager.CallTool(serviceName, toolName, params)
 				if err != nil {
-					log.Printf("工具调用失败: %v", err)
+					utils.Error("[AI] 工具调用失败: %v", err)
 					return &ToolCallResult{
 						ToolName: toolName,
 						Error:    err.Error(),
 					}, err
 				}
 
-				log.Printf("工具调用成功: %s", toolName)
+				utils.Info("[AI] 工具调用成功: %s", toolName)
 				return &ToolCallResult{
 					ToolName: toolName,
 					Result:   result,
@@ -902,7 +902,7 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 	// 获取可用工具
 	tools, err := as.GetAvailableTools()
 	if err != nil {
-		log.Printf("获取工具失败，使用普通生成: %v", err)
+		utils.Warn("[AI] 获取工具失败，使用普通生成: %v", err)
 		// 直接使用 OpenAI 客户端生成，避免循环调用
 		systemPrompt := "你是一个有用的 AI 助手，擅长理解和回答各种问题。请提供准确、有帮助的回答。"
 		messages := []openai.ChatCompletionMessage{
@@ -926,7 +926,7 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 	}
 
 	if len(tools) == 0 {
-		log.Printf("没有可用工具，使用普通生成")
+		utils.Info("[AI] 没有可用工具，使用普通生成")
 		// 直接使用 OpenAI 客户端生成，避免循环调用
 		systemPrompt := "你是一个有用的 AI 助手，擅长理解和回答各种问题。请提供准确、有帮助的回答。"
 		messages := []openai.ChatCompletionMessage{
@@ -949,13 +949,13 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 		return resp.Choices[0].Message.Content, nil
 	}
 
-	log.Printf("[GenerateTextWithTools] === 新方案：将工具定义移到用户提示词中 ===")
+	utils.Info("[AI] === 新方案：将工具定义移到用户提示词中 ===")
 
 	// 从数据库获取工具系统提示词
-	log.Printf("[GenerateTextWithTools] 开始获取系统提示词，类型: %s", entity.PromptTypeToolSystem)
+	utils.Info("[AI] 开始获取系统提示词，类型: %s", entity.PromptTypeToolSystem)
 	systemPrompt, err := as.promptService.RenderSystemPromptByType(entity.PromptTypeToolSystem, nil)
 	if err != nil {
-		log.Printf("[GenerateTextWithTools] 获取系统提示词失败，使用默认提示词: %v", err)
+		utils.Info("[AI] 获取系统提示词失败，使用默认提示词: %v", err)
 		// 如果获取失败，使用默认提示词
 		systemPrompt = `你叫 老九助手，你是一个充满智慧的辅助专家，可以回答用户的各种问题问题，并且可以调用各种mcp工具为用户获取更加专业的回答。
 
@@ -993,7 +993,7 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 3. 如果结果需要进一步分析或处理，可以进行解释
 4. 保持回答简洁但完整`
 	} else {
-		log.Printf("[GenerateTextWithTools] 成功获取系统提示词，长度: %d", len(systemPrompt))
+		utils.Info("[AI] 成功获取系统提示词，长度: %d", len(systemPrompt))
 	}
 
 	// 智能判断是否需要工具描述
@@ -1001,11 +1001,11 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 	if needsTools(prompt) {
 		// 生成工具信息的自然语言描述
 		toolsDescription := getToolsAsNaturalLanguage(tools)
-		log.Printf("[GenerateTextWithTools] 检测到工具需求，生成工具描述，长度: %d", len(toolsDescription))
+		utils.Info("[AI] 检测到工具需求，生成工具描述，长度: %d", len(toolsDescription))
 		// 组合用户提示词：工具描述 + 用户问题
 		fullUserPrompt = toolsDescription + fmt.Sprintf("\n用户问题：%s\n\n请根据用户的问题使用相应的工具来获取准确信息并回答。", prompt)
 	} else {
-		log.Printf("[GenerateTextWithTools] 未检测到工具需求，使用简洁提示词")
+		utils.Info("[AI] 未检测到工具需求，使用简洁提示词")
 		// 简洁的用户提示词，不包含工具描述
 		fullUserPrompt = fmt.Sprintf("用户问题：%s\n\n请直接回答用户的问题。", prompt)
 	}
@@ -1023,7 +1023,7 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 	}
 
 	// ===== 完整的AI接口请求数据调试日志 =====
-	log.Printf("=== [GenerateTextWithTools] 完整AI接口请求数据（新方案） ===")
+	utils.Debug("[AI] === 完整AI接口请求数据 ===")
 
 	// 1. 打印完整的请求结构（不包含functions）
 	requestData := map[string]interface{}{
@@ -1032,64 +1032,64 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 	}
 
 	if requestJSON, err := json.MarshalIndent(requestData, "", "  "); err == nil {
-		log.Printf("完整OpenAI请求JSON（新方案）:\n%s", string(requestJSON))
+		utils.Debug("[AI] 完整OpenAI请求JSON:\n%s", string(requestJSON))
 	} else {
-		log.Printf("序列化请求JSON失败: %v", err)
+		utils.Error("[AI] 序列化请求JSON失败: %v", err)
 	}
 
 	// 2. 分别打印各个部分以便调试
-	log.Printf("--- 系统提示词完整内容 ---")
-	log.Printf("%s", systemPrompt)
-	log.Printf("--- 用户提示词完整内容 ---")
-	log.Printf("%s", fullUserPrompt)
+	utils.Debug("[AI] --- 系统提示词完整内容 ---")
+	utils.Debug("[AI] 系统提示词: %s", systemPrompt)
+	utils.Debug("[AI] --- 用户提示词完整内容 ---")
+	utils.Debug("[AI] 用户提示词: %s", fullUserPrompt)
 	// 只在需要时显示工具描述
 	if needsTools(prompt) {
-		log.Printf("--- 工具自然语言描述 ---")
-		log.Printf("%s", getToolsAsNaturalLanguage(tools))
+		utils.Debug("[AI] --- 工具自然语言描述 ---")
+		utils.Debug("[AI] 工具描述: %s", getToolsAsNaturalLanguage(tools))
 	}
-	log.Printf("========================================")
+	utils.Debug("========================================")
 
 	// 关键提示词信息调试（保留用于验证提示词使用情况）
-	log.Printf("=== [GenerateTextWithTools] 提示词调试信息（新方案） ===")
-	log.Printf("用户原始输入: %q", prompt)
-	log.Printf("系统提示词长度: %d 字符", len(systemPrompt))
-	log.Printf("完整用户提示词长度: %d 字符", len(fullUserPrompt))
-	log.Printf("可用工具数量: %d", len(tools))
+	utils.Debug("[AI] === 提示词调试信息 ===")
+	utils.Debug("[AI] 用户原始输入: %q", prompt)
+	utils.Debug("[AI] 系统提示词长度: %d 字符", len(systemPrompt))
+	utils.Debug("[AI] 完整用户提示词长度: %d 字符", len(fullUserPrompt))
+	utils.Debug("[AI] 可用工具数量: %d", len(tools))
 	for i, tool := range tools {
-		log.Printf("工具 %d: %s", i+1, tool.Name)
+		utils.Debug("[AI] 工具 %d: %s", i+1, tool.Name)
 	}
-	log.Printf("===========================================")
+	utils.Debug("===========================================")
 
-	log.Printf("[GenerateTextWithTools] 发送请求到 AI（新方案：不使用functions参数）")
+	utils.Info("[AI] 发送请求到 AI（新方案：不使用functions参数）")
 
 	// 调用AI（不传递functions参数）
 	resp, err := as.client.Chat(messages, options...)
 	if err != nil {
-		log.Printf("[GenerateTextWithTools] AI 调用失败: %v", err)
+		utils.Info("[AI] AI 调用失败: %v", err)
 		return "", err
 	}
 
 	if len(resp.Choices) == 0 {
-		log.Printf("[GenerateTextWithTools] AI 未返回任何内容")
+		utils.Info("[AI] AI 未返回任何内容")
 		return "", fmt.Errorf("AI 未返回任何内容")
 	}
 
 	choice := resp.Choices[0]
-	log.Printf("[GenerateTextWithTools] AI 返回结果，FinishReason: %s", resp.Choices[0].FinishReason)
+	utils.Info("[AI] AI 返回结果，FinishReason: %s", resp.Choices[0].FinishReason)
 
 	// ===== 调试信息打印 - 完整的AI响应数据 =====
-	log.Printf("=== [GenerateTextWithTools] 完整AI响应数据（新方案） ===")
+	utils.Debug("=== [AI] 完整AI响应数据 ===")
 	if responseJSON, err := json.MarshalIndent(resp, "", "  "); err == nil {
-		log.Printf("完整AI响应JSON:\n%s", string(responseJSON))
+		utils.Debug("[AI] 完整AI响应JSON:\n%s", string(responseJSON))
 	} else {
-		log.Printf("序列化响应JSON失败: %v", err)
+		utils.Error("[AI] 序列化响应JSON失败: %v", err)
 	}
-	log.Printf("===========================================")
+	utils.Debug("===========================================")
 
 	// 检查响应内容中是否包含工具调用标记
 	content := choice.Message.Content
 	if content != "" {
-		log.Printf("[GenerateTextWithTools] 检查响应内容中的工具调用标记")
+		utils.Info("[AI] 检查响应内容中的工具调用标记")
 
 		// 创建工具名称集合用于快速查找
 		toolNameSet := make(map[string]bool)
@@ -1099,20 +1099,20 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 
 		toolCalls := parseToolCallsFromContent(content, toolNameSet)
 		if len(toolCalls) > 0 {
-			log.Printf("[GenerateTextWithTools] 从响应内容中解析到 %d 个工具调用", len(toolCalls))
+			utils.Info("[AI] 从响应内容中解析到 %d 个工具调用", len(toolCalls))
 
 			// 处理所有工具调用
 			for _, toolCall := range toolCalls {
-				log.Printf("[GenerateTextWithTools] 调用工具: %s, 参数: %v", toolCall.Name, toolCall.Params)
+				utils.Info("[AI] 调用工具: %s, 参数: %v", toolCall.Name, toolCall.Params)
 
 				// 调用工具
 				toolResult, err := as.CallTool(toolCall.Name, toolCall.Params)
 				if err != nil {
-					log.Printf("[GenerateTextWithTools] 工具调用失败: %v", err)
+					utils.Info("[AI] 工具调用失败: %v", err)
 					return "", fmt.Errorf("工具调用失败: %v", err)
 				}
 
-				log.Printf("[GenerateTextWithTools] 工具调用成功，结果: %v", toolResult.Result)
+				utils.Info("[AI] 工具调用成功，结果: %v", toolResult.Result)
 
 				// 将工具结果添加到对话中
 				messages = append(messages,
@@ -1128,19 +1128,19 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 			}
 
 			// 再次调用AI处理工具结果
-			log.Printf("[GenerateTextWithTools] 再次调用 AI 处理工具结果")
+			utils.Info("[AI] 再次调用 AI 处理工具结果")
 			resp, err = as.client.Chat(messages, options...)
 			if err != nil {
-				log.Printf("[GenerateTextWithTools] AI 处理工具结果失败: %v", err)
+				utils.Info("[AI] AI 处理工具结果失败: %v", err)
 				return "", err
 			}
 
 			if len(resp.Choices) == 0 {
-				log.Printf("[GenerateTextWithTools] AI 处理工具结果后未返回任何内容")
+				utils.Info("[AI] AI 处理工具结果后未返回任何内容")
 				return "", fmt.Errorf("AI 处理工具结果后未返回任何内容")
 			}
 
-			log.Printf("[GenerateTextWithTools] AI 处理工具结果成功")
+			utils.Info("[AI] AI 处理工具结果成功")
 			return resp.Choices[0].Message.Content, nil
 		}
 	}
@@ -1148,9 +1148,9 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 	// 清理响应内容中的工具调用标记
 	cleanContent := cleanToolCallMarkers(content)
 	if cleanContent != content {
-		log.Printf("[GenerateTextWithTools] 清理了工具调用标记")
+		utils.Info("[AI] 清理了工具调用标记")
 	}
 
-	log.Printf("[GenerateTextWithTools] AI 没有调用工具，直接返回内容")
+	utils.Info("[AI] AI 没有调用工具，直接返回内容")
 	return cleanContent, nil
 }

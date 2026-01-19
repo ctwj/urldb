@@ -59,14 +59,14 @@ func main() {
 		}
 	}
 
-	// 初始化日志系统
-	if err := utils.InitLogger(); err != nil {
-		log.Fatal("初始化日志系统失败:", err)
-	}
-
 	// 加载环境变量
 	if err := godotenv.Load(); err != nil {
-		utils.Info("未找到.env文件，使用默认配置")
+		log.Fatal("未找到.env文件，使用默认配置:", err)
+	}
+
+	// 初始化日志系统（在加载环境变量之后）
+	if err := utils.InitLogger(); err != nil {
+		log.Fatal("初始化日志系统失败:", err)
 	}
 
 	// 初始化时区设置

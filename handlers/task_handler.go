@@ -267,8 +267,7 @@ func (h *TaskHandler) GetTasks(c *gin.Context) {
 		pageSize = 10
 	}
 
-	utils.Debug("GetTasks: 获取任务列表 page=%d, pageSize=%d, taskType=%s, status=%s", page, pageSize, taskType, status)
-
+	
 	// 获取任务列表
 	tasks, total, err := h.repoMgr.TaskRepository.GetList(page, pageSize, taskType, status)
 	if err != nil {
@@ -277,13 +276,11 @@ func (h *TaskHandler) GetTasks(c *gin.Context) {
 		return
 	}
 
-	utils.Debug("GetTasks: 从数据库获取到 %d 个任务", len(tasks))
-
+	
 	// 获取任务运行状态
 	var taskList []gin.H
 	for _, task := range tasks {
 		isRunning := h.taskManager.IsTaskRunning(task.ID)
-		utils.Debug("GetTasks: 任务 %d (%s) 数据库状态: %s, TaskManager运行状态: %v", task.ID, task.Title, task.Status, isRunning)
 
 		taskList = append(taskList, gin.H{
 			"id":              task.ID,

@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 
+	"github.com/ctwj/urldb/utils"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -150,54 +150,54 @@ func (c *OpenAIClient) Chat(messages []openai.ChatCompletionMessage, options ...
 	}
 
 	// 添加调试日志
-	log.Printf("[OpenAI] 发送请求 - Model: %s, Messages: %d, Functions: %d",
+	utils.Debug("[AI] OpenAI请求 - Model: %s, Messages: %d, Functions: %d",
 		request.Model, len(request.Messages), len(request.Functions))
 
 	if len(request.Functions) > 0 {
 		for i, fn := range request.Functions {
-			log.Printf("[OpenAI] Function %d: %s - %s", i, fn.Name, fn.Description)
+			utils.Debug("[AI] Function %d: %s - %s", i, fn.Name, fn.Description)
 		}
 	}
 
 	// 记录 FunctionCall 设置
 	if request.FunctionCall != "" {
-		log.Printf("[OpenAI] FunctionCall 设置: %s", request.FunctionCall)
+		utils.Debug("[OpenAI] FunctionCall 设置: %s", request.FunctionCall)
 	}
 
 	// 详细的请求参数调试信息
-	log.Printf("[OpenAI] 请求参数详情:")
-	log.Printf("  Model: %s", request.Model)
-	log.Printf("  MaxTokens: %d", request.MaxTokens)
-	log.Printf("  Temperature: %.2f", request.Temperature)
-	log.Printf("  TopP: %.2f", request.TopP)
-	log.Printf("  FunctionCall: %v", request.FunctionCall)
-	log.Printf("  Stream: %v", request.Stream)
-	log.Printf("  N: %d", request.N)
+	utils.Debug("[AI] 请求参数详情:")
+	utils.Debug("[AI]   Model: %s", request.Model)
+	utils.Debug("  MaxTokens: %d", request.MaxTokens)
+	utils.Debug("  Temperature: %.2f", request.Temperature)
+	utils.Debug("  TopP: %.2f", request.TopP)
+	utils.Debug("  FunctionCall: %v", request.FunctionCall)
+	utils.Debug("  Stream: %v", request.Stream)
+	utils.Debug("  N: %d", request.N)
 
 	// 完整的请求调试信息
-	log.Printf("=== [OpenAI] 完整API请求数据 ===")
+	utils.Debug("[AI] === 完整API请求数据 ===")
 	if requestJSON, err := json.MarshalIndent(request, "", "  "); err == nil {
-		log.Printf("完整请求JSON:\n%s", string(requestJSON))
+		utils.Debug("[AI] 完整请求JSON:\n%s", string(requestJSON))
 	} else {
-		log.Printf("序列化请求JSON失败: %v", err)
+		utils.Debug("序列化请求JSON失败: %v", err)
 	}
-	log.Printf("==============================")
+	utils.Debug("==============================")
 
 	resp, err := c.client.CreateChatCompletion(context.Background(), request)
 	if err != nil {
-		log.Printf("[OpenAI] 请求失败: %v", err)
+		utils.Debug("[OpenAI] 请求失败: %v", err)
 		return nil, err
 	}
 
 	// 记录响应
 	if len(resp.Choices) > 0 {
 		choice := resp.Choices[0]
-		log.Printf("[OpenAI] 收到响应 - FinishReason: %s", choice.FinishReason)
-		log.Printf("[OpenAI] 响应内容: %s", choice.Message.Content)
+		utils.Debug("[OpenAI] 收到响应 - FinishReason: %s", choice.FinishReason)
+		utils.Debug("[OpenAI] 响应内容: %s", choice.Message.Content)
 		if choice.Message.FunctionCall != nil {
-			log.Printf("[OpenAI] AI 调用了函数: %s, 参数: %s", choice.Message.FunctionCall.Name, choice.Message.FunctionCall.Arguments)
+			utils.Debug("[OpenAI] AI 调用了函数: %s, 参数: %s", choice.Message.FunctionCall.Name, choice.Message.FunctionCall.Arguments)
 		} else {
-			log.Printf("[OpenAI] AI 没有调用函数")
+			utils.Debug("[OpenAI] AI 没有调用函数")
 		}
 	}
 
@@ -249,7 +249,7 @@ func WithFunctions(functions []openai.FunctionDefinition) ChatOption {
 			req.Functions = functions
 			// 设置 FunctionCall 为 auto，让 AI 自动决定是否使用函数
 			req.FunctionCall = "auto"
-			log.Printf("[OpenAI] 设置了 %d 个函数，FunctionCall: auto", len(functions))
+			utils.Debug("[OpenAI] 设置了 %d 个函数，FunctionCall: auto", len(functions))
 		}
 	}
 }

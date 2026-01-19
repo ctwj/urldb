@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"sync"
@@ -181,7 +180,7 @@ func (m *MCPManager) LoadConfig(configFile string) error {
 			// 自动启动配置
 			if serverConfig.AutoStart {
 				if err := m.StartClient(name); err != nil {
-					fmt.Printf("自动启动 MCP 服务器 %s 失败: %v\n", name, err)
+					utils.Info("自动启动 MCP 服务器 %s 失败: %v\n", name, err)
 					m.services[name].Status = "error"
 					m.services[name].LastError = err.Error()
 				}
@@ -257,12 +256,12 @@ func (m *MCPManager) StartClient(name string) error {
 
 	config, exists := m.configs[name]
 	if !exists {
-		log.Printf("MCP 启动失败: 服务器配置 %s 未找到", name)
+		utils.Debug("MCP 启动失败: 服务器配置 %s 未找到", name)
 		return fmt.Errorf("MCP 服务器 %s 未找到", name)
 	}
 
-	log.Printf("开始启动 MCP 服务器: %s", name)
-	log.Printf("配置 - 命令: %s, 参数: %v, 传输: %s", config.Command, config.Args, config.Transport)
+	utils.Info("[MCP] 启动服务器: %s", name)
+	utils.Debug("[MCP] 配置 - 命令: %s, 参数: %v, 传输: %s", config.Command, config.Args, config.Transport)
 
 	// 创建上下文 - 用于初始化，工具调用时会使用单独的context
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -277,7 +276,7 @@ func (m *MCPManager) StartClient(name string) error {
 		// 使用 config.Command 作为命令，config.Args 作为参数
 		if config.Command == "" {
 			cancel()
-			log.Printf("MCP 启动失败: stdio 传输需要指定 command")
+			utils.Debug("MCP 启动失败: stdio 传输需要指定 command")
 			return fmt.Errorf("stdio 传输需要指定 command")
 		}
 
@@ -288,19 +287,19 @@ func (m *MCPManager) StartClient(name string) error {
 		if runtime.GOOS == "windows" {
 			// 检查命令是否为npx，如果是，使用npm.cmd exec绕过执行策略
 			if command == "npx" {
-				log.Printf("检测到Windows系统和npx命令，尝试使用npm.cmd exec")
-				log.Printf("原始命令: %s, 参数: %v", command, cmdArgs)
+				utils.Debug("检测到Windows系统和npx命令，尝试使用npm.cmd exec")
+				utils.Debug("原始命令: %s, 参数: %v", command, cmdArgs)
 
 				// 使用npm.cmd exec作为包装器
 				newArgs := []string{"exec", "npx", "--", cmdArgs[0]}
 				newArgs = append(newArgs, cmdArgs[1:]...)
-				log.Printf("修改后的命令: npm.cmd, 参数: %v", newArgs)
+				utils.Debug("修改后的命令: npm.cmd, 参数: %v", newArgs)
 
 				// 设置环境变量
 				env := os.Environ()
 				for k, v := range config.Env {
 					env = append(env, fmt.Sprintf("%s=%s", k, v))
-					log.Printf("设置环境变量: %s=%s", k, v)
+					utils.Debug("设置环境变量: %s=%s", k, v)
 				}
 
 				// 使用 NewStdioMCPClientWithOptions 创建客户端（自动启动子进程）
@@ -308,17 +307,17 @@ func (m *MCPManager) StartClient(name string) error {
 				mcpClient, err = client.NewStdioMCPClientWithOptions("npm.cmd", env, newArgs)
 				if err != nil {
 					cancel()
-					log.Printf("MCP 启动失败: 创建客户端失败 - %v", err)
+					utils.Debug("MCP 启动失败: 创建客户端失败 - %v", err)
 					return fmt.Errorf("创建客户端失败: %v", err)
 				}
 			} else {
-				log.Printf("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
+				utils.Debug("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
 
 				// 设置环境变量
 				env := os.Environ()
 				for k, v := range config.Env {
 					env = append(env, fmt.Sprintf("%s=%s", k, v))
-					log.Printf("设置环境变量: %s=%s", k, v)
+					utils.Debug("设置环境变量: %s=%s", k, v)
 				}
 
 				// 使用 NewStdioMCPClientWithOptions 创建客户端（自动启动子进程）
@@ -326,18 +325,18 @@ func (m *MCPManager) StartClient(name string) error {
 				mcpClient, err = client.NewStdioMCPClientWithOptions(command, env, cmdArgs)
 				if err != nil {
 					cancel()
-					log.Printf("MCP 启动失败: 创建客户端失败 - %v", err)
+					utils.Debug("MCP 启动失败: 创建客户端失败 - %v", err)
 					return fmt.Errorf("创建客户端失败: %v", err)
 				}
 			}
 		} else {
-			log.Printf("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
+			utils.Debug("创建 stdio 传输 - 命令: %s, 参数: %v", command, cmdArgs)
 
 			// 设置环境变量
 			env := os.Environ()
 			for k, v := range config.Env {
 				env = append(env, fmt.Sprintf("%s=%s", k, v))
-				log.Printf("设置环境变量: %s=%s", k, v)
+				utils.Debug("设置环境变量: %s=%s", k, v)
 			}
 
 			// 使用 NewStdioMCPClientWithOptions 创建客户端（自动启动子进程）
@@ -345,7 +344,7 @@ func (m *MCPManager) StartClient(name string) error {
 			mcpClient, err = client.NewStdioMCPClientWithOptions(command, env, cmdArgs)
 			if err != nil {
 				cancel()
-				log.Printf("MCP 启动失败: 创建客户端失败 - %v", err)
+				utils.Debug("MCP 启动失败: 创建客户端失败 - %v", err)
 				return fmt.Errorf("创建客户端失败: %v", err)
 			}
 		}
@@ -357,23 +356,23 @@ func (m *MCPManager) StartClient(name string) error {
 		}
 		if endpoint == "" {
 			cancel()
-			log.Printf("MCP 启动失败: HTTP/HTTPS 传输需要指定 endpoint")
+			utils.Debug("MCP 启动失败: HTTP/HTTPS 传输需要指定 endpoint")
 			return fmt.Errorf("HTTP/HTTPS 传输需要指定 endpoint")
 		}
 		
-		log.Printf("创建 HTTP/HTTPS 传输 - 端点: %s", endpoint)
+		utils.Debug("创建 HTTP/HTTPS 传输 - 端点: %s", endpoint)
 		
 		// 使用 NewStreamableHttpClient 连接到远程MCP服务
 		var err error
 		var options []transport.StreamableHTTPCOption
 		if len(config.Headers) > 0 {
 			options = append(options, transport.WithHTTPHeaders(config.Headers))
-			log.Printf("使用自定义 headers: %v", config.Headers)
+			utils.Debug("使用自定义 headers: %v", config.Headers)
 		}
 		mcpClient, err = client.NewStreamableHttpClient(endpoint, options...)
 		if err != nil {
 			cancel()
-			log.Printf("MCP 启动失败: 创建HTTP客户端失败 - %v", err)
+			utils.Debug("MCP 启动失败: 创建HTTP客户端失败 - %v", err)
 			return fmt.Errorf("创建HTTP客户端失败: %v", err)
 		}
 	case "sse":
@@ -384,38 +383,38 @@ func (m *MCPManager) StartClient(name string) error {
 		}
 		if endpoint == "" {
 			cancel()
-			log.Printf("MCP 启动失败: SSE 传输需要指定 endpoint")
+			utils.Debug("MCP 启动失败: SSE 传输需要指定 endpoint")
 			return fmt.Errorf("SSE 传输需要指定 endpoint")
 		}
 		
-		log.Printf("创建 SSE 传输 - 端点: %s", endpoint)
+		utils.Debug("创建 SSE 传输 - 端点: %s", endpoint)
 		
 		// 使用 NewSSEMCPClient 连接到远程MCP服务
 		var err error
 		mcpClient, err = client.NewSSEMCPClient(endpoint)
 		if err != nil {
 			cancel()
-			log.Printf("MCP 启动失败: 创建SSE客户端失败 - %v", err)
+			utils.Debug("MCP 启动失败: 创建SSE客户端失败 - %v", err)
 			return fmt.Errorf("创建SSE客户端失败: %v", err)
 		}
 	default:
 		cancel()
-		log.Printf("MCP 启动失败: 不支持的传输类型: %s", config.Transport)
+		utils.Debug("MCP 启动失败: 不支持的传输类型: %s", config.Transport)
 		return fmt.Errorf("不支持的传输类型: %s", config.Transport)
 	}
 
 	// 启动客户端
 	// 注意：NewStdioMCPClientWithOptions 已经启动了子进程，但 client.Start() 仍然需要调用以完成客户端初始化
-	log.Printf("正在启动 MCP 客户端...")
+	utils.Debug("正在启动 MCP 客户端...")
 	if err := mcpClient.Start(ctx); err != nil {
 		cancel()
-		log.Printf("MCP 启动失败: 客户端启动失败 - %v", err)
+		utils.Debug("MCP 启动失败: 客户端启动失败 - %v", err)
 		return fmt.Errorf("启动MCP客户端失败: %v", err)
 	}
-	log.Printf("MCP 客户端启动成功")
+	utils.Debug("MCP 客户端启动成功")
 
 	// 初始化客户端
-	log.Printf("正在初始化 MCP 客户端...")
+	utils.Debug("正在初始化 MCP 客户端...")
 	initRequest := mcp.InitializeRequest{}
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	initRequest.Params.ClientInfo = mcp.Implementation{
@@ -428,32 +427,32 @@ func (m *MCPManager) StartClient(name string) error {
 	if err != nil {
 		mcpClient.Close()
 		cancel()
-		log.Printf("MCP 启动失败: 客户端初始化失败 - %v", err)
+		utils.Debug("MCP 启动失败: 客户端初始化失败 - %v", err)
 		return fmt.Errorf("初始化MCP客户端失败: %v", err)
 	}
 
-	log.Printf("MCP 服务器 %s 连接成功: %s (版本 %s)",
+	utils.Debug("MCP 服务器 %s 连接成功: %s (版本 %s)",
 		name, serverInfo.ServerInfo.Name, serverInfo.ServerInfo.Version)
 
 	// 获取工具列表
 	var tools []mcp.Tool
 	if serverInfo.Capabilities.Tools != nil {
-		log.Printf("服务器支持工具，正在获取工具列表...")
+		utils.Debug("服务器支持工具，正在获取工具列表...")
 		toolsRequest := mcp.ListToolsRequest{}
 		toolsResult, err := mcpClient.ListTools(ctx, toolsRequest)
 		if err != nil {
-			log.Printf("获取工具列表失败: %v，使用默认工具", err)
+			utils.Debug("获取工具列表失败: %v，使用默认工具", err)
 			// 如果获取真实工具失败，使用默认工具
 			tools = getDefaultTools(name)
 		} else {
 			tools = toolsResult.Tools
-			log.Printf("成功获取到 %d 个真实工具", len(tools))
+			utils.Debug("成功获取到 %d 个真实工具", len(tools))
 			for i, tool := range tools {
-				log.Printf("工具 %d: %s - %s", i+1, tool.Name, tool.Description)
+				utils.Debug("工具 %d: %s - %s", i+1, tool.Name, tool.Description)
 			}
 		}
 	} else {
-		log.Printf("服务器不支持工具，使用默认工具")
+		utils.Debug("服务器不支持工具，使用默认工具")
 		// 如果服务器不支持工具，使用默认工具
 		tools = getDefaultTools(name)
 	}
@@ -505,7 +504,7 @@ func (m *MCPManager) StartClient(name string) error {
 		serviceStatus.Tools = tools
 	}
 
-	fmt.Printf("MCP 服务器 %s 启动成功\n", name)
+	utils.Info("MCP 服务器 %s 启动成功\n", name)
 	return nil
 }
 
@@ -544,7 +543,7 @@ func (m *MCPManager) StopClient(name string) error {
 		serviceStatus.Tools = []Tool{} // 清空工具列表，因为服务已停止
 	}
 
-	fmt.Printf("MCP 服务器 %s 已停止\n", name)
+	utils.Info("MCP 服务器 %s 已停止\n", name)
 	return nil
 }
 
@@ -686,13 +685,13 @@ func (m *MCPManager) CheckServiceHealth(serviceName string) bool {
 
 	client, exists := m.clients[serviceName]
 	if !exists {
-		log.Printf("[MCP] 服务 %s 未找到", serviceName)
+		utils.Debug("[MCP] 服务 %s 未找到", serviceName)
 		return false
 	}
 
 	// 检查客户端是否已初始化
 	if client.MCPCli == nil {
-		log.Printf("[MCP] 服务 %s 的客户端未初始化", serviceName)
+		utils.Debug("[MCP] 服务 %s 的客户端未初始化", serviceName)
 		return false
 	}
 
@@ -702,7 +701,7 @@ func (m *MCPManager) CheckServiceHealth(serviceName string) bool {
 // RestartClient 重启MCP客户端
 func (m *MCPManager) RestartClient(name string) error {
 	if err := m.StopClient(name); err != nil {
-		fmt.Printf("停止 MCP 客户端 %s 时出错: %v\n", name, err)
+		utils.Info("停止 MCP 客户端 %s 时出错: %v\n", name, err)
 	}
 	return m.StartClient(name)
 }
@@ -856,7 +855,7 @@ func (m *MCPManager) ReloadConfig(configContent string) error {
 	for name := range currentServices {
 		if !newServices[name] {
 			if err := m.stopClientUnsafe(name); err != nil {
-				fmt.Printf("停止服务 %s 时出错: %v\n", name, err)
+				utils.Info("停止服务 %s 时出错: %v\n", name, err)
 			}
 			// 同时从服务状态映射中删除该服务
 			delete(m.services, name)
@@ -872,16 +871,16 @@ func (m *MCPManager) ReloadConfig(configContent string) error {
 			if currentServices[name] {
 				// 服务已存在，重启它
 				if err := m.stopClientUnsafe(name); err != nil {
-					fmt.Printf("停止服务 %s 时出错: %v\n", name, err)
+					utils.Info("停止服务 %s 时出错: %v\n", name, err)
 				}
 			}
 			if err := m.startClientUnsafe(name); err != nil {
-				fmt.Printf("启动服务 %s 时出错: %v\n", name, err)
+				utils.Info("启动服务 %s 时出错: %v\n", name, err)
 			}
 		}
 	}
 
-	fmt.Printf("MCP配置已动态重新加载，当前运行的服务: %v\n", m.ListServices())
+	utils.Info("MCP配置已动态重新加载，当前运行的服务: %v\n", m.ListServices())
 	return nil
 }
 
@@ -922,7 +921,7 @@ func (m *MCPManager) startClientUnsafe(name string) error {
 	}
 	m.toolReg.Register(name, tool)
 
-	fmt.Printf("MCP 服务器 %s 已启动\n", name)
+	utils.Info("MCP 服务器 %s 已启动\n", name)
 	return nil
 }
 
@@ -934,6 +933,6 @@ func (m *MCPManager) stopClientUnsafe(name string) error {
 	}
 
 	delete(m.clients, name)
-	fmt.Printf("MCP 服务器 %s 已停止\n", name)
+	utils.Info("MCP 服务器 %s 已停止\n", name)
 	return nil
 }

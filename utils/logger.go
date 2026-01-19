@@ -40,6 +40,24 @@ func (l LogLevel) String() string {
 	}
 }
 
+// ParseLogLevel 从字符串解析日志级别
+func ParseLogLevel(level string) LogLevel {
+	switch strings.ToUpper(level) {
+	case "DEBUG":
+		return DEBUG
+	case "INFO":
+		return INFO
+	case "WARN", "WARNING":
+		return WARN
+	case "ERROR":
+		return ERROR
+	case "FATAL":
+		return FATAL
+	default:
+		return INFO // 默认INFO级别
+	}
+}
+
 // Logger 简化的日志器
 type Logger struct {
 	level  LogLevel
@@ -57,8 +75,14 @@ var (
 func InitLogger() error {
 	var err error
 	loggerOnce.Do(func() {
+		// 从环境变量读取日志级别，默认INFO
+		logLevel := INFO
+		if levelStr := os.Getenv("LOG_LEVEL"); levelStr != "" {
+			logLevel = ParseLogLevel(levelStr)
+		}
+
 		globalLogger = &Logger{
-			level:  INFO,
+			level:  logLevel,
 			logger: log.New(os.Stdout, "", log.LstdFlags),
 		}
 

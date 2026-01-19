@@ -28,11 +28,8 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		clientIP := c.ClientIP()
-		userAgent := c.Request.UserAgent()
 
-		utils.Debug("AuthMiddleware - 认证请求: %s %s, IP: %s, UserAgent: %s",
-			c.Request.Method, c.Request.URL.Path, clientIP, userAgent)
-
+	
 		if authHeader == "" {
 			// utils.Warn("AuthMiddleware - 未提供认证令牌 - IP: %s, Path: %s", clientIP, c.Request.URL.Path)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未提供认证令牌"})
@@ -49,8 +46,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		utils.Debug("AuthMiddleware - 解析令牌: %s...", tokenString[:utils.Min(len(tokenString), 10)])
-
+		
 		claims, err := parseToken(tokenString)
 		if err != nil {
 			utils.Warn("AuthMiddleware - 令牌解析失败 - IP: %s, Error: %v", clientIP, err)
@@ -92,8 +88,7 @@ func AdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		utils.Debug("AdminMiddleware - 管理员访问接口 - 用户: %s, IP: %s, Path: %s", username, clientIP, c.Request.URL.Path)
-		c.Next()
+				c.Next()
 	}
 }
 
