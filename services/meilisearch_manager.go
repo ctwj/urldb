@@ -789,7 +789,7 @@ func (m *MeilisearchManager) checkHealth() {
 		return
 	}
 
-	utils.Debug("开始检查Meilisearch健康状态")
+	// utils.Debug("开始检查Meilisearch健康状态")
 
 	if err := m.service.HealthCheck(); err != nil {
 		m.status.Healthy = false

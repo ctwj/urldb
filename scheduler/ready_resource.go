@@ -92,7 +92,7 @@ func (r *ReadyResourceScheduler) IsReadyResourceRunning() bool {
 
 // processReadyResources 处理待处理资源
 func (r *ReadyResourceScheduler) processReadyResources() {
-	utils.Debug("开始处理待处理资源...")
+	// utils.Debug("开始处理待处理资源...")
 
 	// 检查系统配置，确认是否启用自动处理
 	autoProcess, err := r.systemConfigRepo.GetConfigBool(entity.ConfigKeyAutoProcessReadyResources)

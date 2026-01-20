@@ -85,7 +85,7 @@ func (m *MeilisearchService) HealthCheck() error {
 		return fmt.Errorf("Meilisearch未启用")
 	}
 
-	utils.Debug("开始Meilisearch健康检查")
+	// utils.Debug("开始Meilisearch健康检查")
 
 	// 使用官方SDK的健康检查
 	_, err := m.client.Health()
@@ -561,7 +561,7 @@ func (m *MeilisearchService) DeleteDocument(documentID uint) error {
 		return fmt.Errorf("Meilisearch未启用")
 	}
 
-	utils.Debug("开始删除Meilisearch文档 - ID: %d", documentID)
+	// utils.Debug("开始删除Meilisearch文档 - ID: %d", documentID)
 
 	// 删除单个文档
 	documentIDStr := fmt.Sprintf("%d", documentID)

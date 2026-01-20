@@ -287,9 +287,9 @@
                       <n-button @click="loadMCPConfig" :loading="loadingMCPConfig" size="small">
                         重新加载
                       </n-button>
-                      <n-button @click="validateMCPConfig" type="info" size="small" :loading="validatingMCPConfig">
+                      <!-- <n-button @click="validateMCPConfig" type="info" size="small" :loading="validatingMCPConfig">
                         验证配置
-                      </n-button>
+                      </n-button> -->
                       <n-button type="primary" size="small" @click="saveMCPConfig" :loading="savingMCPConfig" :disabled="!mcpConfigValid">
                         保存
                       </n-button>
@@ -298,13 +298,12 @@
                   </div>
 
                   <!-- JSON 编辑器组件 -->
-                  <div class="flex-1 border rounded-lg overflow-hidden">
-                    <JsonEditorSimple
+                  <div class="flex-1 border rounded-lg overflow-hidden" style="height:calc(100% - 40px)">
+                    <MCPJsonEditor
                       v-model="mcpConfigContent"
                       @validate="onEditorValidate"
                       @change="onEditorChange"
-                      :min-height="'350px'"
-                      :style="{ height: '350px', maxHeight: '350px' }"
+                      height="100%"
                     />
                   </div>
                   <div class="text-sm text-gray-600 dark:text-gray-400 absolute bottom-2 right-2 z-50" size="small">
@@ -670,7 +669,7 @@ definePageMeta({
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
 import { useAIApi, useMCPApi } from '~/composables/useApi'
-import JsonEditorSimple from '~/components/JsonEditorSimple.vue'
+import MCPJsonEditor from '~/components/MCPJsonEditor.vue'
 import AIChatModal from '~/components/AIChatModal.vue'
 import PromptManager from '~/components/PromptManager.vue'
 
@@ -1055,6 +1054,34 @@ const loadMCPConfig = async () => {
   }
 }
 
+// 从配置内容中提取服务名称
+const getConfigServicesFromContent = (configContent: string): string[] => {
+  try {
+    const config = JSON.parse(configContent)
+    if (config.mcpServers && typeof config.mcpServers === 'object') {
+      return Object.keys(config.mcpServers)
+    }
+  } catch (error) {
+    console.warn('解析配置内容失败:', error)
+  }
+  return []
+}
+
+// 从配置内容中提取自动启动的服务名称
+const getAutoStartServicesFromContent = (configContent: string): string[] => {
+  try {
+    const config = JSON.parse(configContent)
+    if (config.mcpServers && typeof config.mcpServers === 'object') {
+      return Object.keys(config.mcpServers).filter(name =>
+        config.mcpServers[name].enabled && config.mcpServers[name].auto_start
+      )
+    }
+  } catch (error) {
+    console.warn('解析配置内容失败:', error)
+  }
+  return []
+}
+
 // 获取MCP服务状态
 const loadMCPStatus = async () => {
   try {
@@ -1254,21 +1281,68 @@ const saveMCPConfig = async () => {
     await loadMCPConfig()
     console.log('配置重新加载完成')
 
-    // 等待一段时间让后端处理配置更新
-    console.log('等待后端处理配置更新...')
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // 等待后端处理配置更新和服务启动，使用轮询机制确保服务状态同步
+    console.log('等待后端处理配置更新和服务启动...')
+    let retryCount = 0
+    const maxRetries = 10
+    let servicesLoaded = false
 
-    // 刷新服务状态列表
-    console.log('刷新服务状态列表...')
-    await loadMCPStatus()
-    console.log('服务状态列表已刷新')
+    while (retryCount < maxRetries && !servicesLoaded) {
+      await new Promise(resolve => setTimeout(resolve, 2000)) // 每次等待2秒
+
+      try {
+        // 刷新服务状态列表
+        console.log(`第 ${retryCount + 1} 次尝试刷新服务状态列表...`)
+        await loadMCPStatus()
+
+        // 检查服务列表是否与配置文件同步
+        const configServices = getConfigServicesFromContent(mcpConfigContent.value)
+        const currentServices = mcpServices.value.map(s => s.name)
+
+        // 检查配置中的服务是否都在当前列表中（或已正确移除）
+        const configMissing = configServices.filter(name => !currentServices.includes(name))
+        const currentExtra = currentServices.filter(name => !configServices.includes(name))
+
+        // 检查服务状态是否合理（至少应该显示在列表中，不管运行状态如何）
+        const hasValidServices = mcpServices.value.length > 0 || configServices.length === 0
+
+        if (configMissing.length === 0 && currentExtra.length === 0 && hasValidServices) {
+          servicesLoaded = true
+          console.log('服务状态列表已同步')
+
+          // 检查自动启动的服务是否正在运行
+          const autoStartServices = getAutoStartServicesFromContent(mcpConfigContent.value)
+          const runningServices = mcpServices.value.filter(s => s.connected || s.status === 'running').map(s => s.name)
+          const stoppedServices = autoStartServices.filter(name => !runningServices.includes(name))
+
+          if (stoppedServices.length > 0) {
+            console.log(`注意：以下自动启动服务尚未运行: [${stoppedServices.join(', ')}]`)
+          }
+        } else {
+          console.log(`服务未完全同步，配置中缺失: [${configMissing.join(', ')}], 当前多余: [${currentExtra.join(', ')}], 当前服务数: ${mcpServices.value.length}`)
+        }
+      } catch (error) {
+        console.warn(`刷新服务状态失败:`, error)
+      }
+
+      retryCount++
+    }
+
+    if (!servicesLoaded) {
+      console.warn('服务状态同步可能未完全完成，请检查配置')
+      notification.warning({
+        content: 'MCP服务列表可能需要手动刷新页面以完全同步',
+        duration: 5000
+      })
+    }
 
     // 显示成功消息
     notification.success({
-      content: `MCP服务列表已更新，发现 ${mcpServices.value.length} 个服务`,
+      content: `MCP配置保存成功，发现 ${mcpServices.value.length} 个服务`,
       duration: 3000
     })
 
+    
   } catch (error) {
     console.error('保存MCP配置失败:', error)
     notification.error({
@@ -1379,10 +1453,13 @@ const copyToClipboard = async (text: string, description: string = '配置') => 
 }
 
 // 编辑器验证事件处理
-const onEditorValidate = (isValid: boolean, error?: string) => {
+const onEditorValidate = (isValid: boolean, errors?: string[], warnings?: string[]) => {
   mcpConfigValid.value = isValid
-  if (error) {
-    console.log('JSON验证错误:', error)
+  if (errors && errors.length > 0) {
+    console.log('MCP配置验证错误:', errors)
+  }
+  if (warnings && warnings.length > 0) {
+    console.log('MCP配置警告:', warnings)
   }
 }
 

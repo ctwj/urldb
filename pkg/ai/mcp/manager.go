@@ -165,8 +165,10 @@ func (m *MCPManager) LoadConfig(configFile string) error {
 	}
 
 	// 加载启用的服务器配置
+	enabledCount := 0
 	for name, serverConfig := range config.MCPServers {
 		if serverConfig.Enabled {
+			enabledCount++
 			m.configs[name] = serverConfig
 
 			// 初始化服务状态
@@ -180,7 +182,7 @@ func (m *MCPManager) LoadConfig(configFile string) error {
 			// 自动启动配置
 			if serverConfig.AutoStart {
 				if err := m.StartClient(name); err != nil {
-					utils.Info("自动启动 MCP 服务器 %s 失败: %v\n", name, err)
+					utils.Error("自动启动 MCP 服务器 %s 失败: %v", name, err)
 					m.services[name].Status = "error"
 					m.services[name].LastError = err.Error()
 				}
@@ -720,6 +722,7 @@ func (m *MCPManager) UpdateConfigFileContent(content string) error {
 	// 验证JSON格式
 	var configData map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &configData); err != nil {
+		utils.Error("配置JSON格式错误: %v", err)
 		return fmt.Errorf("配置JSON格式错误: %v", err)
 	}
 
@@ -729,15 +732,18 @@ func (m *MCPManager) UpdateConfigFileContent(content string) error {
 		// 原文件存在，创建备份
 		originalData, err := os.ReadFile(m.configPath)
 		if err != nil {
+			utils.Error("读取原配置文件失败: %v", err)
 			return fmt.Errorf("读取原配置文件失败: %v", err)
 		}
 		if err := os.WriteFile(backupPath, originalData, 0644); err != nil {
+			utils.Error("创建备份文件失败: %v", err)
 			return fmt.Errorf("创建备份文件失败: %v", err)
 		}
 	}
 
 	// 写入新配置
 	if err := os.WriteFile(m.configPath, []byte(content), 0644); err != nil {
+		utils.Error("更新配置文件失败: %v", err)
 		// 如果写入失败，尝试恢复备份
 		if _, backupErr := os.Stat(backupPath); backupErr == nil {
 			originalData, _ := os.ReadFile(backupPath)
@@ -749,6 +755,7 @@ func (m *MCPManager) UpdateConfigFileContent(content string) error {
 	// 验证新配置是否可以加载
 	tempManager := NewMCPManagerWithConfigPath(m.configPath)
 	if err := tempManager.LoadConfig(m.configPath); err != nil {
+		utils.Error("新配置文件无法加载: %v", err)
 		// 配置加载失败，恢复备份
 		if _, backupErr := os.Stat(backupPath); backupErr == nil {
 			originalData, _ := os.ReadFile(backupPath)
@@ -757,20 +764,54 @@ func (m *MCPManager) UpdateConfigFileContent(content string) error {
 		}
 		return fmt.Errorf("新配置文件无法加载: %v", err)
 	}
+	utils.Info("MCP配置验证成功，发现 %d 个服务配置", len(tempManager.configs))
 
 	// 清理备份文件
 	os.Remove(backupPath)
 
 	// 如果当前配置已加载，重新加载配置
 	if len(m.configs) > 0 {
+		utils.Info("重新加载MCP配置...")
+
 		// 停止所有客户端
 		for name := range m.clients {
 			m.StopClient(name)
 		}
-		// 清空当前配置
+
+		// 清空当前配置和服务状态
 		m.configs = make(map[string]*MCPServerConfig)
+		m.services = make(map[string]*ServiceStatus)
+		m.toolReg = &ToolRegistry{
+			registry: make(map[string][]Tool),
+		}
+
 		// 重新加载配置
 		if err := m.LoadConfig(m.configPath); err != nil {
+			utils.Error("重新加载配置失败: %v", err)
+			return fmt.Errorf("重新加载配置失败: %v", err)
+		}
+
+		// 自动启动配置了 auto_start 的服务
+		autoStartCount := 0
+		for name, serverConfig := range m.configs {
+			if serverConfig.AutoStart && serverConfig.Enabled {
+				autoStartCount++
+				utils.Info("自动启动 MCP 服务: %s", name)
+				if err := m.StartClient(name); err != nil {
+					utils.Error("自动启动 MCP 服务 %s 失败: %v", name, err)
+					// 更新服务状态为错误
+					if serviceStatus, exists := m.services[name]; exists {
+						serviceStatus.Status = "error"
+						serviceStatus.LastError = err.Error()
+					}
+				}
+			}
+		}
+		utils.Info("MCP服务重新加载完成，启动了 %d 个服务", autoStartCount)
+	} else {
+		// 首次加载配置
+		if err := m.LoadConfig(m.configPath); err != nil {
+			utils.Error("首次加载配置失败: %v", err)
 			return fmt.Errorf("重新加载配置失败: %v", err)
 		}
 	}

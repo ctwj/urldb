@@ -310,10 +310,10 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 			if err != nil {
 				failedItems++
 				utils.ErrorWithFields(map[string]interface{}{
-		"task_item_id": item.ID,
-		"error":        err.Error(),
-		"duration_ms":  itemDuration.Milliseconds(),
-	}, "处理任务项 %d 失败: %v，耗时: %v", item.ID, err, itemDuration)
+					"task_item_id": item.ID,
+					"error":        err.Error(),
+					"duration_ms":  itemDuration.Milliseconds(),
+				}, "处理任务项 %d 失败: %v，耗时: %v", item.ID, err, itemDuration)
 			} else {
 				successItems++
 				utils.Info("处理任务项 %d 成功，耗时: %v", item.ID, itemDuration)
@@ -373,7 +373,7 @@ func (tm *TaskManager) processTask(ctx context.Context, task *entity.Task, proce
 // processTaskItem 处理单个任务项
 func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *entity.TaskItem, processor TaskProcessor) error {
 	itemStartTime := utils.GetCurrentTime()
-	utils.Debug("开始处理任务项: %d (任务ID: %d)", item.ID, taskID)
+	// utils.Debug("开始处理任务项: %d (任务ID: %d)", item.ID, taskID)
 
 	// 更新任务项状态为处理中
 	updateStart := utils.GetCurrentTime()
@@ -396,8 +396,8 @@ func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *e
 		utils.Error("处理任务项 %d 失败: %v，处理耗时: %v", item.ID, err, processDuration)
 
 		outputData := map[string]interface{}{
-			"error": err.Error(),
-			"time":  utils.GetCurrentTime(),
+			"error":       err.Error(),
+			"time":        utils.GetCurrentTime(),
 			"duration_ms": processDuration.Milliseconds(),
 		}
 		outputJSON, _ := json.Marshal(outputData)
@@ -416,8 +416,8 @@ func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *e
 	var outputJSON string
 	if item.OutputData == "" {
 		outputData := map[string]interface{}{
-			"success": true,
-			"time":    utils.GetCurrentTime(),
+			"success":     true,
+			"time":        utils.GetCurrentTime(),
 			"duration_ms": processDuration.Milliseconds(),
 		}
 		outputBytes, _ := json.Marshal(outputData)
@@ -433,9 +433,9 @@ func (tm *TaskManager) processTaskItem(ctx context.Context, taskID uint, item *e
 			// 如果无法解析现有输出，保留原样并添加时间信息
 			outputData := map[string]interface{}{
 				"original_output": item.OutputData,
-				"success": true,
-				"time":    utils.GetCurrentTime(),
-				"duration_ms": processDuration.Milliseconds(),
+				"success":         true,
+				"time":            utils.GetCurrentTime(),
+				"duration_ms":     processDuration.Milliseconds(),
 			}
 			outputBytes, _ := json.Marshal(outputData)
 			outputJSON = string(outputBytes)

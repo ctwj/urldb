@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"time"
+
 	"github.com/ctwj/urldb/utils"
 )
 
@@ -59,11 +60,11 @@ func (cc *CacheCleaner) Stop() {
 
 // cleanCache 执行缓存清理
 func (cc *CacheCleaner) cleanCache() {
-	utils.Debug("开始清理过期缓存")
+	// utils.Debug("开始清理过期缓存")
 
 	// 清理过期缓存（1小时TTL）
 	utils.CleanAllExpiredCaches(time.Hour)
-	utils.Debug("定期清理过期缓存完成")
+	// utils.Debug("定期清理过期缓存完成")
 
 	// 可以在这里添加其他缓存清理逻辑，比如：
 	// - 清理特定模式的缓存
