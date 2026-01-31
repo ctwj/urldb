@@ -183,7 +183,7 @@ export const validateMCPConfig = (config: any): { valid: boolean; errors: string
     }
 
     if (!config.mcpServers) {
-      errors.push('缺少必需的 mcpServers 字段')
+      errors.push('缺少必需的字段: mcpServers')
       return { valid: false, errors, warnings }
     }
 
@@ -201,7 +201,7 @@ export const validateMCPConfig = (config: any): { valid: boolean; errors: string
 
       // 验证传输类型
       if (!serverConfig.transport) {
-        errors.push(`服务器 "${serverName}" 缺少必需的 transport 字段`)
+        errors.push(`服务器 "${serverName}" 缺少必需的字段: transport`)
       } else if (!['stdio', 'http', 'https', 'sse'].includes(serverConfig.transport)) {
         errors.push(`服务器 "${serverName}" 的传输类型 "${serverConfig.transport}" 无效`)
       }
@@ -209,14 +209,14 @@ export const validateMCPConfig = (config: any): { valid: boolean; errors: string
       // 验证stdio配置
       if (serverConfig.transport === 'stdio') {
         if (!serverConfig.command) {
-          errors.push(`stdio传输的服务器 "${serverName}" 缺少必需的 command 字段`)
+          errors.push(`服务器 "${serverName}" 缺少必需的字段: command`)
         }
       }
 
       // 验证HTTP/SSE配置
       if (['http', 'https', 'sse'].includes(serverConfig.transport)) {
         if (!serverConfig.endpoint) {
-          errors.push(`${serverConfig.transport}传输的服务器 "${serverName}" 缺少必需的 endpoint 字段`)
+          errors.push(`服务器 "${serverName}" 缺少必需的字段: endpoint`)
         } else {
           try {
             new URL(serverConfig.endpoint)
@@ -230,12 +230,16 @@ export const validateMCPConfig = (config: any): { valid: boolean; errors: string
         }
       }
 
-      // 检查布尔值
-      if (typeof serverConfig.enabled !== 'boolean') {
+      // 检查必需的字段
+      if (serverConfig.enabled === undefined) {
+        errors.push(`服务器 "${serverName}" 缺少必需的字段: enabled`)
+      } else if (typeof serverConfig.enabled !== 'boolean') {
         warnings.push(`服务器 "${serverName}" 的 enabled 字段应该是布尔值`)
       }
 
-      if (typeof serverConfig.auto_start !== 'boolean') {
+      if (serverConfig.auto_start === undefined) {
+        errors.push(`服务器 "${serverName}" 缺少必需的字段: auto_start`)
+      } else if (typeof serverConfig.auto_start !== 'boolean') {
         warnings.push(`服务器 "${serverName}" 的 auto_start 字段应该是布尔值`)
       }
     })

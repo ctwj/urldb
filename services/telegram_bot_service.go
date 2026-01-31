@@ -150,7 +150,8 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 		case entity.ConfigKeyTelegramProxyPassword:
 			s.config.ProxyPassword = config.Value
 		default:
-			utils.Debug("未知Telegram配置: %s", config.Key)
+			// 忽略非Telegram相关的配置项，不输出调试信息
+			continue
 		}
 		configCount++
 	}
