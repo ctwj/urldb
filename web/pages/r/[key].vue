@@ -188,13 +188,16 @@
                   v-for="(resource, index) in resourcesData?.resources"
                   :key="resource.id"
                   class="relative flex items-center justify-between p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
-                  :class="resource.is_valid
-                    ? 'border-gray-200 dark:border-slate-600'
-                    : 'border-red-200 dark:border-red-400 bg-red-50/50 dark:bg-red-500/5'"
+                  :class="{
+                    'border-gray-200 dark:border-slate-600': detectionResults[resource.id] === undefined,
+                    'border-green-200 dark:border-green-400 bg-green-50/30 dark:bg-green-500/10': detectionResults[resource.id] === true,
+                    'border-red-200 dark:border-red-400 bg-red-50/30 dark:bg-red-500/10': detectionResults[resource.id] === false,
+                    'border-amber-200 dark:border-amber-400 bg-amber-50/20 dark:bg-amber-500/5': detectionMethods[resource.id] === 'unsupported'
+                  }"
                 >
                   <!-- 检测期间的遮罩层 -->
                   <div v-if="isDetecting && detectionResults[resource.id] === undefined"
-                       class="absolute inset-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl z-10 flex items-center justify-center">
+                       class="absolute inset-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl z-10 flex items-center justify-center">
                     <div class="flex flex-col items-center">
                       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                       <span class="mt-2 text-sm text-gray-600 dark:text-gray-300">检测中...</span>
@@ -235,13 +238,13 @@
                     <!-- 检测状态标签（放在最前面） - 只在检测后显示 -->
                     <div v-if="(detectionResults[resource.id] !== undefined) || (detectionMethods[resource.id] === 'unsupported')" class="flex items-center gap-1">
                       <!-- 检测方法标识 -->
-                      <span
+                      <!-- <span
                         class="px-1.5 py-0.5 rounded text-xs font-medium"
                         :class="getDetectionMethodClass(detectionMethods[resource.id])"
                         :title="getDetectionMethodTitle(detectionMethods[resource.id], resource)"
                       >
                         {{ getDetectionMethodLabel(detectionMethods[resource.id]) }}
-                      </span>
+                      </span> -->
 
                       <!-- 不支持检测的三角感叹号提示 -->
                       <span v-if="detectionMethods[resource.id] === 'unsupported'" class="text-amber-600 dark:text-amber-400" title="当前网盘暂不支持自动检测，建议您点击链接自行验证">

@@ -163,7 +163,7 @@ func GetResources(c *gin.Context) {
 
 		resourceResponse := gin.H{
 			"id":          processedResource.ID,
-			"key":         processedResource.Key, // 添加key字段
+			"key":         processedResource.Key,        // 添加key字段
 			"title":       forbiddenInfo.ProcessedTitle, // 使用处理后的标题
 			"url":         processedResource.URL,
 			"description": forbiddenInfo.ProcessedDesc, // 使用处理后的描述
@@ -225,9 +225,9 @@ func GetResourceByID(c *gin.Context) {
 	accessLog := map[string]interface{}{
 		"access_time": time.Now(),
 		"user_agent":  c.GetHeader("User-Agent"),
-		"ip":         c.ClientIP(),
-		"path":       c.Request.URL.Path,
-		"method":     c.Request.Method,
+		"ip":          c.ClientIP(),
+		"path":        c.Request.URL.Path,
+		"method":      c.Request.Method,
 	}
 
 	// 触发 URL 访问事件
@@ -361,7 +361,7 @@ func CreateResource(c *gin.Context) {
 	plugins.TriggerURLAdd(resource, map[string]interface{}{
 		"request_id": c.GetString("request_id"),
 		"user_agent": c.GetHeader("User-Agent"),
-		"ip":        c.ClientIP(),
+		"ip":         c.ClientIP(),
 	})
 
 	SuccessResponse(c, gin.H{
@@ -534,6 +534,8 @@ func SearchResources(c *gin.Context) {
 				filters["category"] = uint(id)
 			}
 		}
+
+		// 管理后台不过滤 is_valid，显示所有资源供管理
 
 		// 使用Meilisearch搜索
 		service := meilisearchManager.GetService()
@@ -1005,10 +1007,10 @@ func GetHotResources(c *gin.Context) {
 		// 转换为正确的类型
 		if data, ok := cachedData.([]gin.H); ok {
 			SuccessResponse(c, gin.H{
-				"data":    data,
-				"total":   len(data),
-				"limit":   limit,
-				"cached":  true,
+				"data":   data,
+				"total":  len(data),
+				"limit":  limit,
+				"cached": true,
 			})
 		}
 		return
@@ -1082,17 +1084,17 @@ func GetHotResources(c *gin.Context) {
 	c.Header("ETag", fmt.Sprintf("hot-resources-%d", len(resourceResponses)))
 
 	SuccessResponse(c, gin.H{
-		"data":    resourceResponses,
-		"total":   len(resourceResponses),
-		"limit":   limit,
-		"cached":  false,
+		"data":   resourceResponses,
+		"total":  len(resourceResponses),
+		"limit":  limit,
+		"cached": false,
 	})
 }
 
 // GetRelatedResources 获取相关资源
 func GetRelatedResources(c *gin.Context) {
 	// 获取查询参数
-	key := c.Query("key")                   // 当前资源的key
+	key := c.Query("key") // 当前资源的key
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "8"))
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 
@@ -1302,21 +1304,7 @@ func CheckResourceValidity(c *gin.Context) {
 		return
 	}
 
-	utils.Info("开始检测资源有效性 - ID: %d, URL: %s", resource.ID, resource.URL)
-
-	// 检查缓存
-	cacheKey := fmt.Sprintf("resource_validity_%d", resource.ID)
-	cacheManager := utils.GetResourceValidityCache()
-	ttl := 5 * time.Minute // 5分钟缓存
-
-	if cachedData, found := cacheManager.Get(cacheKey, ttl); found {
-		if result, ok := cachedData.(gin.H); ok {
-			utils.Info("使用资源有效性缓存 - ID: %d", resource.ID)
-			result["cached"] = true
-			SuccessResponse(c, result)
-			return
-		}
-	}
+	utils.Info("开始检测资源有效性 - ID: %d, URL: %s", resource.ID)
 
 	// 执行检测：只使用深度检测实现
 	isValid, detectionMethod, err := performAdvancedValidityCheck(resource)
@@ -1327,15 +1315,14 @@ func CheckResourceValidity(c *gin.Context) {
 		// 深度检测失败，但不标记为无效（用户可自行验证）
 		result := gin.H{
 			"resource_id":      resource.ID,
-			"url":             resource.URL,
-			"is_valid":        resource.IsValid, // 保持原始状态
-			"last_checked":    time.Now().Format(time.RFC3339),
-			"error":           err.Error(),
+			"url":              resource.URL,
+			"is_valid":         resource.IsValid, // 保持原始状态
+			"last_checked":     time.Now().Format(time.RFC3339),
+			"error":            err.Error(),
 			"detection_method": detectionMethod,
-			"cached":          false,
-			"note":            "当前网盘暂不支持自动检测，建议用户自行验证",
+			"cached":           false,
+			"note":             "当前网盘暂不支持自动检测，建议用户自行验证",
 		}
-		cacheManager.Set(cacheKey, result)
 		SuccessResponse(c, result)
 		return
 	}
@@ -1355,15 +1342,12 @@ func CheckResourceValidity(c *gin.Context) {
 	// 构建检测结果
 	result := gin.H{
 		"resource_id":      resource.ID,
-		"url":             resource.URL,
-		"is_valid":        isValid,
-		"last_checked":    time.Now().Format(time.RFC3339),
+		"url":              resource.URL,
+		"is_valid":         isValid,
+		"last_checked":     time.Now().Format(time.RFC3339),
 		"detection_method": detectionMethod,
-		"cached":          false,
+		"cached":           false,
 	}
-
-	// 缓存检测结果
-	cacheManager.Set(cacheKey, result)
 
 	utils.Info("资源有效性检测完成 - ID: %d, Valid: %v, Method: %s", resource.ID, isValid, detectionMethod)
 	SuccessResponse(c, result)
@@ -1463,7 +1447,6 @@ func performAlipanValidityCheck(resource *entity.Resource, shareID string) (bool
 	return false, "unsupported", fmt.Errorf("阿里云盘暂不支持深度检测，请等待后续更新")
 }
 
-
 // BatchCheckResourceValidity 批量检查资源链接有效性
 func BatchCheckResourceValidity(c *gin.Context) {
 	var req struct {
@@ -1486,8 +1469,6 @@ func BatchCheckResourceValidity(c *gin.Context) {
 
 	utils.Info("开始批量检测资源有效性 - Count: %d", len(req.IDs))
 
-	cacheManager := utils.GetResourceValidityCache()
-	ttl := 5 * time.Minute
 	results := make([]gin.H, 0, len(req.IDs))
 
 	for _, id := range req.IDs {
@@ -1503,16 +1484,6 @@ func BatchCheckResourceValidity(c *gin.Context) {
 			continue
 		}
 
-		// 检查缓存
-		cacheKey := fmt.Sprintf("resource_validity_%d", id)
-		if cachedData, found := cacheManager.Get(cacheKey, ttl); found {
-			if result, ok := cachedData.(gin.H); ok {
-				result["cached"] = true
-				results = append(results, result)
-				continue
-			}
-		}
-
 		// 执行深度检测
 		isValid, detectionMethod, err := performAdvancedValidityCheck(resource)
 
@@ -1520,38 +1491,47 @@ func BatchCheckResourceValidity(c *gin.Context) {
 			// 深度检测失败，但不标记为无效（用户可自行验证）
 			result := gin.H{
 				"resource_id":      id,
-				"url":             resource.URL,
-				"is_valid":        resource.IsValid, // 保持原始状态
-				"last_checked":    time.Now().Format(time.RFC3339),
-				"error":           err.Error(),
+				"is_valid":         isValid,
+				"last_checked":     time.Now().Format(time.RFC3339),
+				"error":            err.Error(),
 				"detection_method": detectionMethod,
-				"cached":          false,
-				"note":            "当前网盘暂不支持自动检测，建议用户自行验证",
 			}
-			cacheManager.Set(cacheKey, result)
 			results = append(results, result)
-			continue
-		}
 
-		// 只有明确检测出无效的资源才更新数据库状态
-		if detectionMethod == "quark_deep" && isValid != resource.IsValid {
-			resource.IsValid = isValid
-			updateErr := repoManager.ResourceRepository.Update(resource)
-			if updateErr != nil {
-				utils.Error("更新资源有效性状态失败 - ID: %d, Error: %v", id, updateErr)
+			// 只有明确检测出无效的资源才更新数据库状态
+			if detectionMethod == "quark_failed" && isValid != resource.IsValid {
+				resource.IsValid = isValid
+				updateErr := repoManager.ResourceRepository.GetDB().Model(resource).Update("is_valid", isValid).Error
+				if updateErr != nil {
+					utils.Error("更新资源有效性状态失败 - ID: %d, Error: %v", id, updateErr)
+				}
+
+				// 同步更新 Meilisearch 中的 is_valid 字段
+				if meilisearchManager != nil && meilisearchManager.IsEnabled() {
+					go func() {
+						service := meilisearchManager.GetService()
+						if service != nil {
+							if err := service.UpdateResourceValidity(resource.ID, isValid); err != nil {
+								utils.Error("更新Meilisearch资源有效性失败 - ID: %d, Error: %v", resource.ID, err)
+							} else {
+								utils.Info("成功更新Meilisearch资源有效性 - ID: %d, Valid: %v", resource.ID, isValid)
+							}
+						}
+					}()
+				}
+
 			}
+
+			continue
 		}
 
 		result := gin.H{
 			"resource_id":      id,
-			"url":             resource.URL,
-			"is_valid":        isValid,
-			"last_checked":    time.Now().Format(time.RFC3339),
+			"is_valid":         isValid,
+			"last_checked":     time.Now().Format(time.RFC3339),
 			"detection_method": detectionMethod,
-			"cached":          false,
 		}
 
-		cacheManager.Set(cacheKey, result)
 		results = append(results, result)
 	}
 
@@ -1578,4 +1558,3 @@ func getQuarkPanID() (uint, error) {
 
 	return 0, fmt.Errorf("未找到quark平台")
 }
-

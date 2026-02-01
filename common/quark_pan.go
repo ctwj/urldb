@@ -127,7 +127,7 @@ func (q *QuarkPanService) Transfer(shareID string) (*TransferResult, error) {
 
 	// 获取分享详情
 	shareResult, err := q.getShare(shareID, stoken)
-	if err != nil {
+	if err != nil || len(shareResult.List) == 0 {
 		return ErrorResult(fmt.Sprintf("获取分享详情失败: %v", err)), nil
 	}
 

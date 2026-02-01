@@ -25,6 +25,7 @@ type MeilisearchDocument struct {
 	PanID       *uint     `json:"pan_id"`
 	Author      string    `json:"author"`
 	Cover       string    `json:"cover"`
+	IsValid     bool      `json:"is_valid"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	// 高亮字段
@@ -128,6 +129,7 @@ func (m *MeilisearchService) CreateIndex() error {
 			"pan_name",
 			"category",
 			"tags",
+			"is_valid",
 		},
 		// 配置可搜索的属性
 		SearchableAttributes: []string{
@@ -169,6 +171,7 @@ func (m *MeilisearchService) UpdateIndexSettings() error {
 			"pan_name",
 			"category",
 			"tags",
+			"is_valid",
 		},
 		// 配置可搜索的属性
 		SearchableAttributes: []string{
@@ -266,6 +269,9 @@ func (m *MeilisearchService) Search(query string, filters map[string]interface{}
 				filterStrings = append(filterStrings, fmt.Sprintf("category = %q", value))
 			case "tags":
 				filterStrings = append(filterStrings, fmt.Sprintf("tags = %q", value))
+			case "is_valid":
+				// is_valid 是布尔值，需要特殊处理
+				filterStrings = append(filterStrings, fmt.Sprintf("is_valid = %v", value))
 			default:
 				filterStrings = append(filterStrings, fmt.Sprintf("%s = %q", key, value))
 			}
@@ -466,6 +472,13 @@ func (m *MeilisearchService) Search(query string, filters map[string]interface{}
 							}
 						}
 					}
+				case "is_valid":
+					if rawIsValid, ok := value.(json.RawMessage); ok {
+						var isValid bool
+						if err := json.Unmarshal(rawIsValid, &isValid); err == nil {
+							doc.IsValid = isValid
+						}
+					}
 					// 高亮字段处理 - 已移除，现在使用_formatted字段
 				}
 			}
@@ -587,5 +600,30 @@ func (m *MeilisearchService) ClearIndex() error {
 	}
 
 	utils.Debug("Meilisearch索引已清空")
+	return nil
+}
+
+// UpdateResourceValidity 更新资源有效性状态
+func (m *MeilisearchService) UpdateResourceValidity(resourceID uint, isValid bool) error {
+	if !m.enabled {
+		return fmt.Errorf("Meilisearch未启用")
+	}
+
+	utils.Debug("更新Meilisearch资源有效性 - ID: %d, Valid: %v", resourceID, isValid)
+
+	// 构建更新数据，包含主键
+	partialUpdate := map[string]interface{}{
+		"id":         resourceID,
+		"is_valid":   isValid,
+		"updated_at": time.Now().Format(time.RFC3339),
+	}
+
+	// 执行部分更新
+	_, err := m.index.UpdateDocuments([]interface{}{partialUpdate}, nil)
+	if err != nil {
+		return fmt.Errorf("更新Meilisearch资源有效性失败: %v", err)
+	}
+
+	utils.Debug("成功更新Meilisearch资源有效性 - ID: %d, Valid: %v", resourceID, isValid)
 	return nil
 }

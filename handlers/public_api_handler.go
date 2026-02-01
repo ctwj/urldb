@@ -269,6 +269,9 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 			}
 		}
 
+		// 只搜索有效的资源
+		filters["is_valid"] = true
+
 		// 使用Meilisearch搜索
 		service := meilisearchManager.GetService()
 		if service != nil {
@@ -304,6 +307,7 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 		params := map[string]interface{}{
 			"page":      page,
 			"page_size": pageSize,
+			"is_valid":  true, // 只搜索有效的资源
 		}
 
 		if keyword != "" {

@@ -176,6 +176,8 @@ func (r *ResourceRepositoryImpl) Search(query string, categoryID *uint, page, li
 		db = db.Where("category_id = ?", *categoryID)
 	}
 
+	// 管理后台Search方法不过滤is_valid，显示所有资源
+
 	// 获取总数
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -198,6 +200,8 @@ func (r *ResourceRepositoryImpl) SearchByPanID(query string, panID uint, page, l
 	if query != "" {
 		db = db.Where("title ILIKE ? OR description ILIKE ?", "%"+query+"%", "%"+query+"%")
 	}
+
+	// 管理后台SearchByPanID方法不过滤is_valid，显示所有资源
 
 	// 获取总数
 	if err := db.Count(&total).Error; err != nil {
