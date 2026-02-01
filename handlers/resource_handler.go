@@ -65,6 +65,15 @@ func GetResources(c *gin.Context) {
 		params["pan_name"] = panName
 	}
 
+	// 添加 is_valid 过滤参数
+	if isValid := c.Query("is_valid"); isValid != "" {
+		if isValid == "true" {
+			params["is_valid"] = true
+		} else if isValid == "false" {
+			params["is_valid"] = false
+		}
+	}
+
 	// 获取违禁词配置（只获取一次）
 	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
 		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
@@ -85,6 +94,15 @@ func GetResources(c *gin.Context) {
 			if id, err := strconv.ParseUint(panID, 10, 32); err == nil {
 				// 直接使用pan_id进行过滤
 				filters["pan_id"] = id
+			}
+		}
+
+		// 添加 is_valid 过滤到 Meilisearch
+		if isValid := c.Query("is_valid"); isValid != "" {
+			if isValid == "true" {
+				filters["is_valid"] = true
+			} else if isValid == "false" {
+				filters["is_valid"] = false
 			}
 		}
 

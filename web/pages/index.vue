@@ -472,7 +472,7 @@ const updatePageSeo = () => {
 
   // 设置HTML属性和canonical链接
   const config = useRuntimeConfig()
-  const baseUrl = config.public.siteUrl || 'https://yourdomain.com' // 从环境变量获取
+  const baseUrl = config.public.siteUrl || 'https://pan.l9.lc' // 从环境变量获取
   const params = new URLSearchParams()
   if (route.query?.search) params.set('search', route.query.search as string)
   if (route.query?.platform) params.set('platform', route.query.platform as string)
@@ -620,14 +620,16 @@ const { data: resourcesData, pending, refresh } = await useAsyncData(
         page: 1,
         page_size: 50,
         search: route.query.search as string,
-        pan_id: route.query.platform as string || ''
+        pan_id: route.query.platform as string || '',
+        is_valid: true  // 只显示有效资源
       })
     } else {
       // 没有搜索关键词时，使用普通资源接口获取最新数据
       return await resourceApi.getResources({
         page: 1,
         page_size: 50,
-        pan_id: route.query?.platform as string || ''
+        pan_id: route.query?.platform as string || '',
+        is_valid: true  // 只显示有效资源
       })
     }
   }
