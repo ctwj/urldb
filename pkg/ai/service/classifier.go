@@ -9,42 +9,43 @@ import (
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
+	"github.com/sashabaranov/go-openai"
 )
 
 // ClassificationPreview 分类预览结构
 type ClassificationPreview struct {
-	SessionID              string    `json:"session_id"`
-	ResourceID             uint      `json:"resource_id"`
-	OriginalCategoryID     *uint     `json:"original_category_id"`
-	OriginalCategoryName   string    `json:"original_category_name"`
-	SuggestedCategoryID    uint      `json:"suggested_category_id"`
-	SuggestedCategoryName  string    `json:"suggested_category_name"`
-	Confidence             float64   `json:"confidence"`
-	AIModelUsed            string    `json:"ai_model_used"`
-	GeneratedAt            time.Time `json:"generated_at"`
+	SessionID             string    `json:"session_id"`
+	ResourceID            uint      `json:"resource_id"`
+	OriginalCategoryID    *uint     `json:"original_category_id"`
+	OriginalCategoryName  string    `json:"original_category_name"`
+	SuggestedCategoryID   uint      `json:"suggested_category_id"`
+	SuggestedCategoryName string    `json:"suggested_category_name"`
+	Confidence            float64   `json:"confidence"`
+	AIModelUsed           string    `json:"ai_model_used"`
+	GeneratedAt           time.Time `json:"generated_at"`
 }
 
 // CategorySuggestion 分类建议结构
 type CategorySuggestion struct {
-	CategoryID uint     `json:"category_id"`
-	CategoryName string `json:"category_name"`
-	Confidence float64  `json:"confidence"`
-	Reason     string   `json:"reason"`
+	CategoryID   uint    `json:"category_id"`
+	CategoryName string  `json:"category_name"`
+	Confidence   float64 `json:"confidence"`
+	Reason       string  `json:"reason"`
 }
 
 // Classifier 分类器
 type Classifier struct {
-	client       *OpenAIClient
-	promptService *PromptService  // 添加提示词服务
-	repoManager  *repo.RepositoryManager
+	client        *OpenAIClient
+	promptService *PromptService // 添加提示词服务
+	repoManager   *repo.RepositoryManager
 }
 
 // NewClassifier 创建分类器
 func NewClassifier(client *OpenAIClient, repoManager *repo.RepositoryManager) *Classifier {
 	return &Classifier{
-		client: client,
+		client:        client,
 		promptService: NewPromptService(repoManager.GetDB()),
-		repoManager: repoManager,
+		repoManager:   repoManager,
 	}
 }
 
@@ -92,14 +93,28 @@ func (c *Classifier) ClassifyResourcePreview(resourceID uint) (*ClassificationPr
 		data.Type = "未知"
 	}
 
-	// 渲染提示词
-	renderedPrompt, err := c.promptService.RenderPrompt(prompt, data)
+	// 分别渲染系统/用户提示词，确保系统提示词生效
+	systemPrompt, err := c.promptService.RenderSystemPrompt(prompt, data)
 	if err != nil {
-		return nil, fmt.Errorf("渲染分类提示词失败: %v", err)
+		return nil, fmt.Errorf("渲染分类系统提示词失败: %v", err)
+	}
+	userPrompt, err := c.promptService.RenderUserPrompt(prompt, data)
+	if err != nil {
+		return nil, fmt.Errorf("渲染分类用户提示词失败: %v", err)
+	}
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: systemPrompt,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: userPrompt,
+		},
 	}
 
 	// 调用 AI API
-	resp, err := c.client.CreateChatCompletion(renderedPrompt)
+	resp, err := c.client.Chat(messages)
 	if err != nil {
 		return nil, fmt.Errorf("AI 分类请求失败: %v", err)
 	}
@@ -117,15 +132,15 @@ func (c *Classifier) ClassifyResourcePreview(resourceID uint) (*ClassificationPr
 
 	// 创建预览结果
 	preview := &ClassificationPreview{
-		ResourceID:             resourceID,
-		OriginalCategoryID:     resource.CategoryID,
-		OriginalCategoryName:   getCategoryName(resource.CategoryID, c.repoManager),
-		SuggestedCategoryID:    suggestion.CategoryID,
-		SuggestedCategoryName:  suggestion.CategoryName,
-		Confidence:             suggestion.Confidence,
-		AIModelUsed:            c.client.model,
-		GeneratedAt:            time.Now(),
-		SessionID:              generatePreviewSessionID(), // 生成会话ID用于确认操作
+		ResourceID:            resourceID,
+		OriginalCategoryID:    resource.CategoryID,
+		OriginalCategoryName:  getCategoryName(resource.CategoryID, c.repoManager),
+		SuggestedCategoryID:   suggestion.CategoryID,
+		SuggestedCategoryName: suggestion.CategoryName,
+		Confidence:            suggestion.Confidence,
+		AIModelUsed:           c.client.model,
+		GeneratedAt:           time.Now(),
+		SessionID:             generatePreviewSessionID(), // 生成会话ID用于确认操作
 	}
 
 	return preview, nil
@@ -139,8 +154,8 @@ func (c *Classifier) ApplyClassification(preview *ClassificationPreview) error {
 		return err
 	}
 
-	// 检查资源是否在预览期间被修改
-	if resource.UpdatedAt.After(preview.GeneratedAt) {
+	// 仅在提交了 generated_at 时做并发冲突校验
+	if !preview.GeneratedAt.IsZero() && resource.UpdatedAt.After(preview.GeneratedAt) {
 		return fmt.Errorf("资源在预览期间已被修改，请重新分类")
 	}
 
@@ -154,6 +169,9 @@ func (c *Classifier) ApplyClassification(preview *ClassificationPreview) error {
 	resource.CategoryID = &preview.SuggestedCategoryID
 
 	// 更新 AI 相关字段
+	if preview.AIModelUsed == "" {
+		preview.AIModelUsed = c.client.model
+	}
 	resource.AIModelUsed = &preview.AIModelUsed
 	status := "completed"
 	resource.AIGenerationStatus = &status

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
@@ -17,17 +18,17 @@ import (
 
 // AIHandler AI处理器
 type AIHandler struct {
-	aiService    *service.AIService
+	aiService     *service.AIService
 	promptService *service.PromptService
-	mcpManager   *mcp.MCPManager
+	mcpManager    *mcp.MCPManager
 }
 
 // NewAIHandler 创建AI处理器
 func NewAIHandler(aiService *service.AIService, promptService *service.PromptService, mcpManager *mcp.MCPManager) *AIHandler {
 	return &AIHandler{
-		aiService:    aiService,
+		aiService:     aiService,
 		promptService: promptService,
-		mcpManager:   mcpManager,
+		mcpManager:    mcpManager,
 	}
 }
 
@@ -49,9 +50,9 @@ func NewAIHandlerWithConfig(configManager service.ConfigManager, repoManager *re
 	promptService := service.NewPromptService(repoManager.GetDB())
 
 	return &AIHandler{
-		aiService:    aiService,
+		aiService:     aiService,
 		promptService: promptService,
-		mcpManager:   mcpManager,
+		mcpManager:    mcpManager,
 	}, nil
 }
 
@@ -72,16 +73,16 @@ func (h *AIHandler) GetAIConfig(c *gin.Context) {
 	apiKeyConfigured := apiKey != ""
 
 	config := map[string]interface{}{
-		"api_key":           apiKey,
+		"api_key":               apiKey,
 		"ai_api_key_configured": apiKeyConfigured,
-		"ai_api_url":        apiURL,
-		"ai_model":          model,
-		"ai_max_tokens":     maxTokens,
-		"ai_temperature":    temperature,
-		"ai_organization":   organization,
-		"ai_proxy":          proxy,
-		"ai_timeout":        timeout,
-		"ai_retry_count":    retryCount,
+		"ai_api_url":            apiURL,
+		"ai_model":              model,
+		"ai_max_tokens":         maxTokens,
+		"ai_temperature":        temperature,
+		"ai_organization":       organization,
+		"ai_proxy":              proxy,
+		"ai_timeout":            timeout,
+		"ai_retry_count":        retryCount,
 	}
 
 	SuccessResponse(c, config)
@@ -232,8 +233,8 @@ func (h *AIHandler) TestAIConnection(c *gin.Context) {
 
 	utils.Info("AI 连接测试成功，返回响应: %s", response)
 	SuccessResponse(c, map[string]interface{}{
-		"success": true,
-		"message": "连接测试成功",
+		"success":  true,
+		"message":  "连接测试成功",
 		"response": response,
 	})
 }
@@ -344,14 +345,46 @@ func (h *AIHandler) ApplyGeneratedContent(c *gin.Context) {
 	}
 
 	preview := &service.GeneratedContentPreview{
-		SessionID:             req.SessionID,
-		ResourceID:            req.ResourceID,
-		GeneratedTitle:        req.GeneratedTitle,
-		GeneratedDescription:  req.GeneratedDescription,
-		GeneratedSEOTitle:     req.GeneratedSEOTitle,
+		SessionID:               req.SessionID,
+		ResourceID:              req.ResourceID,
+		GeneratedTitle:          req.GeneratedTitle,
+		GeneratedDescription:    req.GeneratedDescription,
+		GeneratedSEOTitle:       req.GeneratedSEOTitle,
 		GeneratedSEODescription: req.GeneratedSEODescription,
-		GeneratedSEOKeywords:  req.GeneratedSEOKeywords,
-		AIModelUsed:           req.AIModelUsed,
+		GeneratedSEOKeywords:    req.GeneratedSEOKeywords,
+		AIModelUsed:             req.AIModelUsed,
+	}
+	if req.GeneratedAt != nil {
+		preview.GeneratedAt = *req.GeneratedAt
+	}
+
+	// 兼容直写模式（field/content），无需预览数据结构
+	if req.Field != "" {
+		switch strings.ToLower(req.Field) {
+		case "title":
+			preview.GeneratedTitle = req.Content
+		case "description":
+			preview.GeneratedDescription = req.Content
+		case "seo_title":
+			preview.GeneratedSEOTitle = req.Content
+		case "seo_description":
+			preview.GeneratedSEODescription = req.Content
+		case "seo_keywords":
+			keywords := make([]string, 0)
+			for _, keyword := range strings.Split(req.Content, ",") {
+				trimmed := strings.TrimSpace(keyword)
+				if trimmed != "" {
+					keywords = append(keywords, trimmed)
+				}
+			}
+			preview.GeneratedSEOKeywords = keywords
+		default:
+			ErrorResponse(c, "不支持的字段类型", http.StatusBadRequest)
+			return
+		}
+	}
+	if preview.AIModelUsed == "" {
+		preview.AIModelUsed = h.aiService.GetModel()
 	}
 
 	err := h.aiService.ApplyGeneratedContent(preview)
@@ -392,13 +425,41 @@ func (h *AIHandler) ApplyClassification(c *gin.Context) {
 		return
 	}
 
+	var suggestedCategoryID uint
+	switch {
+	case req.SuggestedCategoryID != nil:
+		suggestedCategoryID = *req.SuggestedCategoryID
+	case req.CategoryID != nil:
+		suggestedCategoryID = *req.CategoryID
+	default:
+		ErrorResponse(c, "缺少分类ID", http.StatusBadRequest)
+		return
+	}
+
+	confidence := 1.0
+	if req.Confidence != nil {
+		confidence = *req.Confidence
+	}
+
 	preview := &service.ClassificationPreview{
 		SessionID:             req.SessionID,
 		ResourceID:            req.ResourceID,
-		SuggestedCategoryID:   req.SuggestedCategoryID,
+		SuggestedCategoryID:   suggestedCategoryID,
 		SuggestedCategoryName: req.SuggestedCategoryName,
-		Confidence:            req.Confidence,
+		Confidence:            confidence,
 		AIModelUsed:           req.AIModelUsed,
+	}
+	if req.GeneratedAt != nil {
+		preview.GeneratedAt = *req.GeneratedAt
+	}
+	if preview.SuggestedCategoryName == "" {
+		category, err := repoManager.CategoryRepository.FindByID(suggestedCategoryID)
+		if err == nil && category != nil {
+			preview.SuggestedCategoryName = category.Name
+		}
+	}
+	if preview.AIModelUsed == "" {
+		preview.AIModelUsed = h.aiService.GetModel()
 	}
 
 	err := h.aiService.ApplyClassification(preview)
@@ -481,7 +542,7 @@ func (h *AIHandler) GenerateTextWithTools(c *gin.Context) {
 	}
 
 	SuccessResponse(c, map[string]interface{}{
-		"result": result,
+		"result":     result,
 		"with_tools": true,
 	})
 }
@@ -499,15 +560,15 @@ func (h *AIHandler) GetPrompts(c *gin.Context) {
 	result := make([]map[string]interface{}, 0, len(prompts))
 	for _, prompt := range prompts {
 		promptData := map[string]interface{}{
-			"id":            prompt.ID,
-			"name":          prompt.Name,
-			"type":          prompt.Type,
-			"system_content": prompt.SystemContent,
-			"user_content":   prompt.UserContent,
-			"description":   prompt.Description,
-			"is_active":     prompt.IsActive,
-			"created_at":    prompt.CreatedAt,
-			"updated_at":    prompt.UpdatedAt,
+			"id":               prompt.ID,
+			"name":             prompt.Name,
+			"type":             prompt.Type,
+			"system_content":   prompt.SystemContent,
+			"user_content":     prompt.UserContent,
+			"description":      prompt.Description,
+			"is_active":        prompt.IsActive,
+			"created_at":       prompt.CreatedAt,
+			"updated_at":       prompt.UpdatedAt,
 			"type_name":        entity.GetPromptTypeName(prompt.Type),
 			"type_description": entity.GetPromptTypeDescription(prompt.Type),
 		}

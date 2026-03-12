@@ -584,7 +584,10 @@ const applyCategory = async () => {
   try {
     const response = await aiApi.applyClassification({
       resource_id: props.resource.id,
-      category_id: aiResult.category.id
+      category_id: aiResult.category.id,
+      suggested_category_id: aiResult.category.id,
+      suggested_category_name: aiResult.category.name,
+      confidence: 1
     })
 
     if (response) {
@@ -632,7 +635,10 @@ const handleApplyAll = async () => {
       promises.push(
         aiApi.applyClassification({
           resource_id: props.resource.id,
-          category_id: aiResult.category.id
+          category_id: aiResult.category.id,
+          suggested_category_id: aiResult.category.id,
+          suggested_category_name: aiResult.category.name,
+          confidence: 1
         })
       )
     }

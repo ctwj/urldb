@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 // UpdateAIConfigRequest 更新AI配置请求
 type UpdateAIConfigRequest struct {
 	APIKey       *string  `json:"api_key,omitempty"`
@@ -26,8 +28,8 @@ type TestAIConnectionRequest struct {
 
 // GenerateTextRequest 通用文本生成请求
 type GenerateTextRequest struct {
-	Prompt  string        `json:"prompt" binding:"required"`
-	Options []ChatOption  `json:"options,omitempty"`
+	Prompt  string       `json:"prompt" binding:"required"`
+	Options []ChatOption `json:"options,omitempty"`
 }
 
 // ChatOption 对话选项
@@ -44,7 +46,7 @@ type AskQuestionRequest struct {
 
 // AnalyzeTextRequest 文本分析请求
 type AnalyzeTextRequest struct {
-	Text        string `json:"text" binding:"required"`
+	Text         string `json:"text" binding:"required"`
 	AnalysisType string `json:"analysis_type" binding:"required"`
 }
 
@@ -55,14 +57,17 @@ type GenerateContentRequest struct {
 
 // ApplyGeneratedContentRequest 应用生成内容请求
 type ApplyGeneratedContentRequest struct {
-	SessionID             string   `json:"session_id" binding:"required"`
-	ResourceID            uint     `json:"resource_id" binding:"required"`
-	GeneratedTitle        string   `json:"generated_title"`
-	GeneratedDescription  string   `json:"generated_description"`
-	GeneratedSEOTitle     string   `json:"generated_seo_title"`
-	GeneratedSEODescription string `json:"generated_seo_description"`
-	GeneratedSEOKeywords  []string `json:"generated_seo_keywords"`
-	AIModelUsed           string   `json:"ai_model_used"`
+	SessionID               string     `json:"session_id,omitempty"`
+	ResourceID              uint       `json:"resource_id" binding:"required"`
+	GeneratedAt             *time.Time `json:"generated_at,omitempty"`
+	Field                   string     `json:"field,omitempty"`
+	Content                 string     `json:"content,omitempty"`
+	GeneratedTitle          string     `json:"generated_title,omitempty"`
+	GeneratedDescription    string     `json:"generated_description,omitempty"`
+	GeneratedSEOTitle       string     `json:"generated_seo_title,omitempty"`
+	GeneratedSEODescription string     `json:"generated_seo_description,omitempty"`
+	GeneratedSEOKeywords    []string   `json:"generated_seo_keywords,omitempty"`
+	AIModelUsed             string     `json:"ai_model_used,omitempty"`
 }
 
 // ClassifyRequest 分类请求
@@ -72,12 +77,14 @@ type ClassifyRequest struct {
 
 // ApplyClassificationRequest 应用分类请求
 type ApplyClassificationRequest struct {
-	SessionID             string  `json:"session_id" binding:"required"`
-	ResourceID            uint    `json:"resource_id" binding:"required"`
-	SuggestedCategoryID   uint    `json:"suggested_category_id" binding:"required"`
-	SuggestedCategoryName string  `json:"suggested_category_name" binding:"required"`
-	Confidence            float64 `json:"confidence" binding:"required"`
-	AIModelUsed           string  `json:"ai_model_used"`
+	SessionID             string     `json:"session_id,omitempty"`
+	ResourceID            uint       `json:"resource_id" binding:"required"`
+	GeneratedAt           *time.Time `json:"generated_at,omitempty"`
+	CategoryID            *uint      `json:"category_id,omitempty"`
+	SuggestedCategoryID   *uint      `json:"suggested_category_id,omitempty"`
+	SuggestedCategoryName string     `json:"suggested_category_name,omitempty"`
+	Confidence            *float64   `json:"confidence,omitempty"`
+	AIModelUsed           string     `json:"ai_model_used,omitempty"`
 }
 
 // ToolCallRequest 工具调用请求

@@ -11,36 +11,37 @@ import (
 
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
+	"github.com/sashabaranov/go-openai"
 )
 
 // GeneratedContentPreview 内容生成预览结构
 type GeneratedContentPreview struct {
-	SessionID             string     `json:"session_id"`
-	ResourceID            uint       `json:"resource_id"`
-	OriginalTitle         string     `json:"original_title"`
-	OriginalDescription   string     `json:"original_description"`
-	GeneratedTitle        string     `json:"generated_title"`
-	GeneratedDescription  string     `json:"generated_description"`
-	GeneratedSEOTitle     string     `json:"generated_seo_title"`
-	GeneratedSEODescription string   `json:"generated_seo_description"`
-	GeneratedSEOKeywords  []string   `json:"generated_seo_keywords"`
-	AIModelUsed           string     `json:"ai_model_used"`
-	GeneratedAt           time.Time  `json:"generated_at"`
+	SessionID               string    `json:"session_id"`
+	ResourceID              uint      `json:"resource_id"`
+	OriginalTitle           string    `json:"original_title"`
+	OriginalDescription     string    `json:"original_description"`
+	GeneratedTitle          string    `json:"generated_title"`
+	GeneratedDescription    string    `json:"generated_description"`
+	GeneratedSEOTitle       string    `json:"generated_seo_title"`
+	GeneratedSEODescription string    `json:"generated_seo_description"`
+	GeneratedSEOKeywords    []string  `json:"generated_seo_keywords"`
+	AIModelUsed             string    `json:"ai_model_used"`
+	GeneratedAt             time.Time `json:"generated_at"`
 }
 
 // ContentGenerator 内容生成器
 type ContentGenerator struct {
-	client       *OpenAIClient
-	promptService *PromptService  // 添加提示词服务
-	repoManager  *repo.RepositoryManager
+	client        *OpenAIClient
+	promptService *PromptService // 添加提示词服务
+	repoManager   *repo.RepositoryManager
 }
 
 // NewContentGenerator 创建内容生成器
 func NewContentGenerator(client *OpenAIClient, repoManager *repo.RepositoryManager) *ContentGenerator {
 	return &ContentGenerator{
-		client: client,
+		client:        client,
 		promptService: NewPromptService(repoManager.GetDB()),
-		repoManager: repoManager,
+		repoManager:   repoManager,
 	}
 }
 
@@ -80,14 +81,28 @@ func (cg *ContentGenerator) GenerateContentPreview(resourceID uint) (*GeneratedC
 		data.Type = "未知"
 	}
 
-	// 渲染提示词
-	renderedPrompt, err := cg.promptService.RenderPrompt(prompt, data)
+	// 分别渲染系统/用户提示词，确保系统提示词生效
+	systemPrompt, err := cg.promptService.RenderSystemPrompt(prompt, data)
 	if err != nil {
-		return nil, fmt.Errorf("渲染内容生成提示词失败: %v", err)
+		return nil, fmt.Errorf("渲染内容生成系统提示词失败: %v", err)
+	}
+	userPrompt, err := cg.promptService.RenderUserPrompt(prompt, data)
+	if err != nil {
+		return nil, fmt.Errorf("渲染内容生成用户提示词失败: %v", err)
+	}
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: systemPrompt,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: userPrompt,
+		},
 	}
 
 	// 调用 AI API
-	resp, err := cg.client.CreateChatCompletion(renderedPrompt)
+	resp, err := cg.client.Chat(messages)
 	if err != nil {
 		return nil, err
 	}
@@ -105,17 +120,17 @@ func (cg *ContentGenerator) GenerateContentPreview(resourceID uint) (*GeneratedC
 
 	// 创建预览结果
 	preview := &GeneratedContentPreview{
-		ResourceID:            resourceID,
-		OriginalTitle:         resource.Title,
-		OriginalDescription:   resource.Description,
-		GeneratedTitle:        generatedContent.Title,
-		GeneratedDescription:  generatedContent.Description,
-		GeneratedSEOTitle:     generatedContent.SEOTitle,
+		ResourceID:              resourceID,
+		OriginalTitle:           resource.Title,
+		OriginalDescription:     resource.Description,
+		GeneratedTitle:          generatedContent.Title,
+		GeneratedDescription:    generatedContent.Description,
+		GeneratedSEOTitle:       generatedContent.SEOTitle,
 		GeneratedSEODescription: generatedContent.SEODescription,
-		GeneratedSEOKeywords:  generatedContent.SEOKeywords,
-		AIModelUsed:           cg.client.model,
-		GeneratedAt:           time.Now(),
-		SessionID:             generatePreviewSessionID(), // 生成会话ID用于确认操作
+		GeneratedSEOKeywords:    generatedContent.SEOKeywords,
+		AIModelUsed:             cg.client.model,
+		GeneratedAt:             time.Now(),
+		SessionID:               generatePreviewSessionID(), // 生成会话ID用于确认操作
 	}
 
 	return preview, nil
@@ -129,8 +144,8 @@ func (cg *ContentGenerator) ApplyGeneratedContent(preview *GeneratedContentPrevi
 		return err
 	}
 
-	// 检查资源是否在预览期间被修改
-	if resource.UpdatedAt.After(preview.GeneratedAt) {
+	// 仅在提交了 generated_at 时做并发冲突校验
+	if !preview.GeneratedAt.IsZero() && resource.UpdatedAt.After(preview.GeneratedAt) {
 		return fmt.Errorf("资源在预览期间已被修改，请重新生成")
 	}
 
@@ -142,12 +157,21 @@ func (cg *ContentGenerator) ApplyGeneratedContent(preview *GeneratedContentPrevi
 		resource.Description = preview.GeneratedDescription
 	}
 
-	// 更新 SEO 相关字段
-	resource.SEOTitle = &preview.GeneratedSEOTitle
-	resource.SEODescription = &preview.GeneratedSEODescription
-	resource.SEOKeywords = &preview.GeneratedSEOKeywords
+	// 更新 SEO 相关字段（仅更新提交的字段，避免直写模式清空已有值）
+	if preview.GeneratedSEOTitle != "" {
+		resource.SEOTitle = &preview.GeneratedSEOTitle
+	}
+	if preview.GeneratedSEODescription != "" {
+		resource.SEODescription = &preview.GeneratedSEODescription
+	}
+	if len(preview.GeneratedSEOKeywords) > 0 {
+		resource.SEOKeywords = &preview.GeneratedSEOKeywords
+	}
 
 	// 更新 AI 相关字段
+	if preview.AIModelUsed == "" {
+		preview.AIModelUsed = cg.client.model
+	}
 	resource.AIModelUsed = &preview.AIModelUsed
 	status := "completed"
 	resource.AIGenerationStatus = &status
@@ -161,11 +185,11 @@ func (cg *ContentGenerator) ApplyGeneratedContent(preview *GeneratedContentPrevi
 
 // GeneratedContent 解析后的生成内容
 type GeneratedContent struct {
-	Title           string   `json:"title"`
-	Description     string   `json:"description"`
-	SEOTitle        string   `json:"seo_title"`
-	SEODescription  string   `json:"seo_description"`
-	SEOKeywords     []string `json:"seo_keywords"`
+	Title          string   `json:"title"`
+	Description    string   `json:"description"`
+	SEOTitle       string   `json:"seo_title"`
+	SEODescription string   `json:"seo_description"`
+	SEOKeywords    []string `json:"seo_keywords"`
 }
 
 // parseGeneratedContent 解析生成的内容

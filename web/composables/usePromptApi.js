@@ -46,7 +46,7 @@ export const usePromptApi = () => {
   const togglePrompt = async (promptId) => {
     try {
       const response = await useApiFetch(`/ai/prompts/${promptId}/toggle`, {
-        method: 'POST'
+        method: 'PUT'
       })
       return parseApiResponse(response)
     } catch (error) {

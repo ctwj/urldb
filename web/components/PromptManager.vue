@@ -281,61 +281,53 @@ const testCurrentPrompt = async () => {
 
     // 根据提示词类型准备测试数据
     let testData = {}
-    let testMessage = ''
 
     switch (editingPrompt.value.type) {
       case 'classification':
         testData = {
-          title: '人工智能技术发展趋势分析',
-          description: '探讨人工智能在各个领域的应用前景和挑战',
-          author: 'AI研究专家',
-          tags: ['人工智能', '技术趋势', '未来发展']
+          Title: '人工智能技术发展趋势分析',
+          Description: '探讨人工智能在各个领域的应用前景和挑战',
+          Type: '技术资源',
+          Categories: [
+            { ID: 1, Name: '人工智能' },
+            { ID: 2, Name: '编程开发' }
+          ]
         }
-        testMessage = '请对以下资源进行智能分类推荐'
         break
       case 'content_generation':
         testData = {
-          title: '机器学习基础教程',
-          description: '这是一篇关于机器学习基础知识的详细介绍',
-          current_content: '机器学习是人工智能的一个重要分支'
+          Title: '机器学习基础教程',
+          Description: '这是一篇关于机器学习基础知识的详细介绍',
+          Type: '教程'
         }
-        testMessage = '请为以下资源生成优化的标题和描述'
         break
       case 'tool_system':
         testData = {
-          query: '现在几点了？',
-          context: '用户询问当前时间'
+          ToolListWithParams: '🔹 current_time: 获取当前时间\n   【必需参数】：format\n   - format (【必需】) - 时间格式'
         }
-        testMessage = '用户询问时间，请使用工具查询'
         break
       case 'qa_template':
         testData = {
-          question: '什么是人工智能？',
-          context: '科技知识问答'
+          Question: '什么是人工智能？',
+          Context: '人工智能是研究如何让机器模拟人的感知、学习和决策能力的学科。'
         }
-        testMessage = '请回答以下问题'
         break
       case 'analysis_template':
         testData = {
-          text: '人工智能正在改变我们的生活方式，从智能手机到自动驾驶汽车，AI技术无处不在。',
-          analysis_type: '情感分析'
+          Text: '人工智能正在改变我们的生活方式，从智能手机到自动驾驶汽车，AI技术无处不在。',
+          AnalysisType: '情感分析'
         }
-        testMessage = '请分析以下文本'
         break
       default:
         testData = {
-          input: '这是一个测试输入'
+          Input: '这是一个测试输入'
         }
-        testMessage = '测试提示词功能'
     }
 
-    // 构建测试请求数据
+    // 对齐后端契约：{ type, data }
     const testRequest = {
-      prompt_type: editingPrompt.value.type,
-      system_content: editingPrompt.value.system_content,
-      user_content: editingPrompt.value.user_content,
-      test_data: testData,
-      test_message: testMessage
+      type: editingPrompt.value.type,
+      data: testData
     }
 
     const response = await testPrompt(testRequest)
