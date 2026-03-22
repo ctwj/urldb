@@ -1,8 +1,11 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -43,9 +46,9 @@ type ToolDefinition struct {
 
 // ToolCallResult 工具调用结果
 type ToolCallResult struct {
-	ToolName string                 `json:"tool_name"`
-	Result   interface{}            `json:"result"`
-	Error    string                 `json:"error,omitempty"`
+	ToolName string      `json:"tool_name"`
+	Result   interface{} `json:"result"`
+	Error    string      `json:"error,omitempty"`
 }
 
 // AIService 主AI服务，提供通用AI能力供其他模块调用
@@ -111,47 +114,31 @@ func NewAIServiceWithMCP(client *OpenAIClient, repoManager *repo.RepositoryManag
 
 // GenerateText 通用文本生成 - 供其他模块调用
 func (as *AIService) GenerateText(prompt string, options ...ChatOption) (string, error) {
-	utils.Info("[AI] 开始处理文本生成请求")
+	traceID := generateAITraceID()
+	utils.Info("[AI][%s] 开始处理文本生成请求", traceID)
 
 	// 如果有 MCP 管理器，尝试使用工具增强的生成
 	if as.mcpManager != nil {
-		utils.Debug("[AI] MCP 管理器已初始化，尝试使用工具增强生成")
+		utils.Debug("[AI][%s] MCP 管理器已初始化，尝试使用工具增强生成", traceID)
 		result, err := as.GenerateTextWithTools(prompt, options...)
 		if err != nil {
-			utils.Warn("[AI] 工具增强生成失败，回退到普通生成: %v", err)
-		} else {
-			utils.Info("[AI] 工具增强生成成功")
-			return result, nil
+			utils.Warn("[AI][%s] 工具增强生成失败: %v", traceID, err)
+			return "", err
 		}
+		utils.Info("[AI][%s] 工具增强生成成功", traceID)
+		return result, nil
 	} else {
-		utils.Debug("[AI] MCP 管理器未初始化，使用普通生成")
+		utils.Debug("[AI][%s] MCP 管理器未初始化，使用普通生成", traceID)
 	}
 
-	// 使用通用的系统提示词
-	systemPrompt := "你是一个有用的 AI 助手，擅长理解和回答各种问题。请提供准确、有帮助的回答。"
+	return as.generatePlainTextWithFallback(traceID, prompt, options...)
+}
 
-	// 创建标准system+user消息结构
-	messages := []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: systemPrompt,
-		},
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: prompt,
-		},
-	}
-
-	resp, err := as.client.Chat(messages, options...)
-	if err != nil {
-		return "", err
-	}
-
-	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("AI 未返回任何内容")
-	}
-
-	return resp.Choices[0].Message.Content, nil
+// GenerateTextWithoutTools 显式禁用工具增强流程，直接走普通生成
+func (as *AIService) GenerateTextWithoutTools(prompt string, options ...ChatOption) (string, error) {
+	traceID := generateAITraceID()
+	utils.Info("[AI][%s] 开始处理文本生成请求（禁用工具）", traceID)
+	return as.generatePlainTextWithFallback(traceID, prompt, options...)
 }
 
 // getToolListSummary 生成工具列表摘要
@@ -221,46 +208,56 @@ func getToolListWithParams(tools []ToolDefinition) string {
 
 // needsTools 判断用户问题是否需要使用工具
 func needsTools(prompt string) bool {
-	// 将提示词转换为小写进行匹配
-	lowerPrompt := strings.ToLower(prompt)
+	normalized := strings.ToLower(strings.TrimSpace(prompt))
+	if normalized == "" {
+		return false
+	}
 
-	// 工具需求关键词
+	// 结构化内容生成提示（如资源标题优化）不应触发工具调用
+	structuredMarkers := []string{
+		"根据以下资源信息", "资源标题:", "资源描述:", "资源url:", "现有描述:",
+		"可用分类列表", "请生成", "请直接返回最适合的分类",
+	}
+	markerHits := 0
+	for _, marker := range structuredMarkers {
+		if strings.Contains(normalized, marker) {
+			markerHits++
+		}
+	}
+	if markerHits >= 2 {
+		return false
+	}
+
+	// 只有明确涉及外部实时信息/检索时才启用工具
 	toolKeywords := []string{
-		"时间", "几点", "现在", "今天", "日期", "当前",
-		"搜索", "查询", "找", "搜索信息", "google", "百度",
-		"网页", "网站", "内容", "获取", "抓取",
-		"天气", "温度", "气候", "预报",
-		"新闻", "资讯", "动态", "最新",
-		"翻译", "英文", "中文", "语言",
-		"计算", "换算", "转换", "公式",
-		"汇率", "价格", "股票", "金融",
+		"现在几点", "当前时间", "今天几号", "日期", "天气", "预报", "新闻", "实时",
+		"汇率", "股票", "价格", "搜索", "查询", "查一下", "网页", "网站", "抓取",
+		"http://", "https://", "fetch ",
 	}
-
-	// 检查是否包含工具相关关键词
 	for _, keyword := range toolKeywords {
-		if strings.Contains(lowerPrompt, keyword) {
+		if strings.Contains(normalized, keyword) {
 			return true
 		}
-	}
-
-	// 检查是否是问句（通常需要查询信息）
-	questionPatterns := []string{
-		"什么", "怎么", "如何", "为什么", "哪里", "哪个", "谁",
-		"吗", "呢", "？", "?",
-	}
-
-	for _, pattern := range questionPatterns {
-		if strings.Contains(lowerPrompt, pattern) {
-			return true
-		}
-	}
-
-	// 检查是否包含数字相关的查询（如时间、日期等）
-	if regexp.MustCompile(`\d+`).MatchString(prompt) {
-		return true
 	}
 
 	return false
+}
+
+func parseRequiredParams(requiredRaw interface{}) []string {
+	required := make([]string, 0)
+
+	switch req := requiredRaw.(type) {
+	case []string:
+		required = append(required, req...)
+	case []interface{}:
+		for _, item := range req {
+			if reqStr, ok := item.(string); ok {
+				required = append(required, reqStr)
+			}
+		}
+	}
+
+	return required
 }
 
 // getToolsAsNaturalLanguage 将工具定义转换为自然语言描述
@@ -275,21 +272,15 @@ func getToolsAsNaturalLanguage(tools []ToolDefinition) string {
 		// 解析参数信息
 		if tool.Parameters != nil {
 			if properties, ok := tool.Parameters["properties"].(map[string]interface{}); ok {
-				var required []interface{}
-				if req, ok := tool.Parameters["required"].([]interface{}); ok {
-					required = req
+				requiredSet := make(map[string]struct{})
+				for _, req := range parseRequiredParams(tool.Parameters["required"]) {
+					requiredSet[req] = struct{}{}
 				}
 
 				// 显示每个参数的详细信息
 				for paramName, paramInfo := range properties {
 					if paramMap, ok := paramInfo.(map[string]interface{}); ok {
-						var isRequired bool
-						for _, req := range required {
-							if req == paramName {
-								isRequired = true
-								break
-							}
-						}
+						_, isRequired := requiredSet[paramName]
 
 						reqMark := "可选"
 						if isRequired {
@@ -345,8 +336,10 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 
 	utils.Debug("[AI] 工具解析 原始内容: %q", content)
 
+	toolNamePattern := `[A-Za-z0-9_-]+`
+
 	// 先尝试匹配 JSON 格式的工具调用：<tool_name: {}>
-	jsonRe := regexp.MustCompile(`(?s)<(\w+):\s*({[^}]*})>`)
+	jsonRe := regexp.MustCompile(`(?s)<(` + toolNamePattern + `):\s*({[^}]*})>`)
 	jsonMatches := jsonRe.FindAllStringSubmatch(content, -1)
 	utils.Debug("[AI] 工具解析 JSON 格式匹配到 %d 个结果", len(jsonMatches))
 
@@ -381,7 +374,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 
 	// 如果没有匹配到 JSON 格式，尝试匹配简单标签格式：<tool_name> 或 <tool_name/> 或 <tool_name\n
 	if len(toolCalls) == 0 {
-		simpleRe := regexp.MustCompile(`<(\w+)[\s\n>]`)
+		simpleRe := regexp.MustCompile(`<(` + toolNamePattern + `)[\s\n>]`)
 		simpleMatches := simpleRe.FindAllStringSubmatch(content, -1)
 		utils.Debug("[AI] 工具解析 简单标签格式匹配到 %d 个结果", len(simpleMatches))
 
@@ -409,7 +402,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 
 	// 如果还没有匹配到，尝试匹配 HTML 属性格式：<tool_name param1="value1"/>
 	if len(toolCalls) == 0 {
-		htmlRe := regexp.MustCompile(`<(\w+)(\s+[^>]*)>`)
+		htmlRe := regexp.MustCompile(`<(` + toolNamePattern + `)(\s+[^>]*)>`)
 		htmlMatches := htmlRe.FindAllStringSubmatch(content, -1)
 		utils.Debug("[AI] 工具解析 HTML 格式匹配到 %d 个结果", len(htmlMatches))
 
@@ -456,10 +449,10 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 
 		// 检查是否包含具体的时间格式
 		timePatterns := []string{
-			`\d{4}年\d{1,2}月\d{1,2}日`,  // 中文日期格式
-			`\d{4}-\d{1,2}-\d{1,2}`,        // 英文日期格式
-			`\d{1,2}:\d{2}:\d{2}`,          // 时间格式
-			`timestamp:\s*\d+`,             // 时间戳格式
+			`\d{4}年\d{1,2}月\d{1,2}日`, // 中文日期格式
+			`\d{4}-\d{1,2}-\d{1,2}`,  // 英文日期格式
+			`\d{1,2}:\d{2}:\d{2}`,    // 时间格式
+			`timestamp:\s*\d+`,       // 时间戳格式
 		}
 
 		for _, pattern := range timePatterns {
@@ -493,7 +486,7 @@ func parseToolCallsFromContent(content string, toolNameSet map[string]bool) []To
 func cleanToolCallMarkers(content string) string {
 	// 移除工具调用标记：<tool_name>...</tool_name> 或 <tool_name/> 或 <tool_name: {}> 等
 	// 也支持没有闭合标签的格式：<tool_name\n⟶
-	re := regexp.MustCompile(`<\w+(?::\s*{[^}]*})?\s*/?>\s*</\w+>|<\w+(?::\s*{[^}]*})?\s*/?>|<\w+>|<\w+[\s\n]`)
+	re := regexp.MustCompile(`<[A-Za-z0-9_-]+(?::\s*{[^}]*})?\s*/?>\s*</[A-Za-z0-9_-]+>|<[A-Za-z0-9_-]+(?::\s*{[^}]*})?\s*/?>|<[A-Za-z0-9_-]+>|<[A-Za-z0-9_-]+[\s\n]`)
 	cleanContent := re.ReplaceAllString(content, "")
 
 	// 清理多余的空行
@@ -801,14 +794,7 @@ func (as *AIService) validateParams(tool ToolDefinition, params map[string]inter
 	utils.Debug("[AI] 验证工具 %s 的参数: %+v", tool.Name, params)
 
 	// 检查必需参数
-	required := []string{}
-	if reqArray, ok := tool.Parameters["required"].([]interface{}); ok {
-		for _, req := range reqArray {
-			if reqStr, ok := req.(string); ok {
-				required = append(required, reqStr)
-			}
-		}
-	}
+	required := parseRequiredParams(tool.Parameters["required"])
 
 	utils.Debug("[AI] 工具 %s 的必需参数: %v", tool.Name, required)
 
@@ -858,7 +844,7 @@ func (as *AIService) CallTool(toolName string, params map[string]interface{}) (*
 		return nil, fmt.Errorf("MCP管理器未初始化")
 	}
 
-	utils.Info("[AI] 调用工具: %s, 参数: %+v", toolName, params)
+	utils.Info("[AI] 调用工具: %s, 参数数量: %d", toolName, len(params))
 
 	// 验证工具调用参数
 	if err := as.validateToolCallParams(toolName, params); err != nil {
@@ -899,54 +885,31 @@ func (as *AIService) CallTool(toolName string, params map[string]interface{}) (*
 
 // GenerateTextWithTools 使用工具的文本生成
 func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption) (string, error) {
+	traceID := generateAITraceID()
+	utils.Info("[AI][%s] GenerateTextWithTools 开始: prompt_runes=%d, options_count=%d, prompt_preview=%q",
+		traceID, len([]rune(prompt)), len(options), previewRunesForLog(strings.TrimSpace(prompt), 120))
+
 	// 获取可用工具
 	tools, err := as.GetAvailableTools()
 	if err != nil {
-		utils.Warn("[AI] 获取工具失败，使用普通生成: %v", err)
-		// 直接使用 OpenAI 客户端生成，避免循环调用
-		systemPrompt := "你是一个有用的 AI 助手，擅长理解和回答各种问题。请提供准确、有帮助的回答。"
-		messages := []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleSystem,
-				Content: systemPrompt,
-			},
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: prompt,
-			},
-		}
-		resp, err := as.client.Chat(messages, options...)
-		if err != nil {
-			return "", err
-		}
-		if len(resp.Choices) == 0 {
-			return "", fmt.Errorf("AI 未返回任何内容")
-		}
-		return resp.Choices[0].Message.Content, nil
+		utils.Warn("[AI][%s] 获取工具失败，使用普通生成: %v", traceID, err)
+		return as.generatePlainTextWithFallback(traceID, prompt, options...)
 	}
 
 	if len(tools) == 0 {
-		utils.Info("[AI] 没有可用工具，使用普通生成")
-		// 直接使用 OpenAI 客户端生成，避免循环调用
-		systemPrompt := "你是一个有用的 AI 助手，擅长理解和回答各种问题。请提供准确、有帮助的回答。"
-		messages := []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleSystem,
-				Content: systemPrompt,
-			},
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: prompt,
-			},
-		}
-		resp, err := as.client.Chat(messages, options...)
-		if err != nil {
-			return "", err
-		}
-		if len(resp.Choices) == 0 {
-			return "", fmt.Errorf("AI 未返回任何内容")
-		}
-		return resp.Choices[0].Message.Content, nil
+		utils.Info("[AI][%s] 没有可用工具，使用普通生成", traceID)
+		return as.generatePlainTextWithFallback(traceID, prompt, options...)
+	}
+
+	// 由模型进行工具路由判定，避免关键词误判
+	shouldUseTools, routeErr := as.shouldUseToolsByModel(traceID, prompt, tools)
+	if routeErr != nil {
+		utils.Warn("[AI][%s] 工具路由判定失败，回退普通生成: %v", traceID, routeErr)
+		return as.generatePlainTextWithFallback(traceID, prompt, options...)
+	}
+	if !shouldUseTools {
+		utils.Info("[AI][%s] 模型判定无需工具，使用普通生成", traceID)
+		return as.generatePlainTextWithFallback(traceID, prompt, options...)
 	}
 
 	utils.Info("[AI] === 新方案：将工具定义移到用户提示词中 ===")
@@ -996,19 +959,11 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 		utils.Info("[AI] 成功获取系统提示词，长度: %d", len(systemPrompt))
 	}
 
-	// 智能判断是否需要工具描述
-	var fullUserPrompt string
-	if needsTools(prompt) {
-		// 生成工具信息的自然语言描述
-		toolsDescription := getToolsAsNaturalLanguage(tools)
-		utils.Info("[AI] 检测到工具需求，生成工具描述，长度: %d", len(toolsDescription))
-		// 组合用户提示词：工具描述 + 用户问题
-		fullUserPrompt = toolsDescription + fmt.Sprintf("\n用户问题：%s\n\n请根据用户的问题使用相应的工具来获取准确信息并回答。", prompt)
-	} else {
-		utils.Info("[AI] 未检测到工具需求，使用简洁提示词")
-		// 简洁的用户提示词，不包含工具描述
-		fullUserPrompt = fmt.Sprintf("用户问题：%s\n\n请直接回答用户的问题。", prompt)
-	}
+	// 生成工具信息的自然语言描述
+	toolsDescription := getToolsAsNaturalLanguage(tools)
+	utils.Info("[AI][%s] 模型判定需要工具，生成工具描述，长度: %d", traceID, len(toolsDescription))
+	// 组合用户提示词：工具描述 + 用户问题
+	fullUserPrompt := toolsDescription + fmt.Sprintf("\n用户问题：%s\n\n请根据用户的问题使用相应的工具来获取准确信息并回答。", prompt)
 
 	// 创建消息（不包含functions参数）
 	messages := []openai.ChatCompletionMessage{
@@ -1022,43 +977,16 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 		},
 	}
 
-	// ===== 完整的AI接口请求数据调试日志 =====
-	utils.Debug("[AI] === 完整AI接口请求数据 ===")
-
-	// 1. 打印完整的请求结构（不包含functions）
-	requestData := map[string]interface{}{
-		"model":    as.client.GetModel(),
-		"messages": messages,
-	}
-
-	if requestJSON, err := json.MarshalIndent(requestData, "", "  "); err == nil {
-		utils.Debug("[AI] 完整OpenAI请求JSON:\n%s", string(requestJSON))
-	} else {
-		utils.Error("[AI] 序列化请求JSON失败: %v", err)
-	}
-
-	// 2. 分别打印各个部分以便调试
-	utils.Debug("[AI] --- 系统提示词完整内容 ---")
-	utils.Debug("[AI] 系统提示词: %s", systemPrompt)
-	utils.Debug("[AI] --- 用户提示词完整内容 ---")
-	utils.Debug("[AI] 用户提示词: %s", fullUserPrompt)
-	// 只在需要时显示工具描述
-	if needsTools(prompt) {
-		utils.Debug("[AI] --- 工具自然语言描述 ---")
-		utils.Debug("[AI] 工具描述: %s", getToolsAsNaturalLanguage(tools))
-	}
-	utils.Debug("========================================")
-
 	// 关键提示词信息调试（保留用于验证提示词使用情况）
-	utils.Debug("[AI] === 提示词调试信息 ===")
-	utils.Debug("[AI] 用户原始输入: %q", prompt)
+	utils.Debug("[AI] 请求调试摘要")
+	utils.Debug("[AI] 模型: %s", as.client.GetModel())
+	utils.Debug("[AI] 消息数量: %d", len(messages))
 	utils.Debug("[AI] 系统提示词长度: %d 字符", len(systemPrompt))
 	utils.Debug("[AI] 完整用户提示词长度: %d 字符", len(fullUserPrompt))
 	utils.Debug("[AI] 可用工具数量: %d", len(tools))
 	for i, tool := range tools {
 		utils.Debug("[AI] 工具 %d: %s", i+1, tool.Name)
 	}
-	utils.Debug("===========================================")
 
 	utils.Info("[AI] 发送请求到 AI（新方案：不使用functions参数）")
 
@@ -1075,19 +1003,18 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 	}
 
 	choice := resp.Choices[0]
-	utils.Info("[AI] AI 返回结果，FinishReason: %s", resp.Choices[0].FinishReason)
+	utils.Info("[AI][%s] AI 返回结果，FinishReason: %s", traceID, resp.Choices[0].FinishReason)
 
-	// ===== 调试信息打印 - 完整的AI响应数据 =====
-	utils.Debug("=== [AI] 完整AI响应数据 ===")
-	if responseJSON, err := json.MarshalIndent(resp, "", "  "); err == nil {
-		utils.Debug("[AI] 完整AI响应JSON:\n%s", string(responseJSON))
-	} else {
-		utils.Error("[AI] 序列化响应JSON失败: %v", err)
+	content := strings.TrimSpace(choice.Message.Content)
+	utils.Debug("[AI][%s] 响应调试摘要: choices=%d, finish_reason=%s, content_length=%d, usage(prompt=%d completion=%d total=%d)",
+		traceID, len(resp.Choices), choice.FinishReason, len(content), resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
+
+	// 某些模型在 token 耗尽时可能返回 finish_reason=length 但 content 为空，触发一次简化重试
+	if content == "" {
+		return as.retryPlainResponseForEmptyContent(traceID, prompt, choice.FinishReason)
 	}
-	utils.Debug("===========================================")
 
 	// 检查响应内容中是否包含工具调用标记
-	content := choice.Message.Content
 	if content != "" {
 		utils.Info("[AI] 检查响应内容中的工具调用标记")
 
@@ -1103,7 +1030,7 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 
 			// 处理所有工具调用
 			for _, toolCall := range toolCalls {
-				utils.Info("[AI] 调用工具: %s, 参数: %v", toolCall.Name, toolCall.Params)
+				utils.Info("[AI] 调用工具: %s, 参数数量: %d", toolCall.Name, len(toolCall.Params))
 
 				// 调用工具
 				toolResult, err := as.CallTool(toolCall.Name, toolCall.Params)
@@ -1112,7 +1039,7 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 					return "", fmt.Errorf("工具调用失败: %v", err)
 				}
 
-				utils.Info("[AI] 工具调用成功，结果: %v", toolResult.Result)
+				utils.Info("[AI] 工具调用成功: %s", toolCall.Name)
 
 				// 将工具结果添加到对话中
 				messages = append(messages,
@@ -1141,16 +1068,333 @@ func (as *AIService) GenerateTextWithTools(prompt string, options ...ChatOption)
 			}
 
 			utils.Info("[AI] AI 处理工具结果成功")
-			return resp.Choices[0].Message.Content, nil
+			utils.Debug("[AI][%s] 二次响应usage: prompt=%d completion=%d total=%d",
+				traceID, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
+			finalContent := strings.TrimSpace(resp.Choices[0].Message.Content)
+			if finalContent == "" {
+				return as.retryPlainResponseForEmptyContent(traceID, prompt, resp.Choices[0].FinishReason)
+			}
+			return finalContent, nil
 		}
 	}
 
 	// 清理响应内容中的工具调用标记
-	cleanContent := cleanToolCallMarkers(content)
+	cleanContent := strings.TrimSpace(cleanToolCallMarkers(content))
 	if cleanContent != content {
 		utils.Info("[AI] 清理了工具调用标记")
+	}
+	if cleanContent == "" {
+		return as.retryPlainResponseForEmptyContent(traceID, prompt, choice.FinishReason)
 	}
 
 	utils.Info("[AI] AI 没有调用工具，直接返回内容")
 	return cleanContent, nil
+}
+
+func (as *AIService) generatePlainTextWithFallback(traceID string, prompt string, options ...ChatOption) (string, error) {
+	systemPrompt := "你是一个有用的 AI 助手，擅长理解和回答各种问题。请提供准确、有帮助的回答。"
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: systemPrompt,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: prompt,
+		},
+	}
+
+	resp, err := as.client.Chat(messages, options...)
+	if err != nil {
+		if isLikelyResourceTitleTask(prompt) && isTimeoutLikeError(err) {
+			if fallbackTitle, ok := buildLocalTitleFallback(prompt); ok {
+				utils.Warn("[AI][%s] 普通生成超时，使用本地标题回退: %q", traceID, fallbackTitle)
+				return fallbackTitle, nil
+			}
+		}
+		return "", err
+	}
+
+	if len(resp.Choices) == 0 {
+		utils.Warn("[AI][%s] 普通生成返回 choices=0，触发空内容重试", traceID)
+		return as.retryPlainResponseForEmptyContent(traceID, prompt, openai.FinishReason("no_choice"))
+	}
+
+	first := resp.Choices[0]
+	content := strings.TrimSpace(first.Message.Content)
+	if content == "" {
+		return as.retryPlainResponseForEmptyContent(traceID, prompt, first.FinishReason)
+	}
+
+	utils.Debug("[AI][%s] 普通生成成功: finish_reason=%s, content_length=%d, usage(prompt=%d completion=%d total=%d)",
+		traceID, first.FinishReason, len(content), resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
+	return content, nil
+}
+
+func (as *AIService) shouldUseToolsByModel(traceID string, prompt string, tools []ToolDefinition) (bool, error) {
+	if len(tools) == 0 {
+		return false, nil
+	}
+
+	toolNames := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		toolNames = append(toolNames, tool.Name)
+	}
+
+	routerSystemPrompt := `你是工具路由器。你只做一件事：判断是否需要调用外部工具。
+仅返回 NEED_TOOL 或 NO_TOOL，禁止输出其他任何内容。
+判断标准：
+- 需要外部实时信息、网页抓取、搜索、时间/天气/新闻等 -> NEED_TOOL
+- 文本改写、内容生成、标题优化、摘要、分类等纯语言任务 -> NO_TOOL`
+
+	routerUserPrompt := fmt.Sprintf("用户输入：%s\n可用工具：%s",
+		prompt, strings.Join(toolNames, ", "))
+
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: routerSystemPrompt,
+		},
+		{
+			Role:    openai.ChatMessageRoleUser,
+			Content: routerUserPrompt,
+		},
+	}
+
+	resp, err := as.client.Chat(messages, WithMaxTokens(32), WithTemperature(0))
+	if err != nil {
+		return false, err
+	}
+	if len(resp.Choices) == 0 {
+		return false, fmt.Errorf("工具路由无返回结果")
+	}
+
+	decisionRaw := strings.ToUpper(strings.TrimSpace(resp.Choices[0].Message.Content))
+	utils.Info("[AI][%s] 模型工具路由结果: %q (finish_reason=%s, usage_total=%d)",
+		traceID, decisionRaw, resp.Choices[0].FinishReason, resp.Usage.TotalTokens)
+	if decisionRaw == "" {
+		utils.Warn("[AI][%s] 模型工具路由返回空结果，默认 NO_TOOL", traceID)
+		return false, nil
+	}
+
+	switch {
+	case strings.HasPrefix(decisionRaw, "NEED_TOOL"):
+		return true, nil
+	case strings.HasPrefix(decisionRaw, "NO_TOOL"):
+		return false, nil
+	default:
+		utils.Warn("[AI][%s] 模型工具路由结果无法解析，默认 NO_TOOL: %q", traceID, decisionRaw)
+		return false, nil
+	}
+}
+
+// retryPlainResponseForEmptyContent 当模型返回空内容时，用简化提示词重试一次，避免返回 200 + 空字符串
+func (as *AIService) retryPlainResponseForEmptyContent(traceID string, prompt string, finishReason openai.FinishReason) (string, error) {
+	utils.Warn("[AI][%s] AI 返回空内容，触发简化重试，finish_reason=%s", traceID, finishReason)
+
+	sanitizedPrompt := strings.TrimSpace(prompt)
+	if sanitizedPrompt == "" {
+		return "", fmt.Errorf("AI 返回空内容，且用户提示词为空")
+	}
+
+	// 防止超长提示词在部分兼容模型中触发 finish_reason=length 且 content 为空
+	sanitizedPrompt = truncateRunes(sanitizedPrompt, 2000)
+
+	attempts := []struct {
+		name    string
+		options []ChatOption
+	}{
+		{
+			name:    "中等max_tokens重试",
+			options: []ChatOption{WithMaxTokens(256), WithTemperature(0.2)},
+		},
+		{
+			name:    "较高max_tokens重试",
+			options: []ChatOption{WithMaxTokens(512), WithTemperature(0.1)},
+		},
+	}
+
+	lastFinishReason := finishReason
+	var lastErr error
+
+	for _, attempt := range attempts {
+		utils.Info("[AI][%s] 空内容重试开始[%s]: prompt_runes=%d", traceID, attempt.name, len([]rune(sanitizedPrompt)))
+
+		messages := []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: "你是一个有用的 AI 助手。请直接给出最终答案，不要输出工具调用标记或思考过程。",
+			},
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: fmt.Sprintf("请直接回答以下问题，控制在200字以内：\n%s", sanitizedPrompt),
+			},
+		}
+
+		resp, err := as.client.Chat(messages, attempt.options...)
+		if err != nil {
+			lastErr = err
+			utils.Warn("[AI][%s] 空内容重试失败[%s]: %v", traceID, attempt.name, err)
+			if isLikelyResourceTitleTask(sanitizedPrompt) && isTimeoutLikeError(err) {
+				if fallbackTitle, ok := buildLocalTitleFallback(sanitizedPrompt); ok {
+					utils.Warn("[AI][%s] 标题任务重试超时，立即使用本地标题回退: %q", traceID, fallbackTitle)
+					return fallbackTitle, nil
+				}
+			}
+			continue
+		}
+		if len(resp.Choices) == 0 {
+			lastErr = fmt.Errorf("无返回结果")
+			utils.Warn("[AI][%s] 空内容重试失败[%s]: choices为空", traceID, attempt.name)
+			continue
+		}
+
+		lastFinishReason = resp.Choices[0].FinishReason
+		retryContent := strings.TrimSpace(resp.Choices[0].Message.Content)
+		utils.Info("[AI][%s] 空内容重试结果[%s]: finish_reason=%s, content_length=%d, usage(prompt=%d completion=%d total=%d)",
+			traceID, attempt.name, lastFinishReason, len(retryContent), resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
+
+		if retryContent != "" {
+			utils.Info("[AI][%s] 空内容重试成功[%s]", traceID, attempt.name)
+			return retryContent, nil
+		}
+	}
+
+	if lastErr != nil {
+		if fallbackTitle, ok := buildLocalTitleFallback(sanitizedPrompt); ok {
+			utils.Warn("[AI][%s] AI重试失败，使用本地标题回退: %q", traceID, fallbackTitle)
+			return fallbackTitle, nil
+		}
+		return "", fmt.Errorf("AI 返回空内容，重试后仍失败（finish_reason=%s）: %w", lastFinishReason, lastErr)
+	}
+
+	if fallbackTitle, ok := buildLocalTitleFallback(sanitizedPrompt); ok {
+		utils.Warn("[AI][%s] AI重试仍为空，使用本地标题回退: %q", traceID, fallbackTitle)
+		return fallbackTitle, nil
+	}
+
+	return "", fmt.Errorf("AI 返回空内容，重试后仍为空（finish_reason=%s）", lastFinishReason)
+}
+
+func generateAITraceID() string {
+	return fmt.Sprintf("t_%d", time.Now().UnixNano())
+}
+
+func truncateRunes(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	return string(runes[:maxRunes])
+}
+
+func buildLocalTitleFallback(prompt string) (string, bool) {
+	if !isLikelyResourceTitleTask(prompt) {
+		return "", false
+	}
+
+	description := parseResourceFieldValueAny(prompt, []string{"资源描述", "现有描述"})
+	if titleFromDesc := extractQuotedTitleCandidate(description); titleFromDesc != "" {
+		return titleFromDesc, true
+	}
+
+	tags := parseResourceFieldValueAny(prompt, []string{"资源标签", "标签"})
+	if titleFromTags := extractQuotedTitleCandidate(tags); titleFromTags != "" {
+		return titleFromTags, true
+	}
+
+	rawTitle := parseResourceFieldValueAny(prompt, []string{"资源标题", "资源标题(原始，可能含噪声)", "资源标题(清洗候选)"})
+	cleanedTitle := cleanNoisyResourceTitle(rawTitle)
+	if cleanedTitle == "" {
+		return "", false
+	}
+	return cleanedTitle, true
+}
+
+func isLikelyResourceTitleTask(prompt string) bool {
+	normalized := strings.TrimSpace(prompt)
+	if normalized == "" {
+		return false
+	}
+	hasTitleField := strings.Contains(normalized, "资源标题:") || strings.Contains(normalized, "资源标题(原始")
+	return hasTitleField && strings.Contains(normalized, "生成一个") && strings.Contains(normalized, "标题")
+}
+
+func parseResourceFieldValue(prompt string, fieldName string) string {
+	fieldPrefix := fieldName + ":"
+	lines := strings.Split(prompt, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, fieldPrefix) {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, fieldPrefix))
+		}
+	}
+	return ""
+}
+
+func parseResourceFieldValueAny(prompt string, fieldNames []string) string {
+	for _, fieldName := range fieldNames {
+		if value := parseResourceFieldValue(prompt, fieldName); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func extractQuotedTitleCandidate(text string) string {
+	if strings.TrimSpace(text) == "" {
+		return ""
+	}
+
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`《([^》]{2,80})》`),
+		regexp.MustCompile(`“([^”]{2,80})”`),
+		regexp.MustCompile(`"([^"]{2,80})"`),
+	}
+	for _, pattern := range patterns {
+		match := pattern.FindStringSubmatch(text)
+		if len(match) >= 2 {
+			candidate := strings.TrimSpace(match[1])
+			if candidate != "" {
+				return "《" + candidate + "》"
+			}
+		}
+	}
+	return ""
+}
+
+func cleanNoisyResourceTitle(title string) string {
+	normalized := strings.TrimSpace(title)
+	if normalized == "" {
+		return ""
+	}
+
+	// 常见来源会在标题前附带数字编号，如 044651-xxx
+	normalized = regexp.MustCompile(`^\d{3,}-`).ReplaceAllString(normalized, "")
+	// 清理夹杂在中文标题中的连续大写噪声，如 NNN/MMM/ZZZ
+	normalized = regexp.MustCompile(`[A-Z]{2,}`).ReplaceAllString(normalized, "")
+	normalized = regexp.MustCompile(`\s+`).ReplaceAllString(normalized, " ")
+	normalized = strings.TrimSpace(normalized)
+
+	// 去除清理后可能出现的前导符号
+	normalized = strings.TrimLeft(normalized, "-_.,，。:：;； ")
+	return strings.TrimSpace(normalized)
+}
+
+func isTimeoutLikeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "deadline exceeded") || strings.Contains(errMsg, "client.timeout")
 }

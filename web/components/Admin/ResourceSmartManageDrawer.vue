@@ -328,28 +328,69 @@ const handleOptimizeTitle = async () => {
   await optimizeTitle()
 }
 
+const extractQuotedTitle = (text?: string) => {
+  if (!text) return ''
+  const patterns = [
+    /《([^》]{2,80})》/,
+    /“([^”]{2,80})”/,
+    /"([^"]{2,80})"/
+  ]
+  for (const pattern of patterns) {
+    const matched = text.match(pattern)
+    if (matched && matched[1]) {
+      return `《${matched[1].trim()}》`
+    }
+  }
+  return ''
+}
+
+const cleanNoisyTitle = (title: string) => {
+  return title
+    .replace(/^\d{3,}-/, '')
+    .replace(/[A-Z]{2,}/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[-_.,，。:：;；\s]+/, '')
+    .trim()
+}
+
+const buildTitleOptimizePrompt = (resource: Resource) => {
+  const descTitle = extractQuotedTitle(resource.description || '')
+  const cleanedTitle = cleanNoisyTitle(resource.title)
+  const tagNames = (resource.tags || [])
+    .map(tag => tag.name)
+    .filter(Boolean)
+    .join('、')
+
+  return `根据以下资源信息生成一个简洁、吸引人的标题：
+资源标题(原始，可能含噪声): ${resource.title}
+资源标题(清洗候选): ${cleanedTitle}
+资源描述: ${resource.description || ''}
+资源标签: ${tagNames}
+资源URL: ${resource.url}
+描述候选标题: ${descTitle || '无'}
+
+请生成一个更优化的标题，要求：
+1. 优先参考资源描述和资源标签，还原真实标题
+2. 忽略原始标题中的无意义大写噪声字符（如 NNN、MMM、ZZZ）
+3. 保持中文表达自然，简洁明了，吸引点击
+4. 长度控制在30字以内
+5. 只返回最终标题，不要解释，不要加引号`
+}
+
 const optimizeTitle = async () => {
   if (!props.resource) return
 
   processing.title = true
 
   try {
-    const prompt = `根据以下资源信息生成一个简洁、吸引人的标题：
-资源标题: ${props.resource.title}
-资源描述: ${props.resource.description || ''}
-资源URL: ${props.resource.url}
-
-请生成一个更优化的标题，要求：
-1. 简洁明了，突出重点
-2. 吸引用户点击
-3. 符合中文表达习惯
-4. 长度控制在50字以内`
+    const prompt = buildTitleOptimizePrompt(props.resource)
 
     const response = await aiApi.generateText({
       prompt: prompt,
+      disable_tools: true,
       options: [
-        { type: 'max_tokens', value: 200 },
-        { type: 'temperature', value: 0.7 }
+        { type: 'max_tokens', value: 120 },
+        { type: 'temperature', value: 0.2 }
       ]
     })
 

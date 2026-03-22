@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
+	"time"
 
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
@@ -247,6 +247,10 @@ func (h *AIHandler) GenerateText(c *gin.Context) {
 		return
 	}
 
+	reqID := c.GetString("request_id")
+	utils.Info("[AI][API] GenerateText 请求: request_id=%s, prompt_runes=%d, options_count=%d, disable_tools=%v",
+		reqID, len([]rune(req.Prompt)), len(req.Options), req.DisableTools)
+
 	// 转换 DTO ChatOption 到 service ChatOption
 	options := make([]service.ChatOption, 0, len(req.Options))
 	for _, opt := range req.Options {
@@ -254,22 +258,38 @@ func (h *AIHandler) GenerateText(c *gin.Context) {
 		case "max_tokens":
 			if tokens, ok := opt.Value.(float64); ok {
 				options = append(options, service.WithMaxTokens(int(tokens)))
+			} else {
+				utils.Warn("[AI][API] GenerateText 参数类型异常: type=max_tokens, value_type=%T", opt.Value)
 			}
 		case "temperature":
 			if temp, ok := opt.Value.(float64); ok {
 				options = append(options, service.WithTemperature(float32(temp)))
+			} else {
+				utils.Warn("[AI][API] GenerateText 参数类型异常: type=temperature, value_type=%T", opt.Value)
 			}
 		case "system_prompt":
 			if prompt, ok := opt.Value.(string); ok {
 				options = append(options, service.WithSystemPrompt(prompt))
+			} else {
+				utils.Warn("[AI][API] GenerateText 参数类型异常: type=system_prompt, value_type=%T", opt.Value)
 			}
+		default:
+			utils.Warn("[AI][API] GenerateText 忽略未知选项: type=%s", opt.Type)
 		}
 	}
 
-	result, err := h.aiService.GenerateText(req.Prompt, options...)
+	var (
+		result string
+		err    error
+	)
+	if req.DisableTools {
+		result, err = h.aiService.GenerateTextWithoutTools(req.Prompt, options...)
+	} else {
+		result, err = h.aiService.GenerateText(req.Prompt, options...)
+	}
 	if err != nil {
 		utils.Error("文本生成失败: %v", err)
-		ErrorResponse(c, "文本生成失败", http.StatusInternalServerError)
+		ErrorResponse(c, fmt.Sprintf("文本生成失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -344,47 +364,49 @@ func (h *AIHandler) ApplyGeneratedContent(c *gin.Context) {
 		return
 	}
 
-	preview := &service.GeneratedContentPreview{
-		SessionID:               req.SessionID,
-		ResourceID:              req.ResourceID,
-		GeneratedTitle:          req.GeneratedTitle,
-		GeneratedDescription:    req.GeneratedDescription,
-		GeneratedSEOTitle:       req.GeneratedSEOTitle,
-		GeneratedSEODescription: req.GeneratedSEODescription,
-		GeneratedSEOKeywords:    req.GeneratedSEOKeywords,
-		AIModelUsed:             req.AIModelUsed,
-	}
-	if req.GeneratedAt != nil {
-		preview.GeneratedAt = *req.GeneratedAt
-	}
+	generatedTitle := req.GeneratedTitle
+	generatedDescription := req.GeneratedDescription
 
-	// 兼容直写模式（field/content），无需预览数据结构
-	if req.Field != "" {
-		switch strings.ToLower(req.Field) {
+	// 兼容旧前端请求格式：field/content
+	if req.Field != "" || req.Content != "" {
+		switch req.Field {
 		case "title":
-			preview.GeneratedTitle = req.Content
+			generatedTitle = req.Content
 		case "description":
-			preview.GeneratedDescription = req.Content
-		case "seo_title":
-			preview.GeneratedSEOTitle = req.Content
-		case "seo_description":
-			preview.GeneratedSEODescription = req.Content
-		case "seo_keywords":
-			keywords := make([]string, 0)
-			for _, keyword := range strings.Split(req.Content, ",") {
-				trimmed := strings.TrimSpace(keyword)
-				if trimmed != "" {
-					keywords = append(keywords, trimmed)
-				}
-			}
-			preview.GeneratedSEOKeywords = keywords
+			generatedDescription = req.Content
 		default:
 			ErrorResponse(c, "不支持的字段类型", http.StatusBadRequest)
 			return
 		}
 	}
-	if preview.AIModelUsed == "" {
-		preview.AIModelUsed = h.aiService.GetModel()
+
+	if generatedTitle == "" && generatedDescription == "" &&
+		req.GeneratedSEOTitle == "" && req.GeneratedSEODescription == "" &&
+		len(req.GeneratedSEOKeywords) == 0 {
+		ErrorResponse(c, "没有可应用的内容", http.StatusBadRequest)
+		return
+	}
+
+	generatedAt := time.Now()
+	if req.GeneratedAt != nil {
+		generatedAt = *req.GeneratedAt
+	}
+
+	aiModelUsed := req.AIModelUsed
+	if aiModelUsed == "" {
+		aiModelUsed = "manual_apply"
+	}
+
+	preview := &service.GeneratedContentPreview{
+		SessionID:               req.SessionID,
+		ResourceID:              req.ResourceID,
+		GeneratedTitle:          generatedTitle,
+		GeneratedDescription:    generatedDescription,
+		GeneratedSEOTitle:       req.GeneratedSEOTitle,
+		GeneratedSEODescription: req.GeneratedSEODescription,
+		GeneratedSEOKeywords:    req.GeneratedSEOKeywords,
+		GeneratedAt:             generatedAt,
+		AIModelUsed:             aiModelUsed,
 	}
 
 	err := h.aiService.ApplyGeneratedContent(preview)
@@ -425,20 +447,28 @@ func (h *AIHandler) ApplyClassification(c *gin.Context) {
 		return
 	}
 
-	var suggestedCategoryID uint
-	switch {
-	case req.SuggestedCategoryID != nil:
-		suggestedCategoryID = *req.SuggestedCategoryID
-	case req.CategoryID != nil:
-		suggestedCategoryID = *req.CategoryID
-	default:
-		ErrorResponse(c, "缺少分类ID", http.StatusBadRequest)
+	suggestedCategoryID := req.SuggestedCategoryID
+	if suggestedCategoryID == 0 {
+		suggestedCategoryID = req.CategoryID
+	}
+	if suggestedCategoryID == 0 {
+		ErrorResponse(c, "分类ID不能为空", http.StatusBadRequest)
 		return
 	}
 
-	confidence := 1.0
-	if req.Confidence != nil {
-		confidence = *req.Confidence
+	confidence := req.Confidence
+	if confidence <= 0 || confidence > 1 {
+		confidence = 1
+	}
+
+	generatedAt := time.Now()
+	if req.GeneratedAt != nil {
+		generatedAt = *req.GeneratedAt
+	}
+
+	aiModelUsed := req.AIModelUsed
+	if aiModelUsed == "" {
+		aiModelUsed = "manual_apply"
 	}
 
 	preview := &service.ClassificationPreview{
@@ -447,7 +477,8 @@ func (h *AIHandler) ApplyClassification(c *gin.Context) {
 		SuggestedCategoryID:   suggestedCategoryID,
 		SuggestedCategoryName: req.SuggestedCategoryName,
 		Confidence:            confidence,
-		AIModelUsed:           req.AIModelUsed,
+		GeneratedAt:           generatedAt,
+		AIModelUsed:           aiModelUsed,
 	}
 	if req.GeneratedAt != nil {
 		preview.GeneratedAt = *req.GeneratedAt

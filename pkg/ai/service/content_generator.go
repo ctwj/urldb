@@ -144,7 +144,7 @@ func (cg *ContentGenerator) ApplyGeneratedContent(preview *GeneratedContentPrevi
 		return err
 	}
 
-	// 仅在提交了 generated_at 时做并发冲突校验
+	// 仅在提供了有效生成时间时检查资源是否在预览期间被修改
 	if !preview.GeneratedAt.IsZero() && resource.UpdatedAt.After(preview.GeneratedAt) {
 		return fmt.Errorf("资源在预览期间已被修改，请重新生成")
 	}

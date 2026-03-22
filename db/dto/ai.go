@@ -28,8 +28,9 @@ type TestAIConnectionRequest struct {
 
 // GenerateTextRequest 通用文本生成请求
 type GenerateTextRequest struct {
-	Prompt  string       `json:"prompt" binding:"required"`
-	Options []ChatOption `json:"options,omitempty"`
+	Prompt       string       `json:"prompt" binding:"required"`
+	Options      []ChatOption `json:"options,omitempty"`
+	DisableTools bool         `json:"disable_tools,omitempty"`
 }
 
 // ChatOption 对话选项
@@ -59,15 +60,16 @@ type GenerateContentRequest struct {
 type ApplyGeneratedContentRequest struct {
 	SessionID               string     `json:"session_id,omitempty"`
 	ResourceID              uint       `json:"resource_id" binding:"required"`
-	GeneratedAt             *time.Time `json:"generated_at,omitempty"`
-	Field                   string     `json:"field,omitempty"`
-	Content                 string     `json:"content,omitempty"`
 	GeneratedTitle          string     `json:"generated_title,omitempty"`
 	GeneratedDescription    string     `json:"generated_description,omitempty"`
 	GeneratedSEOTitle       string     `json:"generated_seo_title,omitempty"`
 	GeneratedSEODescription string     `json:"generated_seo_description,omitempty"`
 	GeneratedSEOKeywords    []string   `json:"generated_seo_keywords,omitempty"`
+	GeneratedAt             *time.Time `json:"generated_at,omitempty"`
 	AIModelUsed             string     `json:"ai_model_used,omitempty"`
+	// 兼容前端旧请求格式：{ field: "title|description", content: "..." }
+	Field   string `json:"field,omitempty"`
+	Content string `json:"content,omitempty"`
 }
 
 // ClassifyRequest 分类请求
@@ -79,12 +81,13 @@ type ClassifyRequest struct {
 type ApplyClassificationRequest struct {
 	SessionID             string     `json:"session_id,omitempty"`
 	ResourceID            uint       `json:"resource_id" binding:"required"`
-	GeneratedAt           *time.Time `json:"generated_at,omitempty"`
-	CategoryID            *uint      `json:"category_id,omitempty"`
-	SuggestedCategoryID   *uint      `json:"suggested_category_id,omitempty"`
+	SuggestedCategoryID   uint       `json:"suggested_category_id,omitempty"`
 	SuggestedCategoryName string     `json:"suggested_category_name,omitempty"`
-	Confidence            *float64   `json:"confidence,omitempty"`
+	Confidence            float64    `json:"confidence,omitempty"`
+	GeneratedAt           *time.Time `json:"generated_at,omitempty"`
 	AIModelUsed           string     `json:"ai_model_used,omitempty"`
+	// 兼容前端旧请求格式：{ category_id: 1 }
+	CategoryID uint `json:"category_id,omitempty"`
 }
 
 // ToolCallRequest 工具调用请求

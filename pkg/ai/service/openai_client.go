@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ctwj/urldb/utils"
@@ -105,12 +105,12 @@ func NewOpenAIClient() (*OpenAIClient, error) {
 	clientConfig.BaseURL = "https://api.openai.com/v1"
 
 	return &OpenAIClient{
-		apiKey:       apiKey,
-		baseURL:      "https://api.openai.com/v1",
-		model:        "gpt-3.5-turbo",
-		timeout:      30 * time.Second,
-		retryCount:   3,
-		client:       openai.NewClientWithConfig(clientConfig),
+		apiKey:     apiKey,
+		baseURL:    "https://api.openai.com/v1",
+		model:      "gpt-3.5-turbo",
+		timeout:    30 * time.Second,
+		retryCount: 3,
+		client:     openai.NewClientWithConfig(clientConfig),
 	}, nil
 }
 
@@ -160,28 +160,14 @@ func (c *OpenAIClient) Chat(messages []openai.ChatCompletionMessage, options ...
 	}
 
 	// 记录 FunctionCall 设置
-	if request.FunctionCall != "" {
-		utils.Debug("[OpenAI] FunctionCall 设置: %s", request.FunctionCall)
+	if request.FunctionCall != nil {
+		utils.Debug("[OpenAI] FunctionCall 设置: %v", request.FunctionCall)
 	}
 
 	// 详细的请求参数调试信息
-	utils.Debug("[AI] 请求参数详情:")
-	utils.Debug("[AI]   Model: %s", request.Model)
-	utils.Debug("  MaxTokens: %d", request.MaxTokens)
-	utils.Debug("  Temperature: %.2f", request.Temperature)
-	utils.Debug("  TopP: %.2f", request.TopP)
-	utils.Debug("  FunctionCall: %v", request.FunctionCall)
-	utils.Debug("  Stream: %v", request.Stream)
-	utils.Debug("  N: %d", request.N)
-
-	// 完整的请求调试信息
-	utils.Debug("[AI] === 完整API请求数据 ===")
-	if requestJSON, err := json.MarshalIndent(request, "", "  "); err == nil {
-		utils.Debug("[AI] 完整请求JSON:\n%s", string(requestJSON))
-	} else {
-		utils.Debug("序列化请求JSON失败: %v", err)
-	}
-	utils.Debug("==============================")
+	utils.Debug("[AI] 请求参数摘要: max_tokens=%d temperature=%.2f top_p=%.2f function_call=%v stream=%v n=%d",
+		request.MaxTokens, request.Temperature, request.TopP, request.FunctionCall, request.Stream, request.N)
+	utils.Debug("[AI] 请求消息摘要: %s", summarizeMessagesForLog(request.Messages))
 
 	resp, err := c.client.CreateChatCompletion(context.Background(), request)
 	if err != nil {
@@ -189,19 +175,57 @@ func (c *OpenAIClient) Chat(messages []openai.ChatCompletionMessage, options ...
 		return nil, err
 	}
 
+	utils.Debug("[OpenAI] 响应元数据: id=%s model=%s usage(prompt=%d completion=%d total=%d)",
+		resp.ID, resp.Model, resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
+
 	// 记录响应
 	if len(resp.Choices) > 0 {
-		choice := resp.Choices[0]
-		utils.Debug("[OpenAI] 收到响应 - FinishReason: %s", choice.FinishReason)
-		utils.Debug("[OpenAI] 响应内容: %s", choice.Message.Content)
-		if choice.Message.FunctionCall != nil {
-			utils.Debug("[OpenAI] AI 调用了函数: %s, 参数: %s", choice.Message.FunctionCall.Name, choice.Message.FunctionCall.Arguments)
+		for i, choice := range resp.Choices {
+			contentLen := len([]rune(strings.TrimSpace(choice.Message.Content)))
+			utils.Debug("[OpenAI] choice[%d] - finish_reason=%s, content_length=%d, has_function_call=%v",
+				i, choice.FinishReason, contentLen, choice.Message.FunctionCall != nil)
+			if choice.Message.FunctionCall != nil {
+				utils.Debug("[OpenAI] choice[%d] 函数调用: name=%s, arguments_length=%d",
+					i, choice.Message.FunctionCall.Name, len(choice.Message.FunctionCall.Arguments))
+			}
+		}
+		firstPreview := previewRunesForLog(strings.TrimSpace(resp.Choices[0].Message.Content), 120)
+		if firstPreview != "" {
+			utils.Debug("[OpenAI] 首条响应内容预览: %q", firstPreview)
 		} else {
-			utils.Debug("[OpenAI] AI 没有调用函数")
+			utils.Debug("[OpenAI] 首条响应内容预览为空")
 		}
 	}
 
 	return &resp, nil
+}
+
+func summarizeMessagesForLog(messages []openai.ChatCompletionMessage) string {
+	if len(messages) == 0 {
+		return "empty"
+	}
+
+	parts := make([]string, 0, len(messages))
+	for i, message := range messages {
+		content := strings.TrimSpace(message.Content)
+		preview := strings.ReplaceAll(previewRunesForLog(content, 80), "\n", " ")
+		preview = strings.ReplaceAll(preview, "\r", " ")
+		parts = append(parts, fmt.Sprintf("%d:%s(len=%d,preview=%q)",
+			i, message.Role, len([]rune(content)), preview))
+	}
+
+	return strings.Join(parts, "; ")
+}
+
+func previewRunesForLog(s string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= limit {
+		return s
+	}
+	return string(runes[:limit]) + "...(truncated)"
 }
 
 // ChatOption 对话选项类型
