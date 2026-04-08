@@ -481,23 +481,18 @@
 
         <!-- 推送频率 -->
         <div v-if="editingChannel.push_enabled">
-          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">推送频率</label>
-          <n-select
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">推送频率（分钟）</label>
+          <n-input-number
             v-model:value="editingChannel.push_frequency"
-            :options="[
-              { label: '每1分钟', value: 1 },
-              { label: '每2分钟', value: 2 },
-              { label: '每3分钟', value: 3 },
-              { label: '每5分钟', value: 5 },
-              { label: '每10分钟', value: 10 },
-              { label: '每15分钟', value: 15 },
-              { label: '每20分钟', value: 20 },
-              { label: '每30分钟', value: 30 },
-              { label: '每45分钟', value: 45 },
-              { label: '每60分钟', value: 60 }
-            ]"
-            placeholder="选择推送频率"
-          />
+            :min="1"
+            :max="120"
+            :step="1"
+            placeholder="输入1-120之间的整数"
+          >
+            <template #suffix>
+              分钟
+            </template>
+          </n-input-number>
         </div>
 
         <!-- 资源策略 -->
