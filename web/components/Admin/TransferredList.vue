@@ -49,73 +49,69 @@
         <p class="text-gray-500">暂无已转存的资源</p>
       </div>
 
-      <div v-else class="h-full">
-        <!-- 虚拟列表 -->
-        <n-virtual-list
-          :items="resources"
-          :item-size="120"
-          class="h-full"
+      <div v-else class="h-full overflow-y-auto">
+        <!-- 资源列表 -->
+        <div
+          v-for="item in resources"
+          :key="item.id"
+          class="p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
-          <template #default="{ item }">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-              <div class="flex items-start space-x-4">
-                <!-- 资源信息 -->
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center space-x-2 mb-2">
-                    <!-- ID -->
-                    <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">
-                      ID: {{ item.id }}
-                    </span>
+          <div class="flex items-start space-x-4">
+            <!-- 资源信息 -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center space-x-2 mb-2">
+                <!-- ID -->
+                <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">
+                  ID: {{ item.id }}
+                </span>
 
-                    <!-- 标题 -->
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white line-clamp-1 flex-1">
-                      {{ item.title || '未命名资源' }}
-                    </h3>
-                  </div>
+                <!-- 标题 -->
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white line-clamp-1 flex-1">
+                  {{ item.title || '未命名资源' }}
+                </h3>
+              </div>
 
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-3">
-                    <!-- 分类 -->
-                    <div class="flex items-center">
-                      <i class="fas fa-folder mr-1 text-gray-400"></i>
-                      <span class="text-gray-600 dark:text-gray-400">分类:</span>
-                      <span class="ml-2">{{ item.category_name || '未分类' }}</span>
-                    </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-3">
+                <!-- 分类 -->
+                <div class="flex items-center">
+                  <i class="fas fa-folder mr-1 text-gray-400"></i>
+                  <span class="text-gray-600 dark:text-gray-400">分类:</span>
+                  <span class="ml-2">{{ item.category_name || '未分类' }}</span>
+                </div>
 
-                    <!-- 转存时间 -->
-                    <div class="flex items-center">
-                      <i class="fas fa-calendar mr-1 text-gray-400"></i>
-                      <span class="text-gray-600 dark:text-gray-400">转存时间:</span>
-                      <span class="ml-2">{{ formatDate(item.updated_at) }}</span>
-                    </div>
+                <!-- 转存时间 -->
+                <div class="flex items-center">
+                  <i class="fas fa-calendar mr-1 text-gray-400"></i>
+                  <span class="text-gray-600 dark:text-gray-400">转存时间:</span>
+                  <span class="ml-2">{{ formatDate(item.updated_at) }}</span>
+                </div>
 
-                    <!-- 浏览数 -->
-                    <div class="flex items-center">
-                      <i class="fas fa-eye mr-1 text-gray-400"></i>
-                      <span class="text-gray-600 dark:text-gray-400">浏览数:</span>
-                      <span class="ml-2">{{ item.view_count || 0 }}</span>
-                    </div>
-                  </div>
+                <!-- 浏览数 -->
+                <div class="flex items-center">
+                  <i class="fas fa-eye mr-1 text-gray-400"></i>
+                  <span class="text-gray-600 dark:text-gray-400">浏览数:</span>
+                  <span class="ml-2">{{ item.view_count || 0 }}</span>
+                </div>
+              </div>
 
-                  <!-- 转存链接 -->
-                  <div class="mt-3">
-                    <div class="flex items-start space-x-2">
-                      <span class="text-xs text-gray-400">转存链接:</span>
-                      <a
-                        v-if="item.save_url"
-                        :href="item.save_url"
-                        target="_blank"
-                        class="text-xs text-green-500 hover:text-green-700 break-all"
-                      >
-                        {{ item.save_url.length > 60 ? item.save_url.substring(0, 60) + '...' : item.save_url }}
-                      </a>
-                      <span v-else class="text-xs text-gray-500">暂无转存链接</span>
-                    </div>
-                  </div>
+              <!-- 转存链接 -->
+              <div class="mt-3">
+                <div class="flex items-start space-x-2">
+                  <span class="text-xs text-gray-400">转存链接:</span>
+                  <a
+                    v-if="item.save_url"
+                    :href="item.save_url"
+                    target="_blank"
+                    class="text-xs text-green-500 hover:text-green-700 break-all"
+                  >
+                    {{ item.save_url.length > 60 ? item.save_url.substring(0, 60) + '...' : item.save_url }}
+                  </a>
+                  <span v-else class="text-xs text-gray-500">暂无转存链接</span>
                 </div>
               </div>
             </div>
-          </template>
-        </n-virtual-list>
+          </div>
+        </div>
       </div>
     </div>
 

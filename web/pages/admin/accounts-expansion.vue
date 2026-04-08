@@ -55,82 +55,82 @@
           </n-empty>
         </div>
 
-        <!-- 账号列表内容的虚拟滚动列表 -->
-        <div v-else class="h-full">
-          <n-virtual-list class="h-full" :items="expansionAccounts" :item-size="80">
-            <template #default="{ item }">
-              <div class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                <div class="flex items-center justify-between">
-                  <!-- 左侧信息 -->
+        <!-- 账号列表内容 -->
+        <div v-else class="h-full overflow-y-auto">
+          <div
+            v-for="item in expansionAccounts"
+            :key="item.id"
+            class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            <div class="flex items-center justify-between">
+              <!-- 左侧信息 -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-4">
+                  <!-- 平台图标 -->
+                  <span v-html="getPlatformIcon(item.service_type === 'quark' ? '夸克网盘' : '其他')" class="text-lg"></span>
+
+                  <!-- 账号信息 -->
                   <div class="flex-1 min-w-0">
-                    <div class="flex items-center space-x-4">
-                      <!-- 平台图标 -->
-                      <span v-html="getPlatformIcon(item.service_type === 'quark' ? '夸克网盘' : '其他')" class="text-lg"></span>
-
-                      <!-- 账号信息 -->
-                      <div class="flex-1 min-w-0">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1">
-                          {{ item.name }}
-                        </h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                          {{ item.service_type === 'quark' ? '夸克网盘' : '其他平台' }}
-                        </p>
-                      </div>
-
-                      <!-- 扩容状态 -->
-                      <div class="flex items-center space-x-2">
-                        <n-tag v-if="item.expanded" type="success" size="small">
-                          已扩容
-                        </n-tag>
-                        <n-tag v-else type="warning" size="small">
-                          可扩容
-                        </n-tag>
-                      </div>
-                    </div>
-
-                    <!-- 创建时间和容量 -->
-                    <div class="mt-2">
-                      <span class="text-xs text-gray-600 dark:text-gray-400">
-                        创建时间: {{ formatDate(item.created_at) }}
-                      </span>
-                      <span v-if="item.total_space" class="text-xs text-gray-600 dark:text-gray-400 ml-4">
-                        容量: {{ formatCapacity(item.used_space, item.total_space) }}
-                      </span>
-                    </div>
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1">
+                      {{ item.name }}
+                    </h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                      {{ item.service_type === 'quark' ? '夸克网盘' : '其他平台' }}
+                    </p>
                   </div>
 
-                  <!-- 右侧操作按钮 -->
-                  <div class="flex items-center space-x-2 ml-4">
-                    <n-button
-                      size="small"
-                      type="primary"
-                      :disabled="item.expanded"
-                      :loading="expandingAccountId === item.id"
-                      @click="handleExpansion(item)"
-                    >
-                      <template #icon>
-                        <i class="fas fa-expand"></i>
-                      </template>
-                      {{ item.expanded ? '已扩容' : '扩容' }}
-                    </n-button>
-
-                    <!-- 提取按钮，仅对已扩容账号显示 -->
-                    <n-button
-                      v-if="item.expanded"
-                      size="small"
-                      type="success"
-                      @click="handleExtract(item)"
-                    >
-                      <template #icon>
-                        <i class="fas fa-download"></i>
-                      </template>
-                      提取
-                    </n-button>
+                  <!-- 扩容状态 -->
+                  <div class="flex items-center space-x-2">
+                    <n-tag v-if="item.expanded" type="success" size="small">
+                      已扩容
+                    </n-tag>
+                    <n-tag v-else type="warning" size="small">
+                      可扩容
+                    </n-tag>
                   </div>
                 </div>
+
+                <!-- 创建时间和容量 -->
+                <div class="mt-2">
+                  <span class="text-xs text-gray-600 dark:text-gray-400">
+                    创建时间: {{ formatDate(item.created_at) }}
+                  </span>
+                  <span v-if="item.total_space" class="text-xs text-gray-600 dark:text-gray-400 ml-4">
+                    容量: {{ formatCapacity(item.used_space, item.total_space) }}
+                  </span>
+                </div>
               </div>
-            </template>
-          </n-virtual-list>
+
+              <!-- 右侧操作按钮 -->
+              <div class="flex items-center space-x-2 ml-4">
+                <n-button
+                  size="small"
+                  type="primary"
+                  :disabled="item.expanded"
+                  :loading="expandingAccountId === item.id"
+                  @click="handleExpansion(item)"
+                >
+                  <template #icon>
+                    <i class="fas fa-expand"></i>
+                  </template>
+                  {{ item.expanded ? '已扩容' : '扩容' }}
+                </n-button>
+
+                <!-- 提取按钮，仅对已扩容账号显示 -->
+                <n-button
+                  v-if="item.expanded"
+                  size="small"
+                  type="success"
+                  @click="handleExtract(item)"
+                >
+                  <template #icon>
+                    <i class="fas fa-download"></i>
+                  </template>
+                  提取
+                </n-button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </template>

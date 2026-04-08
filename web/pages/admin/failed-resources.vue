@@ -91,109 +91,104 @@
         </n-spin>
       </div>
 
-      <!-- 虚拟列表 -->
-      <div v-else-if="failedResources.length > 0">
-        <n-virtual-list
-          :items="failedResources"
-          :item-size="120"
-          :item-resizable="true"
-          style="max-height: 600px"
+      <!-- 资源列表 -->
+      <div v-else-if="failedResources.length > 0" class="overflow-y-auto max-h-[600px]">
+        <div
+          v-for="item in failedResources"
+          :key="item.id"
+          class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
         >
-          <template #default="{ item }">
-            <div class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-              <div class="flex items-center justify-between">
-                <!-- 左侧信息 -->
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center space-x-4">
-                    <!-- 复选框 -->
-                    <n-checkbox
-                      :checked="selectedResources.includes(item.id)"
-                      @update:checked="(checked) => {
-                        if (checked) {
-                          selectedResources.push(item.id)
-                        } else {
-                          const index = selectedResources.indexOf(item.id)
-                          if (index > -1) {
-                            selectedResources.splice(index, 1)
-                          }
-                        }
-                      }"
-                    />
+          <div class="flex items-center justify-between">
+            <!-- 左侧信息 -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center space-x-4">
+                <!-- 复选框 -->
+                <n-checkbox
+                  :checked="selectedResources.includes(item.id)"
+                  @update:checked="(checked) => {
+                    if (checked) {
+                      selectedResources.push(item.id)
+                    } else {
+                      const index = selectedResources.indexOf(item.id)
+                      if (index > -1) {
+                        selectedResources.splice(index, 1)
+                      }
+                    }
+                  }"
+                />
 
-                    <!-- ID -->
-                    <div class="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
-                      #{{ item.id }}
-                    </div>
-
-                    <!-- 标题 -->
-                    <div class="flex-1 min-w-0">
-                      <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1" :title="item.title || '未设置'">
-                        {{ item.title || '未设置' }}
-                      </h3>
-                    </div>
-                  </div>
-
-                  <!-- 错误信息 -->
-                  <div class="mt-2 flex items-center space-x-2">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-1" :title="item.url">
-                      <a
-                        :href="checkUrlSafety(item.url)"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
-                      >
-                        {{ item.url }}
-                      </a>
-                    </p>
-                    <n-tag type="error" size="small" :title="item.error_msg">
-                      {{ truncateError(item.error_msg) }}
-                    </n-tag>
-                  </div>
-
-                  <!-- 底部信息 -->
-                  <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    <span>创建时间: {{ formatTime(item.create_time) }}</span>
-                    <span>IP: {{ item.ip || '-' }}</span>
-                  </div>
+                <!-- ID -->
+                <div class="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  #{{ item.id }}
                 </div>
 
-                <!-- 右侧操作按钮 -->
-                <div class="flex items-center space-x-2 ml-4">
-                  <n-button
-                    size="small"
-                    type="success"
-                    @click="retryResource(item.id)"
-                    title="重试此资源"
-                  >
-                    <template #icon>
-                      <i class="fas fa-redo"></i>
-                    </template>
-                  </n-button>
-                  <n-button
-                    size="small"
-                    type="warning"
-                    @click="clearError(item.id)"
-                    title="清除错误信息"
-                  >
-                    <template #icon>
-                      <i class="fas fa-broom"></i>
-                    </template>
-                  </n-button>
-                  <n-button
-                    size="small"
-                    type="error"
-                    @click="deleteResource(item.id)"
-                    title="删除此资源"
-                  >
-                    <template #icon>
-                      <i class="fas fa-trash"></i>
-                    </template>
-                  </n-button>
+                <!-- 标题 -->
+                <div class="flex-1 min-w-0">
+                  <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1" :title="item.title || '未设置'">
+                    {{ item.title || '未设置' }}
+                  </h3>
                 </div>
               </div>
+
+              <!-- 错误信息 -->
+              <div class="mt-2 flex items-center space-x-2">
+                <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-1" :title="item.url">
+                  <a
+                    :href="checkUrlSafety(item.url)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
+                  >
+                    {{ item.url }}
+                  </a>
+                </p>
+                <n-tag type="error" size="small" :title="item.error_msg">
+                  {{ truncateError(item.error_msg) }}
+                </n-tag>
+              </div>
+
+              <!-- 底部信息 -->
+              <div class="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>创建时间: {{ formatTime(item.create_time) }}</span>
+                <span>IP: {{ item.ip || '-' }}</span>
+              </div>
             </div>
-          </template>
-        </n-virtual-list>
+
+            <!-- 右侧操作按钮 -->
+            <div class="flex items-center space-x-2 ml-4">
+              <n-button
+                size="small"
+                type="success"
+                @click="retryResource(item.id)"
+                title="重试此资源"
+              >
+                <template #icon>
+                  <i class="fas fa-redo"></i>
+                </template>
+              </n-button>
+              <n-button
+                size="small"
+                type="warning"
+                @click="clearError(item.id)"
+                title="清除错误信息"
+              >
+                <template #icon>
+                  <i class="fas fa-broom"></i>
+                </template>
+              </n-button>
+              <n-button
+                size="small"
+                type="error"
+                @click="deleteResource(item.id)"
+                title="删除此资源"
+              >
+                <template #icon>
+                  <i class="fas fa-trash"></i>
+                </template>
+              </n-button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 空状态 -->

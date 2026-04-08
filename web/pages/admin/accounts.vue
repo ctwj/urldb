@@ -88,87 +88,86 @@
       </div>
 
       <!-- 账号列表和分页 -->
-      <div v-else class="flex flex-col flex-1 h-full overflow-hidden">
-        <n-virtual-list :items="filteredCksList" :item-size="100" class="h-full">
-          <template #default="{ item }">
-            <div
-              class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-              <div class="flex items-center justify-between">
-                <!-- 左侧信息 -->
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center space-x-4">
-                    <!-- ID -->
-                    <div class="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
-                      #{{ item.id }}
-                    </div>
-
-                    <!-- 平台 -->
-                    <div class="flex items-center space-x-2">
-                      <span v-html="getPlatformIcon(item.pan?.name || '')" class="text-lg"></span>
-                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {{ item.pan?.name || '未知平台' }}
-                      </span>
-                    </div>
-
-                    <!-- 用户名 -->
-                    <div class="flex-1 min-w-0">
-                      <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1"
-                        :title="item.username || '未知用户'">
-                        {{ item.username || '未知用户' }}
-                      </h3>
-                    </div>
-                  </div>
-
-                  <!-- 状态和容量信息 -->
-                  <div class="mt-2 flex items-center space-x-4">
-                    <n-tag :type="item.is_valid ? 'success' : 'error'" size="small">
-                      {{ item.is_valid ? '有效' : '无效' }}
-                    </n-tag>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">
-                      总空间: {{ formatFileSize(item.space) }}
-                    </span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">
-                      已使用: {{ formatFileSize(Math.max(0, item.used_space || (item.space - item.left_space))) }}
-                    </span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">
-                      剩余: {{ formatFileSize(Math.max(0, item.left_space)) }}
-                    </span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">
-                      已转存: {{ item.transferred_count || 0 }}
-                    </span>
-                  </div>
-
-                  <!-- 备注 -->
-                  <div v-if="item.remark" class="mt-1">
-                    <span class="text-xs text-gray-600 dark:text-gray-400 line-clamp-1" :title="item.remark">
-                      备注: {{ item.remark }}
-                    </span>
-                  </div>
+      <div v-else class="flex flex-col flex-1 h-full overflow-y-auto">
+        <div
+          v-for="item in filteredCksList"
+          :key="item.id"
+          class="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        >
+          <div class="flex items-center justify-between">
+            <!-- 左侧信息 -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center space-x-4">
+                <!-- ID -->
+                <div class="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  #{{ item.id }}
                 </div>
 
-                <!-- 右侧操作按钮 -->
-                <div class="flex items-center space-x-2 ml-4">
-                  <n-button size="small" :type="item.is_valid ? 'warning' : 'success'" @click="toggleStatus(item)"
-                    :title="item.is_valid ? '禁用账号' : '启用账号'" text>
-                    {{ item.is_valid ? '禁用' : '启用' }}
-                  </n-button>
-                  <n-button size="small" type="info" @click="refreshCapacity(item.id)" title="刷新容量" text>
-                    刷新容量
-                  </n-button>
-                  <n-button size="small" type="primary" @click="editCks(item)" title="编辑账号" text>
-                    编辑
-                  </n-button>
-                  <n-button size="small" type="error" @click="deleteCks(item.id)" title="删除账号" text>
-                    删除
-                  </n-button>
-                  <n-button size="small" type="warning" @click="deleteRelatedResources(item.id)" title="删除关联资源" text>
-                    删除关联
-                  </n-button>
+                <!-- 平台 -->
+                <div class="flex items-center space-x-2">
+                  <span v-html="getPlatformIcon(item.pan?.name || '')" class="text-lg"></span>
+                  <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {{ item.pan?.name || '未知平台' }}
+                  </span>
+                </div>
+
+                <!-- 用户名 -->
+                <div class="flex-1 min-w-0">
+                  <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1"
+                    :title="item.username || '未知用户'">
+                    {{ item.username || '未知用户' }}
+                  </h3>
                 </div>
               </div>
+
+              <!-- 状态和容量信息 -->
+              <div class="mt-2 flex items-center space-x-4">
+                <n-tag :type="item.is_valid ? 'success' : 'error'" size="small">
+                  {{ item.is_valid ? '有效' : '无效' }}
+                </n-tag>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                  总空间: {{ formatFileSize(item.space) }}
+                </span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                  已使用: {{ formatFileSize(Math.max(0, item.used_space || (item.space - item.left_space))) }}
+                </span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                  剩余: {{ formatFileSize(Math.max(0, item.left_space)) }}
+                </span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                  已转存: {{ item.transferred_count || 0 }}
+                </span>
+              </div>
+
+              <!-- 备注 -->
+              <div v-if="item.remark" class="mt-1">
+                <span class="text-xs text-gray-600 dark:text-gray-400 line-clamp-1" :title="item.remark">
+                  备注: {{ item.remark }}
+                </span>
+              </div>
             </div>
-          </template>
-        </n-virtual-list>
+
+            <!-- 右侧操作按钮 -->
+            <div class="flex items-center space-x-2 ml-4">
+              <n-button size="small" :type="item.is_valid ? 'warning' : 'success'" @click="toggleStatus(item)"
+                :title="item.is_valid ? '禁用账号' : '启用账号'" text>
+                {{ item.is_valid ? '禁用' : '启用' }}
+              </n-button>
+              <n-button size="small" type="info" @click="refreshCapacity(item.id)" title="刷新容量" text>
+                刷新容量
+              </n-button>
+              <n-button size="small" type="primary" @click="editCks(item)" title="编辑账号" text>
+                编辑
+              </n-button>
+              <n-button size="small" type="error" @click="deleteCks(item.id)" title="删除账号" text>
+                删除
+              </n-button>
+              <n-button size="small" type="warning" @click="deleteRelatedResources(item.id)" title="删除关联资源" text>
+                删除关联
+              </n-button>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 

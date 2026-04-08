@@ -89,81 +89,77 @@
         <p class="text-gray-500">暂无未转存的夸克资源</p>
       </div>
 
-      <div v-else class="h-full">
-        <!-- 虚拟列表 -->
-        <n-virtual-list
-          :items="resources"
-          :item-size="120"
-          class="h-full"
+      <div v-else class="h-full overflow-y-auto">
+        <!-- 资源列表 -->
+        <div
+          v-for="item in resources"
+          :key="item.id"
+          class="p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
-          <template #default="{ item }">
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-              <div class="flex items-start space-x-4">
-                <!-- 选择框 -->
-                <div class="pt-2">
-                  <n-checkbox 
-                    :checked="selectedResources.includes(item.id)"
-                    @update:checked="(checked) => toggleResourceSelection(item.id, checked)"
-                  />
-                </div>
+          <div class="flex items-start space-x-4">
+            <!-- 选择框 -->
+            <div class="pt-2">
+              <n-checkbox 
+                :checked="selectedResources.includes(item.id)"
+                @update:checked="(checked) => toggleResourceSelection(item.id, checked)"
+              />
+            </div>
 
-                <!-- 资源信息 -->
+            <!-- 资源信息 -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between">
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-start justify-between">
-                    <div class="flex-1 min-w-0">
-                      <!-- 标题和状态 -->
-                      <div class="flex items-center space-x-2 mb-2">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white line-clamp-1">
-                          {{ item.title || '未命名资源' }}
-                        </h3>
-                        <n-tag :type="getStatusType(item)" size="small">
-                          {{ getStatusText(item) }}
-                        </n-tag>
-                      </div>
+                  <!-- 标题和状态 -->
+                  <div class="flex items-center space-x-2 mb-2">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white line-clamp-1">
+                      {{ item.title || '未命名资源' }}
+                    </h3>
+                    <n-tag :type="getStatusType(item)" size="small">
+                      {{ getStatusText(item) }}
+                    </n-tag>
+                  </div>
 
-                      <!-- 描述 -->
-                      <p class="text-gray-600 dark:text-gray-400 text-sm line-clamp-2 mb-2">
-                        {{ item.description || '暂无描述' }}
-                      </p>
+                  <!-- 描述 -->
+                  <p class="text-gray-600 dark:text-gray-400 text-sm line-clamp-2 mb-2">
+                    {{ item.description || '暂无描述' }}
+                  </p>
 
-                      <!-- 元信息 -->
-                      <div class="flex items-center space-x-4 text-sm text-gray-500">
-                        <span class="flex items-center">
-                          <i class="fas fa-folder mr-1"></i>
-                          {{ item.category_name || '未分类' }}
-                        </span>
-                        <span class="flex items-center">
-                          <i class="fas fa-eye mr-1"></i>
-                          {{ item.view_count || 0 }} 次浏览
-                        </span>
-                        <span class="flex items-center">
-                          <i class="fas fa-calendar mr-1"></i>
-                          {{ formatDate(item.created_at) }}
-                        </span>
-                      </div>
+                  <!-- 元信息 -->
+                  <div class="flex items-center space-x-4 text-sm text-gray-500">
+                    <span class="flex items-center">
+                      <i class="fas fa-folder mr-1"></i>
+                      {{ item.category_name || '未分类' }}
+                    </span>
+                    <span class="flex items-center">
+                      <i class="fas fa-eye mr-1"></i>
+                      {{ item.view_count || 0 }} 次浏览
+                    </span>
+                    <span class="flex items-center">
+                      <i class="fas fa-calendar mr-1"></i>
+                      {{ formatDate(item.created_at) }}
+                    </span>
+                  </div>
 
-                      <!-- 原始链接 -->
-                      <div class="mt-2">
-                        <div class="flex items-center space-x-2">
-                          <span class="text-xs text-gray-400">原始链接:</span>
-                          <a 
-                            :href="item.url" 
-                            target="_blank"
-                            class="text-xs text-blue-500 hover:text-blue-700 truncate max-w-xs"
-                          >
-                            {{ item.url }}
-                          </a>
-                        </div>
-                      </div>
+                  <!-- 原始链接 -->
+                  <div class="mt-2">
+                    <div class="flex items-center space-x-2">
+                      <span class="text-xs text-gray-400">原始链接:</span>
+                      <a 
+                        :href="item.url" 
+                        target="_blank"
+                        class="text-xs text-blue-500 hover:text-blue-700 truncate max-w-xs"
+                      >
+                        {{ item.url }}
+                      </a>
                     </div>
-
-
                   </div>
                 </div>
+
+
               </div>
             </div>
-          </template>
-        </n-virtual-list>
+          </div>
+        </div>
       </div>
       
     </div>

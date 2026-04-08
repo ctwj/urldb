@@ -98,95 +98,93 @@
         <p class="text-gray-500 dark:text-gray-400">暂无资源数据</p>
       </div>
 
-      <!-- 虚拟列表容器 -->
-      <div v-else class="flex-1 h-full overflow-hidden">
-        <n-virtual-list
-          :items="resources"
-          :item-size="100"
-          class="h-full"
-        >
-          <template #default="{ item: resource }">
-            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mb-4">
-              <div class="flex items-start justify-between">
-                <div class="flex-1">
-                  <div class="flex items-center space-x-2 mb-2">
-                    <n-checkbox
-                      :value="resource.id"
-                      :checked="selectedResources.includes(resource.id)"
-                      @update:checked="(checked) => toggleResourceSelection(resource.id, checked)"
-                    />
-                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ resource.id }}</span>
+      <!-- 资源列表容器 -->
+      <div v-else class="h-full overflow-y-auto p-4">
+        <div class="space-y-4">
+          <div
+            v-for="resource in resources"
+            :key="resource.id"
+            class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-2">
+                  <n-checkbox
+                    :value="resource.id"
+                    :checked="selectedResources.includes(resource.id)"
+                    @update:checked="(checked) => toggleResourceSelection(resource.id, checked)"
+                  />
+                  <span class="text-sm text-gray-500 dark:text-gray-400">{{ resource.id }}</span>
 
-                    <span v-if="resource.pan_id" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded flex-shrink-0">
-                      {{ getPlatformName(resource.pan_id) }}
-                    </span>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white flex-1 line-clamp-1">
-                      {{ resource.title }}
-                    </h3>
-                    <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded flex-shrink-0">
-                      {{ getCategoryName(resource.category_id) }}
-                    </span>
+                  <span v-if="resource.pan_id" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded flex-shrink-0">
+                    {{ getPlatformName(resource.pan_id) }}
+                  </span>
+                  <h3 class="text-lg font-medium text-gray-900 dark:text-white flex-1 line-clamp-1">
+                    {{ resource.title }}
+                  </h3>
+                  <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded flex-shrink-0">
+                    {{ getCategoryName(resource.category_id) }}
+                  </span>
 
-                  </div>
-
-                  <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
-                    {{ resource.description }}
-                  </p>
-
-                  <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                    <span>
-                      <i class="fas fa-link mr-1"></i>
-                      {{ resource.url }}
-                    </span>
-                    <span v-if="resource.author">
-                      <i class="fas fa-user mr-1"></i>
-                      {{ resource.author }}
-                    </span>
-                    <span v-if="resource.file_size">
-                      <i class="fas fa-file mr-1"></i>
-                      {{ resource.file_size }}
-                    </span>
-                    <span>
-                      <i class="fas fa-eye mr-1"></i>
-                      {{ resource.view_count || 0 }}
-                    </span>
-                    <span>
-                      <i class="fas fa-clock mr-1"></i>
-                      {{ resource.updated_at }}
-                    </span>
-                  </div>
-
-                  <div v-if="resource.tags && resource.tags.length > 0" class="mt-2">
-                    <div class="flex flex-wrap gap-1">
-                      <span
-                        v-for="tag in resource.tags"
-                        :key="tag.id"
-                        class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
-                      >
-                        {{ tag.name }}
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
-                <div class="flex items-center space-x-2 ml-4">
-                  <n-button size="small" type="primary" @click="editResource(resource)">
-                    <template #icon>
-                      <i class="fas fa-edit"></i>
-                    </template>
-                    编辑
-                  </n-button>
-                  <n-button size="small" type="error" @click="deleteResource(resource)">
-                    <template #icon>
-                      <i class="fas fa-trash"></i>
-                    </template>
-                    删除
-                  </n-button>
+                <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                  {{ resource.description }}
+                </p>
+
+                <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                  <span>
+                    <i class="fas fa-link mr-1"></i>
+                    {{ resource.url }}
+                  </span>
+                  <span v-if="resource.author">
+                    <i class="fas fa-user mr-1"></i>
+                    {{ resource.author }}
+                  </span>
+                  <span v-if="resource.file_size">
+                    <i class="fas fa-file mr-1"></i>
+                    {{ resource.file_size }}
+                  </span>
+                  <span>
+                    <i class="fas fa-eye mr-1"></i>
+                    {{ resource.view_count || 0 }}
+                  </span>
+                  <span>
+                    <i class="fas fa-clock mr-1"></i>
+                    {{ resource.updated_at }}
+                  </span>
+                </div>
+
+                <div v-if="resource.tags && resource.tags.length > 0" class="mt-2">
+                  <div class="flex flex-wrap gap-1">
+                    <span
+                      v-for="tag in resource.tags"
+                      :key="tag.id"
+                      class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
+                    >
+                      {{ tag.name }}
+                    </span>
+                  </div>
                 </div>
               </div>
+
+              <div class="flex items-center space-x-2 ml-4">
+                <n-button size="small" type="primary" @click="editResource(resource)">
+                  <template #icon>
+                    <i class="fas fa-edit"></i>
+                  </template>
+                  编辑
+                </n-button>
+                <n-button size="small" type="error" @click="deleteResource(resource)">
+                  <template #icon>
+                    <i class="fas fa-trash"></i>
+                  </template>
+                  删除
+                </n-button>
+              </div>
             </div>
-          </template>
-        </n-virtual-list>
+          </div>
+        </div>
       </div>
     </template>
 
