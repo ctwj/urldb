@@ -53,6 +53,14 @@ jobs:
         chmod +x scripts/build.sh
         ./scripts/build.sh build-linux
 
+    - name: Install UPX
+      uses: crazy-max/ghaction-upx@v3
+      with:
+        install-only: true
+
+    - name: Compress binary with UPX
+      run: upx --best main
+
     - name: Rename binary
       run: mv main urldb-${{ steps.set_tag.outputs.tag }}-linux-amd64
 
@@ -75,7 +83,7 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        tag: ${{ steps.set_tag.outputs.tag }}
+        tag_name: ${{ steps.set_tag.outputs.tag }}
         files: |
           urldb-${{ steps.set_tag.outputs.tag }}-linux-amd64
           frontend-${{ steps.set_tag.outputs.tag }}.tar.gz
