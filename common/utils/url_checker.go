@@ -59,8 +59,8 @@ func extractShareID(urlStr string) (string, string) {
 			Pattern: regexp.MustCompile(`https?://(?:www\.)?(?:115|115cdn|anxia)\.com/s/([a-zA-Z0-9]+)`),
 		},
 		Pan123Str: {
-			Domains: []string{"123684.com", "123865.com", "123685.com", "123912.com", "123pan.com", "123pan.cn", "123592.com"},
-			Pattern: regexp.MustCompile(`https?://(?:www\.)?(?:123684|123685|123912|123pan|123pan\.cn|123592)\.com/s/([a-zA-Z0-9-]+)`),
+			Domains: []string{"123684.com", "123865.com", "123685.com", "123912.com", "123pan.com", "123pan.cn", "123592.com", "share.123pan.cn"},
+			Pattern: regexp.MustCompile(`https?://(?:(?:www\.)?(?:123684|123685|123912|123pan|123pan\.cn|123592)\.com|[\d\w]+\.share\.123pan\.cn)/s/([a-zA-Z0-9-]+)`),
 		},
 		TianyiStr: {
 			Domains: []string{"cloud.189.cn"},

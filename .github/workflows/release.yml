@@ -9,18 +9,37 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    # 可选：添加输入参数，用于测试不同的场景
     inputs:
+      tag:
+        description: 'Tag version (e.g., v1.3.9)'
+        required: true
+        default: ''
       version-suffix:
         description: 'Version suffix for testing (e.g., -test, -rc)'
         required: false
-        default: '-test'
+        default: ''
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.set_tag.outputs.tag }}
 
     steps:
+    - name: Set release tag
+      id: set_tag
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            echo "Error: tag input is required for manual trigger"
+            exit 1
+          fi
+        else
+          TAG="${{ github.ref_name }}"
+        fi
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -35,7 +54,7 @@ jobs:
         ./scripts/build.sh build-linux
 
     - name: Rename binary
-      run: mv main urldb-${{ github.ref_name }}-linux-amd64
+      run: mv main urldb-${{ steps.set_tag.outputs.tag }}-linux-amd64
 
     - name: Setup Node
       uses: actions/setup-node@v4
@@ -51,12 +70,13 @@ jobs:
     - name: Create frontend archive
       run: |
         cd web
-        tar -czf ../frontend-${{ github.ref_name }}.tar.gz .output/
+        tar -czf ../frontend-${{ steps.set_tag.outputs.tag }}.tar.gz .output/
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
+        tag: ${{ steps.set_tag.outputs.tag }}
         files: |
-          urldb-${{ github.ref_name }}-linux-amd64
-          frontend-${{ github.ref_name }}.tar.gz
+          urldb-${{ steps.set_tag.outputs.tag }}-linux-amd64
+          frontend-${{ steps.set_tag.outputs.tag }}.tar.gz
         generate_release_notes: true

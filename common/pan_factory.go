@@ -218,7 +218,7 @@ func ExtractServiceType(url string) ServiceType {
 		"www.123865.com":      Pan123,
 		"www.123685.com":      Pan123,
 		"123pan.com":          Pan123,
-		"123592.cn":           Pan123,
+		"share.123pan.cn":    Pan123,
 		"115cdn.com":          Pan115,
 		"anxia.com":           Pan115,
 		"115.com/":            Pan115,
