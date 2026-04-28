@@ -246,6 +246,8 @@ func ExtractShareId(url string) (string, ServiceType) {
 
 	if index := strings.Index(url, "/s/"); index != -1 {
 		substring = index + 3
+	} else if index := strings.Index(url, "/123pan/"); index != -1 {
+		substring = index + 8
 	} else if index := strings.Index(url, "/t/"); index != -1 {
 		substring = index + 3
 	} else if index := strings.Index(url, "/web/share?code="); index != -1 {

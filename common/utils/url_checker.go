@@ -60,7 +60,7 @@ func extractShareID(urlStr string) (string, string) {
 		},
 		Pan123Str: {
 			Domains: []string{"123684.com", "123865.com", "123685.com", "123912.com", "123pan.com", "123pan.cn", "123592.com", "share.123pan.cn"},
-			Pattern: regexp.MustCompile(`https?://(?:(?:www\.)?(?:123684|123685|123912|123pan|123pan\.cn|123592)\.com|[\d\w]+\.share\.123pan\.cn)/s/([a-zA-Z0-9-]+)`),
+			Pattern: regexp.MustCompile(`https?://(?:(?:www\.)?(?:123684|123685|123912|123pan|123pan\.cn|123592)\.com|[\d\w]+\.share\.123pan\.cn)/(?:s/([a-zA-Z0-9-]+)|123pan/([a-zA-Z0-9-]+))`),
 		},
 		TianyiStr: {
 			Domains: []string{"cloud.189.cn"},
@@ -80,7 +80,12 @@ func extractShareID(urlStr string) (string, string) {
 		if containsDomain(urlStr, config.Domains) {
 			match := config.Pattern.FindStringSubmatch(urlStr)
 			if len(match) > 1 {
-				return match[1], service
+				// 对于123pan，正则有两个捕获组，需要检查哪个有值
+				for i := 1; i < len(match); i++ {
+					if match[i] != "" {
+						return match[i], service
+					}
+				}
 			}
 		}
 	}
