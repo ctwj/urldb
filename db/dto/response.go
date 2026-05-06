@@ -72,6 +72,21 @@ type PanResponse struct {
 	Remark string `json:"remark"`
 }
 
+// PanRuleResponse 网盘规则响应
+type PanRuleResponse struct {
+	ID          uint         `json:"id"`
+	PanID       uint         `json:"pan_id"`
+	Name        string       `json:"name"`
+	Domains     string       `json:"domains"`
+	URLPatterns string       `json:"url_patterns"`
+	Priority    int          `json:"priority"`
+	Enabled     bool         `json:"enabled"`
+	Remark      string       `json:"remark"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
+	Pan         *PanResponse `json:"pan,omitempty"`
+}
+
 // CksResponse Cookie响应
 type CksResponse struct {
 	ID                uint         `json:"id"`

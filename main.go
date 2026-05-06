@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ctwj/urldb/cmd/cmdplugin"
+	pan "github.com/ctwj/urldb/common"
 	"github.com/ctwj/urldb/config"
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/entity"
@@ -191,6 +192,20 @@ func main() {
 	// 将Repository管理器注入到handlers中
 	handlers.SetRepositoryManager(repoManager)
 
+	// 创建规则管理器
+	ruleManager := pan.NewRuleManager(db.DB)
+	if err := ruleManager.LoadRules(); err != nil {
+		utils.Error("加载网盘规则失败: %v", err)
+	} else {
+		utils.Info("网盘规则加载成功")
+	}
+
+	// 设置规则管理器到handlers
+	handlers.SetRuleManager(ruleManager)
+
+	// 设置规则管理器到PanFactory
+	pan.GetInstance().SetRuleManager(ruleManager)
+
 	// 加载插件配置并初始化插件系统
 	pluginConfig := cmdplugin.LoadPluginConfig()
 
@@ -368,6 +383,14 @@ func main() {
 		api.PUT("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdatePan)
 		api.DELETE("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeletePan)
 		api.GET("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPan)
+
+		// 网盘规则管理
+		api.GET("/pan-rules", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPanRules)
+		api.GET("/pan-rules/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPanRule)
+		api.POST("/pan-rules", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreatePanRule)
+		api.PUT("/pan-rules/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdatePanRule)
+		api.DELETE("/pan-rules/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeletePanRule)
+		api.POST("/pan-rules/refresh", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.RefreshPanRules)
 
 		// Cookie管理
 		api.GET("/cks", handlers.GetCks)

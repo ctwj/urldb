@@ -16,6 +16,28 @@ type UpdatePanRequest struct {
 	Remark string `json:"remark"`
 }
 
+// CreatePanRuleRequest 创建网盘规则请求
+type CreatePanRuleRequest struct {
+	PanID       uint   `json:"pan_id" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	Domains     string `json:"domains" binding:"required"`
+	URLPatterns string `json:"url_patterns"`
+	Priority    int    `json:"priority"`
+	Enabled     bool   `json:"enabled"`
+	Remark      string `json:"remark"`
+}
+
+// UpdatePanRuleRequest 更新网盘规则请求
+type UpdatePanRuleRequest struct {
+	PanID       uint   `json:"pan_id"`
+	Name        string `json:"name"`
+	Domains     string `json:"domains"`
+	URLPatterns string `json:"url_patterns"`
+	Priority    int    `json:"priority"`
+	Enabled     bool   `json:"enabled"`
+	Remark      string `json:"remark"`
+}
+
 // CreateCksRequest 创建cookie请求
 type CreateCksRequest struct {
 	PanID       uint   `json:"pan_id" binding:"required"`

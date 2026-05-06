@@ -232,6 +232,43 @@ func ToPanResponseList(pans []entity.Pan) []dto.PanResponse {
 	return responses
 }
 
+// ToPanRuleResponse 将PanRule实体转换为PanRuleResponse
+func ToPanRuleResponse(rule *entity.PanRule) dto.PanRuleResponse {
+	response := dto.PanRuleResponse{
+		ID:          rule.ID,
+		PanID:       rule.PanID,
+		Name:        rule.Name,
+		Domains:     rule.Domains,
+		URLPatterns: rule.URLPatterns,
+		Priority:    rule.Priority,
+		Enabled:     rule.Enabled,
+		Remark:      rule.Remark,
+		CreatedAt:   rule.CreatedAt,
+		UpdatedAt:   rule.UpdatedAt,
+	}
+
+	if rule.Pan.ID != 0 {
+		response.Pan = &dto.PanResponse{
+			ID:     rule.Pan.ID,
+			Name:   rule.Pan.Name,
+			Key:    rule.Pan.Key,
+			Icon:   rule.Pan.Icon,
+			Remark: rule.Pan.Remark,
+		}
+	}
+
+	return response
+}
+
+// ToPanRuleResponseList 将PanRule实体列表转换为PanRuleResponse列表
+func ToPanRuleResponseList(rules []entity.PanRule) []dto.PanRuleResponse {
+	responses := make([]dto.PanRuleResponse, len(rules))
+	for i, rule := range rules {
+		responses[i] = ToPanRuleResponse(&rule)
+	}
+	return responses
+}
+
 // ToCksResponse 将Cks实体转换为CksResponse
 func ToCksResponse(cks *entity.Cks) dto.CksResponse {
 	response := dto.CksResponse{

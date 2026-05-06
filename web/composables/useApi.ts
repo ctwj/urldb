@@ -122,6 +122,16 @@ export const usePanApi = () => {
   return { getPans, getPan, createPan, updatePan, deletePan }
 }
 
+export const usePanRuleApi = () => {
+  const getPanRules = () => useApiFetch('/pan-rules').then(parseApiResponse)
+  const getPanRule = (id: number) => useApiFetch(`/pan-rules/${id}`).then(parseApiResponse)
+  const createPanRule = (data: any) => useApiFetch('/pan-rules', { method: 'POST', body: data }).then(parseApiResponse)
+  const updatePanRule = (id: number, data: any) => useApiFetch(`/pan-rules/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
+  const deletePanRule = (id: number) => useApiFetch(`/pan-rules/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const refreshPanRules = () => useApiFetch('/pan-rules/refresh', { method: 'POST' }).then(parseApiResponse)
+  return { getPanRules, getPanRule, createPanRule, updatePanRule, deletePanRule, refreshPanRules }
+}
+
 export const useCksApi = () => {
   const getCks = (params?: any) => useApiFetch('/cks', { params }).then(parseApiResponse)
   const getCksByID = (id: number) => useApiFetch(`/cks/${id}`).then(parseApiResponse)

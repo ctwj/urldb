@@ -103,7 +103,9 @@ type PanService interface {
 }
 
 // PanFactory 网盘工厂
-type PanFactory struct{}
+type PanFactory struct {
+	ruleManager *RuleManager
+}
 
 // 单例相关变量
 var (
@@ -124,9 +126,14 @@ func GetInstance() *PanFactory {
 	return NewPanFactory()
 }
 
+// SetRuleManager 设置规则管理器
+func (f *PanFactory) SetRuleManager(rm *RuleManager) {
+	f.ruleManager = rm
+}
+
 // CreatePanService 根据URL创建对应的网盘服务
 func (f *PanFactory) CreatePanService(url string, config *PanConfig) (PanService, error) {
-	serviceType := ExtractServiceType(url)
+	serviceType := f.ExtractServiceType(url)
 
 	switch serviceType {
 	case Quark:
@@ -195,13 +202,17 @@ func (f *PanFactory) GetXunleiService(config *PanConfig) PanService {
 }
 
 // ExtractServiceType 从URL中提取服务类型
-func ExtractServiceType(url string) ServiceType {
-	url = strings.ToLower(url)
+func (f *PanFactory) ExtractServiceType(url string) ServiceType {
+	if f.ruleManager != nil {
+		return f.ruleManager.ExtractServiceTypeByRule(url)
+	}
 
-	// "https://www.123pan.com/s/i4uaTd-WHn0", // 公开分享
-	// "https://www.123912.com/s/U8f2Td-ZeOX",
-	// "https://www.123684.coms/u9izjv-k3uWv",
-	// "https://www.123pan.com/s/A6cA-AKH11", // 外链不存在
+	return f.extractServiceTypeFallback(url)
+}
+
+// extractServiceTypeFallback 回退的硬编码识别方法
+func (f *PanFactory) extractServiceTypeFallback(url string) ServiceType {
+	url = strings.ToLower(url)
 
 	patterns := map[string]ServiceType{
 		"pan.quark.cn":        Quark,
@@ -234,13 +245,23 @@ func ExtractServiceType(url string) ServiceType {
 }
 
 // ExtractShareId 从URL中提取分享ID
-func ExtractShareId(url string) (string, ServiceType) {
-	// 处理entry参数
+func (f *PanFactory) ExtractShareId(url string) (string, ServiceType) {
+	if f.ruleManager != nil {
+		shareID, panKey, err := f.ruleManager.ExtractShareID(url)
+		if err == nil && shareID != "" {
+			return shareID, ServiceType(panKey)
+		}
+	}
+
+	return f.extractShareIdFallback(url)
+}
+
+// extractShareIdFallback 回退的硬编码提取方法
+func (f *PanFactory) extractShareIdFallback(url string) (string, ServiceType) {
 	if strings.Contains(url, "?entry=") {
 		url = strings.Split(url, "?entry=")[0]
 	}
 
-	// 提取分享ID
 	shareID := ""
 	substring := -1
 
@@ -262,7 +283,6 @@ func ExtractShareId(url string) (string, ServiceType) {
 
 	shareID = url[substring:]
 
-	// 去除可能的锚点
 	if hashIndex := strings.Index(shareID, "?"); hashIndex != -1 {
 		shareID = shareID[:hashIndex]
 	}
@@ -270,8 +290,18 @@ func ExtractShareId(url string) (string, ServiceType) {
 		shareID = shareID[:hashIndex]
 	}
 
-	serviceType := ExtractServiceType(url)
+	serviceType := f.extractServiceTypeFallback(url)
 	return shareID, serviceType
+}
+
+// ExtractServiceType 全局函数，保持向后兼容
+func ExtractServiceType(url string) ServiceType {
+	return GetInstance().ExtractServiceType(url)
+}
+
+// ExtractShareId 全局函数，保持向后兼容
+func ExtractShareId(url string) (string, ServiceType) {
+	return GetInstance().ExtractShareId(url)
 }
 
 // SuccessResult 创建成功结果

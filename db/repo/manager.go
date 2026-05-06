@@ -7,6 +7,7 @@ import (
 // RepositoryManager Repository管理器
 type RepositoryManager struct {
 	PanRepository             PanRepository
+	PanRuleRepository         PanRuleRepository
 	CksRepository             CksRepository
 	ResourceRepository        ResourceRepository
 	CategoryRepository        CategoryRepository
@@ -33,6 +34,7 @@ type RepositoryManager struct {
 func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 	return &RepositoryManager{
 		PanRepository:             NewPanRepository(db),
+		PanRuleRepository:         NewPanRuleRepository(db),
 		CksRepository:             NewCksRepository(db),
 		ResourceRepository:        NewResourceRepository(db),
 		CategoryRepository:        NewCategoryRepository(db),
