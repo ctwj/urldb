@@ -12,6 +12,7 @@ import (
 
 	"github.com/ctwj/urldb/cmd/cmdplugin"
 	pan "github.com/ctwj/urldb/common"
+	commonConfig "github.com/ctwj/urldb/common/config"
 	"github.com/ctwj/urldb/config"
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/entity"
@@ -192,19 +193,50 @@ func main() {
 	// 将Repository管理器注入到handlers中
 	handlers.SetRepositoryManager(repoManager)
 
-	// 创建规则管理器
-	ruleManager := pan.NewRuleManager(db.DB)
-	if err := ruleManager.LoadRules(); err != nil {
-		utils.Error("加载网盘规则失败: %v", err)
-	} else {
-		utils.Info("网盘规则加载成功")
+	// 创建网盘规则配置管理器
+	panRuleConfigManager := commonConfig.NewConfigManager()
+
+	// 定义硬编码的默认规则（作为fallback）
+	hardcodedRules := []commonConfig.PanRuleConfig{
+		{ID: 1, Name: "夸克网盘默认规则", PanID: int(pan.Quark), Domains: []string{"pan.quark.cn"}, URLPatterns: []string{`https?://pan\.quark\.cn/s/([a-zA-Z0-9]+)`}, Priority: 1, Enabled: true, Remark: "夸克网盘标准分享链接格式"},
+		{ID: 2, Name: "阿里云盘默认规则", PanID: int(pan.Alipan), Domains: []string{"www.alipan.com", "www.aliyundrive.com"}, URLPatterns: []string{`https?://(?:www\.)?(?:aliyundrive|alipan)\.com/s/([a-zA-Z0-9]+)`}, Priority: 1, Enabled: true, Remark: "阿里云盘标准分享链接格式"},
+		{ID: 3, Name: "百度网盘默认规则", PanID: int(pan.BaiduPan), Domains: []string{"pan.baidu.com"}, URLPatterns: []string{`https?://pan\.baidu\.com/s/([a-zA-Z0-9_-]+)`}, Priority: 1, Enabled: true, Remark: "百度网盘标准分享链接格式"},
+		{ID: 4, Name: "UC网盘默认规则", PanID: int(pan.UC), Domains: []string{"drive.uc.cn", "fast.uc.cn"}, URLPatterns: []string{`https?://drive\.uc\.cn/s/([a-zA-Z0-9]+)`}, Priority: 1, Enabled: true, Remark: "UC网盘标准分享链接格式"},
+		{ID: 5, Name: "迅雷网盘默认规则", PanID: int(pan.Xunlei), Domains: []string{"pan.xunlei.com"}, URLPatterns: []string{`https?://pan\.xunlei\.com/s/([a-zA-Z0-9]+)`}, Priority: 1, Enabled: true, Remark: "迅雷网盘标准分享链接格式"},
+		{ID: 6, Name: "天翼云盘默认规则", PanID: int(pan.Tianyi), Domains: []string{"cloud.189.cn"}, URLPatterns: []string{`https?://cloud\.189\.cn/t/([a-zA-Z0-9]+)`, `https?://cloud\.189\.cn/web/share\?code=([a-zA-Z0-9]+)`}, Priority: 1, Enabled: true, Remark: "天翼云盘分享链接格式"},
+		{ID: 7, Name: "123网盘默认规则", PanID: int(pan.Pan123), Domains: []string{"www.123pan.com", "www.123912.com", "www.123684.com", "www.123865.com", "www.123685.com", "123pan.com", "share.123pan.cn"}, URLPatterns: []string{`https?://(?:www\.)?123pan\.com/s/([a-zA-Z0-9_-]+)`}, Priority: 1, Enabled: true, Remark: "123网盘标准分享链接格式"},
+		{ID: 8, Name: "115网盘默认规则", PanID: int(pan.Pan115), Domains: []string{"115cdn.com", "anxia.com", "115.com"}, URLPatterns: []string{`https?://.*115\.com/s/([a-zA-Z0-9]+)`}, Priority: 1, Enabled: true, Remark: "115网盘分享链接格式"},
 	}
 
-	// 设置规则管理器到handlers
-	handlers.SetRuleManager(ruleManager)
+	// 先加载硬编码规则
+	if err := panRuleConfigManager.LoadHardcodedRules(hardcodedRules); err != nil {
+		utils.Error("加载硬编码网盘规则失败: %v", err)
+	} else {
+		utils.Info("硬编码网盘规则加载成功")
+	}
 
-	// 设置规则管理器到PanFactory
-	pan.GetInstance().SetRuleManager(ruleManager)
+	// 设置远程配置获取器（从GitHub拉取配置）
+	// 配置示例：GitHub仓库URL、配置文件路径、分支名
+	remoteFetcher := commonConfig.NewRemoteFetcher(
+		"https://github.com/ctwj/urldb-config",
+		"pan_rules.json",
+		"main",
+	)
+	panRuleConfigManager.SetRemoteFetcher(remoteFetcher)
+
+	// 尝试从远程获取最新配置
+	if err := panRuleConfigManager.LoadRemoteConfig(); err != nil {
+		utils.Warn("从远程加载配置失败，使用本地硬编码配置: %v", err)
+	} else {
+		utils.Info("远程网盘规则配置加载成功，版本: %d", panRuleConfigManager.GetRemoteVersion())
+	}
+
+	// 设置配置管理器到PanFactory
+	pan.GetInstance().SetConfigManager(panRuleConfigManager)
+
+	// 启动自动更新检查（每6小时检查一次）
+	panRuleConfigManager.StartAutoUpdate(6 * time.Hour)
+	utils.Info("网盘规则自动更新已启动")
 
 	// 加载插件配置并初始化插件系统
 	pluginConfig := cmdplugin.LoadPluginConfig()
@@ -383,14 +415,6 @@ func main() {
 		api.PUT("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdatePan)
 		api.DELETE("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeletePan)
 		api.GET("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPan)
-
-		// 网盘规则管理
-		api.GET("/pan-rules", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPanRules)
-		api.GET("/pan-rules/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPanRule)
-		api.POST("/pan-rules", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreatePanRule)
-		api.PUT("/pan-rules/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdatePanRule)
-		api.DELETE("/pan-rules/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeletePanRule)
-		api.POST("/pan-rules/refresh", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.RefreshPanRules)
 
 		// Cookie管理
 		api.GET("/cks", handlers.GetCks)

@@ -2,10 +2,12 @@ package pan
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/ctwj/urldb/common/config"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 )
@@ -104,7 +106,7 @@ type PanService interface {
 
 // PanFactory 网盘工厂
 type PanFactory struct {
-	ruleManager *RuleManager
+	configManager *config.ConfigManager
 }
 
 // 单例相关变量
@@ -126,9 +128,9 @@ func GetInstance() *PanFactory {
 	return NewPanFactory()
 }
 
-// SetRuleManager 设置规则管理器
-func (f *PanFactory) SetRuleManager(rm *RuleManager) {
-	f.ruleManager = rm
+// SetConfigManager 设置配置管理器
+func (f *PanFactory) SetConfigManager(cm *config.ConfigManager) {
+	f.configManager = cm
 }
 
 // CreatePanService 根据URL创建对应的网盘服务
@@ -202,12 +204,19 @@ func (f *PanFactory) GetXunleiService(config *PanConfig) PanService {
 }
 
 // ExtractServiceType 从URL中提取服务类型
-func (f *PanFactory) ExtractServiceType(url string) ServiceType {
-	if f.ruleManager != nil {
-		return f.ruleManager.ExtractServiceTypeByRule(url)
+func (f *PanFactory) ExtractServiceType(urlStr string) ServiceType {
+	if f.configManager != nil {
+		parsedURL, err := url.Parse(urlStr)
+		if err == nil {
+			domain := strings.ToLower(parsedURL.Hostname())
+			rule := f.configManager.GetRuleByDomain(domain)
+			if rule != nil && rule.Enabled {
+				return ServiceType(rule.PanID)
+			}
+		}
 	}
 
-	return f.extractServiceTypeFallback(url)
+	return f.extractServiceTypeFallback(urlStr)
 }
 
 // extractServiceTypeFallback 回退的硬编码识别方法
@@ -245,15 +254,24 @@ func (f *PanFactory) extractServiceTypeFallback(url string) ServiceType {
 }
 
 // ExtractShareId 从URL中提取分享ID
-func (f *PanFactory) ExtractShareId(url string) (string, ServiceType) {
-	if f.ruleManager != nil {
-		shareID, panKey, err := f.ruleManager.ExtractShareID(url)
-		if err == nil && shareID != "" {
-			return shareID, ServiceType(panKey)
+func (f *PanFactory) ExtractShareId(urlStr string) (string, ServiceType) {
+	if f.configManager != nil {
+		parsedURL, err := url.Parse(urlStr)
+		if err == nil {
+			domain := strings.ToLower(parsedURL.Hostname())
+			rule := f.configManager.GetRuleByDomain(domain)
+			if rule != nil && rule.Enabled {
+				for _, pattern := range rule.URLPatterns {
+					matches := pattern.FindStringSubmatch(urlStr)
+					if len(matches) >= 2 {
+						return matches[1], ServiceType(rule.PanID)
+					}
+				}
+			}
 		}
 	}
 
-	return f.extractShareIdFallback(url)
+	return f.extractShareIdFallback(urlStr)
 }
 
 // extractShareIdFallback 回退的硬编码提取方法
