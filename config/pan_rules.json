@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "updated_at": "2024-01-15 10:30:00",
+  "description": "默认网盘识别规则配置",
+  "rules": [
+    {
+      "id": 1,
+      "name": "夸克网盘默认规则",
+      "pan_id": 0,
+      "domains": ["pan.quark.cn"],
+      "url_patterns": ["https?://pan\\.quark\\.cn/s/([a-zA-Z0-9]+)"],
+      "priority": 1,
+      "enabled": true,
+      "remark": "夸克网盘标准分享链接格式"
+    },
+    {
+      "id": 2,
+      "name": "阿里云盘默认规则",
+      "pan_id": 1,
+      "domains": ["www.alipan.com", "www.aliyundrive.com"],
+      "url_patterns": ["https?://(?:www\\.)?(?:aliyundrive|alipan)\\.com/s/([a-zA-Z0-9]+)"],
+      "priority": 1,
+      "enabled": true,
+      "remark": "阿里云盘标准分享链接格式"
+    },
+    {
+      "id": 3,
+      "name": "百度网盘默认规则",
+      "pan_id": 2,
+      "domains": ["pan.baidu.com"],
+      "url_patterns": ["https?://pan\\.baidu\\.com/s/([a-zA-Z0-9_-]+)"],
+      "priority": 1,
+      "enabled": true,
+      "remark": "百度网盘标准分享链接格式"
+    },
+    {
+      "id": 4,
+      "name": "UC网盘默认规则",
+      "pan_id": 3,
+      "domains": ["drive.uc.cn", "fast.uc.cn"],
+      "url_patterns": ["https?://drive\\.uc\\.cn/s/([a-zA-Z0-9]+)"],
+      "priority": 1,
+      "enabled": true,
+      "remark": "UC网盘标准分享链接格式"
+    },
+    {
+      "id": 5,
+      "name": "迅雷网盘默认规则",
+      "pan_id": 5,
+      "domains": ["pan.xunlei.com"],
+      "url_patterns": ["https?://pan\\.xunlei\\.com/s/([a-zA-Z0-9]+)"],
+      "priority": 1,
+      "enabled": true,
+      "remark": "迅雷网盘标准分享链接格式"
+    },
+    {
+      "id": 6,
+      "name": "天翼云盘默认规则",
+      "pan_id": 6,
+      "domains": ["cloud.189.cn"],
+      "url_patterns": ["https?://cloud\\.189\\.cn/t/([a-zA-Z0-9]+)", "https?://cloud\\.189\\.cn/web/share\\?code=([a-zA-Z0-9]+)"],
+      "priority": 1,
+      "enabled": true,
+      "remark": "天翼云盘分享链接格式"
+    },
+    {
+      "id": 7,
+      "name": "123网盘默认规则",
+      "pan_id": 7,
+      "domains": ["www.123pan.com", "www.123912.com", "www.123684.com", "www.123865.com", "www.123685.com", "123pan.com", "share.123pan.cn"],
+      "url_patterns": ["https?://(?:www\\.)?123pan\\.com/s/([a-zA-Z0-9_-]+)"],
+      "priority": 1,
+      "enabled": true,
+      "remark": "123网盘标准分享链接格式"
+    },
+    {
+      "id": 8,
+      "name": "115网盘默认规则",
+      "pan_id": 8,
+      "domains": ["115cdn.com", "anxia.com", "115.com"],
+      "url_patterns": ["https?://.*115\\.com/s/([a-zA-Z0-9]+)"],
+      "priority": 1,
+      "enabled": true,
+      "remark": "115网盘分享链接格式"
+    }
+  ]
+}

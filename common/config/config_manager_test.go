@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -189,5 +191,129 @@ func TestConfigManager_MultipleDomains(t *testing.T) {
 				t.Errorf("Expected PanID %d, got %d", tt.wantPanID, rule.PanID)
 			}
 		})
+	}
+}
+
+func TestFileLoader_Load(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test_rules.json")
+
+	content := `{
+		"version": 1,
+		"updated_at": "2024-01-15 10:30:00",
+		"description": "Test rules",
+		"rules": [
+			{
+				"id": 1,
+				"name": "Test Rule",
+				"pan_id": 1,
+				"domains": ["test.example.com"],
+				"url_patterns": ["https?://test\\.example\\.com/s/([a-zA-Z0-9]+)"],
+				"priority": 1,
+				"enabled": true,
+				"remark": "Test"
+			}
+		]
+	}`
+
+	err := os.WriteFile(testFile, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	loader := NewFileLoader(testFile)
+
+	config, err := loader.Load()
+	if err != nil {
+		t.Errorf("Load() error = %v", err)
+		return
+	}
+
+	if config.Version != 1 {
+		t.Errorf("Expected version 1, got %d", config.Version)
+	}
+
+	if len(config.Rules) != 1 {
+		t.Errorf("Expected 1 rule, got %d", len(config.Rules))
+	}
+}
+
+func TestFileLoader_Exists(t *testing.T) {
+	tmpDir := t.TempDir()
+	existingFile := filepath.Join(tmpDir, "exists.json")
+	nonExistingFile := filepath.Join(tmpDir, "not_exists.json")
+
+	err := os.WriteFile(existingFile, []byte("{}"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	loader1 := NewFileLoader(existingFile)
+	if !loader1.Exists() {
+		t.Error("Expected file to exist")
+	}
+
+	loader2 := NewFileLoader(nonExistingFile)
+	if loader2.Exists() {
+		t.Error("Expected file to not exist")
+	}
+}
+
+func TestConfigManager_LoadLocalConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "pan_rules.json")
+
+	content := `{
+		"version": 1,
+		"updated_at": "2024-01-15 10:30:00",
+		"description": "Test config",
+		"rules": [
+			{
+				"id": 1,
+				"name": "Local Config Test",
+				"pan_id": 2,
+				"domains": ["local.example.com"],
+				"url_patterns": ["https?://local\\.example\\.com/s/([a-zA-Z0-9]+)"],
+				"priority": 1,
+				"enabled": true,
+				"remark": "Local test"
+			}
+		]
+	}`
+
+	err := os.WriteFile(testFile, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	manager := NewConfigManager()
+	loader := NewFileLoader(testFile)
+	manager.SetFileLoader(loader)
+
+	err = manager.LoadLocalConfig()
+	if err != nil {
+		t.Errorf("LoadLocalConfig() error = %v", err)
+		return
+	}
+
+	rule := manager.GetRuleByDomain("local.example.com")
+	if rule == nil {
+		t.Error("Expected rule from local config")
+		return
+	}
+
+	if rule.PanID != 2 {
+		t.Errorf("Expected PanID 2, got %d", rule.PanID)
+	}
+}
+
+func TestConfigManager_LoadLocalConfig_FileNotExist(t *testing.T) {
+	manager := NewConfigManager()
+	loader := NewFileLoader("/nonexistent/path/rules.json")
+	manager.SetFileLoader(loader)
+
+	err := manager.LoadLocalConfig()
+	if err != nil {
+		t.Errorf("Expected no error when file not exists, got: %v", err)
 	}
 }

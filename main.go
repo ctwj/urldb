@@ -215,8 +215,19 @@ func main() {
 		utils.Info("硬编码网盘规则加载成功")
 	}
 
-	// 设置远程配置获取器（从GitHub拉取配置）
-	// 配置示例：GitHub仓库URL、配置文件路径、分支名
+	// 设置本地配置文件加载器
+	localFileLoader := commonConfig.NewFileLoader("config/pan_rules.json")
+	panRuleConfigManager.SetFileLoader(localFileLoader)
+
+	// 尝试从本地配置文件加载
+	if err := panRuleConfigManager.LoadLocalConfig(); err != nil {
+		utils.Warn("从本地配置文件加载失败，继续使用硬编码配置: %v", err)
+	} else {
+		utils.Info("本地配置文件加载成功，版本: %d", panRuleConfigManager.GetRemoteVersion())
+	}
+
+	// 设置远程配置获取器（可选：从GitHub拉取配置）
+	// 如果不需要远程更新，可以注释掉这部分
 	remoteFetcher := commonConfig.NewRemoteFetcher(
 		"https://github.com/ctwj/urldb-config",
 		"pan_rules.json",
@@ -224,9 +235,9 @@ func main() {
 	)
 	panRuleConfigManager.SetRemoteFetcher(remoteFetcher)
 
-	// 尝试从远程获取最新配置
+	// 尝试从远程获取最新配置（如果远程版本更高则更新）
 	if err := panRuleConfigManager.LoadRemoteConfig(); err != nil {
-		utils.Warn("从远程加载配置失败，使用本地硬编码配置: %v", err)
+		utils.Warn("从远程加载配置失败，使用本地配置: %v", err)
 	} else {
 		utils.Info("远程网盘规则配置加载成功，版本: %d", panRuleConfigManager.GetRemoteVersion())
 	}

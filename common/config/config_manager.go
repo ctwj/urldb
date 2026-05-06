@@ -26,6 +26,7 @@ type ConfigManager struct {
 	domainMap    map[string]*RuleInfo
 	source       ConfigSource
 	remoteFetcher *RemoteFetcher
+	fileLoader   *FileLoader
 	mu           sync.RWMutex
 	stopChan     chan struct{}
 }
@@ -43,6 +44,31 @@ func NewConfigManager() *ConfigManager {
 // SetRemoteFetcher 设置远程配置获取器
 func (m *ConfigManager) SetRemoteFetcher(fetcher *RemoteFetcher) {
 	m.remoteFetcher = fetcher
+}
+
+// SetFileLoader 设置本地文件加载器
+func (m *ConfigManager) SetFileLoader(loader *FileLoader) {
+	m.fileLoader = loader
+}
+
+// LoadLocalConfig 加载本地配置文件
+func (m *ConfigManager) LoadLocalConfig() error {
+	if m.fileLoader == nil {
+		return nil
+	}
+
+	if !m.fileLoader.Exists() {
+		utils.Warn("Local config file not found: %s", m.fileLoader.filePath)
+		return nil
+	}
+
+	config, err := m.fileLoader.Load()
+	if err != nil {
+		utils.Warn("Failed to load local config: %v", err)
+		return err
+	}
+
+	return m.ApplyRemoteConfig(config)
 }
 
 // LoadHardcodedRules 加载硬编码规则
