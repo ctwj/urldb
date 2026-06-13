@@ -91,6 +91,24 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			response.MeilisearchMasterKey = config.Value
 		case entity.ConfigKeyMeilisearchIndexName:
 			response.MeilisearchIndexName = config.Value
+		case entity.ConfigKeyPanCheckEnabled:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response.PancheckEnabled = val
+			}
+		case entity.ConfigKeyPanCheckHost:
+			response.PancheckHost = config.Value
+		case entity.ConfigKeyPanCheckTimeoutSeconds:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.PancheckTimeoutSeconds = val
+			}
+		case entity.ConfigKeyPanCheckBatchSize:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.PancheckBatchSize = val
+			}
+		case entity.ConfigKeyPanCheckConcurrency:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.PancheckConcurrency = val
+			}
 		case entity.ConfigKeyEnableAnnouncements:
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response.EnableAnnouncements = val
@@ -243,6 +261,28 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	if req.MeilisearchIndexName != nil {
 		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyMeilisearchIndexName, Value: *req.MeilisearchIndexName, Type: entity.ConfigTypeString})
 		updatedKeys = append(updatedKeys, entity.ConfigKeyMeilisearchIndexName)
+	}
+
+	// PanCheck 链接检测配置 - 只处理被设置的字段
+	if req.PancheckEnabled != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPanCheckEnabled, Value: strconv.FormatBool(*req.PancheckEnabled), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyPanCheckEnabled)
+	}
+	if req.PancheckHost != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPanCheckHost, Value: *req.PancheckHost, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyPanCheckHost)
+	}
+	if req.PancheckTimeoutSeconds != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPanCheckTimeoutSeconds, Value: strconv.Itoa(*req.PancheckTimeoutSeconds), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyPanCheckTimeoutSeconds)
+	}
+	if req.PancheckBatchSize != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPanCheckBatchSize, Value: strconv.Itoa(*req.PancheckBatchSize), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyPanCheckBatchSize)
+	}
+	if req.PancheckConcurrency != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPanCheckConcurrency, Value: strconv.Itoa(*req.PancheckConcurrency), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyPanCheckConcurrency)
 	}
 
 	// 界面配置处理
@@ -423,6 +463,11 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		MeilisearchPort:           entity.ConfigDefaultMeilisearchPort,
 		MeilisearchMasterKey:      entity.ConfigDefaultMeilisearchMasterKey,
 		MeilisearchIndexName:      entity.ConfigDefaultMeilisearchIndexName,
+		PancheckEnabled:           false,
+		PancheckHost:              entity.ConfigDefaultPanCheckHost,
+		PancheckTimeoutSeconds:    60,
+		PancheckBatchSize:         20,
+		PancheckConcurrency:       5,
 		EnableAnnouncements:       false,
 		Announcements:             "",
 		EnableFloatButtons:        false,

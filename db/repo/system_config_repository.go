@@ -201,6 +201,12 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		entity.ConfigKeyWechatSearchImage:         {Key: entity.ConfigKeyWechatSearchImage, Value: entity.ConfigDefaultWechatSearchImage, Type: entity.ConfigTypeString},
 		entity.ConfigKeyTelegramQrImage:           {Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
 		entity.ConfigKeyWebsiteURL:                {Key: entity.ConfigKeyWebsiteURL, Value: entity.ConfigDefaultWebsiteURL, Type: entity.ConfigTypeString},
+		// PanCheck 链接检测服务配置
+		entity.ConfigKeyPanCheckEnabled:           {Key: entity.ConfigKeyPanCheckEnabled, Value: entity.ConfigDefaultPanCheckEnabled, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyPanCheckHost:              {Key: entity.ConfigKeyPanCheckHost, Value: entity.ConfigDefaultPanCheckHost, Type: entity.ConfigTypeString},
+		entity.ConfigKeyPanCheckTimeoutSeconds:    {Key: entity.ConfigKeyPanCheckTimeoutSeconds, Value: entity.ConfigDefaultPanCheckTimeoutSeconds, Type: entity.ConfigTypeInt},
+		entity.ConfigKeyPanCheckBatchSize:         {Key: entity.ConfigKeyPanCheckBatchSize, Value: entity.ConfigDefaultPanCheckBatchSize, Type: entity.ConfigTypeInt},
+		entity.ConfigKeyPanCheckConcurrency:       {Key: entity.ConfigKeyPanCheckConcurrency, Value: entity.ConfigDefaultPanCheckConcurrency, Type: entity.ConfigTypeInt},
 		// Google索引配置
 		entity.GoogleIndexConfigKeyEnabled:        {Key: entity.GoogleIndexConfigKeyEnabled, Value: "false", Type: entity.ConfigTypeBool},
 		entity.GoogleIndexConfigKeySiteName:       {Key: entity.GoogleIndexConfigKeySiteName, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},

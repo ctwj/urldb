@@ -36,6 +36,7 @@ type ResourceRepository interface {
 	GetResourcesForTransfer(panID uint, sinceTime time.Time, limit int) ([]*entity.Resource, error)
 	GetByURL(url string) (*entity.Resource, error)
 	UpdateSaveURL(id uint, saveURL string) error
+	UpdateIsValid(id uint, isValid bool) error
 	CreateResourceTag(resourceTag *entity.ResourceTag) error
 	FindByIDs(ids []uint) ([]entity.Resource, error)
 	FindUnsyncedToMeilisearch(page, limit int) ([]entity.Resource, int64, error)
@@ -554,6 +555,13 @@ func (r *ResourceRepositoryImpl) UpdateSaveURL(id uint, saveURL string) error {
 	return r.db.Model(&entity.Resource{}).Where("id = ?", id).Update("save_url", saveURL).Error
 }
 
+// UpdateIsValid 更新资源的 is_valid 字段。
+// 必须使用列级 Update（而非 Updates(struct)），因为 GORM 的 Updates 会跳过 bool 零值（false），
+// 导致 is_valid 从 true→false 的翻转无法落库。
+func (r *ResourceRepositoryImpl) UpdateIsValid(id uint, isValid bool) error {
+	return r.db.Model(&entity.Resource{}).Where("id = ?", id).Update("is_valid", isValid).Error
+}
+
 // CreateResourceTag 创建资源与标签的关联
 func (r *ResourceRepositoryImpl) CreateResourceTag(resourceTag *entity.ResourceTag) error {
 	return r.db.Create(resourceTag).Error
@@ -749,7 +757,7 @@ func (r *ResourceRepositoryImpl) CountResourcesByCkID(ckID uint) (int64, error) 
 // FindByKey 根据Key查找资源（同一组资源）
 func (r *ResourceRepositoryImpl) FindByKey(key string) ([]entity.Resource, error) {
 	var resources []entity.Resource
-	err := r.db.Where("key = ?", key).
+	err := r.db.Where("key = ? AND is_valid = ?", key, true).
 		Preload("Category").
 		Preload("Pan").
 		Preload("Tags").
@@ -768,7 +776,7 @@ func (r *ResourceRepositoryImpl) GetHotResources(limit int) ([]entity.Resource, 
 			resources.*,
 			ROW_NUMBER() OVER (PARTITION BY key ORDER BY view_count DESC) as rn
 		`).
-		Where("is_public = ? AND view_count > 0", true).
+		Where("is_public = ? AND is_valid = ? AND view_count > 0", true, true).
 		Preload("Category").
 		Preload("Pan").
 		Preload("Tags").

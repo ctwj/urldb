@@ -43,6 +43,13 @@ type SystemConfigRequest struct {
 	MeilisearchMasterKey *string `json:"meilisearch_master_key,omitempty"`
 	MeilisearchIndexName *string `json:"meilisearch_index_name,omitempty"`
 
+	// PanCheck 链接检测配置
+	PancheckEnabled        *bool   `json:"pancheck_enabled,omitempty"`
+	PancheckHost           *string `json:"pancheck_host,omitempty"`
+	PancheckTimeoutSeconds *int    `json:"pancheck_timeout_seconds,omitempty"`
+	PancheckBatchSize      *int    `json:"pancheck_batch_size,omitempty"`
+	PancheckConcurrency    *int    `json:"pancheck_concurrency,omitempty"`
+
 	// 界面配置
 	EnableAnnouncements *bool     `json:"enable_announcements,omitempty"`
 	Announcements       *[]map[string]interface{} `json:"announcements,omitempty"`
@@ -101,6 +108,13 @@ type SystemConfigResponse struct {
 	MeilisearchPort      string `json:"meilisearch_port"`
 	MeilisearchMasterKey string `json:"meilisearch_master_key"`
 	MeilisearchIndexName string `json:"meilisearch_index_name"`
+
+	// PanCheck 链接检测配置
+	PancheckEnabled        bool   `json:"pancheck_enabled"`
+	PancheckHost           string `json:"pancheck_host"`
+	PancheckTimeoutSeconds int    `json:"pancheck_timeout_seconds"`
+	PancheckBatchSize      int    `json:"pancheck_batch_size"`
+	PancheckConcurrency    int    `json:"pancheck_concurrency"`
 
 	// 界面配置
 	EnableAnnouncements bool     `json:"enable_announcements"`

@@ -134,3 +134,7 @@ data/
 main
 output.zip
 CLAUDE.md
+.cursor
+.codegraph
+.specify
+specs

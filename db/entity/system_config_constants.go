@@ -82,6 +82,13 @@ const (
 
 	// 网站URL配置
 	ConfigKeyWebsiteURL = "website_url"
+
+	// PanCheck 链接检测服务配置
+	ConfigKeyPanCheckEnabled        = "pancheck_enabled"
+	ConfigKeyPanCheckHost           = "pancheck_host"
+	ConfigKeyPanCheckTimeoutSeconds = "pancheck_timeout_seconds"
+	ConfigKeyPanCheckBatchSize      = "pancheck_batch_size"
+	ConfigKeyPanCheckConcurrency    = "pancheck_concurrency"
 )
 
 // ConfigType 配置类型常量
@@ -251,4 +258,11 @@ const (
 
 	// 网站URL配置默认值
 	ConfigDefaultWebsiteURL = "https://example.com"
+
+	// PanCheck 链接检测服务默认值
+	ConfigDefaultPanCheckEnabled        = "false"
+	ConfigDefaultPanCheckHost           = ""
+	ConfigDefaultPanCheckTimeoutSeconds = "60"
+	ConfigDefaultPanCheckBatchSize      = "20"
+	ConfigDefaultPanCheckConcurrency    = "5"
 )

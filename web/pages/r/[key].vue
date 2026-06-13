@@ -191,8 +191,7 @@
                   :class="{
                     'border-gray-200 dark:border-slate-600': detectionResults[resource.id] === undefined,
                     'border-green-200 dark:border-green-400 bg-green-50/30 dark:bg-green-500/10': detectionResults[resource.id] === true,
-                    'border-red-200 dark:border-red-400 bg-red-50/30 dark:bg-red-500/10': detectionResults[resource.id] === false,
-                    'border-amber-200 dark:border-amber-400 bg-amber-50/20 dark:bg-amber-500/5': detectionMethods[resource.id] === 'unsupported'
+                    'border-red-200 dark:border-red-400 bg-red-50/30 dark:bg-red-500/10': detectionResults[resource.id] === false
                   }"
                 >
                   <!-- 检测期间的遮罩层 -->
@@ -215,43 +214,31 @@
                         <span
                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                           :class="detectionResults[resource.id] !== undefined
-                            ? (detectionMethods[resource.id] === 'unsupported'
-                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100'
-                              : (detectionResults[resource.id]
-                                ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-100'
-                                : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-100'))
+                            ? (detectionResults[resource.id]
+                              ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-100'
+                              : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-100')
                             : 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-100'"
+                          :title="detectionResults[resource.id] === false && detectionErrors[resource.id] ? detectionErrors[resource.id] : ''"
                         >
                           <span class="w-1.5 h-1.5 rounded-full mr-1" :class="detectionResults[resource.id] !== undefined
-                            ? (detectionMethods[resource.id] === 'unsupported' ? 'bg-amber-500' : (detectionResults[resource.id] ? 'bg-green-500' : 'bg-red-500'))
+                            ? (detectionResults[resource.id] ? 'bg-green-500' : 'bg-red-500')
                             : 'bg-gray-500'"></span>
                           {{ detectionResults[resource.id] !== undefined
-                            ? (detectionMethods[resource.id] === 'unsupported' ? '不支持检测' : (detectionResults[resource.id] ? '有效' : '无效'))
-                            : '不支持检测' }}
+                            ? (detectionResults[resource.id] ? '有效' : '失效')
+                            : '未检测' }}
                         </span>
+                        <!-- 失效原因 -->
+                        <span
+                          v-if="detectionResults[resource.id] === false && detectionErrors[resource.id]"
+                          class="text-xs text-red-500 dark:text-red-400 truncate max-w-[200px]"
+                          :title="detectionErrors[resource.id]"
+                        >{{ detectionErrors[resource.id] }}</span>
                       </div>
                     </div>
                   </div>
 
                   <!-- 右侧：检测状态和操作按钮 -->
                   <div class="flex items-center gap-2 relative z-0">
-                    <!-- 检测状态标签（放在最前面） - 只在检测后显示 -->
-                    <div v-if="(detectionResults[resource.id] !== undefined) || (detectionMethods[resource.id] === 'unsupported')" class="flex items-center gap-1">
-                      <!-- 检测方法标识 -->
-                      <!-- <span
-                        class="px-1.5 py-0.5 rounded text-xs font-medium"
-                        :class="getDetectionMethodClass(detectionMethods[resource.id])"
-                        :title="getDetectionMethodTitle(detectionMethods[resource.id], resource)"
-                      >
-                        {{ getDetectionMethodLabel(detectionMethods[resource.id]) }}
-                      </span> -->
-
-                      <!-- 不支持检测的三角感叹号提示 -->
-                      <span v-if="detectionMethods[resource.id] === 'unsupported'" class="text-amber-600 dark:text-amber-400" title="当前网盘暂不支持自动检测，建议您点击链接自行验证">
-                        <i class="fas fa-exclamation-triangle"></i>
-                      </span>
-                    </div>
-
                     <!-- 检测中状态 -->
                     <div v-if="isDetecting && !detectionResults[resource.id]" class="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 dark:text-blue-400">
                       <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -810,13 +797,14 @@ const detectResourceValidity = async () => {
     // 处理检测结果
     if (response && response.results) {
       response.results.forEach((result: any) => {
-        // 只有真正进行了检测的资源才设置检测结果
-        if (result.detection_method !== 'unsupported') {
+        detectionMethods.value[result.resource_id] = result.detection_method || 'disabled'
+
+        // 只有 PanCheck 实际得出结论（valid/invalid）时才记录有效/失效
+        if (result.detection_method === 'pancheck') {
           detectionResults.value[result.resource_id] = result.is_valid
         }
-        detectionMethods.value[result.resource_id] = result.detection_method || 'unknown'
 
-        // 保存错误信息
+        // 保存失效原因
         if (result.error) {
           detectionErrors.value[result.resource_id] = result.error
         }

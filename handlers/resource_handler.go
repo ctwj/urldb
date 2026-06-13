@@ -7,13 +7,12 @@ import (
 	"strings"
 	"time"
 
-	pan "github.com/ctwj/urldb/common"
 	panutils "github.com/ctwj/urldb/common"
-	commonutils "github.com/ctwj/urldb/common/utils"
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/plugin-system/triggers/plugins"
+	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
@@ -888,7 +887,7 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 	// account := accounts[0]
 
 	// 创建网盘服务工厂
-	factory := pan.NewPanFactory()
+	factory := panutils.NewPanFactory()
 
 	// 执行转存
 	result := transferSingleResource(resource, account, factory)
@@ -914,10 +913,10 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 }
 
 // transferSingleResource 转存单个资源
-func transferSingleResource(resource *entity.Resource, account entity.Cks, factory *pan.PanFactory) TransferResult {
+func transferSingleResource(resource *entity.Resource, account entity.Cks, factory *panutils.PanFactory) TransferResult {
 	utils.Info("开始转存资源 - 资源ID: %d, 账号: %s", resource.ID, account.Username)
 
-	service, err := factory.CreatePanService(resource.URL, &pan.PanConfig{
+	service, err := factory.CreatePanService(resource.URL, &panutils.PanConfig{
 		URL:         resource.URL,
 		ExpiredType: 0,
 		IsType:      0,
@@ -935,7 +934,7 @@ func transferSingleResource(resource *entity.Resource, account entity.Cks, facto
 	service.SetCKSRepository(repoManager.CksRepository, account)
 
 	// 提取分享ID
-	shareID, _ := commonutils.ExtractShareIdString(resource.URL)
+	shareID, _ := panutils.ExtractShareId(resource.URL)
 	if shareID == "" {
 		return TransferResult{
 			Success:  false,
@@ -1306,7 +1305,7 @@ func GetRelatedResources(c *gin.Context) {
 	SuccessResponse(c, responseData)
 }
 
-// CheckResourceValidity 检查资源链接有效性
+// CheckResourceValidity 检查资源链接有效性（统一走 PanCheck）
 func CheckResourceValidity(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -1324,148 +1323,41 @@ func CheckResourceValidity(c *gin.Context) {
 
 	utils.Info("开始检测资源有效性 - ID: %d, URL: %s", resource.ID)
 
-	// 执行检测：只使用深度检测实现
-	isValid, detectionMethod, err := performAdvancedValidityCheck(resource)
-
-	if err != nil {
-		utils.Error("深度检测资源链接失败 - ID: %d, Error: %v", resource.ID, err)
-
-		// 深度检测失败，但不标记为无效（用户可自行验证）
-		result := gin.H{
+	if linkCheckService == nil {
+		SuccessResponse(c, gin.H{
 			"resource_id":      resource.ID,
 			"url":              resource.URL,
-			"is_valid":         resource.IsValid, // 保持原始状态
+			"is_valid":         resource.IsValid,
 			"last_checked":     time.Now().Format(time.RFC3339),
-			"error":            err.Error(),
-			"detection_method": detectionMethod,
-			"cached":           false,
-			"note":             "当前网盘暂不支持自动检测，建议用户自行验证",
-		}
-		SuccessResponse(c, result)
+			"detection_method": "disabled",
+			"error":            "链接检测服务未启用",
+		})
 		return
 	}
 
-	// 只有明确检测出无效的资源才更新数据库状态
-	// 如果检测成功且结果与数据库状态不同，则更新
-	if detectionMethod == "quark_deep" && isValid != resource.IsValid {
-		resource.IsValid = isValid
-		updateErr := repoManager.ResourceRepository.Update(resource)
-		if updateErr != nil {
-			utils.Error("更新资源有效性状态失败 - ID: %d, Error: %v", resource.ID, updateErr)
-		} else {
-			utils.Info("更新资源有效性状态 - ID: %d, Status: %v, Method: %s", resource.ID, isValid, detectionMethod)
-		}
+	lcResult := linkCheckService.CheckResources(c.Request.Context(), []*entity.Resource{resource}, false)[resource.ID]
+
+	// 仅在结论翻转时写回 DB + 同步 Meilisearch
+	isValid := resource.IsValid
+	if lcResult.Status == "valid" || lcResult.Status == "invalid" {
+		isValid = lcResult.Status == "valid"
+		services.ApplyValidityWriteback(resource, lcResult, repoManager.ResourceRepository, meilisearchManager)
 	}
 
-	// 构建检测结果
 	result := gin.H{
 		"resource_id":      resource.ID,
 		"url":              resource.URL,
 		"is_valid":         isValid,
 		"last_checked":     time.Now().Format(time.RFC3339),
-		"detection_method": detectionMethod,
-		"cached":           false,
+		"detection_method": lcResult.DetectionMethod,
+		"error":            lcResult.FailReason,
 	}
 
-	utils.Info("资源有效性检测完成 - ID: %d, Valid: %v, Method: %s", resource.ID, isValid, detectionMethod)
+	utils.Info("资源有效性检测完成 - ID: %d, Status: %s, Method: %s", resource.ID, lcResult.Status, lcResult.DetectionMethod)
 	SuccessResponse(c, result)
 }
 
-// performAdvancedValidityCheck 执行深度检测（只使用具体网盘服务）
-func performAdvancedValidityCheck(resource *entity.Resource) (bool, string, error) {
-	// 提取分享ID和服务类型
-	shareID, serviceType := panutils.ExtractShareId(resource.URL)
-	if serviceType == panutils.NotFound {
-		return false, "unsupported", fmt.Errorf("不支持的网盘服务: %s", resource.URL)
-	}
-
-	utils.Info("开始深度检测 - Service: %s, ShareID: %s", serviceType.String(), shareID)
-
-	// 根据服务类型选择检测策略
-	switch serviceType {
-	case panutils.Quark:
-		return performQuarkValidityCheck(resource, shareID)
-	case panutils.Alipan:
-		return performAlipanValidityCheck(resource, shareID)
-	case panutils.BaiduPan, panutils.UC, panutils.Xunlei, panutils.Tianyi, panutils.Pan123, panutils.Pan115:
-		// 这些网盘暂未实现深度检测，返回不支持提示
-		return false, "unsupported", fmt.Errorf("当前网盘类型 %s 暂不支持深度检测，请等待后续更新", serviceType.String())
-	default:
-		return false, "unsupported", fmt.Errorf("未知的网盘服务类型: %s", serviceType.String())
-	}
-}
-
-// performQuarkValidityCheck 夸克网盘深度检测
-func performQuarkValidityCheck(resource *entity.Resource, shareID string) (bool, string, error) {
-	// 获取夸克网盘账号
-	panID, err := getQuarkPanID()
-	if err != nil {
-		return false, "quark_failed", fmt.Errorf("获取夸克平台ID失败: %v", err)
-	}
-
-	accounts, err := repoManager.CksRepository.FindByPanID(panID)
-	if err != nil {
-		return false, "quark_failed", fmt.Errorf("获取夸克网盘账号失败: %v", err)
-	}
-
-	if len(accounts) == 0 {
-		return false, "quark_failed", fmt.Errorf("没有可用的夸克网盘账号")
-	}
-
-	// 选择第一个有效账号
-	var selectedAccount *entity.Cks
-	for _, account := range accounts {
-		if account.IsValid {
-			selectedAccount = &account
-			break
-		}
-	}
-
-	if selectedAccount == nil {
-		return false, "quark_failed", fmt.Errorf("没有有效的夸克网盘账号")
-	}
-
-	// 创建网盘服务配置
-	config := &pan.PanConfig{
-		URL:         resource.URL,
-		Code:        "",
-		IsType:      1, // 只获取基本信息，不转存
-		ExpiredType: 1,
-		AdFid:       "",
-		Stoken:      "",
-		Cookie:      selectedAccount.Ck,
-	}
-
-	// 创建夸克网盘服务
-	factory := pan.NewPanFactory()
-	panService, err := factory.CreatePanService(resource.URL, config)
-	if err != nil {
-		return false, "quark_failed", fmt.Errorf("创建夸克网盘服务失败: %v", err)
-	}
-
-	// 执行深度检测（Transfer方法）
-	utils.Info("执行夸克网盘深度检测 - ShareID: %s", shareID)
-	result, err := panService.Transfer(shareID)
-	if err != nil {
-		return false, "quark_failed", fmt.Errorf("夸克网盘检测失败: %v", err)
-	}
-
-	if !result.Success {
-		return false, "quark_failed", fmt.Errorf("夸克网盘链接无效: %s", result.Message)
-	}
-
-	utils.Info("夸克网盘深度检测成功 - ShareID: %s", shareID)
-	return true, "quark_deep", nil
-}
-
-// performAlipanValidityCheck 阿里云盘深度检测
-func performAlipanValidityCheck(resource *entity.Resource, shareID string) (bool, string, error) {
-	// 阿里云盘深度检测暂未实现
-	utils.Info("阿里云盘暂不支持深度检测 - ShareID: %s", shareID)
-	return false, "unsupported", fmt.Errorf("阿里云盘暂不支持深度检测，请等待后续更新")
-}
-
-// BatchCheckResourceValidity 批量检查资源链接有效性
+// BatchCheckResourceValidity 批量检查资源链接有效性（统一走 PanCheck）
 func BatchCheckResourceValidity(c *gin.Context) {
 	var req struct {
 		IDs []uint `json:"ids" binding:"required"`
@@ -1489,8 +1381,10 @@ func BatchCheckResourceValidity(c *gin.Context) {
 
 	results := make([]gin.H, 0, len(req.IDs))
 
+	// 先查出所有资源
+	resources := make([]*entity.Resource, 0, len(req.IDs))
+	idToResource := make(map[uint]*entity.Resource, len(req.IDs))
 	for _, id := range req.IDs {
-		// 查询资源信息
 		resource, err := repoManager.ResourceRepository.FindByID(id)
 		if err != nil {
 			results = append(results, gin.H{
@@ -1501,56 +1395,41 @@ func BatchCheckResourceValidity(c *gin.Context) {
 			})
 			continue
 		}
+		resources = append(resources, resource)
+		idToResource[id] = resource
+	}
 
-		// 执行深度检测
-		isValid, detectionMethod, err := performAdvancedValidityCheck(resource)
+	// 一次批量检测
+	var checkResults map[uint]services.ResourceCheckResult
+	if linkCheckService != nil && len(resources) > 0 {
+		checkResults = linkCheckService.CheckResources(c.Request.Context(), resources, false)
+	}
 
-		if err != nil {
-			// 深度检测失败，但不标记为无效（用户可自行验证）
-			result := gin.H{
-				"resource_id":      id,
-				"is_valid":         isValid,
-				"last_checked":     time.Now().Format(time.RFC3339),
-				"error":            err.Error(),
-				"detection_method": detectionMethod,
-			}
-			results = append(results, result)
-
-			// 只有明确检测出无效的资源才更新数据库状态
-			if detectionMethod == "quark_failed" && isValid != resource.IsValid {
-				resource.IsValid = isValid
-				updateErr := repoManager.ResourceRepository.GetDB().Model(resource).Update("is_valid", isValid).Error
-				if updateErr != nil {
-					utils.Error("更新资源有效性状态失败 - ID: %d, Error: %v", id, updateErr)
-				}
-
-				// 同步更新 Meilisearch 中的 is_valid 字段
-				if meilisearchManager != nil && meilisearchManager.IsEnabled() {
-					go func() {
-						service := meilisearchManager.GetService()
-						if service != nil {
-							if err := service.UpdateResourceValidity(resource.ID, isValid); err != nil {
-								utils.Error("更新Meilisearch资源有效性失败 - ID: %d, Error: %v", resource.ID, err)
-							} else {
-								utils.Info("成功更新Meilisearch资源有效性 - ID: %d, Valid: %v", resource.ID, isValid)
-							}
-						}
-					}()
-				}
-
-			}
-
-			continue
+	for _, id := range req.IDs {
+		resource, ok := idToResource[id]
+		if !ok {
+			continue // 已在上方作为"资源不存在"追加
 		}
 
-		result := gin.H{
+		lcResult, hasResult := checkResults[id]
+		if !hasResult {
+			lcResult = services.ResourceCheckResult{Status: "undetermined", DetectionMethod: "disabled"}
+		}
+
+		// 仅在结论翻转时写回 DB + 同步 Meilisearch
+		isValid := resource.IsValid
+		if lcResult.Status == "valid" || lcResult.Status == "invalid" {
+			isValid = lcResult.Status == "valid"
+			services.ApplyValidityWriteback(resource, lcResult, repoManager.ResourceRepository, meilisearchManager)
+		}
+
+		results = append(results, gin.H{
 			"resource_id":      id,
 			"is_valid":         isValid,
 			"last_checked":     time.Now().Format(time.RFC3339),
-			"detection_method": detectionMethod,
-		}
-
-		results = append(results, result)
+			"detection_method": lcResult.DetectionMethod,
+			"error":            lcResult.FailReason,
+		})
 	}
 
 	utils.Info("批量检测资源有效性完成 - Count: %d", len(results))
@@ -1558,21 +1437,4 @@ func BatchCheckResourceValidity(c *gin.Context) {
 		"results": results,
 		"total":   len(results),
 	})
-}
-
-// getQuarkPanID 获取夸克网盘ID
-func getQuarkPanID() (uint, error) {
-	// 通过FindAll方法查找所有平台，然后过滤出quark平台
-	pans, err := repoManager.PanRepository.FindAll()
-	if err != nil {
-		return 0, fmt.Errorf("查询平台信息失败: %v", err)
-	}
-
-	for _, p := range pans {
-		if p.Name == "quark" {
-			return p.ID, nil
-		}
-	}
-
-	return 0, fmt.Errorf("未找到quark平台")
 }

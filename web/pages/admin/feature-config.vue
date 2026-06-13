@@ -166,6 +166,67 @@
                   </div>
                 </div>
               </div>
+
+              <!-- PanCheck 链接检测配置组 -->
+              <div class="space-y-4">
+                <div class="flex items-center space-x-2 mb-4">
+                  <div class="w-1 h-6 bg-orange-500 rounded-full"></div>
+                  <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">链接检测配置 (PanCheck)</h3>
+                </div>
+
+                <!-- 启用 PanCheck -->
+                <div class="space-y-2">
+                  <div class="flex items-center space-x-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">启用 PanCheck 链接检测</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">开启后，系统将通过 PanCheck 服务统一检测资源链接有效性（夸克/UC/百度/天翼/123/115/阿里/迅雷/移动）</span>
+                  </div>
+                  <n-switch v-model:value="configForm.pancheck_enabled" />
+                </div>
+
+                <!-- PanCheck 服务参数 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" :class="{ 'opacity-50': !configForm.pancheck_enabled }">
+                  <!-- 服务地址 -->
+                  <div class="space-y-2 md:col-span-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">PanCheck 服务地址</label>
+                    <n-input
+                      v-model:value="configForm.pancheck_host"
+                      placeholder="http://127.0.0.1:8081"
+                      :disabled="!configForm.pancheck_enabled"
+                    />
+                    <span class="text-xs text-gray-400">PanCheck 服务的完整地址（含协议与端口），留空则不启用检测</span>
+                  </div>
+
+                  <!-- 请求超时(秒) -->
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">请求超时 (秒)</label>
+                    <n-input
+                      v-model:value="configForm.pancheck_timeout_seconds"
+                      placeholder="60"
+                      :disabled="!configForm.pancheck_enabled"
+                    />
+                  </div>
+
+                  <!-- 批量大小 -->
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">单次批量大小</label>
+                    <n-input
+                      v-model:value="configForm.pancheck_batch_size"
+                      placeholder="20"
+                      :disabled="!configForm.pancheck_enabled"
+                    />
+                  </div>
+
+                  <!-- 并发数 -->
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">并发数</label>
+                    <n-input
+                      v-model:value="configForm.pancheck_concurrency"
+                      placeholder="5"
+                      :disabled="!configForm.pancheck_enabled"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
             </n-form>
           </div>
@@ -304,6 +365,11 @@ interface FeatureConfigForm {
   meilisearch_port: string
   meilisearch_master_key: string
   meilisearch_index_name: string
+  pancheck_enabled: boolean
+  pancheck_host: string
+  pancheck_timeout_seconds: string
+  pancheck_batch_size: string
+  pancheck_concurrency: string
 }
 
 // 使用配置改动检测
@@ -329,7 +395,12 @@ const {
     meilisearch_host: 'meilisearch_host',
     meilisearch_port: 'meilisearch_port',
     meilisearch_master_key: 'meilisearch_master_key',
-    meilisearch_index_name: 'meilisearch_index_name'
+    meilisearch_index_name: 'meilisearch_index_name',
+    pancheck_enabled: 'pancheck_enabled',
+    pancheck_host: 'pancheck_host',
+    pancheck_timeout_seconds: 'pancheck_timeout_seconds',
+    pancheck_batch_size: 'pancheck_batch_size',
+    pancheck_concurrency: 'pancheck_concurrency'
   }
 })
 
@@ -355,7 +426,12 @@ const configForm = ref<FeatureConfigForm>({
   meilisearch_host: '',
   meilisearch_port: '',
   meilisearch_master_key: '',
-  meilisearch_index_name: ''
+  meilisearch_index_name: '',
+  pancheck_enabled: false,
+  pancheck_host: '',
+  pancheck_timeout_seconds: '60',
+  pancheck_batch_size: '20',
+  pancheck_concurrency: '5'
 })
 
 // 表单验证规则
@@ -381,7 +457,12 @@ const fetchConfig = async () => {
         meilisearch_host: response.meilisearch_host || '',
         meilisearch_port: String(response.meilisearch_port || 7700),
         meilisearch_master_key: response.meilisearch_master_key || '',
-        meilisearch_index_name: response.meilisearch_index_name || 'resources'
+        meilisearch_index_name: response.meilisearch_index_name || 'resources',
+        pancheck_enabled: response.pancheck_enabled || false,
+        pancheck_host: response.pancheck_host || '',
+        pancheck_timeout_seconds: String(response.pancheck_timeout_seconds || 60),
+        pancheck_batch_size: String(response.pancheck_batch_size || 20),
+        pancheck_concurrency: String(response.pancheck_concurrency || 5)
       }
       
       configForm.value = { ...configData }
@@ -414,7 +495,12 @@ const saveConfig = async () => {
       meilisearch_host: configForm.value.meilisearch_host,
       meilisearch_port: configForm.value.meilisearch_port,
       meilisearch_master_key: configForm.value.meilisearch_master_key,
-      meilisearch_index_name: configForm.value.meilisearch_index_name
+      meilisearch_index_name: configForm.value.meilisearch_index_name,
+      pancheck_enabled: configForm.value.pancheck_enabled,
+      pancheck_host: configForm.value.pancheck_host,
+      pancheck_timeout_seconds: configForm.value.pancheck_timeout_seconds,
+      pancheck_batch_size: configForm.value.pancheck_batch_size,
+      pancheck_concurrency: configForm.value.pancheck_concurrency
     })
     
     const { useSystemConfigApi } = await import('~/composables/useApi')
@@ -434,6 +520,15 @@ const saveConfig = async () => {
           }
           if (data.auto_transfer_min_space !== undefined) {
             data.auto_transfer_min_space = parseInt(data.auto_transfer_min_space) || 500
+          }
+          if (data.pancheck_timeout_seconds !== undefined) {
+            data.pancheck_timeout_seconds = parseInt(data.pancheck_timeout_seconds) || 60
+          }
+          if (data.pancheck_batch_size !== undefined) {
+            data.pancheck_batch_size = parseInt(data.pancheck_batch_size) || 20
+          }
+          if (data.pancheck_concurrency !== undefined) {
+            data.pancheck_concurrency = parseInt(data.pancheck_concurrency) || 5
           }
           return data
         }

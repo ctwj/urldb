@@ -1,13 +1,13 @@
 package scheduler
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	panutils "github.com/ctwj/urldb/common"
-	commonutils "github.com/ctwj/urldb/common/utils"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/utils"
 )
@@ -212,19 +212,22 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 	// 	}
 	// }
 
-	// 不是夸克，直接保存
-	if serviceType != panutils.Quark {
-		// 检测是否有效
-		checkResult, err := commonutils.CheckURL(readyResource.URL)
-		if err != nil {
-			utils.Error(fmt.Sprintf("链接检查失败: %v", err))
-			return fmt.Errorf("链接检查失败: %v", err)
-		}
-		if !checkResult.Status {
-			utils.Warn(fmt.Sprintf("链接无效: %s", readyResource.URL))
+	// PanCheck 有效性校验（全平台，含夸克）
+	// - 失效：拒绝，不进入转存/创建流程
+	// - 未启用检测 / 未得出结论：放行（保持 is_valid 原值，不阻断），对齐 FR-004
+	if globalLinkCheckService != nil {
+		lcResult := globalLinkCheckService.CheckURL(context.Background(), readyResource.URL, false)
+		utils.Info(fmt.Sprintf("[PanCheck] 检测结果: URL=%s, status=%s, method=%s, reason=%s", readyResource.URL, lcResult.Status, lcResult.DetectionMethod, lcResult.FailReason))
+		if lcResult.Status == "invalid" {
+			utils.Warn(fmt.Sprintf("PanCheck 判定链接失效: %s, 原因: %s", readyResource.URL, lcResult.FailReason))
 			return fmt.Errorf("链接无效: %s", readyResource.URL)
 		}
 	} else {
+		utils.Warn("[PanCheck] globalLinkCheckService 未注入（nil），跳过 PanCheck 检测，资源直接放行")
+	}
+
+	// 夸克：校验通过后执行既有"转存并分享"业务（生成 SaveURL / 获取标题），转存逻辑保留
+	if serviceType == panutils.Quark {
 		// 获取夸克网盘账号的 cookie
 		panID := r.getPanIDByServiceType(serviceType)
 		if panID == nil {
