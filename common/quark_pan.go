@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	commonutils "github.com/ctwj/urldb/common/utils"
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
@@ -769,8 +768,8 @@ func (q *QuarkPanService) extractAdFileIDs(adURLs []string) []string {
 	var result []string
 
 	for _, url := range adURLs {
-		// 使用 ExtractShareIdString 提取分享ID
-		shareID, _ := commonutils.ExtractShareIdString(url)
+		// 使用 ExtractShareId 提取分享ID（同包 pan_factory）
+		shareID, _ := ExtractShareId(url)
 		if shareID != "" {
 			result = append(result, shareID)
 		}

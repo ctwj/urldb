@@ -397,6 +397,12 @@ func insertDefaultDataIfEmpty() error {
 		{Key: entity.ConfigKeyMeilisearchPort, Value: entity.ConfigDefaultMeilisearchPort, Type: entity.ConfigTypeString},
 		{Key: entity.ConfigKeyMeilisearchMasterKey, Value: entity.ConfigDefaultMeilisearchMasterKey, Type: entity.ConfigTypeString},
 		{Key: entity.ConfigKeyMeilisearchIndexName, Value: entity.ConfigDefaultMeilisearchIndexName, Type: entity.ConfigTypeString},
+		// PanCheck 链接检测服务默认配置
+		{Key: entity.ConfigKeyPanCheckEnabled, Value: entity.ConfigDefaultPanCheckEnabled, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyPanCheckHost, Value: entity.ConfigDefaultPanCheckHost, Type: entity.ConfigTypeString},
+		{Key: entity.ConfigKeyPanCheckTimeoutSeconds, Value: entity.ConfigDefaultPanCheckTimeoutSeconds, Type: entity.ConfigTypeInt},
+		{Key: entity.ConfigKeyPanCheckBatchSize, Value: entity.ConfigDefaultPanCheckBatchSize, Type: entity.ConfigTypeInt},
+		{Key: entity.ConfigKeyPanCheckConcurrency, Value: entity.ConfigDefaultPanCheckConcurrency, Type: entity.ConfigTypeInt},
 	}
 
 	for _, config := range defaultSystemConfigs {

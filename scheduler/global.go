@@ -19,6 +19,8 @@ var (
 	once            sync.Once
 	// 全局Meilisearch管理器
 	globalMeilisearchManager *services.MeilisearchManager
+	// 全局链接检测服务
+	globalLinkCheckService services.LinkCheckService
 )
 
 // SetGlobalMeilisearchManager 设置全局Meilisearch管理器
@@ -29,6 +31,16 @@ func SetGlobalMeilisearchManager(manager *services.MeilisearchManager) {
 // GetGlobalMeilisearchManager 获取全局Meilisearch管理器
 func GetGlobalMeilisearchManager() *services.MeilisearchManager {
 	return globalMeilisearchManager
+}
+
+// SetGlobalLinkCheckService 设置全局链接检测服务
+func SetGlobalLinkCheckService(svc services.LinkCheckService) {
+	globalLinkCheckService = svc
+}
+
+// GetGlobalLinkCheckService 获取全局链接检测服务
+func GetGlobalLinkCheckService() services.LinkCheckService {
+	return globalLinkCheckService
 }
 
 // GetGlobalScheduler 获取全局调度器实例（单例模式）

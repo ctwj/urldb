@@ -154,6 +154,18 @@ func main() {
 		utils.Error("初始化Meilisearch管理器失败: %v", err)
 	}
 
+	// 初始化链接检测服务（PanCheck），作为两处检测点的唯一入口
+	pancheckClient := services.NewPanCheckClient()
+	linkCheckService := services.NewLinkCheckService(
+		pancheckClient,
+		repoManager.SystemConfigRepository,
+		repoManager.ResourceRepository,
+		meilisearchManager,
+	)
+	handlers.SetLinkCheckService(linkCheckService)
+	scheduler.SetGlobalLinkCheckService(linkCheckService)
+	utils.Info("链接检测服务（PanCheck）初始化完成")
+
 	// 恢复运行中的任务（服务器重启后）
 	if err := taskManager.RecoverRunningTasks(); err != nil {
 		utils.Error("恢复运行中任务失败: %v", err)
