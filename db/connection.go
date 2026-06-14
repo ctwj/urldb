@@ -403,6 +403,10 @@ func insertDefaultDataIfEmpty() error {
 		{Key: entity.ConfigKeyPanCheckTimeoutSeconds, Value: entity.ConfigDefaultPanCheckTimeoutSeconds, Type: entity.ConfigTypeInt},
 		{Key: entity.ConfigKeyPanCheckBatchSize, Value: entity.ConfigDefaultPanCheckBatchSize, Type: entity.ConfigTypeInt},
 		{Key: entity.ConfigKeyPanCheckConcurrency, Value: entity.ConfigDefaultPanCheckConcurrency, Type: entity.ConfigTypeInt},
+		// 自动清理转存文件默认配置（002-auto-cleanup-transfer）
+		{Key: entity.ConfigKeyAutoCleanupEnabled, Value: entity.ConfigDefaultAutoCleanupEnabled, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyAutoCleanupRetentionDays, Value: entity.ConfigDefaultAutoCleanupRetentionDays, Type: entity.ConfigTypeInt},
+		{Key: entity.ConfigKeyAutoCleanupIntervalMinutes, Value: entity.ConfigDefaultAutoCleanupIntervalMinutes, Type: entity.ConfigTypeInt},
 	}
 
 	for _, config := range defaultSystemConfigs {

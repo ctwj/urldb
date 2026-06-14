@@ -31,6 +31,12 @@ type Resource struct {
 	SyncedToMeilisearch bool           `json:"synced_to_meilisearch" gorm:"default:false;comment:是否已同步到Meilisearch"`
 	SyncedAt            *time.Time     `json:"synced_at" gorm:"comment:同步时间"`
 
+	// 自动清理相关字段（002-auto-cleanup-transfer）
+	TransferredAt    *time.Time `json:"transferred_at" gorm:"index;comment:转存完成时间"`
+	CleanedAt        *time.Time `json:"cleaned_at" gorm:"comment:最近清理成功时间"`
+	CleanErrorMsg    string     `json:"clean_error_msg" gorm:"size:255;comment:清理失败原因"`
+	LastCleanErrorAt *time.Time `json:"last_clean_error_at" gorm:"comment:最近清理失败时间"`
+
 	// 关联关系
 	Category Category `json:"category" gorm:"foreignKey:CategoryID"`
 	Pan      Pan      `json:"pan" gorm:"foreignKey:PanID"`

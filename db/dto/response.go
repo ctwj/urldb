@@ -42,6 +42,11 @@ type ResourceResponse struct {
 	// 违禁词相关字段
 	HasForbiddenWords bool     `json:"has_forbidden_words"`
 	ForbiddenWords    []string `json:"forbidden_words"`
+	// 002-auto-cleanup-transfer 自动清理相关字段
+	TransferredAt    *time.Time `json:"transferred_at"`
+	CleanedAt        *time.Time `json:"cleaned_at"`
+	CleanErrorMsg    string     `json:"clean_error_msg"`
+	LastCleanErrorAt *time.Time `json:"last_clean_error_at"`
 }
 
 // CategoryResponse 分类响应

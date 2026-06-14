@@ -89,6 +89,11 @@ const (
 	ConfigKeyPanCheckTimeoutSeconds = "pancheck_timeout_seconds"
 	ConfigKeyPanCheckBatchSize      = "pancheck_batch_size"
 	ConfigKeyPanCheckConcurrency    = "pancheck_concurrency"
+
+	// 自动清理转存文件配置（002-auto-cleanup-transfer）
+	ConfigKeyAutoCleanupEnabled         = "auto_cleanup_enabled"
+	ConfigKeyAutoCleanupRetentionDays   = "auto_cleanup_retention_days"
+	ConfigKeyAutoCleanupIntervalMinutes = "auto_cleanup_interval_minutes"
 )
 
 // ConfigType 配置类型常量
@@ -180,6 +185,11 @@ const (
 
 	// 网站URL配置字段
 	ConfigResponseFieldWebsiteURL = "site_url"
+
+	// 自动清理转存文件配置字段（002-auto-cleanup-transfer）
+	ConfigResponseFieldAutoCleanupEnabled         = "auto_cleanup_enabled"
+	ConfigResponseFieldAutoCleanupRetentionDays   = "auto_cleanup_retention_days"
+	ConfigResponseFieldAutoCleanupIntervalMinutes = "auto_cleanup_interval_minutes"
 )
 
 // ConfigDefaultValue 配置默认值常量
@@ -265,4 +275,9 @@ const (
 	ConfigDefaultPanCheckTimeoutSeconds = "60"
 	ConfigDefaultPanCheckBatchSize      = "20"
 	ConfigDefaultPanCheckConcurrency    = "5"
+
+	// 自动清理转存文件配置默认值（002-auto-cleanup-transfer）
+	ConfigDefaultAutoCleanupEnabled         = "false"
+	ConfigDefaultAutoCleanupRetentionDays   = "7"
+	ConfigDefaultAutoCleanupIntervalMinutes = "60"
 )

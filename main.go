@@ -256,12 +256,21 @@ func main() {
 	autoTransferEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
 	autoSitemapEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeySitemapAutoGenerateEnabled)
 	autoGoogleIndexEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.GoogleIndexConfigKeyEnabled)
+	autoCleanupEnabled, _ := repoManager.SystemConfigRepository.GetConfigBool(entity.ConfigKeyAutoCleanupEnabled)
 
 	globalScheduler.UpdateSchedulerStatusWithAutoTransfer(
 		autoFetchHotDrama,
 		autoProcessReadyResources,
 		autoTransferEnabled,
 	)
+
+	// 根据系统配置启动转存文件自动清理调度器（002-auto-cleanup-transfer）
+	if autoCleanupEnabled {
+		globalScheduler.StartCleanupScheduler()
+		utils.Info("系统配置启用转存文件自动清理功能，启动定时任务")
+	} else {
+		utils.Info("系统配置禁用转存文件自动清理功能")
+	}
 
 	// 根据系统配置启动Sitemap调度器
 	if autoSitemapEnabled {

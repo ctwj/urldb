@@ -249,3 +249,57 @@ func (gs *GlobalScheduler) IsGoogleIndexSchedulerRunning() bool {
 
 	return gs.manager.IsGoogleIndexRunning()
 }
+
+// StartCleanupScheduler 启动转存文件自动清理定时任务
+func (gs *GlobalScheduler) StartCleanupScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if gs.manager.IsCleanupRunning() {
+		utils.Debug("转存文件自动清理任务已在运行中")
+		return
+	}
+
+	gs.manager.StartCleanupScheduler()
+	utils.Info("全局调度器已启动转存文件自动清理任务")
+}
+
+// StopCleanupScheduler 停止转存文件自动清理定时任务
+func (gs *GlobalScheduler) StopCleanupScheduler() {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if !gs.manager.IsCleanupRunning() {
+		utils.Debug("转存文件自动清理任务未在运行")
+		return
+	}
+
+	gs.manager.StopCleanupScheduler()
+	utils.Info("全局调度器已停止转存文件自动清理任务")
+}
+
+// IsCleanupSchedulerRunning 检查转存文件自动清理任务是否在运行
+func (gs *GlobalScheduler) IsCleanupSchedulerRunning() bool {
+	gs.mutex.RLock()
+	defer gs.mutex.RUnlock()
+	return gs.manager.IsCleanupRunning()
+}
+
+// UpdateSchedulerStatusWithCleanup 根据配置立即启停自动清理调度器
+// SC-002：配置变更立即生效，无需重启
+func (gs *GlobalScheduler) UpdateSchedulerStatusWithCleanup(enabled bool) {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	if enabled {
+		if !gs.manager.IsCleanupRunning() {
+			utils.Info("系统配置启用转存文件自动清理，启动定时任务")
+			gs.manager.StartCleanupScheduler()
+		}
+	} else {
+		if gs.manager.IsCleanupRunning() {
+			utils.Info("系统配置禁用转存文件自动清理，停止定时任务")
+			gs.manager.StopCleanupScheduler()
+		}
+	}
+}

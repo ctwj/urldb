@@ -109,6 +109,18 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			if val, err := strconv.Atoi(config.Value); err == nil {
 				response.PancheckConcurrency = val
 			}
+		case entity.ConfigKeyAutoCleanupEnabled:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response.AutoCleanupEnabled = val
+			}
+		case entity.ConfigKeyAutoCleanupRetentionDays:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.AutoCleanupRetentionDays = val
+			}
+		case entity.ConfigKeyAutoCleanupIntervalMinutes:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.AutoCleanupIntervalMinutes = val
+			}
 		case entity.ConfigKeyEnableAnnouncements:
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response.EnableAnnouncements = val
@@ -229,6 +241,20 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	if req.AutoTransferMinSpace != nil {
 		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferMinSpace, Value: strconv.Itoa(*req.AutoTransferMinSpace), Type: entity.ConfigTypeInt})
 		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoTransferMinSpace)
+	}
+
+	// 自动清理转存文件配置（002-auto-cleanup-transfer）
+	if req.AutoCleanupEnabled != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoCleanupEnabled, Value: strconv.FormatBool(*req.AutoCleanupEnabled), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoCleanupEnabled)
+	}
+	if req.AutoCleanupRetentionDays != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoCleanupRetentionDays, Value: strconv.Itoa(*req.AutoCleanupRetentionDays), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoCleanupRetentionDays)
+	}
+	if req.AutoCleanupIntervalMinutes != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoCleanupIntervalMinutes, Value: strconv.Itoa(*req.AutoCleanupIntervalMinutes), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoCleanupIntervalMinutes)
 	}
 	if req.PageSize != nil {
 		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyPageSize, Value: strconv.Itoa(*req.PageSize), Type: entity.ConfigTypeInt})
@@ -415,6 +441,9 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		case entity.ConfigKeyAutoTransferLimitDays:
 		case entity.ConfigKeyAutoTransferMinSpace:
 		case entity.ConfigKeyAutoFetchHotDramaEnabled:
+		case entity.ConfigKeyAutoCleanupEnabled:
+		case entity.ConfigKeyAutoCleanupRetentionDays:
+		case entity.ConfigKeyAutoCleanupIntervalMinutes:
 		case entity.ConfigKeyMeilisearchEnabled:
 		case entity.ConfigKeyMeilisearchHost:
 		case entity.ConfigKeyMeilisearchPort:
@@ -450,6 +479,9 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		AutoTransferLimitDays:     0,
 		AutoTransferMinSpace:      100,
 		AutoFetchHotDramaEnabled:  false,
+		AutoCleanupEnabled:         false,
+		AutoCleanupRetentionDays:   7,
+		AutoCleanupIntervalMinutes: 60,
 		ApiToken:                  entity.ConfigDefaultApiToken,
 		ForbiddenWords:            entity.ConfigDefaultForbiddenWords,
 		AdKeywords:                entity.ConfigDefaultAdKeywords,

@@ -187,6 +187,22 @@ func UpdateSystemConfig(c *gin.Context) {
 		}
 	}
 
+	// 验证自动清理转存文件配置（002-auto-cleanup-transfer）
+	if req.AutoCleanupRetentionDays != nil {
+		if *req.AutoCleanupRetentionDays < 1 || *req.AutoCleanupRetentionDays > 365 {
+			utils.Warn("配置验证失败 - AutoCleanupRetentionDays超出范围: %d", *req.AutoCleanupRetentionDays)
+			ErrorResponse(c, "自动清理保留天数必须在1-365之间", http.StatusBadRequest)
+			return
+		}
+	}
+	if req.AutoCleanupIntervalMinutes != nil {
+		if *req.AutoCleanupIntervalMinutes < 1 || *req.AutoCleanupIntervalMinutes > 1440 {
+			utils.Warn("配置验证失败 - AutoCleanupIntervalMinutes超出范围: %d", *req.AutoCleanupIntervalMinutes)
+			ErrorResponse(c, "自动清理调度周期必须在1-1440分钟之间", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// 验证公告相关字段
 	if req.Announcements != nil {
 		// 简化验证，仅在需要时添加逻辑
@@ -256,6 +272,11 @@ func UpdateSystemConfig(c *gin.Context) {
 			autoTransfer = *req.AutoTransferEnabled
 		}
 		scheduler.UpdateSchedulerStatusWithAutoTransfer(autoFetchHotDrama, autoProcessReady, autoTransfer)
+
+		// 自动清理调度器立即启停（仅当开关字段被显式设置时）
+		if req.AutoCleanupEnabled != nil {
+			scheduler.UpdateSchedulerStatusWithCleanup(*req.AutoCleanupEnabled)
+		}
 	}
 
 	// 返回更新后的配置

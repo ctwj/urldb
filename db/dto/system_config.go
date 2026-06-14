@@ -18,6 +18,11 @@ type SystemConfigRequest struct {
 	AutoTransferMinSpace      *int  `json:"auto_transfer_min_space,omitempty"`      // 最小存储空间（GB）
 	AutoFetchHotDramaEnabled  *bool `json:"auto_fetch_hot_drama_enabled,omitempty"` // 自动拉取热播剧名字
 
+	// 自动清理转存文件配置（002-auto-cleanup-transfer）
+	AutoCleanupEnabled         *bool `json:"auto_cleanup_enabled,omitempty"`          // 自动清理开关
+	AutoCleanupRetentionDays   *int  `json:"auto_cleanup_retention_days,omitempty"`   // 保留时长（天）
+	AutoCleanupIntervalMinutes *int  `json:"auto_cleanup_interval_minutes,omitempty"` // 调度周期（分钟）
+
 	// API配置
 	ApiToken *string `json:"api_token,omitempty"` // 公开API访问令牌
 
@@ -83,6 +88,11 @@ type SystemConfigResponse struct {
 	AutoTransferLimitDays     int  `json:"auto_transfer_limit_days"`     // 自动转存限制天数（0表示不限制）
 	AutoTransferMinSpace      int  `json:"auto_transfer_min_space"`      // 最小存储空间（GB）
 	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled"` // 自动拉取热播剧名字
+
+	// 自动清理转存文件配置（002-auto-cleanup-transfer）
+	AutoCleanupEnabled         bool `json:"auto_cleanup_enabled"`          // 自动清理开关
+	AutoCleanupRetentionDays   int  `json:"auto_cleanup_retention_days"`   // 保留时长（天）
+	AutoCleanupIntervalMinutes int  `json:"auto_cleanup_interval_minutes"` // 调度周期（分钟）
 
 	// API配置
 	ApiToken string `json:"api_token"` // 公开API访问令牌
