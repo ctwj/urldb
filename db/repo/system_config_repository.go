@@ -144,6 +144,10 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyTelegramQrImage, Value: entity.ConfigDefaultTelegramQrImage, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyQrCodeStyle, Value: entity.ConfigDefaultQrCodeStyle, Type: entity.ConfigTypeString},
 			{Key: entity.ConfigKeyWebsiteURL, Value: entity.ConfigDefaultWebsiteURL, Type: entity.ConfigTypeString},
+			// 自动清理转存文件默认配置（002-auto-cleanup-transfer）
+			{Key: entity.ConfigKeyAutoCleanupEnabled, Value: entity.ConfigDefaultAutoCleanupEnabled, Type: entity.ConfigTypeBool},
+			{Key: entity.ConfigKeyAutoCleanupRetentionDays, Value: entity.ConfigDefaultAutoCleanupRetentionDays, Type: entity.ConfigTypeInt},
+			{Key: entity.ConfigKeyAutoCleanupIntervalMinutes, Value: entity.ConfigDefaultAutoCleanupIntervalMinutes, Type: entity.ConfigTypeInt},
 			// Google索引配置
 			{Key: entity.GoogleIndexConfigKeyEnabled, Value: "false", Type: entity.ConfigTypeBool},
 						{Key: entity.GoogleIndexConfigKeySiteName, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},
@@ -207,6 +211,10 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		entity.ConfigKeyPanCheckTimeoutSeconds:    {Key: entity.ConfigKeyPanCheckTimeoutSeconds, Value: entity.ConfigDefaultPanCheckTimeoutSeconds, Type: entity.ConfigTypeInt},
 		entity.ConfigKeyPanCheckBatchSize:         {Key: entity.ConfigKeyPanCheckBatchSize, Value: entity.ConfigDefaultPanCheckBatchSize, Type: entity.ConfigTypeInt},
 		entity.ConfigKeyPanCheckConcurrency:       {Key: entity.ConfigKeyPanCheckConcurrency, Value: entity.ConfigDefaultPanCheckConcurrency, Type: entity.ConfigTypeInt},
+		// 自动清理转存文件配置（002-auto-cleanup-transfer）
+		entity.ConfigKeyAutoCleanupEnabled:         {Key: entity.ConfigKeyAutoCleanupEnabled, Value: entity.ConfigDefaultAutoCleanupEnabled, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyAutoCleanupRetentionDays:   {Key: entity.ConfigKeyAutoCleanupRetentionDays, Value: entity.ConfigDefaultAutoCleanupRetentionDays, Type: entity.ConfigTypeInt},
+		entity.ConfigKeyAutoCleanupIntervalMinutes: {Key: entity.ConfigKeyAutoCleanupIntervalMinutes, Value: entity.ConfigDefaultAutoCleanupIntervalMinutes, Type: entity.ConfigTypeInt},
 		// Google索引配置
 		entity.GoogleIndexConfigKeyEnabled:        {Key: entity.GoogleIndexConfigKeyEnabled, Value: "false", Type: entity.ConfigTypeBool},
 		entity.GoogleIndexConfigKeySiteName:       {Key: entity.GoogleIndexConfigKeySiteName, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},

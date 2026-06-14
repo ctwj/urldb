@@ -313,14 +313,17 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 	panID, _ := tp.repoMgr.PanRepository.FindIdByServiceType(serviceType)
 	panIdInt := uint(panID)
 
+	now := time.Now()
 	resource := &entity.Resource{
-		Title:      input.Title,
-		URL:        input.URL,
-		CategoryID: categoryID,
-		PanID:      &panIdInt,        // 设置平台ID
-		SaveURL:    saveData.SaveURL, // 直接设置转存链接
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		Title:         input.Title,
+		URL:           input.URL,
+		CategoryID:    categoryID,
+		PanID:         &panIdInt,        // 设置平台ID
+		SaveURL:       saveData.SaveURL, // 直接设置转存链接
+		Fid:           saveData.Fid,     // 记录转存文件ID（清理时依据）
+		TransferredAt: &now,             // 记录转存完成时间（清理调度依据）
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	// 保存资源到数据库

@@ -305,6 +305,43 @@
                   :disabled="!configForm.auto_transfer_enabled"
                 />
               </div>
+
+              <!-- 转存文件自动清理 -->
+              <div class="space-y-2 border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                <div class="flex items-center space-x-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">转存文件自动清理</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">开启后，系统会按保留时长自动删除网盘中转存的文件，并清空资源的转存链接</span>
+                </div>
+                <n-switch v-model:value="configForm.auto_cleanup_enabled" />
+              </div>
+
+              <!-- 保留时长 -->
+              <div class="space-y-2">
+                <div class="flex items-center space-x-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">保留时长（天）</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">转存文件保留多少天后自动删除（1-365）</span>
+                </div>
+                <n-input
+                  v-model:value="configForm.auto_cleanup_retention_days"
+                  type="text"
+                  placeholder="7"
+                  :disabled="!configForm.auto_cleanup_enabled"
+                />
+              </div>
+
+              <!-- 调度周期 -->
+              <div class="space-y-2">
+                <div class="flex items-center space-x-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">调度周期（分钟）</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">清理任务多久执行一次（1-1440）</span>
+                </div>
+                <n-input
+                  v-model:value="configForm.auto_cleanup_interval_minutes"
+                  type="text"
+                  placeholder="60"
+                  :disabled="!configForm.auto_cleanup_enabled"
+                />
+              </div>
             </div>
             </n-form>
           </div>
@@ -370,6 +407,9 @@ interface FeatureConfigForm {
   pancheck_timeout_seconds: string
   pancheck_batch_size: string
   pancheck_concurrency: string
+  auto_cleanup_enabled: boolean
+  auto_cleanup_retention_days: string
+  auto_cleanup_interval_minutes: string
 }
 
 // 使用配置改动检测
@@ -400,7 +440,10 @@ const {
     pancheck_host: 'pancheck_host',
     pancheck_timeout_seconds: 'pancheck_timeout_seconds',
     pancheck_batch_size: 'pancheck_batch_size',
-    pancheck_concurrency: 'pancheck_concurrency'
+    pancheck_concurrency: 'pancheck_concurrency',
+    auto_cleanup_enabled: 'auto_cleanup_enabled',
+    auto_cleanup_retention_days: 'auto_cleanup_retention_days',
+    auto_cleanup_interval_minutes: 'auto_cleanup_interval_minutes'
   }
 })
 
@@ -431,7 +474,10 @@ const configForm = ref<FeatureConfigForm>({
   pancheck_host: '',
   pancheck_timeout_seconds: '60',
   pancheck_batch_size: '20',
-  pancheck_concurrency: '5'
+  pancheck_concurrency: '5',
+  auto_cleanup_enabled: false,
+  auto_cleanup_retention_days: '7',
+  auto_cleanup_interval_minutes: '60'
 })
 
 // 表单验证规则
@@ -462,7 +508,10 @@ const fetchConfig = async () => {
         pancheck_host: response.pancheck_host || '',
         pancheck_timeout_seconds: String(response.pancheck_timeout_seconds || 60),
         pancheck_batch_size: String(response.pancheck_batch_size || 20),
-        pancheck_concurrency: String(response.pancheck_concurrency || 5)
+        pancheck_concurrency: String(response.pancheck_concurrency || 5),
+        auto_cleanup_enabled: response.auto_cleanup_enabled || false,
+        auto_cleanup_retention_days: String(response.auto_cleanup_retention_days || 7),
+        auto_cleanup_interval_minutes: String(response.auto_cleanup_interval_minutes || 60)
       }
       
       configForm.value = { ...configData }
@@ -500,7 +549,10 @@ const saveConfig = async () => {
       pancheck_host: configForm.value.pancheck_host,
       pancheck_timeout_seconds: configForm.value.pancheck_timeout_seconds,
       pancheck_batch_size: configForm.value.pancheck_batch_size,
-      pancheck_concurrency: configForm.value.pancheck_concurrency
+      pancheck_concurrency: configForm.value.pancheck_concurrency,
+      auto_cleanup_enabled: configForm.value.auto_cleanup_enabled,
+      auto_cleanup_retention_days: configForm.value.auto_cleanup_retention_days,
+      auto_cleanup_interval_minutes: configForm.value.auto_cleanup_interval_minutes
     })
     
     const { useSystemConfigApi } = await import('~/composables/useApi')
@@ -529,6 +581,21 @@ const saveConfig = async () => {
           }
           if (data.pancheck_concurrency !== undefined) {
             data.pancheck_concurrency = parseInt(data.pancheck_concurrency) || 5
+          }
+          // 自动清理字段类型转换与前端校验（1-365 / 1-1440）
+          if (data.auto_cleanup_retention_days !== undefined) {
+            const retention = parseInt(data.auto_cleanup_retention_days) || 0
+            if (retention < 1 || retention > 365) {
+              throw new Error('自动清理保留天数必须在 1-365 之间')
+            }
+            data.auto_cleanup_retention_days = retention
+          }
+          if (data.auto_cleanup_interval_minutes !== undefined) {
+            const interval = parseInt(data.auto_cleanup_interval_minutes) || 0
+            if (interval < 1 || interval > 1440) {
+              throw new Error('自动清理调度周期必须在 1-1440 分钟之间')
+            }
+            data.auto_cleanup_interval_minutes = interval
           }
           return data
         }

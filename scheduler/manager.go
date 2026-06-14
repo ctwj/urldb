@@ -2,8 +2,11 @@ package scheduler
 
 import (
 	"github.com/ctwj/urldb/db/repo"
+	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/utils"
 )
+
+var _ = services.NewCleanupService // 保留 services 导入（用于内部创建 CleanupService）
 
 // Manager 调度器管理器
 type Manager struct {
@@ -12,6 +15,7 @@ type Manager struct {
 	readyResourceScheduler *ReadyResourceScheduler
 	sitemapScheduler       *SitemapScheduler
 	googleIndexScheduler   *GoogleIndexScheduler
+	cleanupScheduler       *CleanupScheduler
 }
 
 // NewManager 创建调度器管理器
@@ -39,11 +43,15 @@ func NewManager(
 		categoryRepo,
 	)
 
+	// 创建清理服务（依赖 ResourceRepository/SystemConfigRepository/CksRepository/PanRepository）
+	cleanupService := services.NewCleanupService(resourceRepo, systemConfigRepo, cksRepo, panRepo)
+
 	// 创建各个具体的调度器
 	hotDramaScheduler := NewHotDramaScheduler(baseScheduler)
 	readyResourceScheduler := NewReadyResourceScheduler(baseScheduler)
 	sitemapScheduler := NewSitemapScheduler(baseScheduler)
 	googleIndexScheduler := NewGoogleIndexScheduler(baseScheduler, taskItemRepo, taskRepo)
+	cleanupScheduler := NewCleanupScheduler(baseScheduler, cleanupService)
 
 	return &Manager{
 		baseScheduler:          baseScheduler,
@@ -51,6 +59,7 @@ func NewManager(
 		readyResourceScheduler: readyResourceScheduler,
 		sitemapScheduler:       sitemapScheduler,
 		googleIndexScheduler:   googleIndexScheduler,
+		cleanupScheduler:       cleanupScheduler,
 	}
 }
 
@@ -166,6 +175,21 @@ func (m *Manager) IsGoogleIndexRunning() bool {
 	return m.googleIndexScheduler.IsRunning()
 }
 
+// StartCleanupScheduler 启动转存文件自动清理调度任务
+func (m *Manager) StartCleanupScheduler() {
+	m.cleanupScheduler.Start()
+}
+
+// StopCleanupScheduler 停止转存文件自动清理调度任务
+func (m *Manager) StopCleanupScheduler() {
+	m.cleanupScheduler.Stop()
+}
+
+// IsCleanupRunning 检查转存文件自动清理调度任务是否在运行
+func (m *Manager) IsCleanupRunning() bool {
+	return m.cleanupScheduler.IsCleanupRunning()
+}
+
 // GetStatus 获取所有调度任务的状态
 func (m *Manager) GetStatus() map[string]bool {
 	return map[string]bool{
@@ -173,5 +197,6 @@ func (m *Manager) GetStatus() map[string]bool {
 		"ready_resource": m.IsReadyResourceRunning(),
 		"sitemap":        m.IsSitemapRunning(),
 		"google_index":   m.IsGoogleIndexRunning(),
+		"cleanup":        m.IsCleanupRunning(),
 	}
 }

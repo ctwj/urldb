@@ -126,6 +126,29 @@
                     {{ getCategoryName(resource.category_id) }}
                   </span>
 
+                  <!-- 转存清理状态标签（002-auto-cleanup-transfer） -->
+                  <span
+                    v-if="resource.cleaned_at"
+                    class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded flex-shrink-0"
+                    :title="`清理时间：${resource.cleaned_at}`"
+                  >
+                    已清理
+                  </span>
+                  <span
+                    v-else-if="resource.clean_error_msg"
+                    class="text-xs px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded flex-shrink-0"
+                    :title="`清理失败：${resource.clean_error_msg}${resource.last_clean_error_at ? '（' + resource.last_clean_error_at + '）' : ''}`"
+                  >
+                    清理失败
+                  </span>
+                  <span
+                    v-else-if="resource.transferred_at"
+                    class="text-xs px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 rounded flex-shrink-0"
+                    :title="`转存时间：${resource.transferred_at}`"
+                  >
+                    已转存
+                  </span>
+
                 </div>
 
                 <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
@@ -361,6 +384,11 @@ interface Resource {
   is_public: boolean
   created_at: string
   updated_at: string
+  // 002-auto-cleanup-transfer 自动清理相关字段
+  transferred_at?: string | null
+  cleaned_at?: string | null
+  clean_error_msg?: string
+  last_clean_error_at?: string | null
 }
 
 // 使用computed延迟获取notification和dialog实例，避免SSR问题

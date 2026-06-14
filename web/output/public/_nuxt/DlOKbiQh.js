@@ -1,0 +1,1 @@
+import{_ as o,c as t,o as s,b as c,w as a,bY as _,ca as r}from"./DmHPR5lg.js";const l={},i={class:"single-layout"};function d(e,f){const n=r;return s(),t("div",i,[c(n,null,{default:a(()=>[_(e.$slots,"default")]),_:3})])}const p=o(l,[["render",d]]);export{p as default};

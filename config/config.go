@@ -329,6 +329,8 @@ func (cm *ConfigManager) getCategoryByConfigKey(key string) string {
 		return "auto_process"
 	case key == entity.ConfigKeyAutoTransferEnabled || key == entity.ConfigKeyAutoTransferLimitDays:
 		return "auto_transfer"
+	case key == entity.ConfigKeyAutoCleanupEnabled || key == entity.ConfigKeyAutoCleanupRetentionDays || key == entity.ConfigKeyAutoCleanupIntervalMinutes:
+		return "auto_cleanup"
 	case key == entity.ConfigKeyMeilisearchEnabled || key == entity.ConfigKeyMeilisearchHost:
 		return "search"
 	case key == entity.ConfigKeyTelegramBotEnabled || key == entity.ConfigKeyTelegramBotApiKey:
@@ -368,12 +370,15 @@ func (cm *ConfigManager) getDefaultConfigType(key string) string {
 		entity.ConfigKeyMaintenanceMode,
 		entity.ConfigKeyEnableRegister,
 		entity.ConfigKeyMeilisearchEnabled,
-		entity.ConfigKeyTelegramBotEnabled:
+		entity.ConfigKeyTelegramBotEnabled,
+		entity.ConfigKeyAutoCleanupEnabled:
 		return entity.ConfigTypeBool
 	case entity.ConfigKeyAutoProcessInterval,
 		entity.ConfigKeyAutoTransferLimitDays,
 		entity.ConfigKeyAutoTransferMinSpace,
-		entity.ConfigKeyPageSize:
+		entity.ConfigKeyPageSize,
+		entity.ConfigKeyAutoCleanupRetentionDays,
+		entity.ConfigKeyAutoCleanupIntervalMinutes:
 		return entity.ConfigTypeInt
 	case entity.ConfigKeyAnnouncements:
 		return entity.ConfigTypeJSON

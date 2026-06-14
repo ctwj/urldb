@@ -54,6 +54,10 @@ type ResourceRepository interface {
 	GetHotResources(limit int) ([]entity.Resource, error)
 	GetTotalCount() (int64, error)
 	GetAllValidResources() ([]entity.Resource, error)
+	// 002-auto-cleanup-transfer 自动清理相关
+	FindDueForCleanup(retentionDays int, limit int) ([]*entity.Resource, error)
+	MarkCleaned(id uint, cleanedAt time.Time) error
+	MarkCleanError(id uint, errMsg string, errAt time.Time) error
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -827,4 +831,65 @@ func (r *ResourceRepositoryImpl) GetAllValidResources() ([]entity.Resource, erro
 	err := r.GetDB().Where("is_valid = ? AND is_public = ?", true, true).
 		Find(&resources).Error
 	return resources, err
+}
+
+// FindDueForCleanup 查询需要清理的已转存资源
+// 条件：已转存(transferred_at不为空)、未清理(cleaned_at为空)、转存时间超过保留期、有有效 fid
+// 使用内存过滤模式以保证跨数据库兼容（参照 telegram_channel_repository.go 的 FindDueForPush）
+func (r *ResourceRepositoryImpl) FindDueForCleanup(retentionDays int, limit int) ([]*entity.Resource, error) {
+	if retentionDays <= 0 {
+		return nil, fmt.Errorf("保留天数必须大于0")
+	}
+	threshold := time.Now().AddDate(0, 0, -retentionDays)
+
+	// 由于不同数据库对指针时间字段的查询行为不一致，
+	// 先查询候选集合（已转存且 fid 不为空），再在内存中过滤
+	var candidates []*entity.Resource
+	query := r.db.Where("transferred_at IS NOT NULL").
+		Where("fid IS NOT NULL AND fid <> ''").
+		Where("cleaned_at IS NULL")
+	if limit > 0 {
+		query = query.Limit(limit * 2) // 多取一些以应对过滤后的数量
+	}
+	err := query.Find(&candidates).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 内存过滤：转存时间超过保留期
+	result := make([]*entity.Resource, 0, limit)
+	for _, res := range candidates {
+		if res.TransferredAt != nil && res.TransferredAt.Before(threshold) {
+			result = append(result, res)
+			if limit > 0 && len(result) >= limit {
+				break
+			}
+		}
+	}
+
+	utils.Debug("FindDueForCleanup: 候选=%d, 命中=%d, 保留期=%d天", len(candidates), len(result), retentionDays)
+	return result, nil
+}
+
+// MarkCleaned 标记资源清理成功：清空 fid/save_url 等转存写入字段，并设置 cleaned_at
+func (r *ResourceRepositoryImpl) MarkCleaned(id uint, cleanedAt time.Time) error {
+	return r.db.Model(&entity.Resource{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"fid":              "",
+		"save_url":         "",
+		"cleaned_at":       cleanedAt,
+		"clean_error_msg":  "",
+		"last_clean_error_at": nil,
+	}).Error
+}
+
+// MarkCleanError 标记资源清理失败：记录失败原因和时间，不清空转存字段（等待下一轮重试）
+func (r *ResourceRepositoryImpl) MarkCleanError(id uint, errMsg string, errAt time.Time) error {
+	// 截断错误信息避免超出字段长度
+	if len(errMsg) > 255 {
+		errMsg = errMsg[:255]
+	}
+	return r.db.Model(&entity.Resource{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"clean_error_msg":    errMsg,
+		"last_clean_error_at": errAt,
+	}).Error
 }

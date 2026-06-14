@@ -31,6 +31,11 @@ func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 		ErrorMsg:            resource.ErrorMsg,
 		SyncedToMeilisearch: resource.SyncedToMeilisearch,
 		SyncedAt:            resource.SyncedAt,
+		// 002-auto-cleanup-transfer
+		TransferredAt:    resource.TransferredAt,
+		CleanedAt:        resource.CleanedAt,
+		CleanErrorMsg:    resource.CleanErrorMsg,
+		LastCleanErrorAt: resource.LastCleanErrorAt,
 	}
 
 	// 设置分类名称
