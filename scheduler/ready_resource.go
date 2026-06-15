@@ -226,82 +226,10 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		utils.Warn("[PanCheck] globalLinkCheckService 未注入（nil），跳过 PanCheck 检测，资源直接放行")
 	}
 
-	// 夸克：校验通过后执行既有"转存并分享"业务（生成 SaveURL / 获取标题），转存逻辑保留
-	if serviceType == panutils.Quark {
-		// 获取夸克网盘账号的 cookie
-		panID := r.getPanIDByServiceType(serviceType)
-		if panID == nil {
-			utils.Error("未找到对应的平台ID")
-			return fmt.Errorf("未找到对应的平台ID")
-		}
-
-		accounts, err := r.cksRepo.FindByPanID(*panID)
-		if err != nil {
-			utils.Error(fmt.Sprintf("获取夸克网盘账号失败: %v", err))
-			return fmt.Errorf("获取网盘账号失败: %v", err)
-		}
-
-		if len(accounts) == 0 {
-			utils.Error("没有可用的夸克网盘账号")
-			return fmt.Errorf("没有可用的夸克网盘账号")
-		}
-
-		// 选择第一个有效的账号
-		var selectedAccount *entity.Cks
-		for _, account := range accounts {
-			if account.IsValid {
-				selectedAccount = &account
-				break
-			}
-		}
-
-		if selectedAccount == nil {
-			utils.Error("没有有效的夸克网盘账号")
-			return fmt.Errorf("没有有效的夸克网盘账号")
-		}
-
-		utils.Debug(fmt.Sprintf("使用夸克网盘账号: %d, Cookie: %s", selectedAccount.ID, selectedAccount.Ck[:20]+"..."))
-
-		// 准备配置
-		config := &panutils.PanConfig{
-			URL:         readyResource.URL,
-			Code:        "", // 可以从readyResource中获取
-			IsType:      1,  // 转存并分享后的资源信息  0 转存后分享， 1 只获取基本信息
-			ExpiredType: 1,  // 永久分享
-			AdFid:       "",
-			Stoken:      "",
-			Cookie:      selectedAccount.Ck, // 添加 cookie
-		}
-
-		// 通过工厂获取对应的网盘服务单例
-		panService, err := factory.CreatePanService(readyResource.URL, config)
-		if err != nil {
-			utils.Error(fmt.Sprintf("获取网盘服务失败: %v", err))
-			return fmt.Errorf("获取网盘服务失败: %v", err)
-		}
-
-		// 统一处理：尝试转存获取标题
-		result, err := panService.Transfer(shareID)
-		if err != nil {
-			utils.Error(fmt.Sprintf("网盘信息获取失败: %v", err))
-			return fmt.Errorf("网盘信息获取失败: %v", err)
-		}
-
-		if !result.Success {
-			utils.Error(fmt.Sprintf("网盘信息获取失败: %s", result.Message))
-			return fmt.Errorf("网盘信息获取失败: %s", result.Message)
-		}
-
-		// 从结果中提取标题等信息
-		if result.Data != nil {
-			if data, ok := result.Data.(map[string]interface{}); ok {
-				if title, ok := data["title"].(string); ok && title != "" {
-					resource.Title = title
-				}
-				if description, ok := data["description"].(string); ok && description != "" {
-					resource.Description = description
-				}
-			}
+	// 夸克/百度：校验通过后通过转存服务获取标题（IsType=1，仅校验+取标题，不真转存）
+	if serviceType == panutils.Quark || serviceType == panutils.BaiduPan {
+		if err := r.fetchPanMeta(serviceType, shareID, readyResource.URL, resource, factory); err != nil {
+			return err
 		}
 	}
 
@@ -370,6 +298,91 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		}
 	} else {
 		utils.Debug("Meilisearch管理器未初始化，跳过同步")
+	}
+
+	return nil
+}
+
+// fetchPanMeta 通过转存服务获取资源标题（IsType=1，仅校验+取标题，不真转存），
+// 回填到 resource.Title/Description。夸克与百度共用此流程。
+func (r *ReadyResourceScheduler) fetchPanMeta(
+	serviceType panutils.ServiceType,
+	shareID string,
+	readyResourceURL string,
+	resource *entity.Resource,
+	factory *panutils.PanFactory,
+) error {
+	panID := r.getPanIDByServiceType(serviceType)
+	if panID == nil {
+		utils.Error("未找到对应的平台ID")
+		return fmt.Errorf("未找到对应的平台ID")
+	}
+
+	accounts, err := r.cksRepo.FindByPanID(*panID)
+	if err != nil {
+		utils.Error(fmt.Sprintf("获取网盘账号失败: %v", err))
+		return fmt.Errorf("获取网盘账号失败: %v", err)
+	}
+
+	if len(accounts) == 0 {
+		utils.Error("没有可用的网盘账号")
+		return fmt.Errorf("没有可用的网盘账号")
+	}
+
+	// 选择第一个有效的账号（保留既有选择逻辑，勿改）
+	var selectedAccount *entity.Cks
+	for _, account := range accounts {
+		if account.IsValid {
+			selectedAccount = &account
+			break
+		}
+	}
+
+	if selectedAccount == nil {
+		utils.Error("没有有效的网盘账号")
+		return fmt.Errorf("没有有效的网盘账号")
+	}
+
+	utils.Debug(fmt.Sprintf("使用网盘账号: %d (ServiceType=%s)", selectedAccount.ID, serviceType.String()))
+
+	// 准备配置（IsType=1：仅获取基本信息，不真转存）
+	config := &panutils.PanConfig{
+		URL:         readyResourceURL,
+		Code:        "",
+		IsType:      1,
+		ExpiredType: 1,
+		AdFid:       "",
+		Stoken:      "",
+		Cookie:      selectedAccount.Ck,
+	}
+
+	panService, err := factory.CreatePanService(readyResourceURL, config)
+	if err != nil {
+		utils.Error(fmt.Sprintf("获取网盘服务失败: %v", err))
+		return fmt.Errorf("获取网盘服务失败: %v", err)
+	}
+
+	result, err := panService.Transfer(shareID)
+	if err != nil {
+		utils.Error(fmt.Sprintf("网盘信息获取失败: %v", err))
+		return fmt.Errorf("网盘信息获取失败: %v", err)
+	}
+
+	if !result.Success {
+		utils.Error(fmt.Sprintf("网盘信息获取失败: %s", result.Message))
+		return fmt.Errorf("网盘信息获取失败: %s", result.Message)
+	}
+
+	// 从结果中提取标题等信息
+	if result.Data != nil {
+		if data, ok := result.Data.(map[string]interface{}); ok {
+			if title, ok := data["title"].(string); ok && title != "" {
+				resource.Title = title
+			}
+			if description, ok := data["description"].(string); ok && description != "" {
+				resource.Description = description
+			}
+		}
 	}
 
 	return nil
