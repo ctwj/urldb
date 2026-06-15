@@ -317,12 +317,16 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 	panID, _ := tp.repoMgr.PanRepository.FindIdByServiceType(serviceType)
 	panIdInt := uint(panID)
 
+	// 绑定转存账号 ID，供 cleanup_service 解析删除文件所需的 cookie（FR-012 防跨账号误删）
+	accountID := account.ID
+
 	now := time.Now()
 	resource := &entity.Resource{
 		Title:         input.Title,
 		URL:           input.URL,
 		CategoryID:    categoryID,
 		PanID:         &panIdInt,        // 设置平台ID
+		CkID:          &accountID,       // 绑定转存账号（cleanup 删除时据此解析 cookie）
 		SaveURL:       saveData.SaveURL, // 直接设置转存链接
 		Fid:           saveData.Fid,     // 记录转存文件ID（清理时依据）
 		TransferredAt: &now,             // 记录转存完成时间（清理调度依据）
