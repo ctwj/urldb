@@ -235,8 +235,10 @@ func (tp *TransferProcessor) validateInput(input *TransferInput) error {
 // isValidURL 验证URL格式
 func (tp *TransferProcessor) isValidURL(url string) bool {
 	patterns := []string{
-		`https://pan\.quark\.cn/s/[a-zA-Z0-9]+`, // 夸克网盘
-		`https://pan\.xunlei\.com/s/.+`,         // 迅雷网盘
+		`https://pan\.quark\.cn/s/[a-zA-Z0-9]+`,      // 夸克网盘
+		`https://pan\.xunlei\.com/s/.+`,              // 迅雷网盘
+		`https?://pan\.baidu\.com/s/[a-zA-Z0-9_-]+`,  // 百度网盘 /s/ 格式
+		`https?://pan\.baidu\.com/share/init\?surl=.+`, // 百度网盘 /share/init?surl= 格式
 	}
 	for _, pattern := range patterns {
 		matched, _ := regexp.MatchString(pattern, url)
@@ -276,6 +278,8 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		serviceType = "quark"
 	case pan.Xunlei:
 		serviceType = "xunlei"
+	case pan.BaiduPan:
+		serviceType = "baidu"
 	default:
 		serviceType = ""
 	}
