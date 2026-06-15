@@ -63,9 +63,9 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 	if err := json.Unmarshal([]byte(item.InputData), &input); err != nil {
 		parseDuration := time.Since(parseStart)
 		utils.ErrorWithFields(map[string]interface{}{
-		"error":       err.Error(),
-		"duration_ms": parseDuration.Milliseconds(),
-	}, "解析输入数据失败: %v，耗时: %v", err, parseDuration)
+			"error":       err.Error(),
+			"duration_ms": parseDuration.Milliseconds(),
+		}, "解析输入数据失败: %v，耗时: %v", err, parseDuration)
 		return fmt.Errorf("解析输入数据失败: %v", err)
 	}
 	parseDuration := time.Since(parseStart)
@@ -205,9 +205,9 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 
 	elapsedTime := time.Since(startTime)
 	utils.InfoWithFields(map[string]interface{}{
-		"task_item_id":     item.ID,
-		"resource_id":      resourceID,
-		"save_url":         saveURL,
+		"task_item_id":         item.ID,
+		"resource_id":          resourceID,
+		"save_url":             saveURL,
 		"transfer_duration_ms": transferDuration.Milliseconds(),
 		"total_duration_ms":    elapsedTime.Milliseconds(),
 	}, "转存任务项处理完成: %d, 资源ID: %d, 转存链接: %s，转存耗时: %v，总耗时: %v", item.ID, resourceID, saveURL, transferDuration, elapsedTime)
@@ -235,9 +235,9 @@ func (tp *TransferProcessor) validateInput(input *TransferInput) error {
 // isValidURL 验证URL格式
 func (tp *TransferProcessor) isValidURL(url string) bool {
 	patterns := []string{
-		`https://pan\.quark\.cn/s/[a-zA-Z0-9]+`,      // 夸克网盘
-		`https://pan\.xunlei\.com/s/.+`,              // 迅雷网盘
-		`https?://pan\.baidu\.com/s/[a-zA-Z0-9_-]+`,  // 百度网盘 /s/ 格式
+		`https://pan\.quark\.cn/s/[a-zA-Z0-9]+`,        // 夸克网盘
+		`https://pan\.xunlei\.com/s/.+`,                // 迅雷网盘
+		`https?://pan\.baidu\.com/s/[a-zA-Z0-9_-]+`,    // 百度网盘 /s/ 格式
 		`https?://pan\.baidu\.com/share/init\?surl=.+`, // 百度网盘 /share/init?surl= 格式
 	}
 	for _, pattern := range patterns {
@@ -448,7 +448,7 @@ func (tp *TransferProcessor) transferToCloud(ctx context.Context, url string, ac
 		return nil, fmt.Errorf("转存失败: %v", "转存成功但未获取到分享链接")
 	}
 
-	utils.Info("转存成功 - 资源ID: %d, 转存链接: %s", transferResult.Fid, saveURL)
+	utils.Info("转存成功 - 资源ID: %s, 转存链接: %s", transferResult.Fid, saveURL)
 
 	return &TransferResult{
 		Success: true,

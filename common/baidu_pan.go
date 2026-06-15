@@ -279,37 +279,41 @@ func (b *BaiduPanService) deleteByPaths(paths []string) error {
 	}
 
 	// 构建 filelist JSON: [{"path":"/a"},{"path":"/b"}]
-	filelistBuilder := strings.Builder{}
-	filelistBuilder.WriteByte('[')
-	for i, p := range paths {
-		if i > 0 {
-			filelistBuilder.WriteByte(',')
-		}
-		filelistBuilder.WriteString(`{"path":"`)
-		filelistBuilder.WriteString(p)
-		filelistBuilder.WriteString(`"}`)
+	// 用 json.Marshal 而非手拼，避免文件名特殊字符（如 "）破坏 JSON。
+	type pathItem struct {
+		Path string `json:"path"`
 	}
-	filelistBuilder.WriteByte(']')
-	filelistJSON := filelistBuilder.String()
+	items := make([]pathItem, 0, len(paths))
+	for _, p := range paths {
+		items = append(items, pathItem{Path: p})
+	}
+	filelistJSON, err := json.Marshal(items)
+	if err != nil {
+		return fmt.Errorf("构建删除列表失败: %v", err)
+	}
 
 	queryParams := map[string]string{
-		"opera":       "delete",
-		"bdstoken":    bdstoken,
-		"web":         "1",
-		"clienttype":  "0",
-		"channel":     "chunlei",
-		"app_id":      "250528",
+		"opera":      "delete",
+		"bdstoken":   bdstoken,
+		"web":        "1",
+		"clienttype": "0",
+		"channel":    "chunlei",
+		"app_id":     "250528",
 	}
-	rawBody := "filelist=" + url.QueryEscape(filelistJSON)
+	rawBody := "filelist=" + url.QueryEscape(string(filelistJSON))
 
 	data, err := b.HTTPPostForm(baiduPanBaseURL+"/api/filemanager", rawBody, queryParams)
 	if err != nil {
-		return fmt.Errorf("%s", "删除失败: "+err.Error())
+		return fmt.Errorf("删除失败: %w", err)
 	}
 
-	errno, _, err := parseBaiduErrno(data)
+	errno, m, err := parseBaiduErrno(data)
 	if err != nil {
 		return err
+	}
+	// 防御：errno 字段缺失（异常空响应，如被中间层拦截返回 {}）不应误判为删除成功
+	if _, hasErrno := m["errno"]; !hasErrno {
+		return fmt.Errorf("删除响应异常，缺少 errno 字段")
 	}
 	if errno != 0 {
 		// 错误消息保持 ErrnoMessage 原文，便于 cleanup_service.isFileNotExist 匹配
@@ -441,14 +445,14 @@ func (b *BaiduPanService) GetFiles(pdirFid string) (*TransferResult, error) {
 	}
 
 	queryParams := map[string]string{
-		"order":      "time",
-		"desc":       "1",
-		"showempty":  "0",
-		"web":        "1",
-		"page":       "1",
-		"num":        "1000",
-		"dir":        pdirFid,
-		"bdstoken":   bdstoken,
+		"order":     "time",
+		"desc":      "1",
+		"showempty": "0",
+		"web":       "1",
+		"page":      "1",
+		"num":       "1000",
+		"dir":       pdirFid,
+		"bdstoken":  bdstoken,
 	}
 
 	data, err := b.HTTPGet(baiduPanBaseURL+"/api/list", queryParams)
@@ -471,30 +475,34 @@ func (b *BaiduPanService) GetFiles(pdirFid string) (*TransferResult, error) {
 // GetUserInfo 获取用户信息
 func (b *BaiduPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	// 设置Cookie
-	b.SetHeader("Cookie", *cookie)
-
-	// 调用百度网盘用户信息API
-	userInfoURL := "https://pan.baidu.com/api/gettemplatevariable"
-	data := map[string]interface{}{
-		"fields": "['username','uk','vip_type','vip_endtime','total_capacity','used_capacity']",
+	if cookie != nil && *cookie != "" {
+		b.SetHeader("Cookie", *cookie)
 	}
 
-	resp, err := b.HTTPPost(userInfoURL, data, nil)
+	// 调用百度网盘用户信息API（GET + fields query，与 getBdstoken 同一端点）
+	queryParams := map[string]string{
+		"clienttype": "0",
+		"app_id":     "250528",
+		"web":        "1",
+		"fields":     `["username","uk","vip_type","vip_endtime","total_capacity","used_capacity"]`,
+	}
+
+	resp, err := b.HTTPGet("https://pan.baidu.com/api/gettemplatevariable", queryParams)
 	if err != nil {
 		return nil, fmt.Errorf("获取用户信息失败: %v", err)
 	}
 
-	// 解析响应
+	// 解析响应（百度把用户信息放在 result 字段，与 data 字段不同）
 	var result struct {
-		Errno int `json:"errno"`
-		Data  struct {
+		Errno  int `json:"errno"`
+		Result struct {
 			Username      string `json:"username"`
 			Uk            string `json:"uk"`
 			VipType       int    `json:"vip_type"`
 			VipEndtime    string `json:"vip_endtime"`
 			TotalCapacity string `json:"total_capacity"`
 			UsedCapacity  string `json:"used_capacity"`
-		} `json:"data"`
+		} `json:"result"`
 	}
 
 	if err := b.ParseJSONResponse(resp, &result); err != nil {
@@ -502,18 +510,18 @@ func (b *BaiduPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	}
 
 	if result.Errno != 0 {
-		return nil, fmt.Errorf("API返回错误: %d", result.Errno)
+		return nil, fmt.Errorf("API返回错误: %s", ErrnoMessage(result.Errno))
 	}
 
 	// 转换VIP状态
-	vipStatus := result.Data.VipType > 0
+	vipStatus := result.Result.VipType > 0
 
 	// 解析容量字符串
-	totalCapacityBytes := ParseCapacityString(result.Data.TotalCapacity)
-	usedCapacityBytes := ParseCapacityString(result.Data.UsedCapacity)
+	totalCapacityBytes := ParseCapacityString(result.Result.TotalCapacity)
+	usedCapacityBytes := ParseCapacityString(result.Result.UsedCapacity)
 
 	return &UserInfo{
-		Username:    result.Data.Username,
+		Username:    result.Result.Username,
 		VIPStatus:   vipStatus,
 		UsedSpace:   usedCapacityBytes,
 		TotalSpace:  totalCapacityBytes,
