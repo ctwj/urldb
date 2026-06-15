@@ -34,6 +34,34 @@ func TestBasePanService_GzipResponse(t *testing.T) {
 	}
 }
 
+// TestBasePanService_GzipMagicBytes 覆盖 readResponseBody 的 gzip 魔数回退分支：
+// 服务端返回 gzip 字节但未声明 Content-Encoding 头（部分服务器/代理的典型行为），
+// 此时通过 body 开头的 0x1f 0x8b 魔数检测并解压。
+func TestBasePanService_GzipMagicBytes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, _ = gz.Write([]byte(`{"errno":0,"result":{"bdstoken":"xyz"}}`))
+		_ = gz.Close()
+		// 故意不设置 Content-Encoding，只设置 Content-Type，触发魔数回退路径
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.Copy(w, &buf)
+	}))
+	defer srv.Close()
+
+	svc := NewBasePanService(nil)
+	// 模拟百度：手动写 Accept-Encoding，触发 Go transport 不自动解压的路径
+	svc.SetHeader("Accept-Encoding", "gzip, deflate, br")
+
+	data, err := svc.HTTPGet(srv.URL, nil)
+	if err != nil {
+		t.Fatalf("HTTPGet error: %v", err)
+	}
+	if !bytes.Contains(data, []byte(`"bdstoken":"xyz"`)) {
+		t.Fatalf("gzip 魔数回退解压失败，got: %s", string(data))
+	}
+}
+
 func TestBasePanService_HTTPPostForm(t *testing.T) {
 	var gotBody string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
