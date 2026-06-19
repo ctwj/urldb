@@ -324,7 +324,6 @@ const fetchData = async () => {
       total.value = 0
     }
   } catch (error) {
-    console.error('获取标签失败:', error)
     tags.value = []
     total.value = 0
   } finally {
@@ -383,7 +382,6 @@ const deleteTag = async (tag: Tag) => {
         })
         fetchData()
       } catch (error) {
-        console.error('删除失败:', error)
         notification.error({
           content: '删除失败',
           duration: 3000
@@ -418,7 +416,6 @@ const handleSubmit = async () => {
     tagForm.value = { name: '', description: '', category_id: null }
     fetchData()
   } catch (error) {
-    console.error('提交失败:', error)
     notification.error({
       content: '操作失败',
       duration: 3000

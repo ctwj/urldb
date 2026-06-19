@@ -91,6 +91,14 @@
         </n-spin>
       </div>
 
+      <!-- 错误状态 -->
+      <AdminErrorState
+        v-else-if="errorMessage"
+        icon="fas fa-exclamation-triangle"
+        :message="errorMessage"
+        :on-retry="refreshData"
+      />
+
       <!-- 资源列表 -->
       <div v-else-if="failedResources.length > 0" class="overflow-y-auto max-h-[600px]">
         <div
@@ -192,16 +200,12 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-else class="flex flex-col items-center justify-center py-12">
-        <n-empty description="暂无失败资源">
-          <template #icon>
-            <i class="fas fa-check-circle text-4xl text-green-500"></i>
-          </template>
-          <template #extra>
-            <span class="text-sm text-gray-500">所有资源处理成功</span>
-          </template>
-        </n-empty>
-      </div>
+      <AdminEmptyState
+        v-else
+        icon="fas fa-check-circle"
+        title="暂无失败资源"
+        description="所有资源处理成功"
+      />
     </template>
 
     <!-- 内容区footer - 分页组件 -->
@@ -245,6 +249,7 @@ const notification = useNotification()
 const dialog = useDialog()
 const failedResources = ref<FailedResource[]>([])
 const loading = ref(false)
+const errorMessage = ref('')
 
 // 分页相关状态
 const currentPage = ref(1)
@@ -297,6 +302,7 @@ const totalPages = ref(0)
 // 获取数据
 const fetchData = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
          const params: any = {
        page: currentPage.value,
@@ -313,39 +319,26 @@ const fetchData = async () => {
        params.status = selectedStatus.value
      }
     
-    console.log('fetchData - 开始获取失败资源，参数:', params)
-    
     const response = await readyResourceApi.getFailedResources(params) as any
     
-    console.log('fetchData - 原始响应:', response)
-    
     if (response && response.data && Array.isArray(response.data)) {
-      console.log('fetchData - 使用response.data格式（数组）')
       failedResources.value = response.data
       totalCount.value = response.total || 0
       totalPages.value = Math.ceil((response.total || 0) / pageSize.value)
     } else {
-      console.log('fetchData - 使用空数据格式')
       failedResources.value = []
       totalCount.value = 0
       totalPages.value = 1
     }
     
-         console.log('fetchData - 处理后的数据:', {
-       failedResourcesCount: failedResources.value.length,
-       totalCount: totalCount.value,
-       totalPages: totalPages.value
-     })
-     
      // 重置选择状态
      selectedResources.value = []
      
      // 打印第一个资源的数据结构（如果存在）
      if (failedResources.value.length > 0) {
-       console.log('fetchData - 第一个资源的数据结构:', failedResources.value[0])
      }
   } catch (error) {
-    console.error('获取失败资源失败:', error)
+    errorMessage.value = '加载数据失败，请检查网络或后端服务'
     failedResources.value = []
     totalCount.value = 0
     totalPages.value = 1
@@ -392,7 +385,6 @@ const retryResource = async (id: number) => {
         })
         fetchData()
       } catch (error) {
-        console.error('重试失败:', error)
         notification.error({
           content: '重试失败',
           duration: 3000
@@ -419,7 +411,6 @@ const clearError = async (id: number) => {
         })
         fetchData()
       } catch (error) {
-        console.error('清除错误失败:', error)
         notification.error({
           content: '清除错误失败',
           duration: 3000
@@ -449,7 +440,6 @@ const deleteResource = async (id: number) => {
           duration: 3000
         })
       } catch (error) {
-        console.error('删除失败:', error)
         notification.error({
           content: '删除失败',
           duration: 3000
@@ -492,7 +482,6 @@ const deleteResource = async (id: number) => {
          selectedResources.value = [] // 清空选择
          fetchData()
        } catch (error) {
-         console.error('重新放入待处理池失败:', error)
          notification.error({
            content: '操作失败',
            duration: 3000
@@ -528,7 +517,6 @@ const deleteResource = async (id: number) => {
        isProcessing.value = true
        
        try {
-         console.log('开始调用删除API，选中的资源ID:', selectedResources.value)
          // 逐个删除选中的资源
          let successCount = 0
          for (const id of selectedResources.value) {
@@ -536,7 +524,6 @@ const deleteResource = async (id: number) => {
              await readyResourceApi.deleteReadyResource(id)
              successCount++
            } catch (error) {
-             console.error(`删除资源 ${id} 失败:`, error)
            }
          }
          
@@ -547,12 +534,6 @@ const deleteResource = async (id: number) => {
          selectedResources.value = [] // 清空选择
          fetchData()
        } catch (error: any) {
-         console.error('删除失败资源失败:', error)
-         console.error('错误详情:', {
-           message: error?.message,
-           stack: error?.stack,
-           response: error?.response
-         })
          notification.error({
            content: '删除失败',
            duration: 3000
@@ -603,7 +584,6 @@ onMounted(async () => {
   try {
     await fetchData()
   } catch (error) {
-    console.error('页面初始化失败:', error)
   }
 })
 

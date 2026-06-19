@@ -11,6 +11,11 @@
     <!-- 内容区 -->
     <template #content>
       <div class="config-content h-full">
+        <!-- 多标签页编辑提示（last-write-wins，不引入冲突检测） -->
+        <n-alert :show-icon="true" type="info" closable class="mb-4">
+          {{ LAST_WRITE_WINS_NOTICE }}
+        </n-alert>
+
         <!-- Tab导航 -->
         <n-tabs v-model:value="activeTab" type="line" animated>
           <!-- Sitemap管理 Tab -->
@@ -521,6 +526,8 @@
 
 <script setup lang="ts">
 import AdminPageLayout from '~/components/AdminPageLayout.vue'
+import { LAST_WRITE_WINS_NOTICE } from '~/utils/adminNotices'
+import { useUnsavedChanges } from '~/composables/useUnsavedChanges'
 import GoogleIndexTab from '~/components/Admin/GoogleIndexTab.vue'
 import SitemapTab from '~/components/Admin/SitemapTab.vue'
 import BingTab from '~/components/Admin/BingTab.vue'
@@ -652,6 +659,21 @@ const sitemapStats = ref({
 const isGenerating = ref(false)
 const generateStatus = ref('')
 
+// 未保存变更守卫（路由切换/刷新前提示）
+const { hasChanges: hasUnsavedChanges, markDirty, markClean } = useUnsavedChanges()
+
+// 加载标志位：避免数据回填时被 watch deep 误判为用户编辑
+let isLoadingConfigs = true
+
+// 监听核心配置 ref，用户编辑后标记为 dirty
+watch(
+  [googleIndexConfig, bingIndexConfig, sitemapConfig],
+  () => {
+    if (!isLoadingConfigs) markDirty()
+  },
+  { deep: true },
+)
+
 
 // Bing分页配置
 const bingPagination = ref({
@@ -678,23 +700,18 @@ const loadSystemConfig = async () => {
     await systemConfigStore.initConfig(true, true)
     systemConfig.value = systemConfigStore.config
   } catch (error) {
-    console.error('获取系统配置失败:', error)
   }
 }
 
 // 加载Google索引配置
 const loadGoogleIndexConfig = async () => {
   try {
-    console.log('开始加载 Google 索引配置...')
     const api = useApi()
     const configs = await api.googleIndexApi.getGoogleIndexConfig()
-    console.log('获取到的配置:', configs)
     if (configs) {
       // 查找general配置
       const generalConfig = configs.find((c: any) => c.group === 'general')
       const authConfig = configs.find((c: any) => c.group === 'auth')
-      console.log('找到的配置 - general:', generalConfig, 'auth:', authConfig)
-
       let newConfig = { ...googleIndexConfig.value }
 
       if (generalConfig) {
@@ -707,19 +724,14 @@ const loadGoogleIndexConfig = async () => {
       }
 
       if (authConfig) {
-        console.log('解析 auth 配置:', authConfig.value)
         const authData = JSON.parse(authConfig.value)
-        console.log('解析后的 authData:', authData)
         newConfig.credentialsFile = authData.credentialsFile || authData.credentials_file || ''
-        console.log('设置凭据文件路径:', newConfig.credentialsFile)
       }
 
       // 强制触发响应式更新
       googleIndexConfig.value = newConfig
-      console.log('最终配置:', googleIndexConfig.value)
     }
   } catch (error) {
-    console.error('获取Google索引配置失败:', error)
   }
 }
 
@@ -758,16 +770,13 @@ const handleCredentialsFileSelect = async (event: Event) => {
 
     // 检查API是否成功（success字段为true）且包含有效的文件路径
     if (response?.success === true && response?.file_path) {
-      console.log('上传成功，文件路径:', response.file_path)
       // 统一路径格式为 Unix 格式
       const normalizedPath = response.file_path.replace(/\\/g, '/')
-      console.log('标准化路径:', normalizedPath)
       // 强制触发响应式更新
       googleIndexConfig.value = {
         ...googleIndexConfig.value,
         credentialsFile: normalizedPath
       }
-      console.log('更新后的 googleIndexConfig:', googleIndexConfig.value)
       message.success(response.message || '凭据文件上传成功，请验证凭据')
 
       // 清空文件输入以允许重新选择相同文件
@@ -784,25 +793,20 @@ const handleCredentialsFileSelect = async (event: Event) => {
             credentials_file: googleIndexConfig.value.credentialsFile.replace(/\\/g, '/')
           })
         }
-        console.log('更新后端配置，发送数据:', JSON.stringify(configData, null, 2))
-
         const updateResponse = await api.googleIndexApi.updateGoogleIndexGroupConfig(configData)
-        console.log('后端配置更新响应:', updateResponse)
-
         // 等待一下确保后端处理完成
         await new Promise(resolve => setTimeout(resolve, 500))
 
         // 重新加载配置以确保UI状态与后端同步
-        console.log('重新加载配置...')
         await loadGoogleIndexConfig()
-        console.log('配置重新加载完成')
+        // 上传凭据属于成功操作，清空未保存标记
+        await nextTick()
+        markClean()
       } catch (configError) {
-        console.error('更新配置失败:', configError)
         message.error('配置更新失败，但文件已上传')
 
         // 即使配置更新失败，也尝试刷新状态
         setTimeout(async () => {
-          console.log('延迟重新加载配置...')
           await loadGoogleIndexConfig()
         }, 1000)
       }
@@ -811,7 +815,6 @@ const handleCredentialsFileSelect = async (event: Event) => {
       message.error(response?.message || '上传响应格式错误')
     }
   } catch (error: any) {
-    console.error('凭据文件上传失败:', error)
     message.error('凭据文件上传失败: ' + (error?.message || '未知错误'))
   }
 }
@@ -839,17 +842,23 @@ const updateGoogleIndexConfig = async (value: boolean) => {
     })
 
     message.success('Google索引配置已更新')
-    
+
+    // 保存成功后清空未保存标记
+    markClean()
+
     // 延迟重新加载配置以验证后端状态（在后台进行，不阻塞UI）
+    isLoadingConfigs = true
     setTimeout(async () => {
       try {
         await loadGoogleIndexConfig()
+        await nextTick()
+        markClean()
       } catch (error) {
-        console.error('重新加载配置失败:', error)
+      } finally {
+        isLoadingConfigs = false
       }
     }, 1000)
   } catch (error) {
-    console.error('更新Google索引配置失败:', error)
     message.error('更新配置失败')
     // 失败时恢复原状态
     googleIndexConfig.value.enabled = !value
@@ -864,7 +873,6 @@ const refreshGoogleIndexStatus = async () => {
     // 加载任务列表
     await loadGoogleIndexTasks()
   } catch (error) {
-    console.error('刷新Google索引状态失败:', error)
     message.error('刷新状态失败')
   }
 }
@@ -883,7 +891,6 @@ const loadGoogleIndexTasks = async () => {
       googleIndexPagination.value.itemCount = response.total || 0
     }
   } catch (error) {
-    console.error('加载Google索引任务列表失败:', error)
     message.error('加载任务列表失败')
   } finally {
     tasksLoading.value = false
@@ -1002,7 +1009,6 @@ const diagnosePermissions = async () => {
       message.success('权限诊断完成')
     }
   } catch (error: any) {
-    console.error('权限诊断失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '权限诊断失败'
     message.error('权限诊断失败: ' + errorMsg)
   } finally {
@@ -1030,7 +1036,6 @@ const confirmManualSubmitURLs = async () => {
       await refreshGoogleIndexStatus()
     }
   } catch (error: any) {
-    console.error('手动提交URL失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '手动提交URL失败'
     message.error('手动提交URL失败: ' + errorMsg)
   } finally {
@@ -1061,7 +1066,6 @@ const confirmManualCheckURLs = async () => {
       await refreshGoogleIndexStatus()
     }
   } catch (error: any) {
-    console.error('手动检查URL失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '手动检查URL失败'
     message.error('手动检查URL失败: ' + errorMsg)
   } finally {
@@ -1083,7 +1087,6 @@ const viewTaskItems = async (taskId: number) => {
       taskDetailModal.value.items = response.items || []
     }
   } catch (error: any) {
-    console.error('获取任务详情失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '获取任务详情失败'
     message.error('获取任务详情失败: ' + errorMsg)
   } finally {
@@ -1127,7 +1130,6 @@ const retryFailedItems = async (taskId: number) => {
     taskDetailModal.value.show = false
     await loadGoogleIndexTasks()
   } catch (error: any) {
-    console.error('重试失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '重试失败'
     message.error('重试失败: ' + errorMsg)
   }
@@ -1143,7 +1145,6 @@ const startTask = async (taskId: number) => {
       await loadGoogleIndexTasks()
     }
   } catch (error: any) {
-    console.error('启动任务失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '启动任务失败'
     message.error('启动任务失败: ' + errorMsg)
   }
@@ -1174,10 +1175,18 @@ const updateSitemapConfig = async (value: boolean) => {
     })
     message.success(value ? '自动生成功能已开启' : '自动生成功能已关闭')
 
+    // 保存成功后清空未保存标记
+    markClean()
+
     // 重新加载配置以同步前端状态
+    isLoadingConfigs = true
     await loadSitemapConfig()
+    await nextTick()
+    markClean()
+    isLoadingConfigs = false
   } catch (error) {
     message.error('更新配置失败')
+    isLoadingConfigs = false
   } finally {
     configLoading.value = false
   }
@@ -1202,12 +1211,9 @@ const refreshSitemapStatus = async () => {
 // 加载Bing索引配置
 const loadBingIndexConfig = async () => {
   try {
-    console.log('开始加载 Bing 索引配置...')
     const api = useApi()
     const response = await api.bingApi.getConfig()
     
-    console.log('Bing API 原始响应:', JSON.stringify(response, null, 2))
-
     if (response?.success && response?.data) {
       // 确保 enabled 是布尔值
       const enabled = response.data.enabled === true || response.data.enabled === 'true'
@@ -1216,12 +1222,9 @@ const loadBingIndexConfig = async () => {
         ...response.data,
         enabled: enabled
       }
-      console.log('Bing索引配置加载完成:', bingIndexConfig.value)
     } else {
-      console.warn('Bing API 响应格式不正确:', response)
     }
   } catch (error) {
-    console.error('获取Bing索引配置失败:', error)
   }
 }
 
@@ -1241,14 +1244,18 @@ const updateBingIndexConfig = async (value: boolean) => {
 
     if (response?.success) {
       message.success(response.message || 'Bing索引配置已更新')
-      console.log('Bing索引配置更新成功:', response)
-
+      // 保存成功后清空未保存标记
+      markClean()
       // 延迟重新加载配置以验证后端状态（在后台进行，不阻塞UI）
+      isLoadingConfigs = true
       setTimeout(async () => {
         try {
           await loadBingIndexConfig()
+          await nextTick()
+          markClean()
         } catch (error) {
-          console.error('重新加载配置失败:', error)
+        } finally {
+          isLoadingConfigs = false
         }
       }, 1000)
     } else {
@@ -1257,7 +1264,6 @@ const updateBingIndexConfig = async (value: boolean) => {
       bingIndexConfig.value.enabled = !value
     }
   } catch (error: any) {
-    console.error('更新Bing索引配置失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '更新配置失败'
     message.error('更新配置失败: ' + errorMsg)
     // 失败时恢复原状态
@@ -1281,21 +1287,24 @@ const saveBingConfig = async (config: { enabled: boolean; apiKey: string }) => {
 
     if (response?.success) {
       message.success(response.message || 'Bing配置已保存')
-      console.log('Bing配置保存成功:', response)
-
+      // 保存成功后清空未保存标记
+      markClean()
       // 延迟重新加载配置以验证后端状态
+      isLoadingConfigs = true
       setTimeout(async () => {
         try {
           await loadBingIndexConfig()
+          await nextTick()
+          markClean()
         } catch (error) {
-          console.error('重新加载配置失败:', error)
+        } finally {
+          isLoadingConfigs = false
         }
       }, 1000)
     } else {
       message.error(response?.message || '保存配置失败')
     }
   } catch (error: any) {
-    console.error('保存Bing配置失败:', error)
     const errorMsg = error?.response?.data?.message || error?.message || '保存配置失败'
     message.error('保存配置失败: ' + errorMsg)
   } finally {
@@ -1308,7 +1317,6 @@ const refreshBingStatus = async () => {
   try {
     await loadBingIndexConfig()
   } catch (error) {
-    console.error('刷新Bing状态失败:', error)
     message.error('刷新状态失败')
   }
 }
@@ -1321,6 +1329,11 @@ onMounted(async () => {
   await loadSitemapConfig()
   await refreshSitemapStatus()
   await loadBingIndexConfig()
+
+  // 初次加载完成后清除未保存标记并开启用户编辑感知
+  await nextTick()
+  markClean()
+  isLoadingConfigs = false
 })
 </script>
 

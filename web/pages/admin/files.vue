@@ -66,17 +66,29 @@
         <n-spin size="large" />
       </div>
 
+      <!-- 错误状态 -->
+      <AdminErrorState
+        v-else-if="errorMessage"
+        icon="fas fa-exclamation-triangle"
+        :message="errorMessage"
+        :on-retry="refreshData"
+      />
+
       <!-- 空状态 -->
-      <div v-else-if="fileList.length === 0" class="text-center py-8">
-        <i class="fas fa-file-upload text-4xl text-gray-400 mb-4"></i>
-        <p class="text-gray-500">暂无文件数据</p>
-        <n-button @click="openUploadModal" type="primary" class="mt-4">
-          <template #icon>
-            <i class="fas fa-upload"></i>
-          </template>
-          上传文件
-        </n-button>
-      </div>
+      <AdminEmptyState
+        v-else-if="fileList.length === 0"
+        icon="fas fa-file-upload"
+        title="暂无文件数据"
+      >
+        <template #action>
+          <n-button @click="openUploadModal" type="primary">
+            <template #icon>
+              <i class="fas fa-upload"></i>
+            </template>
+            上传文件
+          </n-button>
+        </template>
+      </AdminEmptyState>
 
       <!-- 文件网格和分页容器 -->
       <div v-else class="flex flex-col h-full">
@@ -241,6 +253,7 @@ const { getImageUrl } = useImageUrl()
 
 // 响应式数据
 const loading = ref(false)
+const errorMessage = ref('')
 const fileList = ref<FileItem[]>([])
 const searchKeyword = ref('')
 const showUploadModal = ref(false)
@@ -270,39 +283,27 @@ const total = computed(() => pagination.value.total)
 // 方法
 const loadFileList = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
     const params = {
       page: pagination.value.page,
       page_size: pagination.value.pageSize,
       search: searchKeyword.value
     }
-    
-    console.log('发送文件列表请求参数:', params)
-    
+
     const response = await fileApi.getFileList(params)
     fileList.value = response.data.files || []
     pagination.value.total = response.data.total || 0
-    
-    console.log('文件列表加载完成:', {
-      total: pagination.value.total,
-      files: fileList.value.map(f => ({
-        id: f.id,
-        name: f.original_name,
-        type: f.file_type,
-        url: f.access_url,
-        isImage: isImageFile(f)
-      }))
-    })
   } catch (error) {
-    console.error('加载文件列表失败:', error)
     message.error('加载文件列表失败')
+    errorMessage.value = '加载数据失败，请检查网络或后端服务'
+    fileList.value = []
   } finally {
     loading.value = false
   }
 }
 
 const handleSearch = () => {
-  console.log('执行搜索，关键词:', searchKeyword.value)
   pagination.value.page = 1
   loadFileList()
 }
@@ -325,7 +326,6 @@ const copyFileUrl = async (file: FileItem) => {
     await navigator.clipboard.writeText(file.access_url)
     message.success('文件链接已复制到剪贴板')
   } catch (error) {
-    console.error('复制失败:', error)
     message.error('复制失败')
   }
 }
@@ -343,7 +343,6 @@ const toggleFilePublic = async (file: FileItem) => {
     message.success('文件状态更新成功')
     loadFileList()
   } catch (error) {
-    console.error('更新文件状态失败:', error)
     message.error('更新文件状态失败')
   }
 }
@@ -363,7 +362,6 @@ const handleConfirmDelete = async () => {
     fileToDelete.value = null
     loadFileList()
   } catch (error) {
-    console.error('删除文件失败:', error)
     message.error('删除文件失败')
   }
 }
@@ -374,7 +372,6 @@ const deleteFile = async (file: FileItem) => {
     message.success('文件删除成功')
     loadFileList()
   } catch (error) {
-    console.error('删除文件失败:', error)
     message.error('删除文件失败')
   }
 }
@@ -458,27 +455,13 @@ const isImageFile = (file: FileItem) => {
   // 综合判断
   const isImage = isImageByType || hasImageExtension || isImageByMime
   
-  console.log('isImageFile 详细检查:', { 
-    fileName: file.original_name, 
-    fileType: file.file_type,
-    mimeType: file.mime_type,
-    isImageByType: isImageByType,
-    hasImageExtension: hasImageExtension,
-    isImageByMime: isImageByMime,
-    finalResult: isImage,
-    accessUrl: file.access_url,
-    processedUrl: getImageUrl(file.access_url)
-  })
-  
   return isImage
 }
 
 const handleImageError = (event: any) => {
-  console.error('图片加载失败:', event)
 }
 
 const handleImageLoad = (event: any) => {
-  console.log('图片加载成功:', event)
 }
 
 // 生命周期

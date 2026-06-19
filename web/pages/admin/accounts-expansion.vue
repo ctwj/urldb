@@ -329,7 +329,6 @@ const fetchExpansionAccounts = async () => {
     const response = await taskApi.getExpansionAccounts()  as any
     expansionAccounts.value = response.accounts || []
   } catch (error) {
-    console.error('获取扩容账号列表失败:', error)
     notification.error({
       title: '失败',
       content: '获取扩容账号列表失败',
@@ -381,7 +380,6 @@ const confirmDataSourceSelection = async () => {
     //   fetchExpansionTasks()
     // ])
   } catch (error) {
-    console.error('创建扩容任务失败:', error)
     notification.error({
       title: '失败',
       content: '创建扩容任务失败: ' + (error.message || '未知错误'),
@@ -449,7 +447,6 @@ const handleExtract = async (account) => {
     formatExtractedText(resources, selectedDisplayMode.value)
 
   } catch (error) {
-    console.error('获取提取数据失败:', error)
     notification.error({
       title: '失败',
       content: '获取提取数据失败: ' + (error.data?.message || '未知错误'),
@@ -519,7 +516,6 @@ const copyToClipboard = async () => {
       duration: 3000
     })
   } catch (error) {
-    console.error('复制失败:', error)
     notification.error({
       title: '失败',
       content: '复制失败，请手动选择文本复制',

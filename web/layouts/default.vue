@@ -100,10 +100,9 @@ const fetchStatsCode = async () => {
     
     if (response?.data && response.data.third_party_stats_code) {
       injectRawScript(response.data.third_party_stats_code);
-      console.log('三方统计代码已加载')
     }
   } catch (error) {
-    console.error('获取三方统计代码失败:', error)
+    // 静默失败：统计代码加载失败不应阻塞页面渲染
   }
 }
 

@@ -13,12 +13,6 @@
           </template>
           添加资源
         </n-button>
-        <n-button @click="openBatchModal" type="info">
-          <template #icon>
-            <i class="fas fa-list"></i>
-          </template>
-          批量操作
-        </n-button>
         <n-button @click="refreshData">
           <template #icon>
             <i class="fas fa-refresh"></i>
@@ -28,60 +22,41 @@
       </div>
     </template>
 
-    <!-- 过滤栏 - 搜索和筛选 -->
+    <!-- 统一筛选栏 -->
     <template #filter-bar>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <n-input
-            v-model:value="searchQuery"
-            placeholder="搜索资源..."
-            @keyup.enter="handleSearch"
-            clearable
-          >
-            <template #prefix>
-              <i class="fas fa-search"></i>
-            </template>
-          </n-input>
-
-          <n-select
-            v-model:value="selectedCategory"
-            placeholder="选择分类"
-            :options="categoryOptions"
-            clearable
-          />
-
-          <n-select
-            v-model:value="selectedPlatform"
-            placeholder="选择平台"
-            :options="platformOptions"
-            clearable
-          />
-
-          <n-button type="primary" @click="handleSearch" class="w-20">
-            <template #icon>
-              <i class="fas fa-search"></i>
-            </template>
-            搜索
-          </n-button>
-        </div>
-      </div>
+      <AdminFilterBar
+        :config="filterConfig"
+        v-model="filterValues"
+        @search="handleSearch"
+      />
     </template>
 
-    <!-- 内容区header - 资源列表头部 -->
+    <!-- 内容区header - 批量操作栏 + 全选 -->
     <template #content-header>
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-4">
-          <span class="text-lg font-semibold">资源列表</span>
-          <div class="flex items-center space-x-2">
-            <n-checkbox
-              :checked="isAllSelected"
-              @update:checked="toggleSelectAll"
-              :indeterminate="isIndeterminate"
-            />
-            <span class="text-sm text-gray-500 dark:text-gray-400">全选</span>
+          <div class="flex items-center space-x-4">
+            <span class="text-lg font-semibold text-gray-900 dark:text-white">资源列表</span>
+            <div class="flex items-center space-x-2">
+              <n-checkbox
+                :checked="isAllSelected"
+                @update:checked="toggleSelectAll"
+                :indeterminate="isIndeterminate"
+              />
+              <span class="text-sm text-gray-500 dark:text-gray-400">全选</span>
+            </div>
           </div>
+          <!-- 批量操作栏（选中时显示） -->
+          <AdminBatchActionBar
+            :actions="batchActions"
+            :selected-ids="selectedResources"
+            :total="total"
+            @completed="handleBatchCompleted"
+          />
         </div>
-        <span class="text-sm text-gray-500 dark:text-gray-400">共 {{ total }} 个资源，已选择 {{ selectedResources.length }} 个</span>
+        <span class="text-sm text-gray-500 dark:text-gray-400">
+          共 {{ total }} 个资源，已选择 {{ selectedResources.length }} 个
+        </span>
       </div>
     </template>
 
@@ -92,13 +67,23 @@
         <n-spin size="large" />
       </div>
 
-      <!-- 空状态 -->
-      <div v-else-if="resources.length === 0" class="flex flex-col items-center justify-center py-12">
-        <i class="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
-        <p class="text-gray-500 dark:text-gray-400">暂无资源数据</p>
-      </div>
+      <!-- 错误状态 -->
+      <AdminErrorState
+        v-else-if="error"
+        icon="fas fa-exclamation-circle"
+        :message="error?.message || '加载资源失败'"
+        :on-retry="refreshData"
+      />
 
-      <!-- 资源列表容器 -->
+      <!-- 空状态 -->
+      <AdminEmptyState
+        v-else-if="resources.length === 0"
+        icon="fas fa-inbox"
+        title="暂无资源数据"
+        description="点击右上角「添加资源」创建第一个资源"
+      />
+
+      <!-- 资源列表容器（保留卡片式列表：信息密度高，适合资源管理场景） -->
       <div v-else class="h-full overflow-y-auto p-4">
         <div class="space-y-4">
           <div
@@ -125,7 +110,6 @@
                   <span v-if="resource.category_id" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded flex-shrink-0">
                     {{ getCategoryName(resource.category_id) }}
                   </span>
-
                   <!-- 转存清理状态标签（002-auto-cleanup-transfer） -->
                   <span
                     v-if="resource.cleaned_at"
@@ -148,7 +132,6 @@
                   >
                     已转存
                   </span>
-
                 </div>
 
                 <p v-if="resource.description" class="text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
@@ -198,7 +181,7 @@
                   </template>
                   编辑
                 </n-button>
-                <n-button size="small" type="error" @click="deleteResource(resource)">
+                <n-button size="small" type="error" @click="confirmDelete(resource)">
                   <template #icon>
                     <i class="fas fa-trash"></i>
                   </template>
@@ -228,37 +211,6 @@
       </div>
     </template>
   </AdminPageLayout>
-
-  <!-- 模态框 - 在AdminPageLayout外部 -->
-  <!-- 批量操作模态框 -->
-  <n-modal v-model:show="showBatchModal" preset="card" title="批量操作" style="width: 600px">
-    <div class="space-y-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <span class="font-medium">已选择 {{ selectedResources.length }} 个资源</span>
-          <p class="text-sm text-gray-500 mt-1">
-            {{ isAllSelected ? '已全选当前页面' : isIndeterminate ? '部分选中' : '未选择' }}
-          </p>
-        </div>
-        <n-button size="small" @click="clearSelection">清空选择</n-button>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <n-button type="error" @click="batchDelete" :disabled="selectedResources.length === 0">
-          <template #icon>
-            <i class="fas fa-trash"></i>
-          </template>
-          批量删除
-        </n-button>
-        <n-button type="warning" @click="batchUpdate" :disabled="selectedResources.length === 0">
-          <template #icon>
-            <i class="fas fa-edit"></i>
-          </template>
-          批量更新
-        </n-button>
-      </div>
-    </div>
-  </n-modal>
 
   <!-- 编辑资源模态框 -->
   <n-modal v-model:show="showEditModal" preset="card" title="编辑资源" style="width: 700px; max-height: 80vh">
@@ -356,15 +308,15 @@
       </div>
     </template>
   </n-modal>
- 
-
 </template>
 
 <script setup lang="ts">
-// 设置页面布局
-definePageMeta({
-  layout: 'admin'
-})
+import { useResourceApi, useCategoryApi, useTagApi, usePanApi } from '~/composables/useApi'
+import { useMessage, useDialog } from 'naive-ui'
+import type { FilterConfig } from '~/components/Admin/FilterBar.vue'
+import type { BatchAction } from '~/components/Admin/BatchActionBar.vue'
+
+definePageMeta({ layout: 'admin' })
 
 interface Resource {
   id: number
@@ -391,37 +343,36 @@ interface Resource {
   last_clean_error_at?: string | null
 }
 
-// 使用computed延迟获取notification和dialog实例，避免SSR问题
-const notification = computed(() => {
-  if (process.client) {
-    return useNotification()
-  }
-  return null
-})
+const userStore = useUserStore()
+const resourceApi = useResourceApi()
+const categoryApi = useCategoryApi()
+const tagApi = useTagApi()
+const panApi = usePanApi()
+const message = useMessage()
+const dialog = useDialog()
 
-const dialog = computed(() => {
-  if (process.client) {
-    return useDialog()
-  }
-  return null
-})
-
+// 列表状态
 const resources = ref<Resource[]>([])
 const loading = ref(false)
+const error = ref<any>(null)
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(200)
-const searchQuery = ref('')
-const selectedCategory = ref(null)
-const selectedPlatform = ref(null)
 const selectedResources = ref<number[]>([])
-const showBatchModal = ref(false)
+
+// 统一筛选值（FilterBar v-model 绑定）
+const filterValues = ref<Record<string, any>>({
+  search: '',
+  category: null,
+  platform: null,
+})
+
+// 编辑相关
 const showEditModal = ref(false)
 const editing = ref(false)
 const editingResource = ref<Resource | null>(null)
 const editFormRef = ref()
 
-// 编辑表单
 const editForm = ref({
   title: '',
   description: '',
@@ -434,129 +385,93 @@ const editForm = ref({
   cover: '',
   save_url: '',
   is_valid: true,
-  is_public: true
+  is_public: true,
 })
 
-// 编辑验证规则
 const editRules = {
-  title: {
-    required: true,
-    message: '请输入资源标题',
-    trigger: 'blur'
-  },
-  url: {
-    required: true,
-    message: '请输入资源链接',
-    trigger: 'blur'
-  }
+  title: { required: true, message: '请输入资源标题', trigger: 'blur' },
+  url: { required: true, message: '请输入资源链接', trigger: 'blur' },
 }
 
-// 获取资源API
-import { useResourceApi, useCategoryApi, useTagApi, usePanApi } from '~/composables/useApi'
-import { useMessage } from 'naive-ui'
-
-// 用户状态管理
-const userStore = useUserStore()
-const resourceApi = useResourceApi()
-const categoryApi = useCategoryApi()
-const tagApi = useTagApi()
-const panApi = usePanApi()
-const message = useMessage()
-
-// 获取分类数据
+// 分类/平台数据加载
 const { data: categoriesData } = await useAsyncData('resourceCategories', () => categoryApi.getCategories())
-
-// 标签搜索和加载相关状态
-const tagSearchKeyword = ref('')
-const tagLoading = ref(false)
-const tagOptions = ref([])
-const tagPagination = reactive({
-  page: 1,
-  pageSize: 20,
-  total: 0
-})
-
-// 获取平台数据
 const { data: platformsData } = await useAsyncData('resourcePlatforms', () => panApi.getPans())
 
-// 分类选项
 const categoryOptions = computed(() => {
   const data = categoriesData.value as any
   const categories = data?.items || data || []
-  
-  // 确保categories是数组
-  if (!Array.isArray(categories)) {
-    console.warn('categoryOptions: categories不是数组', categories)
-    return []
-  }
-  
-  return categories.map((cat: any) => ({
-    label: cat.name,
-    value: cat.id
-  }))
+  if (!Array.isArray(categories)) return []
+  return categories.map((cat: any) => ({ label: cat.name, value: cat.id }))
 })
 
-
-// 平台选项
 const platformOptions = computed(() => {
   const data = platformsData.value as any
   const platforms = data?.data || data || []
-  
-  // 确保platforms是数组
-  if (!Array.isArray(platforms)) {
-    console.warn('platformOptions: platforms不是数组', platforms)
-    return []
-  }
-  
+  if (!Array.isArray(platforms)) return []
   return platforms.map((platform: any) => ({
     label: platform.remark || platform.name,
-    value: platform.id
+    value: platform.id,
   }))
 })
 
-// 获取分类名称
+// 筛选栏配置（声明式）
+const filterConfig = computed<FilterConfig>(() => ({
+  search: { placeholder: '搜索资源...', key: 'search' },
+  selects: [
+    { key: 'category', placeholder: '选择分类', options: categoryOptions.value },
+    { key: 'platform', placeholder: '选择平台', options: platformOptions.value },
+  ],
+}))
+
+// 批量操作配置（BatchAction.handler 内完成 API 调用，BatchActionBar 自动反馈）
+const batchActions = computed<BatchAction[]>(() => [
+  {
+    key: 'delete',
+    label: '批量删除',
+    type: 'error',
+    icon: 'fas fa-trash',
+    confirm: {
+      title: '批量删除确认',
+      content: `确定要删除选中的 ${selectedResources.value.length} 个资源吗？此操作不可恢复！`,
+    },
+    handler: async (ids) => {
+      await resourceApi.batchDeleteResources(ids as number[])
+      return {
+        success: true,
+        affected: ids.length,
+        message: `成功删除 ${ids.length} 个资源`,
+      }
+    },
+  },
+])
+
+// 标签搜索（保留原有远程加载逻辑）
+const tagSearchKeyword = ref('')
+const tagLoading = ref(false)
+const tagOptions = ref([])
+const tagPagination = reactive({ page: 1, pageSize: 20, total: 0 })
+
 const getCategoryName = (categoryId: number) => {
   const category = (categoriesData.value as any)?.data?.find((cat: any) => cat.id === categoryId)
   return category?.name || '未知分类'
 }
 
-// 获取平台名称
 const getPlatformName = (platformId: number) => {
-  // console.log('platformId', platformId, platformsData.value)
   const platform = (platformsData.value as any)?.find((plat: any) => plat.id === platformId)
   return platform?.remark || platform?.name || '未知平台'
 }
 
-// 加载标签选项（支持搜索和分页）
 const loadTagOptions = async (search = '', page = 1, pageSize = 20) => {
   tagLoading.value = true
   try {
-    const params = {
-      page,
-      page_size: pageSize,
-      search
-    }
-
-    const response = await tagApi.getTags(params)
+    const response = await tagApi.getTags({ page, page_size: pageSize, search })
     const data = response?.items || response?.data || []
-    const total = response?.total || 0
-
-    // 确保tags是数组
-    if (!Array.isArray(data)) {
-      console.warn('loadTagOptions: tags不是数组', data)
-      return { options: [], total: 0 }
-    }
-
-    const options = data.map((tag: any) => ({
-      label: tag.name,
-      value: tag.id
-    }))
-
-    tagPagination.total = total
-
-    return { options, total }
-  } catch (error) {
-    console.error('加载标签选项失败:', error)
+    const totalCount = response?.total || 0
+    if (!Array.isArray(data)) return { options: [], total: 0 }
+    const options = data.map((tag: any) => ({ label: tag.name, value: tag.id }))
+    tagPagination.total = totalCount
+    return { options, total: totalCount }
+  } catch (err) {
     message.error('加载标签失败')
     return { options: [], total: 0 }
   } finally {
@@ -564,79 +479,61 @@ const loadTagOptions = async (search = '', page = 1, pageSize = 20) => {
   }
 }
 
-// 标签搜索处理函数
 const handleTagSearch = async (query = '') => {
   tagSearchKeyword.value = query
   const { options } = await loadTagOptions(query, 1, tagPagination.pageSize)
   tagOptions.value = options
 }
 
-// 标签滚动加载更多函数
 const handleTagScroll = async (e: any) => {
   const { scrollTop, scrollHeight, clientHeight } = e
-
-  // 检查是否滚动到底部
-  if (scrollTop + clientHeight >= scrollHeight - 10 &&
-      tagOptions.value.length < tagPagination.total &&
-      !tagLoading.value) {
-
+  if (
+    scrollTop + clientHeight >= scrollHeight - 10 &&
+    tagOptions.value.length < tagPagination.total &&
+    !tagLoading.value
+  ) {
     tagPagination.page++
     const { options } = await loadTagOptions(
       tagSearchKeyword.value,
       tagPagination.page,
-      tagPagination.pageSize
+      tagPagination.pageSize,
     )
-
-    // 合并选项，避免重复
     const existingIds = new Set(tagOptions.value.map((opt: any) => opt.value))
     const newOptions = options.filter((opt: any) => !existingIds.has(opt.value))
     tagOptions.value = [...tagOptions.value, ...newOptions]
   }
 }
 
-// 获取数据
+// 数据加载
 const fetchData = async () => {
   loading.value = true
+  error.value = null
   try {
     const params: any = {
       page: currentPage.value,
       page_size: pageSize.value,
-      search: searchQuery.value
+      search: filterValues.value.search,
     }
-    
-    // 添加分类筛选
-    if (selectedCategory.value) {
-      params.category_id = selectedCategory.value
-      // console.log('添加分类筛选:', selectedCategory.value)
-    }
-    
-    // 添加平台筛选
-    if (selectedPlatform.value) {
-      params.pan_id = selectedPlatform.value
-      // console.log('添加平台筛选:', selectedPlatform.value)
-    }
-    
-    const response = await resourceApi.getResources(params) as any
-    
+    if (filterValues.value.category) params.category_id = filterValues.value.category
+    if (filterValues.value.platform) params.pan_id = filterValues.value.platform
+
+    const response = (await resourceApi.getResources(params)) as any
     if (response && response.data) {
-      // 处理嵌套的data结构：{data: {data: [...], total: ...}}
       if (response.data.data && Array.isArray(response.data.data)) {
         resources.value = response.data.data
         total.value = response.data.total || 0
       } else {
-        // 处理直接的data结构：{data: [...], total: ...}
         resources.value = response.data
         total.value = response.total || 0
       }
-      // 清空选择（因为数据已更新）
       selectedResources.value = []
     } else {
       resources.value = []
       total.value = 0
       selectedResources.value = []
     }
-  } catch (error) {
-    console.error('获取资源失败:', error)
+  } catch (err) {
+    error.value = err
     resources.value = []
     total.value = 0
   } finally {
@@ -644,13 +541,11 @@ const fetchData = async () => {
   }
 }
 
-// 搜索处理
 const handleSearch = () => {
   currentPage.value = 1
   fetchData()
 }
 
-// 分页处理
 const handlePageChange = (page: number) => {
   currentPage.value = page
   fetchData()
@@ -662,115 +557,99 @@ const handlePageSizeChange = (size: number) => {
   fetchData()
 }
 
-// 刷新数据
 const refreshData = () => {
-  // 清空选择
   selectedResources.value = []
-  // 重新获取数据
   fetchData()
 }
 
-// 切换资源选择
+// 选择逻辑
 const toggleResourceSelection = (resourceId: number, checked: boolean) => {
   if (checked) {
     selectedResources.value.push(resourceId)
   } else {
     const index = selectedResources.value.indexOf(resourceId)
-    if (index > -1) {
-      selectedResources.value.splice(index, 1)
-    }
+    if (index > -1) selectedResources.value.splice(index, 1)
   }
 }
 
-// 全选状态计算
-const isAllSelected = computed(() => {
-  return resources.value.length > 0 && selectedResources.value.length === resources.value.length
-})
+const isAllSelected = computed(
+  () => resources.value.length > 0 && selectedResources.value.length === resources.value.length,
+)
 
-// 部分选中状态计算
-const isIndeterminate = computed(() => {
-  return selectedResources.value.length > 0 && selectedResources.value.length < resources.value.length
-})
+const isIndeterminate = computed(
+  () =>
+    selectedResources.value.length > 0 &&
+    selectedResources.value.length < resources.value.length,
+)
 
-// 切换全选
 const toggleSelectAll = (checked: boolean) => {
-  if (checked) {
-    // 全选：添加所有当前页面的资源ID
-    selectedResources.value = resources.value.map(resource => resource.id)
-  } else {
-    // 取消全选：清空选择
-    selectedResources.value = []
-  }
+  selectedResources.value = checked ? resources.value.map((r) => r.id) : []
 }
 
-// 清空选择
-const clearSelection = () => {
+// 批量操作完成后刷新
+const handleBatchCompleted = async () => {
   selectedResources.value = []
+  await fetchData()
 }
 
-// 打开批量操作模态框
-const openBatchModal = () => {
-  // 如果没有选择任何资源，自动全选当前页面
-  if (selectedResources.value.length === 0 && resources.value.length > 0) {
-    selectedResources.value = resources.value.map(resource => resource.id)
-    notification.value?.info({
-      content: '已自动全选当前页面资源',
-      duration: 2000
-    })
-  }
-  showBatchModal.value = true
+// 单项删除：用 useDialog 替代原生 confirm()
+const confirmDelete = (resource: Resource) => {
+  dialog.warning({
+    title: '确认删除',
+    content: `确定要删除资源「${resource.title}」吗？此操作不可恢复。`,
+    positiveText: '确定删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await resourceApi.deleteResource(resource.id)
+        message.success('删除成功')
+        const index = resources.value.findIndex((r) => r.id === resource.id)
+        if (index > -1) {
+          resources.value.splice(index, 1)
+          total.value = Math.max(0, total.value - 1)
+        }
+        const selectedIndex = selectedResources.value.indexOf(resource.id)
+        if (selectedIndex > -1) selectedResources.value.splice(selectedIndex, 1)
+      } catch (err) {
+        message.error('删除失败: ' + (err as Error).message)
+      }
+    },
+  })
 }
 
 // 编辑资源
 const editResource = async (resource: Resource) => {
   editingResource.value = resource
 
-  // 从资源的tags数组中提取tag_ids，确保tags是数组
   let tagIds: number[] = []
   if (resource.tags && Array.isArray(resource.tags)) {
-    tagIds = resource.tags.map(tag => tag.id)
+    tagIds = resource.tags.map((tag) => tag.id)
   } else if (resource.tag_ids && Array.isArray(resource.tag_ids)) {
-    // 如果tags不存在但tag_ids存在，直接使用tag_ids
     tagIds = resource.tag_ids
   }
 
-  // 如果存在已选择的标签ID，确保这些标签在选项中显示
-  if (tagIds && tagIds.length > 0) {
-    // 获取已选择的标签详情，以便显示标签名称
+  // 确保已选标签出现在选项中
+  if (tagIds.length > 0) {
     const selectedTags = []
     for (const tagId of tagIds) {
-      // 检查标签是否已在当前选项中
       const existingTag = tagOptions.value.find((opt: any) => opt.value === tagId)
       if (existingTag) {
         selectedTags.push(existingTag)
       } else {
-        // 如果标签不在当前选项中，单独获取其信息
         try {
           const tagDetail = await tagApi.getTag(tagId)
           if (tagDetail) {
-            selectedTags.push({
-              label: tagDetail.name,
-              value: tagDetail.id
-            })
+            selectedTags.push({ label: tagDetail.name, value: tagDetail.id })
           }
-        } catch (error) {
-          console.error('获取标签详情失败:', error)
-          // 作为回退，添加一个临时标签
-          selectedTags.push({
-            label: `标签${tagId}`,
-            value: tagId
-          })
+        } catch {
+          selectedTags.push({ label: `标签${tagId}`, value: tagId })
         }
       }
     }
-
-    // 确保这些标签出现在选项中
     const newOptions = [...tagOptions.value]
     for (const selectedTag of selectedTags) {
       const exists = newOptions.some((opt: any) => opt.value === selectedTag.value)
-      if (!exists) {
-        newOptions.push(selectedTag)
-      }
+      if (!exists) newOptions.push(selectedTag)
     }
     tagOptions.value = newOptions
   }
@@ -787,168 +666,53 @@ const editResource = async (resource: Resource) => {
     cover: resource.cover || '',
     save_url: resource.save_url || '',
     is_valid: resource.is_valid !== undefined ? resource.is_valid : true,
-    is_public: resource.is_public !== undefined ? resource.is_public : true
+    is_public: resource.is_public !== undefined ? resource.is_public : true,
   }
   showEditModal.value = true
 }
 
-// 删除资源
-const deleteResource = async (resource: Resource) => {
-  console.log('删除资源被点击:', resource.title, 'ID:', resource.id)
-
-  // 使用原生确认对话框
-  if (confirm(`确定要删除资源"${resource.title}"吗？`)) {
-    try {
-      console.log('开始删除资源:', resource.id)
-      await resourceApi.deleteResource(resource.id)
-      console.log('删除成功')
-
-      notification.value?.success({
-        content: '删除成功',
-        duration: 3000
-      })
-
-      // 从当前列表中移除
-      const index = resources.value.findIndex(r => r.id === resource.id)
-      if (index > -1) {
-        resources.value.splice(index, 1)
-        total.value = Math.max(0, total.value - 1)
-      }
-      // 从选择列表中移除
-      const selectedIndex = selectedResources.value.indexOf(resource.id)
-      if (selectedIndex > -1) {
-        selectedResources.value.splice(selectedIndex, 1)
-      }
-    } catch (error) {
-      console.error('删除失败:', error)
-      notification.value?.error({
-        content: '删除失败: ' + (error as Error).message,
-        duration: 3000
-      })
-    }
-  }
-}
-
-// 批量删除
-const batchDelete = async () => {
-  if (selectedResources.value.length === 0) {
-    notification.value?.warning({
-      content: '请先选择要删除的资源',
-      duration: 3000
-    })
-    return
-  }
-
-  const deleteCount = selectedResources.value.length
-
-  dialog.value?.warning({
-    title: '警告',
-    content: `确定要删除选中的 ${deleteCount} 个资源吗？此操作不可恢复！`,
-    positiveText: '确定',
-    negativeText: '取消',
-    draggable: true,
-    onPositiveClick: async () => {
-      try {
-        // 调用批量删除API
-        await resourceApi.batchDeleteResources(selectedResources.value)
-        notification.value?.success({
-          content: `成功删除 ${deleteCount} 个资源`,
-          duration: 3000
-        })
-        // 清空选择
-        selectedResources.value = []
-        showBatchModal.value = false
-        // 重新获取数据
-        await fetchData()
-      } catch (error) {
-        console.error('批量删除失败:', error)
-        notification.value?.error({
-          content: '批量删除失败: ' + (error as Error).message,
-          duration: 3000
-        })
-      }
-    }
-  })
-}
-
-// 批量更新
-const batchUpdate = () => {
-  if (selectedResources.value.length === 0) {
-    notification.value?.warning({
-      content: '请先选择要更新的资源',
-      duration: 3000
-    })
-    return
-  }
-  
-  // 这里可以实现批量更新功能
-  console.log('批量更新:', selectedResources.value)
-  notification.value?.info({
-    content: '批量更新功能开发中',
-    duration: 3000
-  })
-}
-
-// 提交编辑
 const handleEditSubmit = async () => {
   try {
     editing.value = true
     await editFormRef.value?.validate()
-
     await resourceApi.updateResource(editingResource.value!.id, editForm.value)
-
-    notification.value?.success({
-      content: '更新成功',
-      duration: 3000
-    })
-
-    // 关闭模态框
+    message.success('更新成功')
     showEditModal.value = false
     editingResource.value = null
-    
-    // 重新获取数据以确保tags等关联数据正确显示
     await fetchData()
-
-  } catch (error) {
-    console.error('更新失败:', error)
-    notification.value?.error({
-      content: '更新失败',
-      duration: 3000
-    })
+  } catch (err) {
+    // validate 失败或 API 失败：validate 错误不弹 message（表单已显示）
+    if (err && typeof err === 'object' && 'message' in err) {
+      message.error('更新失败')
+    }
   } finally {
     editing.value = false
   }
 }
 
-// 页面加载时获取数据
 onMounted(async () => {
-  // 初始化用户认证状态
-  const userStore = useUserStore()
   userStore.initAuth()
-
-  // 初始化加载第一页标签
   const { options } = await loadTagOptions('', 1, tagPagination.pageSize)
   tagOptions.value = options
-
   fetchData()
 })
-
-
 </script>
 
 <style scoped>
-/* 自定义样式 */
 .line-clamp-1 {
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
 }
-
 .line-clamp-2 {
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-</style> 
+.fas {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+}
+</style>

@@ -71,21 +71,27 @@
         </n-spin>
       </div>
 
-      <div v-else-if="filteredCksList.length === 0" class="flex flex-col items-center justify-center py-12">
-        <n-empty description="暂无账号">
-          <template #icon>
-            <i class="fas fa-user-circle text-4xl text-gray-400"></i>
-          </template>
-          <template #extra>
-            <n-button @click="showCreateModal = true" type="primary">
-              <template #icon>
-                <i class="fas fa-plus"></i>
-              </template>
-              添加账号
-            </n-button>
-          </template>
-        </n-empty>
-      </div>
+      <AdminErrorState
+        v-else-if="errorMessage"
+        icon="fas fa-exclamation-triangle"
+        :message="errorMessage"
+        :on-retry="refreshData"
+      />
+
+      <AdminEmptyState
+        v-else-if="filteredCksList.length === 0"
+        icon="fas fa-user-circle"
+        title="暂无账号"
+      >
+        <template #action>
+          <n-button @click="showCreateModal = true" type="primary">
+            <template #icon>
+              <i class="fas fa-plus"></i>
+            </template>
+            添加账号
+          </n-button>
+        </template>
+      </AdminEmptyState>
 
       <!-- 账号列表和分页 -->
       <div v-else class="flex flex-col flex-1 h-full overflow-y-auto">
@@ -278,6 +284,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const cksList = ref([])
+const errorMessage = ref('')
 const platforms = ref([])
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
@@ -363,13 +370,13 @@ const checkAuth = () => {
 // 获取账号列表
 const fetchCks = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
-    console.log('开始获取账号列表...')
     const response = await cksApi.getCks()
     cksList.value = Array.isArray(response) ? response : []
-    console.log('获取账号列表成功，数据:', cksList.value)
   } catch (error) {
-    console.error('获取账号列表失败:', error)
+    errorMessage.value = '加载数据失败，请检查网络或后端服务'
+    cksList.value = []
   } finally {
     loading.value = false
     pageLoading.value = false
@@ -382,7 +389,6 @@ const fetchPlatforms = async () => {
     const response = await panApi.getPans()
     platforms.value = Array.isArray(response) ? response : []
   } catch (error) {
-    console.error('获取平台列表失败:', error)
   }
 }
 
@@ -412,7 +418,6 @@ const updateCks = async () => {
     await fetchCks()
     closeModal()
   } catch (error) {
-    console.error('更新账号失败:', error)
     notification.error({
       title: '失败',
       content: '更新账号失败: ' + (error.message || '未知错误'),
@@ -436,7 +441,6 @@ const deleteCks = async (id) => {
         await cksApi.deleteCks(id)
         await fetchCks()
       } catch (error) {
-        console.error('删除账号失败:', error)
         notification.error({
           title: '失败',
           content: '删除账号失败: ' + (error.message || '未知错误'),
@@ -466,7 +470,6 @@ const deleteRelatedResources = async (id) => {
           duration: 3000
         })
       } catch (error) {
-        console.error('删除关联资源失败:', error)
         notification.error({
           title: '失败',
           content: '删除关联资源失败: ' + (error.message || '未知错误'),
@@ -495,7 +498,6 @@ const refreshCapacity = async (id) => {
           duration: 3000
         })
       } catch (error) {
-        console.error('刷新容量失败:', error)
         notification.error({
           title: '失败',
           content: '刷新容量失败: ' + (error.message || '未知错误'),
@@ -517,18 +519,14 @@ const toggleStatus = async (cks) => {
     draggable: true,
     onPositiveClick: async () => {
       try {
-        console.log('切换状态 - 账号ID:', cks.id, '当前状态:', cks.is_valid, '新状态:', newStatus)
         await cksApi.updateCks(cks.id, { is_valid: newStatus })
-        console.log('状态更新成功，正在刷新数据...')
         await fetchCks()
-        console.log('数据刷新完成')
         notification.success({
           title: '成功',
           content: `账号已${newStatus ? '启用' : '禁用'}！`,
           duration: 3000
         })
       } catch (error) {
-        console.error('切换账号状态失败:', error)
         notification.error({
           title: '失败',
           content: `切换账号状态失败: ${error.message || '未知错误'}`,
@@ -662,12 +660,9 @@ const formatFileSize = (bytes) => {
 // 过滤和分页计算
 const filteredCksList = computed(() => {
   let filtered = cksList.value
-  console.log('原始账号数量:', filtered.length)
-
   // 平台过滤
   if (platform.value !== null && platform.value !== undefined) {
     filtered = filtered.filter(cks => cks.pan_id === platform.value)
-    console.log('平台过滤后数量:', filtered.length, '平台ID:', platform.value)
   }
 
   // 搜索过滤
@@ -677,7 +672,6 @@ const filteredCksList = computed(() => {
       cks.pan?.name?.toLowerCase().includes(query) ||
       cks.remark?.toLowerCase().includes(query)
     )
-    console.log('搜索过滤后数量:', filtered.length, '搜索词:', searchQuery.value)
   }
 
   totalPages.value = Math.ceil(filtered.length / itemsPerPage.value)
@@ -700,15 +694,11 @@ const debounceSearch = () => {
 // 搜索处理
 const handleSearch = () => {
   currentPage.value = 1
-  console.log('执行搜索，搜索词:', searchQuery.value)
-  console.log('当前过滤后的账号数量:', filteredCksList.value.length)
 }
 
 // 平台变化处理
 const onPlatformChange = () => {
   currentPage.value = 1
-  console.log('平台过滤条件变化:', platform.value)
-  console.log('当前过滤后的账号数量:', filteredCksList.value.length)
 }
 
 // 刷新数据
@@ -738,7 +728,6 @@ onMounted(async () => {
       fetchPlatforms()
     ])
   } catch (error) {
-    console.error('页面初始化失败:', error)
   }
 })
 </script>

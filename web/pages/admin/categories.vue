@@ -66,20 +66,21 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="categories.length === 0" class="text-center py-8">
-        <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-          <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
-          <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
-        </svg>
-        <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无分类</div>
-        <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加分类"按钮创建新分类</div>
-        <n-button @click="showAddModal = true" type="primary">
-          <template #icon>
-            <i class="fas fa-plus"></i>
-          </template>
-          添加分类
-        </n-button>
-      </div>
+      <AdminEmptyState
+        v-else-if="categories.length === 0"
+        icon="fas fa-folder-open"
+        title="暂无分类"
+        description='你可以点击上方"添加分类"按钮创建新分类'
+      >
+        <template #action>
+          <n-button @click="showAddModal = true" type="primary">
+            <template #icon>
+              <i class="fas fa-plus"></i>
+            </template>
+            添加分类
+          </n-button>
+        </template>
+      </AdminEmptyState>
 
       <!-- 数据表格 -->
       <div v-else class="flex flex-col h-full min-h-[600px]">
@@ -321,7 +322,6 @@ const fetchData = async () => {
       total.value = 0
     }
   } catch (error) {
-    console.error('获取分类失败:', error)
     categories.value = []
     total.value = 0
   } finally {
@@ -380,7 +380,6 @@ const deleteCategory = async (category: Category) => {
         })
         fetchData()
       } catch (error) {
-        console.error('删除失败:', error)
         notification.error({
           content: '删除失败',
           duration: 3000
@@ -415,7 +414,6 @@ const handleSubmit = async () => {
     categoryForm.value = { name: '', description: '', tag_ids: [] }
     fetchData()
   } catch (error) {
-    console.error('提交失败:', error)
     notification.error({
       content: '操作失败',
       duration: 3000

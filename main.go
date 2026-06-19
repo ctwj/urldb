@@ -215,6 +215,9 @@ func main() {
 	// 将Repository管理器注入到services中
 	services.SetRepositoryManager(repoManager)
 
+	// 初始化统计聚合服务（仪表盘 GetSummary 使用）
+	services.SetDefaultStatsService(services.NewStatsService(db.DB, repoManager))
+
 	// 设置Sitemap处理器依赖
 	handlers.SetSitemapDependencies(
 		repoManager.ResourceRepository,
@@ -381,6 +384,7 @@ func main() {
 		api.GET("/performance", handlers.GetPerformanceStats)
 		api.GET("/stats/views-trend", handlers.GetViewsTrend)
 		api.GET("/stats/searches-trend", handlers.GetSearchesTrend)
+		api.GET("/stats/summary", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSummary)
 		api.GET("/system/info", handlers.GetSystemInfo)
 
 		// 平台管理

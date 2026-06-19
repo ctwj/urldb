@@ -381,7 +381,6 @@ const fetchStatus = async () => {
       }
     }
   } catch (error: any) {
-    console.error('获取状态失败:', error)
     notification.error({
       content: `获取状态失败: ${error?.message || error}`,
       duration: 3000
@@ -405,7 +404,6 @@ const fetchSystemConfig = async () => {
       }
     }
   } catch (error: any) {
-    console.error('获取系统配置失败:', error)
   }
 }
 
@@ -420,7 +418,6 @@ const fetchUnsyncedCount = async () => {
       unsyncedCount.value = response.count || 0
     }
   } catch (error: any) {
-    console.error('获取未同步数量失败:', error)
   }
 }
 
@@ -438,7 +435,6 @@ const refreshStatus = async () => {
       duration: 2000
     })
   } catch (error: any) {
-    console.error('刷新状态失败:', error)
   } finally {
     refreshing.value = false
   }
@@ -460,7 +456,6 @@ const syncAllResources = async () => {
     // 开始轮询进度
     startProgressPolling()
   } catch (error: any) {
-    console.error('同步资源失败:', error)
     notification.error({
       content: `同步资源失败: ${error?.message || error}`,
       duration: 5000
@@ -493,7 +488,6 @@ const stopSync = async () => {
     // 刷新状态
     await refreshStatus()
   } catch (error: any) {
-    console.error('停止同步失败:', error)
     notification.error({
       content: `停止同步失败: ${error?.message || error}`,
       duration: 5000
@@ -575,7 +569,6 @@ const fetchSyncProgress = async () => {
       }
     }
   } catch (error: any) {
-    console.error('获取同步进度失败:', error)
   }
 }
 
@@ -612,7 +605,6 @@ const fetchSyncProgressSilent = async () => {
       }
     }
   } catch (error: any) {
-    console.error('获取同步进度失败:', error)
   }
 }
 
@@ -659,7 +651,6 @@ const fetchResources = async () => {
       }
     }
   } catch (error: any) {
-    console.error('获取资源失败:', error)
     notification.error({
       content: `获取资源失败: ${error?.message || error}`,
       duration: 3000
@@ -703,7 +694,6 @@ const clearIndex = async () => {
     await refreshStatus()
   } catch (error: any) {
     if (error) {
-      console.error('清空索引失败:', error)
       notification.error({
         content: `清空索引失败: ${error?.message || error}`,
         duration: 5000
@@ -730,7 +720,6 @@ const updateIndexSettings = async () => {
     // 刷新状态
     await refreshStatus()
   } catch (error: any) {
-    console.error('更新索引设置失败:', error)
     notification.error({
       content: `更新索引设置失败: ${error?.message || error}`,
       duration: 5000

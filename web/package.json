@@ -8,19 +8,28 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
+    "@nuxt/test-utils": "^3.14.0",
     "@nuxt/typescript-build": "^3.0.0",
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^20.0.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "@vue/test-utils": "^2.4.0",
+    "happy-dom": "^13.0.0",
     "nuxt": "^3.8.0",
     "nuxtjs-naive-ui": "1.0.2",
     "typescript": "^5.0.0",
     "unplugin-auto-import": "^19.3.0",
-    "unplugin-vue-components": "^28.8.0"
+    "unplugin-vue-components": "^28.8.0",
+    "vitest": "^1.6.0"
   },
   "dependencies": {
     "@css-render/vue3-ssr": "^0.15.12",
@@ -36,7 +45,8 @@
     "qr-code-styling": "^1.9.2",
     "vfonts": "^0.0.3",
     "vue": "^3.3.0",
-    "vue-router": "^4.2.0"
+    "vue-router": "^4.2.0",
+    "web-vitals": "^5.3.0"
   },
   "packageManager": "pnpm@9.13.0+sha512.beb9e2a803db336c10c9af682b58ad7181ca0fbd0d4119f2b33d5f2582e96d6c0d93c85b23869295b765170fbdaa92890c0da6ada457415039769edf3c959efe"
 }

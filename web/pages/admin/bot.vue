@@ -55,7 +55,6 @@ const activeTab = ref('qq')
 
 // 页面加载时获取配置
 onMounted(async () => {
-  console.log('机器人管理页面已加载')
 })
 </script>
 

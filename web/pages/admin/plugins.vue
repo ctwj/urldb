@@ -37,7 +37,7 @@
               clearable
             >
               <template #prefix>
-                <i class="fas fa-search text-gray-400 text-sm"></i>
+                <i class="fas fa-search text-gray-400 text-sm dark:text-gray-400"></i>
               </template>
             </n-input>
           </div>
@@ -138,7 +138,7 @@
         <div class="mt-1 space-y-2">
           <div v-for="task in selectedPlugin.scheduled_tasks" :key="task.name" class="text-sm">
             <p class="text-gray-900 dark:text-gray-100">{{ task.name }} - {{ task.schedule }}</p>
-            <p class="text-xs text-gray-500">{{ task.frequency?.description }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-500">{{ task.frequency?.description }}</p>
           </div>
         </div>
       </div>
@@ -169,7 +169,7 @@
   <n-modal v-model:show="showLogsModal" :mask-closable="false" preset="card" :style="{ maxWidth: '1200px', width: '95%', maxHeight: '90vh' }" title="插件日志">
     <div v-if="logsPlugin" class="space-y-4 h-full">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ logsPlugin.display_name || logsPlugin.name }} 日志</h3>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white dark:text-gray-900">{{ logsPlugin.display_name || logsPlugin.name }} 日志</h3>
         <div class="flex items-center space-x-2">
           <n-button @click="refreshLogs" :loading="loadingLogs" size="small" type="info">
             <template #icon>
@@ -262,10 +262,10 @@
       <div v-if="installing" class="space-y-2">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300">安装进度</span>
-          <span class="text-sm text-gray-500">{{ installProgress }}%</span>
+          <span class="text-sm text-gray-500 dark:text-gray-500">{{ installProgress }}%</span>
         </div>
         <n-progress :percentage="installProgress" :show-indicator="false" />
-        <p class="text-xs text-gray-500">{{ installStatus }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-500">{{ installStatus }}</p>
       </div>
 
       <!-- 安装结果 -->
@@ -430,7 +430,7 @@ const columns = [
             class: `fas fa-plug text-sm ${row.enabled ? 'text-green-500' : 'text-red-500'}`
           }),
           h('span', { class: 'font-medium text-sm' }, row.display_name || row.name),
-          h('span', { class: 'text-xs text-gray-400' }, `v${row.version}`)
+          h('span', { class: 'text-xs text-gray-400 dark:text-gray-400' }, `v${row.version}`)
         ]),
         // 第二行：描述
         h('div', {
@@ -438,8 +438,8 @@ const columns = [
         }, row.description || '无描述'),
         // 第三行：作者和分类
         h('div', { class: 'flex items-center gap-2' }, [
-          h('span', { class: 'text-xs text-gray-400' }, `作者: ${row.author || '未知'}`),
-          h('span', { class: 'text-xs text-gray-400' }, `分类: ${row.category || 'utility'}`)
+          h('span', { class: 'text-xs text-gray-400 dark:text-gray-400' }, `作者: ${row.author || '未知'}`),
+          h('span', { class: 'text-xs text-gray-400 dark:text-gray-400' }, `分类: ${row.category || 'utility'}`)
         ])
       ])
     }
@@ -450,14 +450,14 @@ const columns = [
     width: 200,
     render: (row: any) => {
       if (!row.scheduled_tasks || row.scheduled_tasks.length === 0) {
-        return h('span', { class: 'text-xs text-gray-400' }, '无')
+        return h('span', { class: 'text-xs text-gray-400 dark:text-gray-400' }, '无')
       }
 
       return h('div', { class: 'space-y-1' }, [
         h('div', { class: 'text-xs font-medium' }, `${row.scheduled_tasks.length}个任务`),
         ...row.scheduled_tasks.slice(0, 2).map(task =>
           h('div', {
-            class: 'text-xs text-gray-500 truncate',
+            class: 'text-xs text-gray-500 truncate dark:text-gray-500',
             title: `${task.name} - ${task.schedule}`
           }, `${task.name}`)
         )
@@ -562,7 +562,6 @@ const fetchPlugins = async () => {
       plugins.value = filteredPlugins
     }
   } catch (error) {
-    console.error('获取插件列表失败:', error)
     if (process.client) {
       notification.error({
         content: '获取插件列表失败',
@@ -611,7 +610,6 @@ const configurePlugin = async (plugin: any) => {
       pluginConfig.value = {}
     }
   } catch (error) {
-    console.error('加载插件配置失败:', error)
     // 即使API失败，也使用传入的插件基本信息
     pluginConfig.value = {}
   }
@@ -679,7 +677,6 @@ const handleConfigSave = async (config: any) => {
       throw new Error(response.error || '保存失败')
     }
   } catch (error) {
-    console.error('保存配置失败:', error)
     if (process.client) {
       notification.error({
         content: '保存配置失败: ' + error.message,
@@ -733,7 +730,6 @@ const loadPluginLogs = async () => {
       pluginLogs.value = response.data?.logs || []
     }
   } catch (error) {
-    console.error('加载插件日志失败:', error)
     pluginLogs.value = []
   } finally {
     loadingLogs.value = false
@@ -763,7 +759,6 @@ const togglePlugin = async (plugin: any) => {
       await fetchPlugins()
     }
   } catch (error) {
-    console.error(`${plugin.enabled ? '禁用' : '启用'}插件失败:`, error)
     if (process.client) {
       notification.error({
         content: `${plugin.enabled ? '禁用' : '启用'}插件失败`,
@@ -904,7 +899,6 @@ const uninstallPlugin = async (plugin: any) => {
       throw new Error(response.error || '卸载失败')
     }
   } catch (error) {
-    console.error('卸载插件失败:', error)
     if (process.client) {
       notification.error({
         content: '卸载插件失败: ' + error.message,

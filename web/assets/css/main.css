@@ -6,6 +6,18 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
   }
+
+  /* 全局键盘焦点可见性（WCAG 2.4.7） */
+  :focus-visible {
+    outline: 2px solid theme('colors.blue.500');
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* 移除鼠标点击的默认焦点框（仅键盘导航显示） */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 /* 二维码动态动画 */

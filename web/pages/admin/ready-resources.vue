@@ -35,10 +35,17 @@
 
     <!-- 内容区header - 资源列表头部 -->
     <template #content-header>
-      <div class="flex items-center justify-between">
+      <AdminBatchActionBar
+        v-if="selectedIds.length > 0"
+        :actions="batchActions"
+        :selected-ids="selectedIds"
+        :total="selectedIds.length"
+        @completed="onBatchCompleted"
+      />
+      <div v-else class="flex items-center justify-between">
         <span class="text-lg font-semibold">待处理资源列表</span>
         <div class="flex items-center space-x-4">
-          <span class="text-sm text-gray-500">共 {{ totalCount }} 个待处理资源</span>
+          <span class="text-sm text-gray-500 dark:text-gray-500">共 {{ totalCount }} 个待处理资源</span>
           <n-button
             @click="clearAll"
             type="error"
@@ -60,20 +67,30 @@
         <n-spin size="large" />
       </div>
 
+      <!-- 错误状态 -->
+      <AdminErrorState
+        v-else-if="error"
+        icon="fas fa-exclamation-triangle"
+        :message="error"
+        :on-retry="refreshData"
+      />
+
       <!-- 空状态 -->
-      <div v-else-if="readyResources.length === 0" class="text-center py-8">
-        <i class="fas fa-inbox text-4xl text-gray-400 mb-4"></i>
-        <p class="text-gray-500">暂无待处理资源</p>
-        <p class="text-sm text-gray-400 mt-2">你可以点击上方"添加资源"按钮快速导入资源</p>
-        <div class="mt-4">
+      <AdminEmptyState
+        v-else-if="readyResources.length === 0"
+        icon="fas fa-inbox"
+        title="暂无待处理资源"
+        description='你可以点击上方"添加资源"按钮快速导入资源'
+      >
+        <template #action>
           <n-button type="primary" @click="navigateTo('/admin/add-resource')">
             <template #icon>
               <i class="fas fa-plus"></i>
             </template>
             添加资源
           </n-button>
-        </div>
-      </div>
+        </template>
+      </AdminEmptyState>
 
       <!-- 数据表格 -->
       <div v-else>
@@ -84,6 +101,9 @@
           :bordered="false"
           :single-line="false"
           :loading="loading"
+          :row-key="(row: ReadyResource) => row.id"
+          :checked-row-keys="selectedIds"
+          @update:checked-row-keys="onSelectionChange"
           @update:page="handlePageChange"
         />
       </div>
@@ -118,10 +138,64 @@ const totalPages = ref(0)
 // 获取待处理资源API
 import { useReadyResourceApi, useSystemConfigApi } from '~/composables/useApi'
 import { useSystemConfigStore } from '~/stores/systemConfig'
+import { toggleItemSelection, clearOnPageChange } from '~/utils/listSelection'
+import type { BatchAction, BatchActionResult } from '~/components/Admin/BatchActionBar.vue'
 import { h } from 'vue'
 const readyResourceApi = useReadyResourceApi()
 const systemConfigApi = useSystemConfigApi()
 const systemConfigStore = useSystemConfigStore()
+
+// 多选状态
+const selectedIds = ref<(string | number)[]>([])
+
+// 错误状态
+const error = ref<string>('')
+
+// 选择变化处理（使用纯函数保持不可变）
+const onSelectionChange = (keys: (string | number)[]) => {
+  // n-data-table 直接传入当前选中的 keys，需手动 diff 或直接替换
+  selectedIds.value = keys
+}
+
+// 批量操作配置
+const batchActions = computed<BatchAction[]>(() => [
+  {
+    key: 'batch-delete',
+    label: '批量删除',
+    type: 'error',
+    icon: 'fas fa-trash',
+    confirm: {
+      title: '确认批量删除',
+      content: `将删除选中的 ${selectedIds.value.length} 个待处理资源，操作不可恢复。`,
+    },
+    handler: async (ids: (string | number)[]): Promise<BatchActionResult> => {
+      let successCount = 0
+      let failCount = 0
+      for (const id of ids) {
+        try {
+          await readyResourceApi.deleteReadyResource(id as number)
+          successCount++
+        } catch {
+          failCount++
+        }
+      }
+      return {
+        success: failCount === 0,
+        affected: successCount,
+        message:
+          failCount === 0
+            ? `成功删除 ${successCount} 个资源`
+            : `成功 ${successCount} 个，失败 ${failCount} 个`,
+      }
+    },
+  },
+])
+
+// 批量操作完成后清空选择并刷新
+const onBatchCompleted = () => {
+  selectedIds.value = []
+  fetchData()
+}
 
 // 获取系统配置
 const systemConfig = ref<any>(null)
@@ -130,6 +204,7 @@ const dialog = useDialog()
 
 // 表格列定义
 const columns = [
+  { type: 'selection' },
   {
     title: 'ID',
     key: 'id',
@@ -145,7 +220,7 @@ const columns = [
       if (row.title) {
         return h('span', { title: row.title }, escapeHtml(row.title))
       } else {
-        return h('span', { class: 'text-gray-400 italic' }, '未设置')
+        return h('span', { class: 'text-gray-400 italic dark:text-gray-400' }, '未设置')
       }
     }
   },
@@ -167,7 +242,7 @@ const columns = [
     key: 'create_time',
     width: 180,
     render: (row: ReadyResource) => {
-      return h('span', { class: 'text-gray-500' }, formatTime(row.create_time))
+      return h('span', { class: 'text-gray-500 dark:text-gray-500' }, formatTime(row.create_time))
     }
   },
   {
@@ -175,7 +250,7 @@ const columns = [
     key: 'ip',
     width: 120,
     render: (row: ReadyResource) => {
-      return h('span', { class: 'text-gray-500' }, escapeHtml(row.ip || '-'))
+      return h('span', { class: 'text-gray-500 dark:text-gray-500' }, escapeHtml(row.ip || '-'))
     }
   },
   {
@@ -219,21 +294,20 @@ const fetchSystemConfig = async () => {
     const response = await systemConfigApi.getSystemConfig()
     systemConfig.value = response
     systemConfigStore.setConfig(response)
-    console.log('ready-resources页面系统配置:', response)
   } catch (error) {
-    console.error('获取系统配置失败:', error)
   }
 }
 
 // 获取数据
 const fetchData = async () => {
   loading.value = true
+  error.value = ''
   try {
     const response = await readyResourceApi.getReadyResources({
       page: currentPage.value,
       page_size: pageSize.value
     }) as any
-    
+
     if (response && response.data) {
       readyResources.value = response.data
       totalCount.value = response.total || 0
@@ -247,18 +321,19 @@ const fetchData = async () => {
       totalCount.value = 0
       totalPages.value = 1
     }
-  } catch (error) {
-    console.error('获取待处理资源失败:', error)
+  } catch (err) {
     readyResources.value = []
     totalCount.value = 0
     totalPages.value = 1
+    error.value = '加载待处理资源失败，请检查网络或后端服务'
   } finally {
     loading.value = false
   }
 }
 
-// 处理分页变化
+// 处理分页变化（跨页选择在当前架构下不保留）
 const handlePageChange = (page: number) => {
+  selectedIds.value = clearOnPageChange()
   currentPage.value = page
   fetchData()
 }
@@ -293,7 +368,6 @@ const deleteResource = async (id: number) => {
           duration: 3000
         })
       } catch (error) {
-        console.error('删除失败:', error)
         notification.error({
           content: '删除失败',
           duration: 3000
@@ -314,7 +388,6 @@ const clearAll = async () => {
     onPositiveClick: async () => {
       try {
         const response = await readyResourceApi.clearReadyResources() as any
-        console.log('清空成功:', response)
         currentPage.value = 1
         fetchData()
         notification.success({
@@ -322,7 +395,6 @@ const clearAll = async () => {
           duration: 3000
         })
       } catch (error) {
-        console.error('清空失败:', error)
         notification.error({
           content: '清空失败',
           duration: 3000
@@ -368,11 +440,7 @@ const toggleAutoProcess = async () => {
   updatingConfig.value = true
   try {
     const newValue = !systemConfig.value?.auto_process_ready_resources
-    console.log('切换自动处理配置:', newValue)
-    
     const response = await systemConfigApi.toggleAutoProcess(newValue)
-    console.log('切换响应:', response)
-    
     systemConfig.value = response
     systemConfigStore.setConfig(response)
     
@@ -396,7 +464,6 @@ onMounted(async () => {
     await fetchData()
     await fetchSystemConfig()
   } catch (error) {
-    console.error('页面初始化失败:', error)
   }
 })
 

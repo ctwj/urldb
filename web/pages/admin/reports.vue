@@ -26,7 +26,7 @@
               clearable
             >
               <template #prefix>
-                <i class="fas fa-search text-gray-400 text-sm"></i>
+                <i class="fas fa-search text-gray-400 text-sm dark:text-gray-400"></i>
               </template>
             </n-input>
           </div>
@@ -66,15 +66,21 @@
         <n-spin size="large" />
       </div>
 
+      <!-- 错误状态 -->
+      <AdminErrorState
+        v-else-if="errorMessage"
+        icon="fas fa-exclamation-triangle"
+        :message="errorMessage"
+        :on-retry="fetchReports"
+      />
+
       <!-- 空状态 -->
-      <div v-else-if="reports.length === 0" class="text-center py-8">
-        <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-          <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
-          <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
-        </svg>
-        <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无举报记录</div>
-        <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">目前没有用户提交的举报信息</div>
-      </div>
+      <AdminEmptyState
+        v-else-if="reports.length === 0"
+        icon="fas fa-flag"
+        title="暂无举报记录"
+        description="目前没有用户提交的举报信息"
+      />
 
       <!-- 数据表格 - 自适应高度 -->
       <div v-else class="flex flex-col h-full overflow-auto">
@@ -171,6 +177,7 @@ const dialog = useDialog()
 
 const { resourceApi } = useApi()
 const loading = ref(false)
+const errorMessage = ref('')
 const reports = ref<any[]>([])
 const showDetailModal = ref(false)
 const selectedReport = ref<any>(null)
@@ -223,7 +230,7 @@ const columns = [
             // 鼠标hover显示第一个资源的链接地址
             title: resourceInfo.resources.length > 0 ? `链接地址: ${resourceInfo.resources[0].save_url || resourceInfo.resources[0].url}` : `资源链接地址: ${row.resource_key}`
           }),
-          h('span', { class: 'text-xs text-gray-400' }, `链接数: ${resourceInfo.resources.length}`)
+          h('span', { class: 'text-xs text-gray-400 dark:text-gray-400' }, `链接数: ${resourceInfo.resources.length}`)
         ])
       ])
     }
@@ -248,7 +255,7 @@ const columns = [
         ]),
         // 举报时间
         h('div', {
-          class: 'text-xs text-gray-400 truncate max-w-[80px]',
+          class: 'text-xs text-gray-400 dark:text-gray-500 truncate max-w-[80px]',
           style: { maxWidth: '80px' }
         }, `举报时间: ${formatDateTime(row.created_at)}`),
         // 联系方式
@@ -326,6 +333,7 @@ const debounceSearch = () => {
 // 获取举报列表
 const fetchReports = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
     const params: any = {
       page: pagination.value.page,
@@ -337,8 +345,6 @@ const fetchReports = async () => {
 
     // 使用原始API调用以获取完整的分页信息
     const rawResponse = await resourceApi.getReportsRaw(params)
-    console.log(rawResponse)
-
     // 检查响应格式并处理
     if (rawResponse && rawResponse.data && rawResponse.data.list !== undefined) {
       // 如果后端返回了分页格式，使用正确的字段
@@ -350,7 +356,6 @@ const fetchReports = async () => {
       pagination.value.total = rawResponse.length || 0
     }
   } catch (error) {
-    console.error('获取举报列表失败:', error)
     // 显示错误提示
     if (process.client) {
       notification.error({
@@ -358,6 +363,8 @@ const fetchReports = async () => {
         duration: 3000
       })
     }
+    errorMessage.value = '加载数据失败，请检查网络或后端服务'
+    reports.value = []
   } finally {
     loading.value = false
   }
@@ -419,7 +426,6 @@ const updateReportStatus = async (report: any, status: string) => {
       })
     }
   } catch (error) {
-    console.error('更新举报状态失败:', error)
     if (process.client) {
       notification.error({
         content: '状态更新失败',

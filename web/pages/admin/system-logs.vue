@@ -111,10 +111,11 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="systemLogs.length === 0" class="flex flex-col items-center justify-center py-12">
-        <i class="fas fa-file-alt text-4xl text-gray-400 mb-4"></i>
-        <p class="text-gray-500 dark:text-gray-400">暂无系统日志</p>
-      </div>
+      <AdminEmptyState
+        v-else-if="systemLogs.length === 0"
+        icon="fas fa-file-alt"
+        title="暂无系统日志"
+      />
 
       <!-- 日志列表 -->
       <div v-else class="space-y-2 h-full overflow-y-auto">
@@ -240,7 +241,6 @@ const fetchSystemLogs = async () => {
     systemLogs.value = response.data || []
     systemTotal.value = response.total || 0
   } catch (error) {
-    console.error('获取系统日志失败:', error)
     notification.error({
       content: '获取系统日志失败',
       duration: 3000
@@ -258,7 +258,6 @@ const fetchSystemLogSummary = async () => {
     const response = await systemLogApi.getSystemLogSummary()
     systemLogSummary.value = response.summary || null
   } catch (error) {
-    console.error('获取系统日志统计失败:', error)
   }
 }
 
@@ -336,7 +335,6 @@ const formatLogTime = (timestamp: string) => {
       second: '2-digit'
     })
   } catch (error) {
-    console.error('时间格式化错误:', error)
     return timestamp
   }
 }
@@ -361,7 +359,6 @@ const clearSystemLogs = async () => {
 
         refreshSystemLogs()
       } catch (error) {
-        console.error('清理系统日志失败:', error)
         notification.error({
           content: '清理系统日志失败',
           duration: 3000

@@ -372,7 +372,6 @@ const fetchTasks = async () => {
       total.value = response.total || 0
     }
   } catch (error) {
-    console.error('获取任务列表失败:', error)
     message.error('获取任务列表失败')
   } finally {
     loading.value = false
@@ -408,7 +407,6 @@ const startTask = async (taskId: number) => {
       message.error('任务启动失败')
     }
   } catch (error) {
-    console.error('启动任务失败:', error)
     message.error('启动任务失败')
   }
 }
@@ -424,7 +422,6 @@ const stopTask = async (taskId: number) => {
       message.error('任务停止失败')
     }
   } catch (error) {
-    console.error('停止任务失败:', error)
     message.error('停止任务失败')
   }
 }
@@ -440,7 +437,6 @@ const pauseTask = async (taskId: number) => {
       message.error('任务暂停失败')
     }
   } catch (error) {
-    console.error('暂停任务失败:', error)
     message.error('暂停任务失败')
   }
 }
@@ -456,7 +452,6 @@ const resumeTask = async (taskId: number) => {
       message.error('任务继续失败')
     }
   } catch (error) {
-    console.error('继续任务失败:', error)
     message.error('继续任务失败')
   }
 }
@@ -472,7 +467,6 @@ const retryTask = async (taskId: number) => {
       message.error('任务重试失败')
     }
   } catch (error) {
-    console.error('重试任务失败:', error)
     message.error('重试任务失败')
   }
 }
@@ -494,7 +488,6 @@ const deleteTask = async (taskId: number) => {
           message.error('任务删除失败')
         }
       } catch (error) {
-        console.error('删除任务失败:', error)
         message.error('删除任务失败')
       }
     }
