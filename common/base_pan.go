@@ -2,6 +2,7 @@ package pan
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -84,7 +85,7 @@ func (b *BasePanService) HTTPGet(requestURL string, queryParams map[string]strin
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := b.readResponseBody(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +145,7 @@ func (b *BasePanService) HTTPPost(requestURL string, data interface{}, queryPara
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := b.readResponseBody(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +190,7 @@ func (b *BasePanService) HTTPPut(requestURL string, data interface{}) ([]byte, e
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := b.readResponseBody(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +220,7 @@ func (b *BasePanService) HTTPDelete(requestURL string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := b.readResponseBody(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -282,4 +283,76 @@ func (b *BasePanService) SanitizeFileName(fileName string) string {
 	}
 
 	return result
+}
+
+// readResponseBody 读取响应体；当调用方手动设置了 Accept-Encoding（如百度）导致
+// transport 不自动解压时，按 Content-Encoding 或 gzip 魔数手动解压。
+func (b *BasePanService) readResponseBody(resp *http.Response) ([]byte, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if isGzipped(resp) || (len(body) >= 2 && body[0] == 0x1f && body[1] == 0x8b) {
+		gzReader, err := gzip.NewReader(bytes.NewReader(body))
+		if err != nil {
+			return nil, fmt.Errorf("gzip 解压失败: %w", err)
+		}
+		defer gzReader.Close()
+		body, err = io.ReadAll(gzReader)
+		if err != nil {
+			return nil, fmt.Errorf("读取解压数据失败: %w", err)
+		}
+	}
+	return body, nil
+}
+
+// isGzipped 判断响应头是否声明 gzip
+func isGzipped(resp *http.Response) bool {
+	for _, v := range resp.Header.Values("Content-Encoding") {
+		if v == "gzip" {
+			return true
+		}
+	}
+	return false
+}
+
+// HTTPPostForm 发送原始字符串 body（如 application/x-www-form-urlencoded），
+// 不做 JSON 包装。用于百度 verify/transfer/pset/filemanager。
+func (b *BasePanService) HTTPPostForm(requestURL string, rawBody string, queryParams map[string]string) ([]byte, error) {
+	var body io.Reader = strings.NewReader(rawBody)
+	if len(queryParams) > 0 {
+		u, err := url.Parse(requestURL)
+		if err != nil {
+			return nil, err
+		}
+		q := u.Query()
+		for key, value := range queryParams {
+			q.Set(key, value)
+		}
+		u.RawQuery = q.Encode()
+		requestURL = u.String()
+	}
+	req, err := http.NewRequest("POST", requestURL, body)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range b.headers {
+		req.Header.Set(key, value)
+	}
+	if _, exists := b.headers["Content-Type"]; !exists {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	resp, err := b.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	respBody, err := b.readResponseBody(resp)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(respBody))
+	}
+	return respBody, nil
 }
