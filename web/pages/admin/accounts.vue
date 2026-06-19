@@ -205,7 +205,7 @@
           平台类型 <span class="text-red-500">*</span>
         </label>
         <n-select v-model:value="form.pan_id" placeholder="请选择平台"
-          :options="platforms.filter(pan => panEnables.includes(pan.name)).map(pan => ({ label: pan.remark, value: pan.id }))"
+          :options="platforms.map(pan => ({ label: pan.remark, value: pan.id }))"
           :disabled="showEditModal" required />
         <p v-if="showEditModal" class="mt-1 text-xs text-gray-500">编辑时不允许修改平台类型</p>
       </div>
@@ -215,7 +215,7 @@
         <n-input :value="editingCks.username" disabled readonly />
       </div>
 
-      <div v-if="isQuark">
+      <div v-if="isQuark || isBaidu">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Cookie <span class="text-red-500">*</span>
         </label>
@@ -278,6 +278,7 @@ definePageMeta({
 
 const isQuark = ref(false)
 const isXunlei = ref(false)
+const isBaidu = ref(false)
 
 const notification = useNotification()
 const router = useRouter()
@@ -302,15 +303,10 @@ const xunleiForm = ref({
   password: ''
 })
 
-const panEnables = ref(['quark', 'xunlei'])
-// const xunleiEnable = useCookie('xunleiEnable', { default: () => false })
-// if (xunleiEnable.value && xunleiEnable.value === 'true') {
-//   panEnables.value.push('xunlei')
-// }
-
 watch(() => form.value.pan_id, (newVal) => {
   isQuark.value = false
   isXunlei.value = false
+  isBaidu.value = false
   const list = platforms.value.filter(it => it.id === newVal)
   if (!list || list.length === 0) {
     return
@@ -320,6 +316,8 @@ watch(() => form.value.pan_id, (newVal) => {
     isQuark.value = true
   } else if (pan.name === 'xunlei') {
     isXunlei.value = true
+  } else if (pan.name === 'baidu') {
+    isBaidu.value = true
   }
 })
 

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/ctwj/urldb/db/entity"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // GetCks 获取Cookie列表
@@ -81,6 +83,21 @@ func CreateCks(c *gin.Context) {
 	pan, err := repoManager.PanRepository.FindByID(req.PanID)
 	if err != nil {
 		ErrorResponse(c, "平台不存在", http.StatusBadRequest)
+		return
+	}
+
+	// 清理 Cookie 中的换行/制表符（用户从 DevTools 复制时常带入），
+	// 让 DB 存干净值、避免因空白字符差异导致查重假阴性。
+	req.Ck = panutils.SanitizeCookie(req.Ck)
+
+	// FR-009 重复账号检测：(pan_id, ck) 完全一致即视为重复，提示走编辑路径
+	existing, findErr := repoManager.CksRepository.FindByPanIDAndCk(req.PanID, req.Ck)
+	if findErr == nil && existing != nil {
+		ErrorResponse(c, "该"+pan.Remark+"账号已存在，请使用编辑功能更新凭证", http.StatusBadRequest)
+		return
+	}
+	if findErr != nil && !errors.Is(findErr, gorm.ErrRecordNotFound) {
+		ErrorResponse(c, "账号查重失败: "+findErr.Error(), http.StatusInternalServerError)
 		return
 	}
 

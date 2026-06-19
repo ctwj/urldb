@@ -3,6 +3,7 @@ package pan
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -41,12 +42,24 @@ func NewBaiduPanService(config *PanConfig) *BaiduPanService {
 		"User-Agent":                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 	})
 
-	// 如果配置中带 Cookie，设置到请求头
+	// 如果配置中带 Cookie，清理换行/制表符后设置到请求头
+	// （参考 moss baidu_utils.go:115-118；用户从 DevTools 复制时常带入 \n\r\t 导致请求头格式错误）
 	if config != nil && config.Cookie != "" {
-		service.SetHeader("Cookie", config.Cookie)
+		service.SetHeader("Cookie", SanitizeCookie(config.Cookie))
 	}
 
 	return service
+}
+
+// SanitizeCookie 清理 Cookie 字符串：移除换行/回车/制表符，trim 首尾空白。
+// 用户从浏览器 DevHeaders 直接复制的 Cookie 经常夹带这些不可见字符，
+// 导致 HTTP 请求头格式错误、百度返回 401 或 set-cookie 异常。
+// 参考实现：moss baidu_utils.go:115-118。
+func SanitizeCookie(raw string) string {
+	s := strings.ReplaceAll(raw, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\t", "")
+	return strings.TrimSpace(s)
 }
 
 // GetServiceType 获取服务类型
@@ -473,60 +486,102 @@ func (b *BaiduPanService) GetFiles(pdirFid string) (*TransferResult, error) {
 }
 
 // GetUserInfo 获取用户信息
+//
+// 百度网盘网页版的用户信息分散在两个 API：
+//   1. /api/gettemplatevariable —— 仅返回 username / uk / vip_type（不含容量）
+//   2. /api/quota               —— 返回 total / used（字节数，int64）
+//
+// 历史代码试图用单个 API 拿全部字段（fields 里塞 total_capacity/used_capacity），
+// 但百度会静默忽略不支持的 field，导致容量恒为 0。这里改成两次请求组合。
 func (b *BaiduPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
-	// 设置Cookie
+	// 设置Cookie（清理换行/制表符，防御历史脏数据或 DevTools 复制残留）
 	if cookie != nil && *cookie != "" {
-		b.SetHeader("Cookie", *cookie)
+		b.SetHeader("Cookie", SanitizeCookie(*cookie))
 	}
 
-	// 调用百度网盘用户信息API（GET + fields query，与 getBdstoken 同一端点）
-	queryParams := map[string]string{
+	// Step 1: 用户基本信息（username + vip_type）
+	userParams := map[string]string{
 		"clienttype": "0",
 		"app_id":     "250528",
 		"web":        "1",
-		"fields":     `["username","uk","vip_type","vip_endtime","total_capacity","used_capacity"]`,
+		"fields":     `["username","uk","vip_type"]`,
 	}
-
-	resp, err := b.HTTPGet("https://pan.baidu.com/api/gettemplatevariable", queryParams)
+	userResp, err := b.HTTPGet("https://pan.baidu.com/api/gettemplatevariable", userParams)
 	if err != nil {
 		return nil, fmt.Errorf("获取用户信息失败: %v", err)
 	}
 
-	// 解析响应（百度把用户信息放在 result 字段，与 data 字段不同）
-	var result struct {
-		Errno  int `json:"errno"`
-		Result struct {
-			Username      string `json:"username"`
-			Uk            string `json:"uk"`
-			VipType       int    `json:"vip_type"`
-			VipEndtime    string `json:"vip_endtime"`
-			TotalCapacity string `json:"total_capacity"`
-			UsedCapacity  string `json:"used_capacity"`
-		} `json:"result"`
-	}
-
-	if err := b.ParseJSONResponse(resp, &result); err != nil {
+	// 用 map[string]any 解析，避免百度 API 字段类型漂移
+	// （uk 实际是 number，但历史代码曾定义为 string 导致反序列化失败）
+	var userRaw map[string]any
+	if err := b.ParseJSONResponse(userResp, &userRaw); err != nil {
 		return nil, fmt.Errorf("解析用户信息失败: %v", err)
 	}
+	if errno := toInt64(userRaw["errno"]); errno != 0 {
+		return nil, fmt.Errorf("API返回错误: %s", ErrnoMessage(int(errno)))
+	}
+	userResult, ok := userRaw["result"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("用户信息响应缺少 result 字段")
+	}
+	username, _ := userResult["username"].(string)
+	vipType := toInt64(userResult["vip_type"])
 
-	if result.Errno != 0 {
-		return nil, fmt.Errorf("API返回错误: %s", ErrnoMessage(result.Errno))
+	// Step 2: 容量信息（total / used，单位字节）
+	quotaParams := map[string]string{
+		"clienttype": "0",
+		"app_id":     "250528",
+		"web":        "1",
+	}
+	quotaResp, err := b.HTTPGet("https://pan.baidu.com/api/quota", quotaParams)
+	if err != nil {
+		// 容量查询失败不阻塞账号创建/刷新，仅记日志返回 0
+		log.Printf("[baidu] 获取容量失败（不阻塞）: %v", err)
+	} else {
+		var quotaRaw map[string]any
+		if err := b.ParseJSONResponse(quotaResp, &quotaRaw); err == nil {
+			if errno := toInt64(quotaRaw["errno"]); errno == 0 {
+				// 写回 userResult 以便下面统一取值
+				userResult["total"] = quotaRaw["total"]
+				userResult["used"] = quotaRaw["used"]
+			} else {
+				log.Printf("[baidu] quota API errno=%d: %s", errno, ErrnoMessage(int(errno)))
+			}
+		}
 	}
 
-	// 转换VIP状态
-	vipStatus := result.Result.VipType > 0
-
-	// 解析容量字符串
-	totalCapacityBytes := ParseCapacityString(result.Result.TotalCapacity)
-	usedCapacityBytes := ParseCapacityString(result.Result.UsedCapacity)
+	totalCapacity := toInt64(userResult["total"])
+	usedCapacity := toInt64(userResult["used"])
 
 	return &UserInfo{
-		Username:    result.Result.Username,
-		VIPStatus:   vipStatus,
-		UsedSpace:   usedCapacityBytes,
-		TotalSpace:  totalCapacityBytes,
+		Username:    username,
+		VIPStatus:   vipType > 0,
+		UsedSpace:   usedCapacity,
+		TotalSpace:  totalCapacity,
 		ServiceType: "baidu",
 	}, nil
+}
+
+// toInt64 把 any 安全转成 int64（兼容 float64 / int / json.Number / 数字字符串）。
+// 百度 API 同一字段在不同账号/版本下可能返回 number 或 string-number，统一兜底。
+func toInt64(v any) int64 {
+	switch n := v.(type) {
+	case nil:
+		return 0
+	case int64:
+		return n
+	case int:
+		return int64(n)
+	case float64:
+		return int64(n)
+	case json.Number:
+		i, _ := n.Int64()
+		return i
+	case string:
+		i, _ := strconv.ParseInt(n, 10, 64)
+		return i
+	}
+	return 0
 }
 
 // GetUserInfoByEntity 根据 entity.Cks 获取用户信息（待实现）

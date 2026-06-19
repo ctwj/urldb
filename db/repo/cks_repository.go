@@ -15,6 +15,7 @@ type CksRepository interface {
 	FindByPanID(panID uint) ([]entity.Cks, error)
 	FindByIds(ids []uint) ([]*entity.Cks, error)
 	FindByIsValid(isValid bool) ([]entity.Cks, error)
+	FindByPanIDAndCk(panID uint, ck string) (*entity.Cks, error)
 	UpdateSpace(id uint, space, leftSpace int64) error
 	DeleteByPanID(panID uint) error
 	UpdateWithAllFields(cks *entity.Cks) error
@@ -44,6 +45,17 @@ func (r *CksRepositoryImpl) FindByIsValid(isValid bool) ([]entity.Cks, error) {
 	var cks []entity.Cks
 	err := r.db.Where("is_valid = ?", isValid).Find(&cks).Error
 	return cks, err
+}
+
+// FindByPanIDAndCk 根据(pan_id, ck)联合查找，用于重复账号检测。
+// 未命中时返回 gorm.ErrRecordNotFound（调用方据此判断是否重复）。
+func (r *CksRepositoryImpl) FindByPanIDAndCk(panID uint, ck string) (*entity.Cks, error) {
+	var cks entity.Cks
+	err := r.db.Preload("Pan").Where("pan_id = ? AND ck = ?", panID, ck).First(&cks).Error
+	if err != nil {
+		return nil, err
+	}
+	return &cks, nil
 }
 
 // UpdateSpace 更新空间信息
