@@ -16,16 +16,30 @@
 
     <!-- 内容区 - 配置表单 -->
     <template #content>
-      <div class="config-content h-full">
-        <!-- API Token -->
-        <div>
-          <n-form-item label="公开API访问令牌" path="api_token">
-            <div class="flex gap-2">
+      <div class="config-content h-full space-y-4">
+        <!-- 多标签页编辑提示（last-write-wins，不引入冲突检测） -->
+        <n-alert :show-icon="true" type="info" closable class="mb-4">
+          {{ LAST_WRITE_WINS_NOTICE }}
+        </n-alert>
+
+        <!-- 凭证分组（即时校验 + 未保存检测） -->
+        <AdminFormSection
+          title="API 凭证"
+          description="公开 API 访问令牌，请妥善保管"
+        >
+          <n-form-item
+            label="公开API访问令牌"
+            path="api_token"
+            :validation-status="errors.api_token ? 'error' : undefined"
+            :feedback="errors.api_token"
+          >
+            <div class="flex gap-2 w-full">
               <n-input
                 v-model:value="configForm.api_token"
                 type="password"
                 placeholder="输入API Token，用于公开API访问认证"
                 show-password-on="click"
+                @blur="validateApiToken"
               />
               <n-button
                 v-if="!configForm.api_token"
@@ -35,65 +49,46 @@
                 生成
               </n-button>
               <template v-else>
-                <n-button
-                  type="primary"
-                  @click="copyApiToken"
-                >
-                  复制
-                </n-button>
-                <n-button
-                  type="warning"
-                  @click="regenerateApiToken"
-                >
-                  重新生成
-                </n-button>
+                <n-button type="primary" @click="copyApiToken">复制</n-button>
+                <n-button type="warning" @click="regenerateApiToken">重新生成</n-button>
               </template>
             </div>
-            <template #help>
-              API Token用于公开API的访问认证，请妥善保管
-            </template>
           </n-form-item>
-        </div>
 
-        <!-- API文档链接 -->
-        <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-          <h3 class="text-lg font-medium text-blue-900 dark:text-blue-100 mb-2">
-            API文档
-          </h3>
-          <p class="text-sm text-blue-700 dark:text-blue-300 mb-3">
-            查看完整的API文档和使用说明
-          </p>
-          <n-button type="primary" @click="openApiDocs">
-            <template #icon>
-              <i class="fas fa-book"></i>
-            </template>
-            查看API文档
-          </n-button>
-        </div>
+          <template #footer>
+            <span v-if="hasUnsavedChanges" class="text-xs text-amber-600 dark:text-amber-400">
+              <i class="fas fa-exclamation-circle mr-1"></i>有未保存的更改
+            </span>
+          </template>
+        </AdminFormSection>
 
-        <!-- 插件开发说明 -->
-        <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-          <h3 class="text-lg font-medium text-green-900 dark:text-green-100 mb-2">
-            插件开发
-          </h3>
-          <p class="text-sm text-green-700 dark:text-green-300 mb-3">
-            学习如何开发自定义插件，扩展系统功能
-          </p>
-          <div class="flex gap-2">
-            <n-button type="success" @click="showPluginDevGuide">
-              <template #icon>
-                <i class="fas fa-code"></i>
-              </template>
-              插件开发说明
-            </n-button>
-            <n-button type="info" @click="goToPluginManager">
-              <template #icon>
-                <i class="fas fa-plug"></i>
-              </template>
-              插件管理
-            </n-button>
+        <!-- 开发资源分组 -->
+        <AdminFormSection title="开发资源" description="API 文档与插件开发指引">
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <h3 class="text-base font-medium text-blue-900 dark:text-blue-100 mb-2">API 文档</h3>
+              <p class="text-sm text-blue-700 dark:text-blue-300 mb-3">查看完整的 API 文档和使用说明</p>
+              <n-button type="primary" @click="openApiDocs">
+                <template #icon><i class="fas fa-book"></i></template>
+                查看API文档
+              </n-button>
+            </div>
+            <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <h3 class="text-base font-medium text-green-900 dark:text-green-100 mb-2">插件开发</h3>
+              <p class="text-sm text-green-700 dark:text-green-300 mb-3">学习如何开发自定义插件，扩展系统功能</p>
+              <div class="flex gap-2">
+                <n-button type="success" @click="showPluginDevGuide">
+                  <template #icon><i class="fas fa-code"></i></template>
+                  插件开发说明
+                </n-button>
+                <n-button type="info" @click="goToPluginManager">
+                  <template #icon><i class="fas fa-plug"></i></template>
+                  插件管理
+                </n-button>
+              </div>
+            </div>
           </div>
-        </div>
+        </AdminFormSection>
       </div>
     </template>
   </AdminPageLayout>
@@ -107,6 +102,9 @@
 
 <script setup lang="ts">
 import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
+import { useUnsavedChanges } from '~/composables/useUnsavedChanges'
+import { validateField } from '~/utils/formValidation'
+import { LAST_WRITE_WINS_NOTICE } from '~/utils/adminNotices'
 import AdminPageLayout from '~/components/AdminPageLayout.vue'
 import PluginDevGuide from '~/components/plugins/PluginDevGuide.vue'
 
@@ -145,6 +143,30 @@ const configForm = ref<DevConfigForm>({
   api_token: ''
 })
 
+// 即时校验错误（字段失焦触发）
+const errors = ref<{ api_token?: string }>({})
+
+const validateApiToken = () => {
+  errors.value.api_token =
+    validateField(configForm.value.api_token, {
+      required: true,
+      message: 'API Token 不能为空，点击「生成」创建新令牌',
+    }) ?? undefined
+}
+
+// 未保存变更检测（路由切换/刷新前提示）
+// 注意：useUnsavedChanges 的 hasChanges 与 useConfigChangeDetection 的 hasChanges 同名，
+// 这里解构为 hasUnsavedChanges 避免遮蔽上面的 change detection 函数
+const { hasChanges: hasUnsavedChanges, markDirty, markClean } = useUnsavedChanges()
+
+watch(
+  () => configForm.value.api_token,
+  () => {
+    markDirty()
+    if (errors.value.api_token) validateApiToken()
+  },
+)
+
 // 获取系统配置
 const fetchConfig = async () => {
   try {
@@ -156,12 +178,16 @@ const fetchConfig = async () => {
       const configData = {
         api_token: (response as any).api_token || ''
       }
-      
+
       configForm.value = { ...configData }
       setOriginalConfig(configData)
+
+      // 初次加载完成后清除未保存标记与错误（避免触发 watch 误判）
+      await nextTick()
+      markClean()
+      errors.value = {}
     }
   } catch (error) {
-    console.error('获取系统配置失败:', error)
     notification.error({
       content: '获取系统配置失败',
       duration: 3000
@@ -195,7 +221,11 @@ const saveConfig = async () => {
           content: '开发配置保存成功',
           duration: 3000
         })
-        
+
+        // 清空未保存标记与错误状态
+        markClean()
+        errors.value = {}
+
         // 刷新系统配置状态，确保顶部导航同步更新
         const { useSystemConfigStore } = await import('~/stores/systemConfig')
         const systemConfigStore = useSystemConfigStore()
@@ -203,7 +233,6 @@ const saveConfig = async () => {
       },
       // 错误回调
       (error) => {
-        console.error('保存开发配置失败:', error)
         notification.error({
           content: '保存开发配置失败',
           duration: 3000
@@ -234,7 +263,6 @@ const generateApiToken = async () => {
       duration: 3000
     })
   } catch (error) {
-    console.error('生成API Token失败:', error)
     notification.error({
       content: '生成API Token失败',
       duration: 3000
@@ -251,7 +279,6 @@ const copyApiToken = async () => {
       duration: 3000
     })
   } catch (error) {
-    console.error('复制API Token失败:', error)
     notification.error({
       content: '复制API Token失败',
       duration: 3000
@@ -270,7 +297,6 @@ const regenerateApiToken = async () => {
       duration: 3000
     })
   } catch (error) {
-    console.error('重新生成API Token失败:', error)
     notification.error({
       content: '重新生成API Token失败',
       duration: 3000
@@ -321,7 +347,6 @@ const exportConfig = async () => {
       duration: 3000
     })
   } catch (error) {
-    console.error('导出配置失败:', error)
     notification.error({
       content: '导出配置失败',
       duration: 3000
@@ -354,7 +379,6 @@ const importConfig = () => {
           })
         }
       } catch (error) {
-        console.error('导入配置失败:', error)
         notification.error({
           content: '导入配置失败',
           duration: 3000

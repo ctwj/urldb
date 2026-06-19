@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"net/http"
 	"runtime"
 	"time"
 
 	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -181,6 +183,24 @@ func GetSearchesTrend(c *gin.Context) {
 	}
 
 	SuccessResponse(c, results)
+}
+
+// GetSummary 仪表盘首屏聚合统计（含环比昨日与待办）
+// 契约: contracts/stats-summary-api.md — 返回 {code,message,data} 统一封装
+// 架构说明: 业务逻辑已抽至 services.StatsService.GetSummary()，handler 仅做 HTTP 编排
+func GetSummary(c *gin.Context) {
+	svc := services.GetDefaultStatsService()
+	if svc == nil {
+		ErrorResponse(c, "统计服务未初始化", http.StatusInternalServerError)
+		return
+	}
+	summary, err := svc.GetSummary()
+	if err != nil {
+		utils.Error("GetSummary 失败: %v", err)
+		ErrorResponse(c, "获取统计失败", http.StatusInternalServerError)
+		return
+	}
+	SuccessResponse(c, summary)
 }
 
 // 记录启动时间

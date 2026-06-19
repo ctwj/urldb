@@ -230,7 +230,6 @@ const loadSearchStats = async () => {
     await nextTick()
     updateChart()
   } catch (error) {
-    console.error('加载搜索统计失败:', error)
   } finally {
     loading.value = false
   }
@@ -243,7 +242,6 @@ const loadSearchRecords = async () => {
     const response = await useApiFetch('/search-stats').then(parseApiResponse) as any
     searchList.value = response?.data || []
   } catch (error) {
-    console.error('加载搜索记录失败:', error)
   } finally {
     loading.value = false
   }

@@ -17,6 +17,11 @@
     <!-- 内容区 - 配置表单 -->
     <template #content>
       <div class="config-content h-full">
+        <!-- 多标签页编辑提示（last-write-wins，不引入冲突检测） -->
+        <n-alert :show-icon="true" type="info" closable class="mb-4">
+          {{ LAST_WRITE_WINS_NOTICE }}
+        </n-alert>
+
         <!-- 顶部Tabs -->
         <n-tabs
           v-model:value="activeTab"
@@ -281,7 +286,9 @@ definePageMeta({
 
 import { useImageUrl } from '~/composables/useImageUrl'
 import { useConfigChangeDetection } from '~/composables/useConfigChangeDetection'
+import { useUnsavedChanges } from '~/composables/useUnsavedChanges'
 import AnnouncementConfig from '~/components/Admin/AnnouncementConfig.vue'
+import { LAST_WRITE_WINS_NOTICE } from '~/utils/adminNotices'
 import FloatButtonsConfig from '~/components/Admin/FloatButtonsConfig.vue'
 import ImageSelectorModal from '~/components/Admin/ImageSelectorModal.vue'
 import QRCodeStyleSelector from '~/components/Admin/QRCodeStyleSelector.vue'
@@ -358,7 +365,6 @@ const {
   setOriginalConfig,
   updateCurrentConfig,
   getChangedConfig,
-  hasChanges,
   getChangedDetails,
   updateOriginalConfig,
   saveConfig: saveConfigWithDetection
@@ -414,6 +420,21 @@ const configForm = ref<SiteConfigForm>({
   qr_code_style: 'Plain'
 })
 
+// 未保存变更守卫（路由切换/刷新前提示）
+const { hasChanges: hasUnsavedChanges, markDirty, markClean } = useUnsavedChanges()
+
+// 加载标志位：避免数据回填时被 watch deep 误判为用户编辑
+let isLoadingConfig = true
+
+// 监听表单 ref 本身（不监听 hasChanges() 函数，避免响应式循环 + 卸载时序错误）
+watch(
+  configForm,
+  () => {
+    if (!isLoadingConfig) markDirty()
+  },
+  { deep: true },
+)
+
 
 
 // 表单验证规则
@@ -459,9 +480,13 @@ const fetchConfig = async () => {
       // 设置表单数据和原始数据
       configForm.value = { ...configData }
       setOriginalConfig(configData)
+
+      // 初次加载完成后解除加载锁、清除未保存标记（避免 watch deep 误判回填为用户编辑）
+      await nextTick()
+      isLoadingConfig = false
+      markClean()
     }
   } catch (error) {
-    console.error('获取系统配置失败:', error)
     notification.error({
       content: '获取系统配置失败',
       duration: 3000
@@ -497,7 +522,10 @@ const saveConfig = async () => {
           content: '站点配置保存成功',
           duration: 3000
         })
-        
+
+        // 清空未保存标记
+        markClean()
+
         // 刷新系统配置状态，确保顶部导航同步更新
         const { useSystemConfigStore } = await import('~/stores/systemConfig')
         const systemConfigStore = useSystemConfigStore()
@@ -505,7 +533,6 @@ const saveConfig = async () => {
       },
       // 错误回调
       (error) => {
-        console.error('保存站点配置失败:', error)
         notification.error({
           content: '保存站点配置失败',
           duration: 3000

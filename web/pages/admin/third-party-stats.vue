@@ -368,7 +368,6 @@ const fetchConfig = async () => {
       setOriginalConfig(configData)
     }
   } catch (error) {
-    console.error('获取配置失败:', error)
     message.error('获取配置失败')
   }
 }
@@ -399,7 +398,6 @@ const saveCode = async () => {
       },
       // 错误回调
       (error) => {
-        console.error('保存配置失败:', error)
         message.error('保存配置失败')
       }
     )

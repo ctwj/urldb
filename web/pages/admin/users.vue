@@ -42,20 +42,21 @@
         <n-spin size="large" />
       </div>
 
-      <div v-else-if="users.length === 0" class="text-center py-8">
-        <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-          <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
-          <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
-        </svg>
-        <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无用户</div>
-        <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">你可以点击上方"添加用户"按钮创建新用户</div>
-        <n-button @click="showCreateModal = true" type="primary">
-          <template #icon>
-            <i class="fas fa-plus"></i>
-          </template>
-          添加用户
-        </n-button>
-      </div>
+      <AdminEmptyState
+        v-else-if="users.length === 0"
+        icon="fas fa-users"
+        title="暂无用户"
+        description='你可以点击上方"添加用户"按钮创建新用户'
+      >
+        <template #action>
+          <n-button @click="showCreateModal = true" type="primary">
+            <template #icon>
+              <i class="fas fa-plus"></i>
+            </template>
+            添加用户
+          </n-button>
+        </template>
+      </AdminEmptyState>
 
       <div v-else class="h-full">
         <n-data-table
@@ -435,7 +436,6 @@ const fetchData = async () => {
       total.value = 0
     }
   } catch (error) {
-    console.error('获取用户失败:', error)
     users.value = []
     total.value = 0
   } finally {
@@ -493,7 +493,6 @@ const deleteUser = async (userId: number) => {
         })
         fetchData()
       } catch (error) {
-        console.error('删除失败:', error)
         notification.error({
           content: '删除失败',
           duration: 3000
@@ -550,7 +549,6 @@ const handleSubmit = async () => {
     closeModal()
     fetchData()
   } catch (error) {
-    console.error('提交失败:', error)
     notification.error({
       content: '操作失败',
       duration: 3000
@@ -580,7 +578,6 @@ const handleChangePassword = async () => {
       confirm_password: ''
     }
   } catch (error) {
-    console.error('修改密码失败:', error)
     notification.error({
       content: '修改密码失败',
       duration: 3000

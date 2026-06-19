@@ -340,7 +340,6 @@ const fetchTask = async () => {
     const response = await taskApi.getTaskStatus(parseInt(route.params.id as string)) as any
     task.value = response
   } catch (error) {
-    console.error('获取任务详情失败:', error)
     message.error('获取任务详情失败')
   } finally {
     loading.value = false
@@ -375,7 +374,6 @@ const fetchTaskItems = async () => {
       total.value = 0
     }
   } catch (error) {
-    console.error('获取任务项列表失败:', error)
     message.error('获取任务项列表失败')
     // 发生错误时也要重置数据
     taskItems.value = []
@@ -407,7 +405,6 @@ const startTask = async () => {
       message.error('任务启动失败')
     }
   } catch (error) {
-    console.error('启动任务失败:', error)
     message.error('启动任务失败')
   } finally {
     actionLoading.value = false
@@ -426,7 +423,6 @@ const pauseTask = async () => {
       message.error('任务暂停失败')
     }
   } catch (error) {
-    console.error('暂停任务失败:', error)
     message.error('暂停任务失败')
   } finally {
     actionLoading.value = false
@@ -445,7 +441,6 @@ const resumeTask = async () => {
       message.error('任务继续失败')
     }
   } catch (error) {
-    console.error('继续任务失败:', error)
     message.error('继续任务失败')
   } finally {
     actionLoading.value = false
@@ -464,7 +459,6 @@ const retryTask = async () => {
       message.error('任务重试失败')
     }
   } catch (error) {
-    console.error('重试任务失败:', error)
     message.error('重试任务失败')
   } finally {
     actionLoading.value = false
@@ -489,7 +483,6 @@ const deleteTask = async () => {
           message.error('任务删除失败')
         }
       } catch (error) {
-        console.error('删除任务失败:', error)
         message.error('删除任务失败')
       } finally {
         actionLoading.value = false

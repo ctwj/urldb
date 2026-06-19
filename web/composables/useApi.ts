@@ -177,9 +177,20 @@ export const useReadyResourceApi = () => {
   }
 }
 
+// 仪表盘首屏聚合统计响应类型（与后端 StatsSummary 对应，见 contracts/stats-summary-api.md）
+export interface StatsSummary {
+  resources: { today: number; yesterday: number; total: number }
+  views: { today: number; yesterday: number }
+  searches: { today: number; yesterday: number }
+  todos: { ready_resources: number; failed_tasks: number; pending_reports: number }
+}
+
 export const useStatsApi = () => {
   const getStats = () => useApiFetch('/stats').then(parseApiResponse)
-  return { getStats }
+  /** 获取仪表盘首屏聚合统计（含环比昨日与待办） */
+  const getSummary = (): Promise<StatsSummary> =>
+    useApiFetch('/stats/summary').then(parseApiResponse)
+  return { getStats, getSummary }
 }
 
 export const useSearchStatsApi = () => {

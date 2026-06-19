@@ -120,10 +120,18 @@
         <n-spin size="large" />
       </div>
 
-      <div v-else-if="resources.length === 0" class="text-center py-8">
-        <i class="fas fa-check-circle text-4xl text-green-400 mb-4"></i>
-        <p class="text-gray-500">暂无未转存的资源</p>
-      </div>
+      <AdminErrorState
+        v-else-if="errorMessage"
+        icon="fas fa-exclamation-triangle"
+        :message="errorMessage"
+        :on-retry="refreshData"
+      />
+
+      <AdminEmptyState
+        v-else-if="resources.length === 0"
+        icon="fas fa-check-circle"
+        title="暂无未转存的资源"
+      />
 
       <div v-else>
         <n-data-table
@@ -183,6 +191,7 @@ const taskApi = useTaskApi()
 const resources = ref([])
 const categories = ref([])
 const loading = ref(false)
+const errorMessage = ref('')
 const transferring = ref(false)
 const total = ref(0)
 const selectedResourceIds = ref([])
@@ -332,6 +341,7 @@ const columns = [
 // 获取未转存资源
 const fetchResources = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
     const params = {
       page: currentPage.value,
@@ -361,11 +371,12 @@ const fetchResources = async () => {
       total.value = 0
     }
   } catch (error) {
-    console.error('获取未转存资源失败:', error)
     notification.error({
       content: '获取未转存资源失败',
       duration: 3000
     })
+    errorMessage.value = '加载数据失败，请检查网络或后端服务'
+    resources.value = []
   } finally {
     loading.value = false
   }
@@ -377,7 +388,6 @@ const fetchCategories = async () => {
     const response = await categoryApi.getCategories()
     categories.value = response || []
   } catch (error) {
-    console.error('获取分类失败:', error)
   }
 }
 
@@ -429,7 +439,6 @@ const singleTransfer = async (resource: any) => {
     // 跳转到任务详情页
     navigateTo(`/admin/tasks/${response.id}`)
   } catch (error) {
-    console.error('创建转存任务失败:', error)
     notification.error({
       content: '创建转存任务失败',
       duration: 3000
@@ -473,7 +482,6 @@ const confirmBatchTransfer = async () => {
     // 跳转到任务详情页
     navigateTo(`/admin/tasks/${response.id}`)
   } catch (error) {
-    console.error('创建批量转存任务失败:', error)
     notification.error({
       content: '创建批量转存任务失败',
       duration: 3000

@@ -51,7 +51,7 @@
       <template #header>
         <div class="flex items-center justify-between">
           <span class="text-lg font-semibold">平台列表</span>
-          <span class="text-sm text-gray-500">共 {{ total }} 个平台</span>
+          <span class="text-sm text-gray-500 dark:text-gray-500">共 {{ total }} 个平台</span>
         </div>
       </template>
 
@@ -61,7 +61,7 @@
 
       <div v-else-if="platforms.length === 0" class="text-center py-8">
         <i class="fas fa-cloud text-4xl text-gray-400 mb-4"></i>
-        <p class="text-gray-500">暂无平台数据</p>
+        <p class="text-gray-500 dark:text-gray-500">暂无平台数据</p>
       </div>
 
       <div v-else class="space-y-4">
@@ -76,7 +76,7 @@
                 <div class="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900">
                   <span v-html="platform.icon" class="text-blue-600 dark:text-blue-400"></span>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white dark:text-gray-900">
                   {{ platform.name }}
                 </h3>
                 <span v-if="platform.is_enabled" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">

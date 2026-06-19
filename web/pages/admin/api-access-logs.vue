@@ -100,10 +100,11 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="logs.length === 0" class="flex flex-col items-center justify-center py-12">
-        <i class="fas fa-file-alt text-4xl text-gray-400 mb-4"></i>
-        <p class="text-gray-500 dark:text-gray-400">暂无访问日志</p>
-      </div>
+      <AdminEmptyState
+        v-else-if="logs.length === 0"
+        icon="fas fa-file-alt"
+        title="暂无访问日志"
+      />
 
       <!-- 日志列表 -->
       <div v-else class="space-y-2 h-full overflow-y-auto">
@@ -297,7 +298,6 @@ const fetchData = async () => {
     total.value = response.total || 0
 
   } catch (error) {
-    console.error('获取API访问日志失败:', error)
     notification.error({
       content: '获取API访问日志失败',
       duration: 3000
@@ -315,7 +315,6 @@ const fetchSummary = async () => {
     const response = await apiAccessLogApi.getApiAccessLogSummary()
     summary.value = response as any
   } catch (error) {
-    console.error('获取统计汇总失败:', error)
   }
 }
 
@@ -422,7 +421,6 @@ const clearOldLogs = async () => {
 
         refreshData()
       } catch (error) {
-        console.error('清理旧日志失败:', error)
         notification.error({
           content: '清理旧日志失败',
           duration: 3000

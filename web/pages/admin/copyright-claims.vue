@@ -26,7 +26,7 @@
               clearable
             >
               <template #prefix>
-                <i class="fas fa-search text-gray-400 text-sm"></i>
+                <i class="fas fa-search text-gray-400 text-sm dark:text-gray-400"></i>
               </template>
             </n-input>
           </div>
@@ -66,15 +66,21 @@
         <n-spin size="large" />
       </div>
 
+      <!-- 错误状态 -->
+      <AdminErrorState
+        v-else-if="errorMessage"
+        icon="fas fa-exclamation-triangle"
+        :message="errorMessage"
+        :on-retry="fetchClaims"
+      />
+
       <!-- 空状态 -->
-      <div v-else-if="claims.length === 0" class="text-center py-8">
-        <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
-          <circle cx="24" cy="24" r="20" stroke-width="3" stroke-dasharray="6 6" />
-          <path d="M16 24h16M24 16v16" stroke-width="3" stroke-linecap="round" />
-        </svg>
-        <div class="text-lg font-semibold text-gray-400 dark:text-gray-500 mb-2">暂无版权申述记录</div>
-        <div class="text-sm text-gray-400 dark:text-gray-600 mb-4">目前没有用户提交的版权申述信息</div>
-      </div>
+      <AdminEmptyState
+        v-else-if="claims.length === 0"
+        icon="fas fa-gavel"
+        title="暂无版权申述记录"
+        description="目前没有用户提交的版权申述信息"
+      />
 
       <!-- 数据表格 - 自适应高度 -->
       <div v-else class="flex flex-col h-full overflow-auto">
@@ -154,7 +160,7 @@
               <i class="fas fa-file-download text-blue-500"></i>
               <span class="text-sm text-gray-900 dark:text-gray-100">{{ getFileName(file) }}</span>
             </div>
-            <i class="fas fa-download text-gray-400 hover:text-blue-500 transition-colors"></i>
+            <i class="fas fa-download text-gray-400 hover:text-blue-500 transition-colors dark:text-gray-400"></i>
           </div>
         </div>
       </div>
@@ -196,6 +202,7 @@ const dialog = useDialog()
 
 const { resourceApi } = useApi()
 const loading = ref(false)
+const errorMessage = ref('')
 const claims = ref<any[]>([])
 const showDetailModal = ref(false)
 const selectedClaim = ref<any>(null)
@@ -222,7 +229,7 @@ const columns = [
       return h('div', { class: 'space-y-1' }, [
         h('div', { class: 'font-medium text-sm' }, row.id),
         h('div', {
-          class: 'text-xs text-gray-400',
+          class: 'text-xs text-gray-400 dark:text-gray-400',
           title: `IP: ${row.ip_address || '未知'}`
         }, row.ip_address ? `IP: ${row.ip_address.slice(0, 8)}...` : 'IP:未知')
       ])
@@ -254,7 +261,7 @@ const columns = [
             // 鼠标hover显示第一个资源的链接地址
             title: resourceInfo.resources.length > 0 ? `链接地址: ${resourceInfo.resources[0].save_url || resourceInfo.resources[0].url}` : `资源链接地址: ${row.resource_key}`
           }),
-          h('span', { class: 'text-xs text-gray-400' }, `链接数: ${resourceInfo.resources.length}`)
+          h('span', { class: 'text-xs text-gray-400 dark:text-gray-400' }, `链接数: ${resourceInfo.resources.length}`)
         ])
       ])
     }
@@ -306,7 +313,7 @@ const columns = [
             class: 'text-sm text-gray-700 dark:text-gray-300 line-clamp-2 max-h-10',
             title: row.reason
           }, row.reason || '无'),
-          h('div', { class: 'text-xs text-gray-400' }, [
+          h('div', { class: 'text-xs text-gray-400 dark:text-gray-400' }, [
             h('i', { class: 'fas fa-clock mr-1' }),
             `提交时间: ${formatDateTime(row.created_at)}`
           ])
@@ -326,9 +333,9 @@ const columns = [
               ])
             ),
             getProofFiles(row.proof_files).length > 2 ?
-              h('div', { class: 'text-xs text-gray-400' }, `还有 ${getProofFiles(row.proof_files).length - 2} 个文件...`) : null
+              h('div', { class: 'text-xs text-gray-400 dark:text-gray-400' }, `还有 ${getProofFiles(row.proof_files).length - 2} 个文件...`) : null
           ]) :
-          h('div', { class: 'text-xs text-gray-400' }, '无证明文件'),
+          h('div', { class: 'text-xs text-gray-400 dark:text-gray-400' }, '无证明文件'),
         // 第三行：处理备注（如果有）
         row.note ?
           h('div', { class: 'space-y-1' }, [
@@ -359,7 +366,7 @@ const columns = [
         // 显示处理时间（如果已处理）
         (row.status !== 'pending' && row.updated_at) ?
           h('div', {
-            class: 'text-xs text-gray-400',
+            class: 'text-xs text-gray-400 dark:text-gray-400',
             title: `处理时间: ${formatDateTime(row.updated_at)}`
           }, `更新: ${new Date(row.updated_at).toLocaleDateString()}`) : null
       ].filter(Boolean))
@@ -419,6 +426,7 @@ const debounceSearch = () => {
 // 获取版权申述列表
 const fetchClaims = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
     const params: any = {
       page: pagination.value.page,
@@ -429,8 +437,6 @@ const fetchClaims = async () => {
     if (filters.value.resourceKey) params.resource_key = filters.value.resourceKey
 
     const response = await resourceApi.getCopyrightClaims(params)
-    console.log(response)
-
     // 检查响应格式并处理
     if (response && response.data && response.data.list !== undefined) {
       // 如果后端返回了分页格式，使用正确的字段
@@ -442,7 +448,6 @@ const fetchClaims = async () => {
       pagination.value.total = response.length || 0
     }
   } catch (error) {
-    console.error('获取版权申述列表失败:', error)
     // 显示错误提示
     if (process.client) {
       notification.error({
@@ -450,6 +455,8 @@ const fetchClaims = async () => {
         duration: 3000
       })
     }
+    errorMessage.value = '加载数据失败，请检查网络或后端服务'
+    claims.value = []
   } finally {
     loading.value = false
   }
@@ -511,7 +518,6 @@ const updateClaimStatus = async (claim: any, status: string) => {
       })
     }
   } catch (error) {
-    console.error('更新版权申述状态失败:', error)
     if (process.client) {
       notification.error({
         content: '状态更新失败',
@@ -658,49 +664,38 @@ const getResourceInfo = (row: any) => {
 const getProofFiles = (proofFiles: string) => {
   if (!proofFiles) return []
 
-  console.log('原始证明文件数据:', proofFiles)
-
   try {
     // 尝试解析为JSON格式
     const parsed = JSON.parse(proofFiles)
-    console.log('JSON解析结果:', parsed)
-
     if (Array.isArray(parsed)) {
       // 处理对象数组格式：[{id: "xxx", name: "文件名.pdf", status: "pending"}]
       const fileObjects = parsed.filter(item => item && typeof item === 'object')
       if (fileObjects.length > 0) {
         // 返回原始对象，包含完整信息
-        console.log('解析出文件对象数组:', fileObjects)
         return fileObjects
       }
 
       // 如果不是对象数组，尝试作为字符串数组处理
       const files = parsed.filter(file => file && typeof file === 'string' && file.trim()).map(file => file.trim())
       if (files.length > 0) {
-        console.log('解析出的文件字符串数组:', files)
         return files
       }
     } else if (typeof parsed === 'object' && parsed.url) {
-      console.log('解析出的单个文件:', parsed.url)
       return [parsed.url]
     } else if (typeof parsed === 'object' && parsed.files) {
       // 处理 {files: ["url1", "url2"]} 格式
       if (Array.isArray(parsed.files)) {
         const files = parsed.files.filter(file => file && file.trim()).map(file => file.trim())
-        console.log('解析出的files数组:', files)
         return files
       }
     }
   } catch (e) {
-    console.log('JSON解析失败，尝试分隔符解析:', e.message)
     // 如果不是JSON格式，按分隔符解析
     // 假设文件URL以逗号、分号或换行符分隔
     const files = proofFiles.split(/[,;\n\r]+/).filter(file => file.trim()).map(file => file.trim())
-    console.log('分隔符解析结果:', files)
     return files
   }
 
-  console.log('未解析出任何文件')
   return []
 }
 
@@ -722,10 +717,7 @@ const getFileName = (fileInfo: any) => {
 
 // 下载文件
 const downloadFile = async (fileInfo: any) => {
-  console.log('尝试下载文件:', fileInfo)
-
   if (!fileInfo) {
-    console.error('文件信息为空')
     if (process.client) {
       notification.warning({
         content: '文件信息无效',
@@ -744,7 +736,6 @@ const downloadFile = async (fileInfo: any) => {
       fileName = fileInfo.name || fileInfo.id
       // 构建下载API URL，假设有 /api/files/{id} 端点
       downloadUrl = `/api/files/${fileInfo.id}`
-      console.log('文件对象下载:', { id: fileInfo.id, name: fileName, url: downloadUrl })
     }
     // 处理字符串格式（直接是URL）
     else if (typeof fileInfo === 'string') {
@@ -753,8 +744,6 @@ const downloadFile = async (fileInfo: any) => {
 
       // 检查是否是文件名（不包含http://或https://或/开头）
       if (!fileInfo.match(/^https?:\/\//) && !fileInfo.startsWith('/')) {
-        console.log('检测到纯文件名，需要通过API下载:', fileName)
-
         if (process.client) {
           notification.info({
             content: `文件 "${fileName}" 需要通过API下载，功能开发中...`,
@@ -767,12 +756,10 @@ const downloadFile = async (fileInfo: any) => {
       // 处理相对路径URL
       if (fileInfo.startsWith('/uploads/')) {
         downloadUrl = `${window.location.origin}${fileInfo}`
-        console.log('处理本地文件URL:', downloadUrl)
       }
     }
 
     if (!downloadUrl) {
-      console.error('无法确定下载URL')
       if (process.client) {
         notification.warning({
           content: '无法确定下载地址',
@@ -790,12 +777,6 @@ const downloadFile = async (fileInfo: any) => {
     // 设置下载文件名
     link.download = fileName.includes('.') ? fileName : fileName + '.file'
 
-    console.log('下载参数:', {
-      originalInfo: fileInfo,
-      downloadUrl: downloadUrl,
-      fileName: fileName
-    })
-
     // 添加到页面并触发点击
     document.body.appendChild(link)
     link.click()
@@ -808,7 +789,6 @@ const downloadFile = async (fileInfo: any) => {
       })
     }
   } catch (error) {
-    console.error('下载文件失败:', error)
     if (process.client) {
       notification.error({
         content: `下载失败: ${error.message}`,
