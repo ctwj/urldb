@@ -58,6 +58,10 @@ type ResourceRepository interface {
 	FindDueForCleanup(retentionDays int, limit int) ([]*entity.Resource, error)
 	MarkCleaned(id uint, cleanedAt time.Time) error
 	MarkCleanError(id uint, errMsg string, errAt time.Time) error
+	// UpdateFields 按主键更新指定字段；用于重转等场景部分更新（避免 GORM Updates 跳过零值）
+	UpdateFields(id uint, fields map[string]interface{}) error
+	// GenerateUniqueKey 生成唯一的6位Base62资源Key（复用 BaseRepositoryImpl 实现）
+	GenerateUniqueKey() (string, error)
 }
 
 // ResourceRepositoryImpl Resource的Repository实现
@@ -892,4 +896,16 @@ func (r *ResourceRepositoryImpl) MarkCleanError(id uint, errMsg string, errAt ti
 		"clean_error_msg":    errMsg,
 		"last_clean_error_at": errAt,
 	}).Error
+}
+
+// UpdateFields 按主键更新指定字段；用于重转等场景的部分字段更新，
+// 避免使用 GORM Updates(struct) 时跳过零值字段。
+func (r *ResourceRepositoryImpl) UpdateFields(id uint, fields map[string]interface{}) error {
+	return r.db.Model(&entity.Resource{}).Where("id = ?", id).Updates(fields).Error
+}
+
+// GenerateUniqueKey 生成唯一的6位Base62资源Key，用于 /r/:key 短链访问。
+// 委托给 BaseRepositoryImpl.GenerateUniqueKey（泛型实现，按 resource.key 字段查重）。
+func (r *ResourceRepositoryImpl) GenerateUniqueKey() (string, error) {
+	return r.BaseRepositoryImpl.GenerateUniqueKey("key")
 }

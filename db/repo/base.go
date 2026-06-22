@@ -1,8 +1,18 @@
 package repo
 
 import (
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"gorm.io/gorm"
 )
+
+// keyAlphabet Base62 字符集，用于生成 6 位短 key
+const keyAlphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// keyLength 资源 key 长度（6 位 Base62，约 568 亿组合，碰撞概率可忽略）
+const keyLength = 6
+
+// keyMaxRetry 生成 key 的最大重试次数（防极端情况下死循环）
+const keyMaxRetry = 20
 
 // BaseRepository 基础Repository接口
 type BaseRepository[T any] interface {
@@ -77,4 +87,24 @@ func (r *BaseRepositoryImpl[T]) FindWithPagination(page, limit int) ([]T, int64,
 
 func (r *BaseRepositoryImpl[T]) GetDB() *gorm.DB {
 	return r.db
+}
+
+// GenerateUniqueKey 生成唯一的 6 位 Base62 key，并针对当前 repo 的实体类型查重。
+// column 指定查重字段名（如 "key"）；最多重试 keyMaxRetry 次，冲突即返回 gorm.ErrInvalidData。
+// 所有嵌入 BaseRepositoryImpl 的子 repo 可直接复用，无需各自实现。
+func (r *BaseRepositoryImpl[T]) GenerateUniqueKey(column string) (string, error) {
+	for i := 0; i < keyMaxRetry; i++ {
+		key, err := gonanoid.Generate(keyAlphabet, keyLength)
+		if err != nil {
+			return "", err
+		}
+		var count int64
+		if err := r.db.Model(new(T)).Where(column+" = ?", key).Count(&count).Error; err != nil {
+			return "", err
+		}
+		if count == 0 {
+			return key, nil
+		}
+	}
+	return "", gorm.ErrInvalidData
 }

@@ -11,7 +11,9 @@ var (
 	reSurlParam  = regexp.MustCompile(`surl=([a-zA-Z0-9_-]+)`)
 	reSurlPath   = regexp.MustCompile(`/s/([a-zA-Z0-9_-]+)`)
 	reShareID    = regexp.MustCompile(`"shareid":(\d+)[,}]`)
-	reUserID     = regexp.MustCompile(`"share_uk":"(\d+)"[,}]`)
+	// share_uk 历史是字符串 "share_uk":"123"，新版页面偶为数字 "share_uk":123，
+	// 故引号设为可选。捕获组始终是数字本身。
+	reUserID     = regexp.MustCompile(`"share_uk":"?(\d+)"?[,}]`)
 	reFsID       = regexp.MustCompile(`"fs_id":(\d+)[,}]`)
 	reFilename   = regexp.MustCompile(`"server_filename":"([^"]+)"[,}]`)
 	reIsDir      = regexp.MustCompile(`"isdir":(\d+)[,}]`)
@@ -47,6 +49,7 @@ var ErrorCodeMap = map[int]string{
 	115:    "分享链接已失效（文件禁止分享）",
 	145:    "分享链接已失效",
 	-65:    "触发频率限制",
+	132:    "删除文件需要二次身份验证（手机短信），请在浏览器登录账号完成验证后再试",
 	200025: "提取码输入错误，请检查提取码",
 }
 
@@ -85,7 +88,13 @@ func ParseSharePageHTML(response string) ([]baiduShareFile, error) {
 	isDirs := reIsDir.FindAllStringSubmatch(response, -1)
 
 	if len(shareIDs) == 0 || len(userIDs) == 0 || len(fsIDs) == 0 {
-		return nil, fmt.Errorf("解析分享链接响应失败, 可能是提取码错误或链接失效")
+		// 截取响应前 300 字符放进错误信息，方便定位是 Cookie 失效、被风控、还是字段格式变化
+		snippet := response
+		if len(snippet) > 300 {
+			snippet = snippet[:300]
+		}
+		return nil, fmt.Errorf("解析分享链接响应失败, 可能是提取码错误或链接失效 (shareid=%d share_uk=%d fs_id=%d, 响应长度=%d, 前缀: %s)",
+			len(shareIDs), len(userIDs), len(fsIDs), len(response), snippet)
 	}
 
 	shareID, _ := strconv.ParseInt(shareIDs[0][1], 10, 64)

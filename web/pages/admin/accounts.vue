@@ -220,6 +220,9 @@
           Cookie <span class="text-red-500">*</span>
         </label>
         <n-input v-model:value="form.ck" type="textarea" placeholder="请输入Cookie内容，系统将自动识别容量" :rows="4" required />
+        <n-alert v-if="isBaidu" type="warning" class="mt-2" :show-icon="true">
+          请先登录百度网盘网页版，在根目录手动创建名为 <code class="px-1 bg-gray-100 dark:bg-gray-700 rounded">urldb</code> 的目录。系统转存的文件会保存到该目录。
+        </n-alert>
       </div>
 
       <div v-if="isXunlei">

@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
-
-	gonanoid "github.com/matoous/go-nanoid/v2"
 	"gorm.io/gorm"
 )
 
@@ -104,23 +102,9 @@ func (r *ReadyResourceRepositoryImpl) DeleteByKey(key string) error {
 	return r.db.Where("key = ?", key).Delete(&entity.ReadyResource{}).Error
 }
 
-// GenerateUniqueKey 生成唯一的6位Base62 key
+// GenerateUniqueKey 生成唯一的6位Base62 key（委托给 BaseRepositoryImpl 实现）
 func (r *ReadyResourceRepositoryImpl) GenerateUniqueKey() (string, error) {
-	for i := 0; i < 20; i++ {
-		key, err := gonanoid.Generate("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 6)
-		if err != nil {
-			return "", err
-		}
-		var count int64
-		err = r.db.Model(&entity.ReadyResource{}).Where("key = ?", key).Count(&count).Error
-		if err != nil {
-			return "", err
-		}
-		if count == 0 {
-			return key, nil
-		}
-	}
-	return "", gorm.ErrInvalidData
+	return r.BaseRepositoryImpl.GenerateUniqueKey("key")
 }
 
 // FindWithErrors 查找有错误信息的资源（包括软删除的）

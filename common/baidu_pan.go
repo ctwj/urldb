@@ -15,6 +15,12 @@ import (
 
 const baiduPanBaseURL = "https://pan.baidu.com"
 
+// baiduTransferDir 百度转存目标子目录。
+// 百度对根目录 / 的文件删除有风控（errno=132 强制短信二次验证），
+// 改用子目录规避。⚠️ 该目录必须由用户在百度网盘网页版手动创建，
+// 百度 share/transfer API 不会自动创建目标目录，缺失时转存会失败。
+const baiduTransferDir = "/urldb"
+
 // BaiduPanService 百度网盘服务
 type BaiduPanService struct {
 	*BasePanService
@@ -285,40 +291,54 @@ func (b *BaiduPanService) createShare(fsIDs []int64, period, pwd, bdstoken strin
 }
 
 // deleteByPaths 按路径批量删除文件（百度删除 API 基于路径，非 fs_id）
+//
+// 关键：参数与 filelist 格式必须与浏览器抓包一致，否则触发 errno=132 短信二次验证：
+//   - filelist 用字符串数组 ["path1","path2"]，不是对象数组 [{"path":"..."}]
+//   - query 必须带 async=2 / onnest=fail / newVerify=1 / dp-logid，不能带 channel=chunlei
+//   - async=2 模式下返回 taskid，需要轮询 /share/taskquery 确认实际删除结果
 func (b *BaiduPanService) deleteByPaths(paths []string) error {
 	bdstoken, err := b.getBdstoken()
 	if err != nil {
 		return err
 	}
 
-	// 构建 filelist JSON: [{"path":"/a"},{"path":"/b"}]
-	// 用 json.Marshal 而非手拼，避免文件名特殊字符（如 "）破坏 JSON。
-	type pathItem struct {
-		Path string `json:"path"`
-	}
-	items := make([]pathItem, 0, len(paths))
-	for _, p := range paths {
-		items = append(items, pathItem{Path: p})
-	}
-	filelistJSON, err := json.Marshal(items)
+	// filelist 是字符串数组（不是对象数组），与浏览器一致
+	// 用 json.Marshal 避免文件名特殊字符破坏 JSON
+	filelistJSON, err := json.Marshal(paths)
 	if err != nil {
 		return fmt.Errorf("构建删除列表失败: %v", err)
 	}
 
+	// dp-logid：浏览器随机生成，用纳秒时间戳模拟（非关键，但缺失可能被风控识别）
+	dpLogid := strconv.FormatInt(time.Now().UnixNano(), 10)
+
 	queryParams := map[string]string{
+		"async":      "2",
+		"onnest":     "fail",
 		"opera":      "delete",
 		"bdstoken":   bdstoken,
-		"web":        "1",
+		"newVerify":  "1",
 		"clienttype": "0",
-		"channel":    "chunlei",
 		"app_id":     "250528",
+		"web":        "1",
+		"dp-logid":   dpLogid,
 	}
 	rawBody := "filelist=" + url.QueryEscape(string(filelistJSON))
+
+	// 诊断日志：记录请求体与目标路径，便于排查 errno
+	log.Printf("[baidu] deleteByPaths 请求 paths=%v body=%s", paths, rawBody)
 
 	data, err := b.HTTPPostForm(baiduPanBaseURL+"/api/filemanager", rawBody, queryParams)
 	if err != nil {
 		return fmt.Errorf("删除失败: %w", err)
 	}
+
+	// 诊断日志：记录原始响应前 500 字符
+	respSnippet := string(data)
+	if len(respSnippet) > 500 {
+		respSnippet = respSnippet[:500]
+	}
+	log.Printf("[baidu] deleteByPaths 响应: %s", respSnippet)
 
 	errno, m, err := parseBaiduErrno(data)
 	if err != nil {
@@ -329,9 +349,88 @@ func (b *BaiduPanService) deleteByPaths(paths []string) error {
 		return fmt.Errorf("删除响应异常，缺少 errno 字段")
 	}
 	if errno != 0 {
-		// 错误消息保持 ErrnoMessage 原文，便于 cleanup_service.isFileNotExist 匹配
+		// 错误消息保持 ErrnoMessage 原文，便于 cleanup_service.isFileNotExist 匹配。
+		// 注意 errno=132 是百度风控要求短信二次验证（响应含 verify_scene/authwidget），
+		// 不是"文件不存在"—— historically 这里误判过。
 		return fmt.Errorf("%s", ErrnoMessage(errno))
 	}
+
+	// async=2 模式：返回 taskid 表示异步任务已受理，需要轮询 /share/taskquery 确认实际结果。
+	// 浏览器流程：filemanager 返回 taskid → 轮询 taskquery 直到 state=success → 刷新文件列表。
+	if taskID, ok := m["taskid"]; ok && taskID != nil {
+		if err := b.pollDeleteTask(taskID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// pollDeleteTask 轮询异步删除任务结果（async=2 模式）。
+//
+// 重要：filemanager 返回 errno=0 + taskid 已表示删除请求被百度受理并执行，
+// taskquery 仅用于显式确认，其失败不推翻受理结果（百度 API 怪异行为：
+// 删除已完成后查询可能返回非 0 errno，实测文件已被删除但 taskquery 报 errno=4）。
+//
+// 响应字段语义（基于浏览器抓包）：
+//   - errno：外层 API 调用结果，0 = 调用成功
+//   - status：任务状态字符串，"success" = 任务完成
+//   - task_errno：任务实际执行结果，0 = 任务成功（文件已删）
+//
+// 策略：只要看到 errno=0 + status=success + task_errno=0 就显式成功；
+// 其他情况（包括 taskquery 自己返回非 0 errno）继续轮询；
+// 超时后视为成功（因为 filemanager 已受理，乐观处理避免假阴性）。
+func (b *BaiduPanService) pollDeleteTask(taskID any) error {
+	taskIDStr := fmt.Sprintf("%v", taskID)
+	queryParams := map[string]string{
+		"taskid":     taskIDStr,
+		"clienttype": "0",
+		"app_id":     "250528",
+		"web":        "1",
+	}
+
+	const maxAttempts = 10
+	const interval = 500 * time.Millisecond
+
+	for i := 0; i < maxAttempts; i++ {
+		data, err := b.HTTPGet(baiduPanBaseURL+"/share/taskquery", queryParams)
+		if err != nil {
+			// 网络错误不直接失败，继续重试
+			log.Printf("[baidu] taskquery 网络错误 (attempt=%d): %v", i+1, err)
+			time.Sleep(interval)
+			continue
+		}
+
+		errno, m, perr := parseBaiduErrno(data)
+		if perr != nil {
+			log.Printf("[baidu] taskquery 解析失败 (attempt=%d): %v", i+1, perr)
+			time.Sleep(interval)
+			continue
+		}
+
+		// 只有 errno=0 时才进一步看 status/task_errno
+		if errno == 0 {
+			status, _ := m["status"].(string)
+			if status == "success" {
+				taskErrno := toInt64(m["task_errno"])
+				if taskErrno != 0 {
+					// 任务执行层失败（文件不存在等）。由于 filemanager 已受理，
+					// 这里仍乐观视为成功——文件可能本来就不存在，cleanup 目标已达成。
+					log.Printf("[baidu] taskquery task_errno=%d (taskid=%s)，乐观视为成功", taskErrno, taskIDStr)
+					return nil
+				}
+				log.Printf("[baidu] taskquery 任务完成 (taskid=%s)", taskIDStr)
+				return nil
+			}
+			// status 非 success = 任务仍在进行，继续等
+		}
+		// errno != 0：任务查询层错误（百度怪异行为，删除已完成后查询可能返回非 0），
+		// 继续重试确认，超时再乐观处理
+		time.Sleep(interval)
+	}
+
+	// 超时：filemanager 已受理，乐观视为成功（避免假阴性）。
+	// 下一轮 cleanup 不会扫到该资源（因为外层 cleanup 会清空 fid/save_url）。
+	log.Printf("[baidu] taskquery 超时未确认 (taskid=%s)，乐观视为成功（filemanager 已受理）", taskIDStr)
 	return nil
 }
 
@@ -355,8 +454,16 @@ func (b *BaiduPanService) Transfer(shareID string) (*TransferResult, error) {
 	}
 
 	// 3. 提取码验证（若有）
-	if config.Code != "" {
-		randsk, err := b.verifyPassCode(surl, config.Code, bdstoken)
+	// 上层调用方（transferToCloud）目前不会把 URL 里的 ?pwd=xxx 拆到 Code 字段，
+	// 这里兜底：若 Code 为空，尝试从 URL 的 query 中解析 pwd。
+	code := config.Code
+	if code == "" {
+		if u, perr := url.Parse(config.URL); perr == nil {
+			code = u.Query().Get("pwd")
+		}
+	}
+	if code != "" {
+		randsk, err := b.verifyPassCode(surl, code, bdstoken)
 		if err != nil {
 			return ErrorResult(fmt.Sprintf("提取码错误或链接失效: %v", err)), nil
 		}
@@ -394,22 +501,25 @@ func (b *BaiduPanService) Transfer(shareID string) (*TransferResult, error) {
 		fsIDs = append(fsIDs, f.FsID)
 	}
 
-	toFsIDs, err := b.transferFile(files[0].ShareID, files[0].UK, bdstoken, "/", fsIDs)
+	toFsIDs, err := b.transferFile(files[0].ShareID, files[0].UK, bdstoken, baiduTransferDir, fsIDs)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("转存失败: %v", err)), nil
 	}
 
 	// 有效期：统一永久（period=0）
 	period := "0"
-	shareURL, err := b.createShare(toFsIDs, period, config.Code, bdstoken)
+	shareURL, err := b.createShare(toFsIDs, period, code, bdstoken)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("转存成功但创建分享失败: %v", err)), nil
 	}
 
-	// fid 存路径（百度删除基于路径）。多文件用逗号连接
+	// fid 存完整路径（百度删除基于路径）。
+	// 关键：必须带上 baiduTransferDir 前缀，否则 cleanup 删除时路径错位；
+	// 且根目录删除会触发 errno=132 风控，所以一定要落在子目录里。
+	// 多文件用逗号连接。
 	pathParts := make([]string, 0, len(files))
 	for _, f := range files {
-		pathParts = append(pathParts, "/"+f.ServerName)
+		pathParts = append(pathParts, baiduTransferDir+"/"+f.ServerName)
 	}
 	fid := strings.Join(pathParts, ",")
 
@@ -417,7 +527,7 @@ func (b *BaiduPanService) Transfer(shareID string) (*TransferResult, error) {
 		"shareUrl": shareURL,
 		"title":    title,
 		"fid":      fid,
-		"code":     config.Code,
+		"code":     code,
 	}), nil
 }
 

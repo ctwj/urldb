@@ -196,7 +196,7 @@ func CreateCks(c *gin.Context) {
 			PanID:       req.PanID,
 			Idx:         req.Idx,
 			Ck:          req.Ck, // 保持原始输入
-			IsValid:     userInfo.VIPStatus, // 根据VIP状态设置有效性
+			IsValid:     true, // 能走到这里说明 GetUserInfo 成功，cookie 有效；与 VIP 状态无关
 			Space:       userInfo.TotalSpace,
 			LeftSpace:   leftSpaceBytes,
 			UsedSpace:   userInfo.UsedSpace,
@@ -221,7 +221,7 @@ func CreateCks(c *gin.Context) {
 			PanID:       req.PanID,
 			Idx:         req.Idx,
 			Ck:          req.Ck,
-			IsValid:     userInfo.VIPStatus, // 根据VIP状态设置有效性
+			IsValid:     true, // 能走到这里说明 GetUserInfo 成功，cookie 有效；与 VIP 状态无关
 			Space:       userInfo.TotalSpace,
 			LeftSpace:   leftSpaceBytes,
 			UsedSpace:   userInfo.UsedSpace,
@@ -478,7 +478,9 @@ func RefreshCapacity(c *gin.Context) {
 	cks.Space = userInfo.TotalSpace
 	cks.LeftSpace = leftSpaceBytes
 	cks.UsedSpace = userInfo.UsedSpace
-	// cks.IsValid = userInfo.VIPStatus // 根据VIP状态更新有效性
+	// GetUserInfo 成功本身就证明 cookie 有效，与 VIP 状态无关。
+	// 历史代码曾把 IsValid 绑到 VIPStatus，导致非 VIP 账号被误判为无效；这里强制 true。
+	cks.IsValid = true
 
 	err = repoManager.CksRepository.UpdateWithAllFields(cks)
 	if err != nil {

@@ -754,9 +754,9 @@ func GetResourceLink(c *gin.Context) {
 		utils.Error("记录资源访问失败: %v", err)
 	}
 
-	// 如果不是夸克网盘，直接返回原链接
-	if panInfo.Name != "quark" && panInfo.Name != "xunlei" {
-		utils.Info("非夸克和迅雷资源，直接返回原链接")
+	// 仅夸克/迅雷/百度支持详情页自动转存；其他平台直接返回原链接
+	if panInfo.Name != "quark" && panInfo.Name != "xunlei" && panInfo.Name != "baidu" {
+		utils.Info("该平台不支持详情页自动转存，直接返回原链接: %s", panInfo.Name)
 		SuccessResponse(c, gin.H{
 			"url":         resource.URL,
 			"type":        "original",
@@ -863,20 +863,32 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 		autoTransferMinSpace = 5 // 默认5GB
 	}
 
-	// 过滤：只保留已激活、夸克平台、剩余空间足够的账号
+	// 过滤：只保留已激活、同平台、剩余空间足够的账号
 	minSpaceBytes := int64(autoTransferMinSpace) * 1024 * 1024 * 1024
 	var validAccounts []entity.Cks
 	for _, acc := range accounts {
-		if acc.IsValid && acc.PanID == *panID && acc.LeftSpace >= minSpaceBytes {
-			validAccounts = append(validAccounts, acc)
+		// 详细记录每个账号被过滤的原因，避免"没有可用的网盘账号"这种无信息错误
+		if !acc.IsValid {
+			utils.Warn("跳过账号 ID=%d (%s)：IsValid=false", acc.ID, acc.Username)
+			continue
 		}
+		if acc.PanID != *panID {
+			utils.Warn("跳过账号 ID=%d (%s)：PanID 不匹配 (账号=%d, 资源=%d)", acc.ID, acc.Username, acc.PanID, *panID)
+			continue
+		}
+		if acc.LeftSpace < minSpaceBytes {
+			utils.Warn("跳过账号 ID=%d (%s)：剩余空间不足 (%d < %d bytes = %dGB)", acc.ID, acc.Username, acc.LeftSpace, minSpaceBytes, autoTransferMinSpace)
+			continue
+		}
+		validAccounts = append(validAccounts, acc)
 	}
 
 	if len(validAccounts) == 0 {
-		utils.Info("没有可用的网盘账号")
+		msg := fmt.Sprintf("没有可用的网盘账号 (候选 %d 个, 最小空间要求 %dGB)", len(accounts), autoTransferMinSpace)
+		utils.Warn("%s", msg)
 		return TransferResult{
 			Success:  false,
-			ErrorMsg: "没有可用的网盘账号",
+			ErrorMsg: msg,
 		}
 	}
 
@@ -898,7 +910,18 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 		resource.Fid = result.Fid
 		resource.CkID = &account.ID
 		resource.ErrorMsg = ""
-		if err := repoManager.ResourceRepository.Update(resource); err != nil {
+		// 详情页触发自动转存视为中转备份，写入 transferred_at 让自动清理调度器到期回收
+		now := time.Now()
+		resource.TransferredAt = &now
+		// GORM Updates(struct) 会跳过零值字段，所以用 UpdateFields 显式更新
+		if err := repoManager.ResourceRepository.UpdateFields(resource.ID, map[string]interface{}{
+			"save_url":       result.SaveURL,
+			"fid":            result.Fid,
+			"ck_id":          account.ID,
+			"error_msg":      "",
+			"transferred_at": now,
+			"updated_at":     now,
+		}); err != nil {
 			utils.Error("更新资源转存信息失败: %v", err)
 		}
 	} else {
