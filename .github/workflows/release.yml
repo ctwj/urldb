@@ -72,7 +72,7 @@ jobs:
     - name: Build Frontend
       run: |
         cd web
-        npm install --frozen-lockfile
+        npm install --frozen-lockfile --legacy-peer-deps
         npm run build
 
     - name: Create frontend archive
