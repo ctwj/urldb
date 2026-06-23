@@ -153,7 +153,7 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 
 	// 执行转存操作
 	transferStart := utils.GetCurrentTime()
-	resourceID, saveURL, err := tp.performTransfer(ctx, &input, cks)
+	resourceID, saveURL, err := tp.performTransfer(ctx, &input, cks, existingResource)
 	transferDuration := time.Since(transferStart)
 	if err != nil {
 		// 转存失败，更新输出数据
@@ -173,7 +173,9 @@ func (tp *TransferProcessor) Process(ctx context.Context, taskID uint, item *ent
 			"duration_ms":  transferDuration.Milliseconds(),
 			"total_ms":     elapsedTime.Milliseconds(),
 		}, "转存任务项处理失败: %d, 错误: %v，转存耗时: %v，总耗时: %v", item.ID, err, transferDuration, elapsedTime)
-		return fmt.Errorf("转存失败: %v", err)
+		// performTransfer / transferToCloud 已在错误中带"转存失败:"前缀，不再重复包装，
+		// 否则日志里会出现三层"转存失败: 转存失败: 转存失败:" 的丑陋嵌套。
+		return err
 	}
 
 	// 验证转存结果
@@ -265,7 +267,10 @@ func (tp *TransferProcessor) checkResourceExists(url string) (bool, *entity.Reso
 }
 
 // performTransfer 执行转存操作
-func (tp *TransferProcessor) performTransfer(ctx context.Context, input *TransferInput, cks []*entity.Cks) (uint, string, error) {
+// existing 非空表示系统中已存在该 URL 的 resource（重转场景）—— 此时走 Update 路径并写入
+// transferred_at，允许自动清理调度回收网盘文件；existing 为空表示全新 URL，走 Create 路径，
+// 不写 transferred_at，避免清理服务误删用户主动入库的资源。
+func (tp *TransferProcessor) performTransfer(ctx context.Context, input *TransferInput, cks []*entity.Cks, existing *entity.Resource) (uint, string, error) {
 	// 从 cks 中，挑选出，能够转存的账号，
 	urlType := pan.ExtractServiceType(input.URL)
 	if urlType == pan.NotFound {
@@ -298,7 +303,8 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 	saveData, err := tp.transferToCloud(ctx, input.URL, account)
 	if err != nil {
 		utils.Error("云端转存失败: %v", err)
-		return 0, "", fmt.Errorf("转存失败: %v", err)
+		// transferToCloud 已带"转存失败:"前缀，直接透传避免多层嵌套
+		return 0, "", err
 	}
 
 	// 验证转存链接是否有效
@@ -321,37 +327,68 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 	accountID := account.ID
 
 	now := time.Now()
-	resource := &entity.Resource{
-		Title:         input.Title,
-		URL:           input.URL,
-		CategoryID:    categoryID,
-		PanID:         &panIdInt,        // 设置平台ID
-		CkID:          &accountID,       // 绑定转存账号（cleanup 删除时据此解析 cookie）
-		SaveURL:       saveData.SaveURL, // 直接设置转存链接
-		Fid:           saveData.Fid,     // 记录转存文件ID（清理时依据）
-		TransferredAt: &now,             // 记录转存完成时间（清理调度依据）
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	}
 
-	// 保存资源到数据库
-	err = tp.repoMgr.ResourceRepository.Create(resource)
-	if err != nil {
-		utils.Error("保存转存成功的资源失败: %v", err)
-		return 0, "", fmt.Errorf("保存资源失败: %v", err)
-	}
-
-	// 添加标签关联
-	if len(input.Tags) > 0 {
-		err = tp.addResourceTags(resource.ID, input.Tags)
-		if err != nil {
-			utils.Error("添加资源标签失败: %v", err)
-			// 标签添加失败不影响资源创建，只记录错误
+	// 分两种情况：
+	// (1) existing != nil：系统中已存在该 URL（来自 telegram 抓取等），转存为中转备份，需要写入
+	//     transferred_at，让清理调度器到期回收；走 Update 避免重复 Create。
+	// (2) existing == nil：用户在数据转存管理界面主动粘贴的全新链接，转存结果就是最终落地，
+	//     不应被自动清理 → 不写 transferred_at；走 Create。
+	var resourceID uint
+	if existing != nil {
+		// 重转：更新现有 resource。只更新转存相关字段，避免覆盖 Title/Category/Tags 等已有信息。
+		if err := tp.repoMgr.ResourceRepository.UpdateFields(existing.ID, map[string]interface{}{
+			"save_url":      saveData.SaveURL,
+			"fid":           saveData.Fid,
+			"ck_id":         accountID,
+			"transferred_at": now,
+			"error_msg":     "",
+			"updated_at":    now,
+		}); err != nil {
+			utils.Error("更新资源转存信息失败: %v", err)
+			return 0, "", fmt.Errorf("更新资源失败: %v", err)
 		}
+		resourceID = existing.ID
+		utils.Info("转存成功，资源已更新 - 资源ID: %d, 转存链接: %s", resourceID, saveData.SaveURL)
+	} else {
+		// 生成 6 位 Base62 唯一 key（供 /r/:key 短链访问）。失败时回退到无 key 继续，
+		// 避免转存成功但资源落库失败的尴尬，运维可后续手动补 key。
+		key, keyErr := tp.repoMgr.ResourceRepository.GenerateUniqueKey()
+		if keyErr != nil {
+			utils.Error("生成资源 key 失败（继续落库但无 key）: %v", keyErr)
+		}
+
+		resource := &entity.Resource{
+			Title:      input.Title,
+			URL:        input.URL,
+			CategoryID: categoryID,
+			PanID:      &panIdInt,        // 设置平台ID
+			CkID:       &accountID,       // 绑定转存账号（cleanup 删除时据此解析 cookie）
+			SaveURL:    saveData.SaveURL, // 直接设置转存链接
+			Fid:        saveData.Fid,     // 记录转存文件ID（清理时依据）
+			Key:        key,
+			// 注意：不写 TransferredAt —— 新建资源不应被自动清理
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		if err := tp.repoMgr.ResourceRepository.Create(resource); err != nil {
+			utils.Error("保存转存成功的资源失败: %v", err)
+			return 0, "", fmt.Errorf("保存资源失败: %v", err)
+		}
+		resourceID = resource.ID
+
+		// 添加标签关联（仅新建场景；重转时原 resource 已有 tags）
+		if len(input.Tags) > 0 {
+			if err := tp.addResourceTags(resourceID, input.Tags); err != nil {
+				utils.Error("添加资源标签失败: %v", err)
+				// 标签添加失败不影响资源创建，只记录错误
+			}
+		}
+
+		utils.Info("转存成功，资源已创建（不纳入自动清理）- 资源ID: %d, 转存链接: %s", resourceID, saveData.SaveURL)
 	}
 
-	utils.Info("转存成功，资源已创建 - 资源ID: %d, 转存链接: %s", resource.ID, saveData.SaveURL)
-	return resource.ID, saveData.SaveURL, nil
+	return resourceID, saveData.SaveURL, nil
 }
 
 // ShareInfo 分享信息结构
@@ -448,7 +485,7 @@ func (tp *TransferProcessor) transferToCloud(ctx context.Context, url string, ac
 		return nil, fmt.Errorf("转存失败: %v", "转存成功但未获取到分享链接")
 	}
 
-	utils.Info("转存成功 - 资源ID: %s, 转存链接: %s", transferResult.Fid, saveURL)
+	utils.Info("转存成功 - 原分享fid: %s, 转存链接: %s", fid, saveURL)
 
 	return &TransferResult{
 		Success: true,
