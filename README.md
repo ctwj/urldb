@@ -53,9 +53,19 @@
 - [Telegram机器人](https://ecn5khs4t956.feishu.cn/wiki/SwkQw6AzRiFes7kxJXac3pd2ncb?from=from_copylink)
 - [微信公众号自动回复](https://ecn5khs4t956.feishu.cn/wiki/APOEwOyDYicKGHk7gTzcQKpynkf?from=from_copylink)
 
-### v1.3.6
-1. 插件
-2. bug fix
+### v1.4.0
+
+从该版本起， 使用 [PanCheck](https://github.com/Lampon/PanCheck) 来检测网盘链接的有消息，
+需要自行部署，如果只有夸克网盘的资源， 推荐只使用 v1.3.8 版本即可，所有功能，夸克可用， 
+从 v1.4.0 开始，支持百度网盘， 支持详情页所有的网盘链接检测， 支持，自动清理转存的文件
+所有检测失败的链接，后续自动无法查询
+
+1. 新增 转存文件定时自动清理功能
+2. 通过 PanCheck 强化链接检测
+3. 支持 百度网盘
+
+### v1.3.8
+夸克功能版，如果只有夸克，墙裂推荐该版本
 
 [详细改动记录](https://github.com/ctwj/urldb/blob/main/ChangeLog.md) 
 
@@ -157,7 +167,7 @@ STRUCTURED_LOG=false    # 结构化日志开关 (JSON格式)
 - [Nuxt.js](https://nuxt.com/) - Vue.js全栈框架
 - [Tailwind CSS](https://tailwindcss.com/) - CSS框架
 - [GORM](https://gorm.io/) - Go ORM库
-
+- [PanCheck](https://github.com/Lampon/PanCheck) - PanCheck
 ---
 
 ## 📞 交流群

@@ -129,6 +129,7 @@ urldb
 tmp/ 
 
 #
+docs/superpowers/
 data/
 .claude/
 main

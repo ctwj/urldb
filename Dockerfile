@@ -4,7 +4,7 @@ FROM node:20-slim AS frontend-builder
 # 安装pnpm
 WORKDIR /app/web
 COPY web/ ./
-RUN npm install --frozen-lockfile
+RUN npm install --frozen-lockfile --legacy-peer-deps
 ARG NUXT_PUBLIC_API_SERVER=http://backend:8080/api
 ARG NUXT_PUBLIC_API_CLIENT=/api
 RUN npm run build
