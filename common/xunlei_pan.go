@@ -47,7 +47,7 @@ type XunleiPanService struct {
 	extra       XunleiExtraData // 需要保存到数据库的token信息
 }
 
-// 配置化 API Host
+// 配置化 API Host（迅雷下载管家网盘 API 使用 api-pan.xunlei.com）
 func (x *XunleiPanService) apiHost(apiType string) string {
 	if apiType == "user" {
 		return "https://xluser-ssl.xunlei.com"
@@ -145,7 +145,7 @@ func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (Xu
 		"client_id":     XLClientID,
 		"client_secret": XLClientSecret,
 	}
-	resp, err := x.sendXunleiAuthRequest("https://xluser-ssl.xunlei.com/v1/auth/token", body)
+	resp, err := x.sendXunleiAuthRequest("https://xluser-ssl.xunlei.com/v1/auth/token", body, nil)
 	if err != nil {
 		return XunleiTokenData{}, fmt.Errorf("刷新 access_token 请求失败: %v", err)
 	}
@@ -180,7 +180,7 @@ func (x *XunleiPanService) reloginWithCredentials() (XunleiTokenData, error) {
 		return XunleiTokenData{}, fmt.Errorf("无账号密码信息")
 	}
 
-	tokenData, err := x.LoginWithCredentials(x.extra.Credentials.Username, x.extra.Credentials.Password)
+	tokenData, err := x.LoginWithCredentials(x.extra.Credentials.Username, x.extra.Credentials.Password, x.extra.Credentials.Creditkey)
 	if err != nil {
 		return XunleiTokenData{}, fmt.Errorf("账号密码登录失败: %v", err)
 	}
@@ -419,17 +419,46 @@ func (x *XunleiPanService) Transfer(shareID string) (*TransferResult, error) {
 		return ErrorResult(fmt.Sprintf("等待转存完成失败: %v", err)), nil
 	}
 
-	// 获取任务结果以获取文件ID
+	// 获取任务结果以提取转存后的文件ID
+	// 兼容多种返回格式：trace_file_ids（JSON 数组/对象字符串）、file_ids 数组、顶层 file_id
 	existingFileIds := make([]string, 0)
 	if params, ok2 := taskResp["params"].(map[string]interface{}); ok2 {
-		if traceIds, ok3 := params["trace_file_ids"].(string); ok3 {
-			traceData := make(map[string]interface{})
-			json.Unmarshal([]byte(traceIds), &traceData)
-			for _, fid := range traceData {
-				existingFileIds = append(existingFileIds, fid.(string))
+		// trace_file_ids 通常是 JSON 字符串
+		if raw, ok3 := params["trace_file_ids"].(string); ok3 && raw != "" {
+			var arr []string
+			if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+				// 数组格式：["id1","id2"]
+				existingFileIds = append(existingFileIds, arr...)
+			} else {
+				// 对象格式：{"key":"id"}
+				var obj map[string]interface{}
+				if err := json.Unmarshal([]byte(raw), &obj); err == nil {
+					for _, v := range obj {
+						if s, ok := v.(string); ok && s != "" {
+							existingFileIds = append(existingFileIds, s)
+						}
+					}
+				}
+			}
+		}
+		// 兜底：file_ids 直接是数组
+		if len(existingFileIds) == 0 {
+			if arr, ok := params["file_ids"].([]interface{}); ok {
+				for _, v := range arr {
+					if s, ok := v.(string); ok && s != "" {
+						existingFileIds = append(existingFileIds, s)
+					}
+				}
 			}
 		}
 	}
+	// 兜底：顶层 file_id
+	if len(existingFileIds) == 0 {
+		if fileID, ok := taskResp["file_id"].(string); ok && fileID != "" {
+			existingFileIds = append(existingFileIds, fileID)
+		}
+	}
+	log.Printf("迅雷转存 file_ids 提取结果: %v (taskResp params: %+v)", existingFileIds, taskResp["params"])
 
 	// 创建分享链接
 	expirationDays := "-1"
@@ -686,20 +715,43 @@ func (x *XunleiPanService) GetFiles(pdirFid string) (*TransferResult, error) {
 	return SuccessResult("获取成功", []interface{}{}), nil
 }
 
-// DeleteFiles 删除文件 - 实现 PanService 接口
+// DeleteFiles 删除网盘文件（移到回收站）- 实现 PanService 接口。
+// 使用 PATCH /drive/v1/files/{id}/trash（参考 OpenList thunder Remove），需 access_token + captcha_token。
 func (x *XunleiPanService) DeleteFiles(fileList []string) (*TransferResult, error) {
 	log.Printf("开始删除迅雷网盘文件，文件数量: %d", len(fileList))
 
-	// 使用现有的 ShareBatchDelete 方法删除分享
-	result, err := x.ShareBatchDelete(fileList)
+	accessToken, err := x.getAccessToken()
 	if err != nil {
-		return ErrorResult(fmt.Sprintf("删除文件失败: %v", err)), nil
+		return ErrorResult(fmt.Sprintf("获取accessToken失败: %v", err)), nil
+	}
+	captchaToken, err := x.getCaptchaToken()
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("获取captchaToken失败: %v", err)), nil
 	}
 
-	if result.Code != 0 {
-		return ErrorResult(fmt.Sprintf("删除文件失败: %s", result.Msg)), nil
-	}
+	// 临时设置受保护接口所需的 token 头
+	origAuth := x.headers["Authorization"]
+	origCaptcha := x.headers["x-captcha-token"]
+	x.SetHeader("Authorization", "Bearer "+accessToken)
+	x.SetHeader("x-captcha-token", captchaToken)
+	defer func() {
+		x.SetHeader("Authorization", origAuth)
+		x.SetHeader("x-captcha-token", origCaptcha)
+	}()
 
+	for _, fid := range fileList {
+		// fid 可能是逗号分隔的多个 ID（Transfer 返回时 join）
+		for _, id := range strings.Split(fid, ",") {
+			id = strings.TrimSpace(id)
+			if id == "" {
+				continue
+			}
+			apiURL := x.apiHost("") + "/drive/v1/files/" + id + "/trash"
+			if _, err := x.HTTPPatch(apiURL, map[string]interface{}{}); err != nil {
+				return ErrorResult(fmt.Sprintf("删除文件失败(fid=%s): %v", id, err)), nil
+			}
+		}
+	}
 	return SuccessResult("删除成功", nil), nil
 }
 

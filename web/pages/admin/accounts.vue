@@ -228,17 +228,37 @@
       <div v-if="isXunlei">
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              手机号 <span class="text-red-500">*</span>
-            </label>
-            <n-input v-model:value="xunleiForm.username" placeholder="请输入手机号（不需要+86前缀）" required />
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">登录方式</label>
+            <n-radio-group v-model:value="xunleiForm.loginMode">
+              <n-radio value="password">账号密码</n-radio>
+              <n-radio value="refresh_token">Refresh Token（推荐）</n-radio>
+            </n-radio-group>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              密码 <span class="text-red-500">*</span>
-            </label>
-            <n-input v-model:value="xunleiForm.password" type="password" placeholder="请输入密码" show-password-on="click" required />
-          </div>
+          <template v-if="xunleiForm.loginMode === 'refresh_token'">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Refresh Token <span class="text-red-500">*</span>
+              </label>
+              <n-input v-model:value="xunleiForm.refreshToken" type="textarea" :rows="3" placeholder="从手机迅雷APP抓包获取（xluser-ssl.xunlei.com/v1/auth/token 响应的 refresh_token）" required />
+              <n-alert type="info" class="mt-2" :show-icon="true">
+                账号密码登录会触发迅雷短信验证（浏览器无法完成）。推荐用 refresh_token：手机迅雷APP 抓包获取后填入，永久免验证、自动续期。
+              </n-alert>
+            </div>
+          </template>
+          <template v-else>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                手机号 <span class="text-red-500">*</span>
+              </label>
+              <n-input v-model:value="xunleiForm.username" placeholder="请输入手机号（不需要+86前缀）" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                密码 <span class="text-red-500">*</span>
+              </label>
+              <n-input v-model:value="xunleiForm.password" type="password" placeholder="请输入密码" show-password-on="click" required />
+            </div>
+          </template>
         </div>
       </div>
 
@@ -303,7 +323,9 @@ const form = ref({
 // 迅雷专用表单数据
 const xunleiForm = ref({
   username: '',
-  password: ''
+  password: '',
+  loginMode: 'password', // 'password' | 'refresh_token'
+  refreshToken: ''
 })
 
 watch(() => form.value.pan_id, (newVal) => {
@@ -548,20 +570,34 @@ const editCks = (cks) => {
     remark: cks.remark || ''
   }
 
-  // 如果是迅雷账号，解析ck字段来设置表单
+  // 如果是迅雷账号，解析ck字段来设置表单（支持账号密码 / refresh_token 两种模式回显）
   if (cks.pan?.name === 'xunlei') {
     try {
-      // 解析JSON格式
       const parsed = JSON.parse(cks.ck)
-      xunleiForm.value = {
-        username: parsed.username,
-        password: parsed.password
+      if (parsed.refresh_token && !parsed.username) {
+        // refresh_token 模式
+        xunleiForm.value = {
+          username: '',
+          password: '',
+          loginMode: 'refresh_token',
+          refreshToken: parsed.refresh_token
+        }
+      } else {
+        // 账号密码模式
+        xunleiForm.value = {
+          username: parsed.username || '',
+          password: parsed.password || '',
+          loginMode: 'password',
+          refreshToken: ''
+        }
       }
     } catch (e) {
-      // 解析失败，清空表单
+      // 解析失败：ck 非 JSON（刷新后系统存的是纯 refresh_token 字符串），按 refresh_token 模式回显
       xunleiForm.value = {
         username: '',
-        password: ''
+        password: '',
+        loginMode: 'refresh_token',
+        refreshToken: cks.ck || ''
       }
     }
   }
@@ -583,27 +619,50 @@ const closeModal = () => {
   // 重置迅雷表单
   xunleiForm.value = {
     username: '',
-    password: ''
+    password: '',
+    loginMode: 'password',
+    refreshToken: ''
   }
 }
 
 // 提交表单
 const handleSubmit = async () => {
-  // 如果是迅雷账号，需要构造账号密码的JSON格式
+  // 如果是迅雷账号，按登录方式构造 CK JSON
   if (isXunlei.value) {
-    if (!xunleiForm.value.username || !xunleiForm.value.password) {
-      notification.error({
-        title: '失败',
-        content: '请填写完整的账号和密码',
-        duration: 3000
+    if (xunleiForm.value.loginMode === 'refresh_token') {
+      let token = (xunleiForm.value.refreshToken || '').trim()
+      if (!token) {
+        notification.error({
+          title: '失败',
+          content: '请填写 refresh_token',
+          duration: 3000
+        })
+        return
+      }
+      // 容错：若填入的是整个 token 响应 JSON，提取其中的 refresh_token 字段
+      if (token.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(token)
+          if (parsed && parsed.refresh_token) token = parsed.refresh_token
+        } catch (e) { /* 非法 JSON，按原样作为 token 处理 */ }
+      }
+      form.value.ck = JSON.stringify({
+        refresh_token: token
       })
-      return
+    } else {
+      if (!xunleiForm.value.username || !xunleiForm.value.password) {
+        notification.error({
+          title: '失败',
+          content: '请填写完整的账号和密码',
+          duration: 3000
+        })
+        return
+      }
+      form.value.ck = JSON.stringify({
+        username: xunleiForm.value.username,
+        password: xunleiForm.value.password
+      })
     }
-    form.value.ck = JSON.stringify({
-      username: xunleiForm.value.username,
-      password: xunleiForm.value.password,
-      refresh_token: '' // 初始为空，登录后会填充
-    })
   }
 
   if (showEditModal.value) {

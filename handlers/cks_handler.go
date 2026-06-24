@@ -137,8 +137,12 @@ func CreateCks(c *gin.Context) {
 			return
 		}
 
-		// 验证账号密码
-		if credentials.Username == "" || credentials.Password == "" {
+		// 验证凭据：必须提供「账号密码」或「refresh_token」之一
+		if credentials.Username == "" && credentials.RefreshToken == "" {
+			ErrorResponse(c, "请提供账号密码或 refresh_token", http.StatusBadRequest)
+			return
+		}
+		if credentials.Username != "" && credentials.Password == "" {
 			ErrorResponse(c, "请提供完整的账号和密码", http.StatusBadRequest)
 			return
 		}
@@ -146,15 +150,25 @@ func CreateCks(c *gin.Context) {
 		var tokenData *panutils.XunleiTokenData
 		var username string
 
-		// 使用账号密码登录
+		// 登录：若提供 refresh_token 则优先用它（跳过 CoreLogin/review），否则账号密码登录
 		xunleiService := service.(*panutils.XunleiPanService)
-		token, err := xunleiService.LoginWithCredentials(credentials.Username, credentials.Password)
-		if err != nil {
-			ErrorResponse(c, "账号密码登录失败: "+err.Error(), http.StatusBadRequest)
-			return
+		var token panutils.XunleiTokenData
+		if credentials.Username == "" && credentials.RefreshToken != "" {
+			token, err = xunleiService.LoginByRefreshToken(credentials.RefreshToken)
+			if err != nil {
+				ErrorResponse(c, "refresh_token 登录失败: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			username = "迅雷账号"
+		} else {
+			token, err = xunleiService.LoginWithCredentials(credentials.Username, credentials.Password, credentials.Creditkey)
+			if err != nil {
+				ErrorResponse(c, "账号密码登录失败: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			username = credentials.Username
 		}
 		tokenData = &token
-		username = credentials.Username
 
 		// 构建extra数据
 		extra := panutils.XunleiExtraData{
