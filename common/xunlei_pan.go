@@ -42,17 +42,18 @@ type XunleiPanService struct {
 	configMutex sync.RWMutex
 	clientId    string
 	deviceId    string
+	profile     xunleiProfile // 身份配置（android/browser），按账号 client_type 切换
 	entity      entity.Cks
 	cksRepo     repo.CksRepository
 	extra       XunleiExtraData // 需要保存到数据库的token信息
 }
 
-// 配置化 API Host（迅雷下载管家网盘 API 使用 api-pan.xunlei.com）
+// 配置化 API Host（网盘 API host 按 profile：下载管家 api-pan / 浏览器 x-api-pan）
 func (x *XunleiPanService) apiHost(apiType string) string {
 	if apiType == "user" {
 		return "https://xluser-ssl.xunlei.com"
 	}
-	return "https://api-pan.xunlei.com"
+	return x.profile.PanAPIHost
 }
 
 func (x *XunleiPanService) setCommonHeader(req *http.Request) {
@@ -65,11 +66,12 @@ func (x *XunleiPanService) setCommonHeader(req *http.Request) {
 func NewXunleiPanService(config *PanConfig) *XunleiPanService {
 	xunleiInstance := &XunleiPanService{
 		BasePanService: NewBasePanService(config),
-		clientId:       XLClientID,
-		// 占位默认设备标识；实际按账号派生（见 SetCKSRepository / LoginWithCredentials，R-05）
+		profile:        xlProfileAndroid, // 默认下载管家；按账号 client_type 切换（SetClientType）
+		// 占位默认设备标识；实际按账号派生（见 SetCKSRepository / LoginByRefreshToken，R-05）
 		deviceId: deriveDeviceID("urldb", "xunlei"),
 		extra:    XunleiExtraData{},
 	}
+	xunleiInstance.clientId = xunleiInstance.profile.ClientID
 	xunleiInstance.SetHeaders(map[string]string{
 		"Accept":          "*/*",
 		"Accept-Language": "zh-CN,zh;q=0.9",
@@ -78,7 +80,7 @@ func NewXunleiPanService(config *PanConfig) *XunleiPanService {
 		"Origin":          "https://pan.xunlei.com",
 		"Pragma":          "no-cache",
 		"Referer":         "https://pan.xunlei.com/",
-		"User-Agent":      XLUserAgent,
+		"User-Agent":      xunleiInstance.profile.UserAgent,
 		"Authorization":   "",
 		"x-captcha-token": "",
 		"x-client-id":     xunleiInstance.clientId,
@@ -87,6 +89,14 @@ func NewXunleiPanService(config *PanConfig) *XunleiPanService {
 
 	xunleiInstance.UpdateConfig(config)
 	return xunleiInstance
+}
+
+// SetClientType 按账号 client_type（android/browser）切换身份 profile，并同步请求头。
+func (x *XunleiPanService) SetClientType(clientType string) {
+	x.profile = xlProfileByType(clientType)
+	x.clientId = x.profile.ClientID
+	x.SetHeader("x-client-id", x.profile.ClientID)
+	x.SetHeader("User-Agent", x.profile.UserAgent)
 }
 
 // SetCKSRepository 设置 CksRepository 和 entity
@@ -102,9 +112,11 @@ func (x *XunleiPanService) SetCKSRepository(cksRepo repo.CksRepository, entity e
 		}
 	}
 
-	// 从ck字段解析账号密码，并按账号派生稳定的设备标识（R-05）
+	// 从ck字段解析凭据，按 client_type 切换身份 profile，并按账号派生稳定设备标识（R-05）
 	if credentials, err := ParseCredentialsFromCk(x.entity.Ck); err == nil {
 		extra.Credentials = credentials
+		// 按 client_type 选择身份（默认 android，向后兼容已有账号）
+		x.SetClientType(credentials.ClientType)
 		if credentials.Username != "" {
 			x.deviceId = deriveDeviceID(credentials.Username, credentials.Password)
 			x.SetHeader("x-device-id", x.deviceId)
@@ -142,8 +154,8 @@ func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (Xu
 	body := map[string]interface{}{
 		"grant_type":    "refresh_token",
 		"refresh_token": refreshToken,
-		"client_id":     XLClientID,
-		"client_secret": XLClientSecret,
+		"client_id":     x.profile.ClientID,
+		"client_secret": x.profile.ClientSecret,
 	}
 	resp, err := x.sendXunleiAuthRequest("https://xluser-ssl.xunlei.com/v1/auth/token", body, nil)
 	if err != nil {
@@ -255,10 +267,10 @@ func (x *XunleiPanService) getCaptchaToken() (string, error) {
 		}
 	}
 
-	ts, sign := xlCaptchaSign(x.deviceId)
+	ts, sign := x.captchaSign()
 	meta := map[string]string{
-		"client_version": XLClientVersion,
-		"package_name":   XLPackageName,
+		"client_version": x.profile.ClientVersion,
+		"package_name":   x.profile.PackageName,
 		"user_id":        userID,
 		"timestamp":      ts,
 		"captcha_sign":   sign,
@@ -715,10 +727,11 @@ func (x *XunleiPanService) GetFiles(pdirFid string) (*TransferResult, error) {
 	return SuccessResult("获取成功", []interface{}{}), nil
 }
 
-// DeleteFiles 删除网盘文件（移到回收站）- 实现 PanService 接口。
-// 使用 PATCH /drive/v1/files/{id}/trash（参考 OpenList thunder Remove），需 access_token + captcha_token。
+// DeleteFiles 永久删除网盘文件（不进回收站，直接释放空间）- 实现 PanService 接口。
+// 使用 POST /drive/v1/files:batchDelete（参考 OpenList thunder_browser Remove, RemoveWay=delete），
+// 需 access_token + captcha_token。
 func (x *XunleiPanService) DeleteFiles(fileList []string) (*TransferResult, error) {
-	log.Printf("开始删除迅雷网盘文件，文件数量: %d", len(fileList))
+	log.Printf("开始删除迅雷网盘文件（永久删除），文件数量: %d", len(fileList))
 
 	accessToken, err := x.getAccessToken()
 	if err != nil {
@@ -727,6 +740,19 @@ func (x *XunleiPanService) DeleteFiles(fileList []string) (*TransferResult, erro
 	captchaToken, err := x.getCaptchaToken()
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("获取captchaToken失败: %v", err)), nil
+	}
+
+	// 收集所有文件 ID（fileList 元素可能是逗号分隔的多个）
+	ids := make([]string, 0)
+	for _, fid := range fileList {
+		for _, id := range strings.Split(fid, ",") {
+			if id = strings.TrimSpace(id); id != "" {
+				ids = append(ids, id)
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return SuccessResult("无文件需删除", nil), nil
 	}
 
 	// 临时设置受保护接口所需的 token 头
@@ -739,18 +765,14 @@ func (x *XunleiPanService) DeleteFiles(fileList []string) (*TransferResult, erro
 		x.SetHeader("x-captcha-token", origCaptcha)
 	}()
 
-	for _, fid := range fileList {
-		// fid 可能是逗号分隔的多个 ID（Transfer 返回时 join）
-		for _, id := range strings.Split(fid, ",") {
-			id = strings.TrimSpace(id)
-			if id == "" {
-				continue
-			}
-			apiURL := x.apiHost("") + "/drive/v1/files/" + id + "/trash"
-			if _, err := x.HTTPPatch(apiURL, map[string]interface{}{}); err != nil {
-				return ErrorResult(fmt.Sprintf("删除文件失败(fid=%s): %v", id, err)), nil
-			}
-		}
+	// 永久删除：POST /drive/v1/files:batchDelete，body {ids, space}（主空间 space 为空）
+	apiURL := x.apiHost("") + "/drive/v1/files:batchDelete"
+	body := map[string]interface{}{
+		"ids":   ids,
+		"space": "", // 主空间（转存文件所在）
+	}
+	if _, err := x.HTTPPost(apiURL, body, nil); err != nil {
+		return ErrorResult(fmt.Sprintf("永久删除失败: %v", err)), nil
 	}
 	return SuccessResult("删除成功", nil), nil
 }
