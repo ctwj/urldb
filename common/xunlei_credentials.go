@@ -7,6 +7,8 @@ type XunleiAccountCredentials struct {
 	Username     string `json:"username"`     // 手机号（不包含+86前缀）
 	Password     string `json:"password"`     // 密码
 	RefreshToken string `json:"refresh_token"` // 当前有效的refresh_token
+	Creditkey    string `json:"creditkey"`     // 信任密钥（review 短信验证后用于绕过新设备安全验证）
+	ClientType   string `json:"client_type"`   // 身份类型 android|browser，默认 android（决定 client_id/盐值/API host）
 }
 
 // ParseCredentialsFromCk 从ck字段解析账号凭据

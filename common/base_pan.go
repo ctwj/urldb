@@ -202,6 +202,41 @@ func (b *BasePanService) HTTPPut(requestURL string, data interface{}) ([]byte, e
 	return respBody, nil
 }
 
+// HTTPPatch 发送PATCH请求
+func (b *BasePanService) HTTPPatch(requestURL string, data interface{}) ([]byte, error) {
+	var body io.Reader
+	if data != nil {
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewBuffer(jsonData)
+	}
+	req, err := http.NewRequest("PATCH", requestURL, body)
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range b.headers {
+		req.Header.Set(key, value)
+	}
+	if _, exists := b.headers["Content-Type"]; !exists && data != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := b.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	respBody, err := b.readResponseBody(resp)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(respBody))
+	}
+	return respBody, nil
+}
+
 // HTTPDelete 发送DELETE请求
 func (b *BasePanService) HTTPDelete(requestURL string) ([]byte, error) {
 	req, err := http.NewRequest("DELETE", requestURL, nil)

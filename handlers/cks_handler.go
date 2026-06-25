@@ -137,24 +137,26 @@ func CreateCks(c *gin.Context) {
 			return
 		}
 
-		// 验证账号密码
-		if credentials.Username == "" || credentials.Password == "" {
-			ErrorResponse(c, "请提供完整的账号和密码", http.StatusBadRequest)
+		// 验证凭据：必须提供 refresh_token（账号密码登录已被迅雷风控 review 拦截，停用）
+		if credentials.RefreshToken == "" {
+			ErrorResponse(c, "请提供 refresh_token（账号密码登录已被迅雷风控拦截，请用手机迅雷APP抓包获取 refresh_token）", http.StatusBadRequest)
 			return
 		}
 
 		var tokenData *panutils.XunleiTokenData
 		var username string
 
-		// 使用账号密码登录
+		// 按 client_type 选择身份 profile（android/browser），refresh_token 登录
 		xunleiService := service.(*panutils.XunleiPanService)
-		token, err := xunleiService.LoginWithCredentials(credentials.Username, credentials.Password)
+		xunleiService.SetClientType(credentials.ClientType)
+		var token panutils.XunleiTokenData
+		token, err = xunleiService.LoginByRefreshToken(credentials.RefreshToken)
 		if err != nil {
-			ErrorResponse(c, "账号密码登录失败: "+err.Error(), http.StatusBadRequest)
+			ErrorResponse(c, "refresh_token 登录失败: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		tokenData = &token
-		username = credentials.Username
+		username = "迅雷账号"
 
 		// 构建extra数据
 		extra := panutils.XunleiExtraData{
