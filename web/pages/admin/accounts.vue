@@ -215,7 +215,7 @@
         <n-input :value="editingCks.username" disabled readonly />
       </div>
 
-      <div v-if="isQuark || isBaidu">
+      <div v-if="isQuark || isBaidu || isUC">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Cookie <span class="text-red-500">*</span>
         </label>
@@ -326,6 +326,7 @@ definePageMeta({
 const isQuark = ref(false)
 const isXunlei = ref(false)
 const isBaidu = ref(false)
+const isUC = ref(false)
 
 const notification = useNotification()
 const router = useRouter()
@@ -358,6 +359,7 @@ watch(() => form.value.pan_id, (newVal) => {
   isQuark.value = false
   isXunlei.value = false
   isBaidu.value = false
+  isUC.value = false
   const list = platforms.value.filter(it => it.id === newVal)
   if (!list || list.length === 0) {
     return
@@ -369,6 +371,8 @@ watch(() => form.value.pan_id, (newVal) => {
     isXunlei.value = true
   } else if (pan.name === 'baidu') {
     isBaidu.value = true
+  } else if (pan.name === 'uc') {
+    isUC.value = true
   }
 })
 
