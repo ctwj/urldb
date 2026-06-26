@@ -20,6 +20,18 @@ type CaptchaData struct {
 	ExpiresAt    int64  `json:"expires_at"`
 }
 
+// XunleiReviewError 账号密码登录触发迅雷新设备安全验证（review）。
+// 携带 creditkey 与验证链接，供上层透传给前端走 creditkey 闭环（对齐 OpenList）。
+type XunleiReviewError struct {
+	Creditkey string
+	ReviewURL string
+	DeviceID  string
+}
+
+func (e *XunleiReviewError) Error() string {
+	return "迅雷账号需要安全验证（review），请打开验证链接完成短信验证，并将 creditkey 填入后重试"
+}
+
 // XunleiExtraData 所有额外数据的容器
 type XunleiTokenData struct {
 	AccessToken  string `json:"access_token"`
@@ -171,8 +183,11 @@ func (x *XunleiPanService) GetAccessTokenByRefreshToken(refreshToken string) (Xu
 		expiresIn = int64(exp)
 	}
 	refresh := ""
-	if rt, ok := resp["refresh_token"].(string); ok {
+	if rt, ok := resp["refresh_token"].(string); ok && rt != "" {
 		refresh = rt
+	} else {
+		// 响应未返回新的 refresh_token 时保留旧值，避免把 refresh_token 清空导致后续无法刷新
+		refresh = refreshToken
 	}
 	sub, _ := resp["sub"].(string)
 	return XunleiTokenData{
@@ -248,6 +263,15 @@ func (x *XunleiPanService) getAccessToken() (string, error) {
 	x.persistExtra()
 
 	return newData.AccessToken, nil
+}
+
+// Keepalive 保活：刷新并持久化 access_token（顺带给 refresh_token 续命），供定时保活任务调用。
+// 仅刷新令牌，不调用其它网盘 API，避免因无关接口失败而误判账号失效。
+func (x *XunleiPanService) Keepalive() error {
+	if _, err := x.getAccessToken(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // getCaptchaToken 获取 captcha_token（登录后阶段）。
@@ -564,7 +588,7 @@ func (x *XunleiPanService) getShare(shareID, passCode, accessToken, captchaToken
 		"thumbnail_size":  "SIZE_SMALL",
 	}
 
-	return x.requestXunleiApi("https://api-pan.xunlei.com/drive/v1/share", "GET", nil, queryParams, headers)
+	return x.requestXunleiApi(x.apiHost("")+"/drive/v1/share", "GET", nil, queryParams, headers)
 }
 
 // getRestore 转存到网盘 - 匹配 PHP 版本
@@ -603,7 +627,7 @@ func (x *XunleiPanService) getRestore(shareID string, infoData map[string]interf
 	headers["Authorization"] = "Bearer " + accessToken
 	headers["x-captcha-token"] = captchaToken
 
-	return x.requestXunleiApi("https://api-pan.xunlei.com/drive/v1/share/restore", "POST", data, nil, headers)
+	return x.requestXunleiApi(x.apiHost("")+"/drive/v1/share/restore", "POST", data, nil, headers)
 }
 
 // getTasks 获取转存任务状态 - 匹配 PHP 版本
@@ -615,7 +639,7 @@ func (x *XunleiPanService) getTasks(taskID, accessToken, captchaToken string) (m
 	headers["Authorization"] = "Bearer " + accessToken
 	headers["x-captcha-token"] = captchaToken
 
-	return x.requestXunleiApi("https://api-pan.xunlei.com/drive/v1/tasks/"+taskID, "GET", nil, nil, headers)
+	return x.requestXunleiApi(x.apiHost("")+"/drive/v1/tasks/"+taskID, "GET", nil, nil, headers)
 }
 
 // getSharePassword 创建分享链接 - 匹配 PHP 版本
@@ -639,7 +663,7 @@ func (x *XunleiPanService) getSharePassword(fileIDs []string, accessToken, captc
 	headers["Authorization"] = "Bearer " + accessToken
 	headers["x-captcha-token"] = captchaToken
 
-	return x.requestXunleiApi("https://api-pan.xunlei.com/drive/v1/share", "POST", data, nil, headers)
+	return x.requestXunleiApi(x.apiHost("")+"/drive/v1/share", "POST", data, nil, headers)
 }
 
 // getShareInfo 获取分享信息（用于检验模式）
@@ -709,7 +733,7 @@ func (x *XunleiPanService) GetFiles(pdirFid string) (*TransferResult, error) {
 		"limit":          "50",
 	}
 
-	result, err := x.requestXunleiApi("https://api-pan.xunlei.com/drive/v1/files", "GET", nil, queryParams, headers)
+	result, err := x.requestXunleiApi(x.apiHost("")+"/drive/v1/files", "GET", nil, queryParams, headers)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("获取文件列表失败: %v", err)), nil
 	}
@@ -797,7 +821,7 @@ func (x *XunleiPanService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	headers["Authorization"] = "Bearer " + accessToken
 	headers["x-captcha-token"] = captchaToken
 
-	resp, err := x.requestXunleiApi("https://api-pan.xunlei.com/drive/v1/about", "GET", nil, nil, headers)
+	resp, err := x.requestXunleiApi(x.apiHost("")+"/drive/v1/about", "GET", nil, nil, headers)
 	if err != nil {
 		return nil, fmt.Errorf("获取用户信息失败: %v", err)
 	}

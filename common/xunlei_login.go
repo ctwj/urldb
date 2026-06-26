@@ -27,6 +27,7 @@ type xunleiProfile struct {
 	ClientID      string
 	ClientSecret  string
 	ClientVersion string
+	SdkVersion    string // CoreLogin sdkVersion（android: 512000 / browser: 509300）
 	PackageName   string
 	UserAgent     string   // 网盘 API User-Agent
 	CoreLoginUA   string   // CoreLogin(v3) 专用 UA
@@ -42,6 +43,7 @@ var xlProfileAndroid = xunleiProfile{
 	ClientID:      "Xp6vsxz_7IYVw2BB",
 	ClientSecret:  "Xp6vsy4tN9toTVdMSpomVdXpRmES",
 	ClientVersion: "8.31.0.9726",
+	SdkVersion:    "512000",
 	PackageName:   "com.xunlei.downloadprovider",
 	UserAgent:     "ANDROID-com.xunlei.downloadprovider/8.31.0.9726 netWorkType/5G appid/40 deviceName/Xiaomi_M2004j7ac deviceModel/M2004J7AC OSVersion/12 protocolVersion/301 platformVersion/10 sdkVersion/512000 Oauth2Client/0.9 (Linux 4_14_186-perf-gddfs8vbb238b) (JAVA 0)",
 	CoreLoginUA:   "android-ok-http-client/xl-acc-sdk/version-5.0.12.512000",
@@ -68,6 +70,7 @@ var xlProfileBrowser = xunleiProfile{
 	ClientID:      "ZUBzD9J_XPXfn7f7",
 	ClientSecret:  "yESVmHecEe6F0aou69vl-g",
 	ClientVersion: "1.40.0.7208",
+	SdkVersion:    "509300",
 	PackageName:   "com.xunlei.browser",
 	UserAgent:     "ANDROID-com.xunlei.browser/1.40.0.7208 networkType/WIFI appid/22062 deviceName/Xiaomi_M2004j7ac deviceModel/M2004J7AC OSVersion/13 protocolVersion/301 platformversion/10 sdkVersion/509300 Oauth2Client/0.9 (Linux 4_9_337-perf-sn-uotan-gd9d488809c3d) (JAVA 0) ",
 	CoreLoginUA:   "android-ok-http-client/xl-acc-sdk/version-5.0.12.509300",
@@ -214,7 +217,7 @@ func (x *XunleiPanService) coreLogin(username, password, creditkey string) (sess
 		"clientVersion":   x.profile.ClientVersion,
 		"peerID":          "00000000000000000000000000000000",
 		"appName":         "ANDROID-" + x.profile.PackageName,
-		"sdkVersion":      "512000",
+		"sdkVersion":      x.profile.SdkVersion,
 		"devicesign":      xlGenerateDeviceSign(x.profile, x.deviceId),
 		"netWorkType":     "WIFI",
 		"providerName":    "NONE",
@@ -236,7 +239,12 @@ func (x *XunleiPanService) coreLogin(username, password, creditkey string) (sess
 	if reviewURL, _ := resp["reviewurl"].(string); reviewURL != "" {
 		ck, _ := resp["creditkey"].(string)
 		devSign := xlGenerateDeviceSign(x.profile, x.deviceId)
-		return "", fmt.Errorf("迅雷账号触发安全验证（review），请用手机迅雷 APP 登录该账号一次后重试，或打开链接完成验证: %s&deviceid=%s (creditkey=%s)", reviewURL, devSign, ck)
+		// 触发 review（新设备短信验证）：返回结构化错误，供上层透传给前端走 creditkey 闭环
+		return "", &XunleiReviewError{
+			Creditkey: ck,
+			ReviewURL: reviewURL + "&deviceid=" + devSign,
+			DeviceID:  devSign,
+		}
 	}
 	if errMsg, _ := resp["error"].(string); errMsg != "" && errMsg != "success" {
 		return "", fmt.Errorf("CoreLogin 失败: %v", resp)

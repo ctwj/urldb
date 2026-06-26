@@ -230,18 +230,57 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">客户端类型</label>
             <n-radio-group v-model:value="xunleiForm.clientType">
-              <n-radio value="android">安卓（迅雷下载管家 APP）</n-radio>
-              <n-radio value="browser">浏览器（迅雷浏览器 APP）</n-radio>
+              <n-radio value="android">安卓（迅雷下载管家 APP）— refresh_token</n-radio>
+              <n-radio value="browser" disabled>浏览器（迅雷浏览器 APP）— 暂未启用</n-radio>
             </n-radio-group>
-            <p class="text-xs text-gray-500 mt-1">请选择抓取 refresh_token 时使用的 APP，两者 client_id 不同，必须与抓取来源一致</p>
+            <p class="text-xs text-gray-500 mt-1">目前仅支持安卓方案：用手机迅雷下载管家 APP 抓包获取 refresh_token 填入，永久免验证、自动续期。</p>
           </div>
-          <div>
+
+          <!-- 安卓（下载管家）：refresh_token -->
+          <div v-if="xunleiForm.clientType === 'android'">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Refresh Token <span class="text-red-500">*</span>
             </label>
-            <n-input v-model:value="xunleiForm.refreshToken" type="textarea" :rows="3" placeholder="从手机迅雷APP抓包获取（xluser-ssl.xunlei.com/v1/auth/token 响应的 refresh_token）" required />
+            <n-input v-model:value="xunleiForm.refreshToken" type="textarea" :rows="3" placeholder="从手机迅雷下载管家 APP 抓包获取（xluser-ssl.xunlei.com/v1/auth/token 响应的 refresh_token）" required />
             <n-alert type="info" class="mt-2" :show-icon="true">
-              账号密码登录会触发迅雷短信验证（浏览器无法完成），故仅支持 refresh_token：手机迅雷APP 抓包获取后填入，永久免验证、自动续期。
+              用手机迅雷下载管家 APP 抓包获取 refresh_token 填入，永久免验证、自动续期。
+            </n-alert>
+          </div>
+
+          <!-- 浏览器（迅雷浏览器APP）：账号密码 + creditkey 闭环 -->
+          <div v-else>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  账号（手机号） <span class="text-red-500">*</span>
+                </label>
+                <n-input v-model:value="xunleiForm.username" placeholder="迅雷账号手机号（不含 +86 前缀）" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  密码 <span class="text-red-500">*</span>
+                </label>
+                <n-input v-model:value="xunleiForm.password" type="password" show-password-on="click" :placeholder="showEditModal ? '迅雷账号密码（留空表示不修改）' : '迅雷账号密码'" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Creditkey <span class="text-xs text-gray-400 font-normal">（可选，触发验证后填写）</span>
+                </label>
+                <n-input v-model:value="xunleiForm.creditkey" placeholder="触发安全验证后系统会自动填入；也可手动粘贴" />
+              </div>
+            </div>
+
+            <!-- review 安全验证提示区 -->
+            <n-alert v-if="xunleiForm.reviewUrl" type="warning" class="mt-3" :show-icon="true" closable @close="xunleiForm.reviewUrl = ''">
+              <div class="font-medium">本次登录需要安全验证</div>
+              <div class="mt-1">1. 打开
+                <a :href="xunleiForm.reviewUrl" target="_blank" class="text-blue-600 underline">验证链接</a>
+                完成短信验证（或在迅雷官方端登录该账号一次）。</div>
+              <div>2. 系统已自动填入 creditkey，确认后点击「创建」重新提交即可。</div>
+            </n-alert>
+
+            <n-alert type="info" class="mt-2" :show-icon="true">
+              迅雷浏览器 APP 用账号密码登录。新设备首次登录大概率触发短信验证，按提示完成验证并填入 creditkey 后重新提交即可绕过。
             </n-alert>
           </div>
         </div>
@@ -307,8 +346,12 @@ const form = ref({
 
 // 迅雷专用表单数据
 const xunleiForm = ref({
-  clientType: 'android', // 'android'（下载管家）| 'browser'（迅雷浏览器）
-  refreshToken: ''
+  clientType: 'android', // 'android'（下载管家，refresh_token）| 'browser'（迅雷浏览器APP，账号密码）
+  refreshToken: '',
+  username: '',
+  password: '',
+  creditkey: '',
+  reviewUrl: ''
 })
 
 watch(() => form.value.pan_id, (newVal) => {
@@ -402,13 +445,30 @@ const fetchPlatforms = async () => {
 const createCks = async () => {
   submitting.value = true
   try {
-    await cksApi.createCks(form.value)
+    const result = await cksApi.createCks(form.value)
+    // 迅雷浏览器账号密码登录触发 review：作为业务状态（HTTP 200）返回，走 creditkey 闭环（不关闭弹窗）
+    if (result && result.need_review) {
+      xunleiForm.value.creditkey = result.creditkey || xunleiForm.value.creditkey
+      xunleiForm.value.reviewUrl = result.review_url || ''
+      dialog.warning({
+        title: '需要安全验证',
+        content: '请在验证链接完成短信验证（或在迅雷官方端登录该账号一次），creditkey 已自动填入，确认后点击「创建」重新提交。',
+        positiveText: '打开验证链接',
+        onPositiveClick: () => {
+          if (xunleiForm.value.reviewUrl) {
+            window.open(xunleiForm.value.reviewUrl, '_blank')
+          }
+        }
+      })
+      return
+    }
     await fetchCks()
     closeModal()
   } catch (error) {
+    const respData = error && error.data
     dialog.error({
       title: '错误',
-      content: '创建账号失败: ' + (error.message || '未知错误'),
+      content: '创建账号失败: ' + (respData?.message || error.message || '未知错误'),
       positiveText: '确定'
     })
   } finally {
@@ -553,21 +613,31 @@ const editCks = (cks) => {
     remark: cks.remark || ''
   }
 
-  // 如果是迅雷账号，解析 ck 回显客户端类型与 refresh_token
+  // 如果是迅雷账号，按客户端类型回显
   if (cks.pan?.name === 'xunlei') {
     let clientType = 'android'
     let refreshToken = ''
+    let username = ''
+    let password = ''
+    let creditkey = ''
     try {
       const parsed = JSON.parse(cks.ck)
-      if (parsed.client_type) clientType = parsed.client_type
-      if (parsed.refresh_token) refreshToken = parsed.refresh_token
+      clientType = parsed.client_type || 'android'
+      refreshToken = parsed.refresh_token || ''
+      username = parsed.username || ''
+      creditkey = parsed.creditkey || ''
+      // 密码留空表示不修改（编辑时不强制重填）
     } catch (e) {
       // ck 非 JSON（刷新后系统存纯 refresh_token 字符串），默认 android
       refreshToken = cks.ck || ''
     }
     xunleiForm.value = {
       clientType,
-      refreshToken
+      refreshToken,
+      username,
+      password,
+      creditkey,
+      reviewUrl: ''
     }
   }
 
@@ -588,34 +658,58 @@ const closeModal = () => {
   // 重置迅雷表单
   xunleiForm.value = {
     clientType: 'android',
-    refreshToken: ''
+    refreshToken: '',
+    username: '',
+    password: '',
+    creditkey: '',
+    reviewUrl: ''
   }
 }
 
 // 提交表单
 const handleSubmit = async () => {
-  // 如果是迅雷账号，构造含 client_type 的 CK JSON
+  // 如果是迅雷账号，按客户端类型构造 CK JSON
   if (isXunlei.value) {
-    let token = (xunleiForm.value.refreshToken || '').trim()
-    if (!token) {
-      notification.error({
-        title: '失败',
-        content: '请填写 refresh_token',
-        duration: 3000
+    if (xunleiForm.value.clientType === 'android') {
+      let token = (xunleiForm.value.refreshToken || '').trim()
+      if (!token) {
+        notification.error({ title: '失败', content: '请填写 refresh_token', duration: 3000 })
+        return
+      }
+      // 容错：若填入的是整个 token 响应 JSON，提取其中的 refresh_token 字段
+      if (token.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(token)
+          if (parsed && parsed.refresh_token) token = parsed.refresh_token
+        } catch (e) { /* 非法 JSON，按原样作为 token 处理 */ }
+      }
+      form.value.ck = JSON.stringify({
+        refresh_token: token,
+        client_type: 'android'
       })
-      return
+    } else {
+      // 浏览器（迅雷浏览器APP）：账号密码
+      const username = (xunleiForm.value.username || '').trim()
+      const password = xunleiForm.value.password || ''
+      if (!username) {
+        notification.error({ title: '失败', content: '请填写账号（手机号）', duration: 3000 })
+        return
+      }
+      if (showEditModal.value && !password) {
+        // 编辑时密码留空：保留原 ck 不变（仅更新备注等字段，不重新登录）
+      } else {
+        if (!password) {
+          notification.error({ title: '失败', content: '请填写密码', duration: 3000 })
+          return
+        }
+        form.value.ck = JSON.stringify({
+          username,
+          password,
+          creditkey: (xunleiForm.value.creditkey || '').trim(),
+          client_type: 'browser'
+        })
+      }
     }
-    // 容错：若填入的是整个 token 响应 JSON，提取其中的 refresh_token 字段
-    if (token.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(token)
-        if (parsed && parsed.refresh_token) token = parsed.refresh_token
-      } catch (e) { /* 非法 JSON，按原样作为 token 处理 */ }
-    }
-    form.value.ck = JSON.stringify({
-      refresh_token: token,
-      client_type: xunleiForm.value.clientType
-    })
   }
 
   if (showEditModal.value) {
