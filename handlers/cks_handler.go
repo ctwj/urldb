@@ -137,23 +137,50 @@ func CreateCks(c *gin.Context) {
 			return
 		}
 
-		// 验证凭据：必须提供 refresh_token（账号密码登录已被迅雷风控 review 拦截，停用）
-		if credentials.RefreshToken == "" {
-			ErrorResponse(c, "请提供 refresh_token（账号密码登录已被迅雷风控拦截，请用手机迅雷APP抓包获取 refresh_token）", http.StatusBadRequest)
-			return
-		}
-
 		var tokenData *panutils.XunleiTokenData
 		var username string
 
-		// 按 client_type 选择身份 profile（android/browser），refresh_token 登录
+		// 按 client_type 选择身份 profile（android/browser）
 		xunleiService := service.(*panutils.XunleiPanService)
 		xunleiService.SetClientType(credentials.ClientType)
+
 		var token panutils.XunleiTokenData
-		token, err = xunleiService.LoginByRefreshToken(credentials.RefreshToken)
-		if err != nil {
-			ErrorResponse(c, "refresh_token 登录失败: "+err.Error(), http.StatusBadRequest)
-			return
+		if credentials.ClientType == "browser" {
+			// 迅雷浏览器APP：账号密码登录（对齐 OpenList ThunderBrowser）
+			if credentials.Username == "" || credentials.Password == "" {
+				ErrorResponse(c, "浏览器（迅雷浏览器APP）需填写账号（手机号）和密码", http.StatusBadRequest)
+				return
+			}
+			token, err = xunleiService.LoginWithCredentials(credentials.Username, credentials.Password, credentials.Creditkey)
+			if err != nil {
+				// 账号密码登录触发 review：结构化返回 creditkey + 验证链接，前端走 creditkey 闭环
+				var reviewErr *panutils.XunleiReviewError
+				if errors.As(err, &reviewErr) {
+					// review 作为业务状态返回（HTTP 200）：前端通用拦截会丢弃 4xx 响应体的 data，
+					// 故用 200 + need_review 标记，让前端在成功路径拿到 creditkey/验证链接走闭环
+					SuccessResponse(c, gin.H{
+						"need_review": true,
+						"creditkey":   reviewErr.Creditkey,
+						"review_url":  reviewErr.ReviewURL,
+						"device_id":   reviewErr.DeviceID,
+						"message":     reviewErr.Error(),
+					})
+					return
+				}
+				ErrorResponse(c, "账号密码登录失败: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+		} else {
+			// 安卓（下载管家）：refresh_token 登录
+			if credentials.RefreshToken == "" {
+				ErrorResponse(c, "请提供 refresh_token（用手机迅雷下载管家 APP 抓包获取，xluser-ssl.xunlei.com/v1/auth/token 响应的 refresh_token）", http.StatusBadRequest)
+				return
+			}
+			token, err = xunleiService.LoginByRefreshToken(credentials.RefreshToken)
+			if err != nil {
+				ErrorResponse(c, "refresh_token 登录失败: "+err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 		tokenData = &token
 		username = "迅雷账号"

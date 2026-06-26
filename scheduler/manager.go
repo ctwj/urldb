@@ -16,6 +16,7 @@ type Manager struct {
 	sitemapScheduler       *SitemapScheduler
 	googleIndexScheduler   *GoogleIndexScheduler
 	cleanupScheduler       *CleanupScheduler
+	xunleiKeepaliveScheduler *XunleiKeepaliveScheduler
 }
 
 // NewManager 创建调度器管理器
@@ -52,14 +53,16 @@ func NewManager(
 	sitemapScheduler := NewSitemapScheduler(baseScheduler)
 	googleIndexScheduler := NewGoogleIndexScheduler(baseScheduler, taskItemRepo, taskRepo)
 	cleanupScheduler := NewCleanupScheduler(baseScheduler, cleanupService)
+	xunleiKeepaliveScheduler := NewXunleiKeepaliveScheduler(baseScheduler)
 
 	return &Manager{
-		baseScheduler:          baseScheduler,
-		hotDramaScheduler:      hotDramaScheduler,
-		readyResourceScheduler: readyResourceScheduler,
-		sitemapScheduler:       sitemapScheduler,
-		googleIndexScheduler:   googleIndexScheduler,
-		cleanupScheduler:       cleanupScheduler,
+		baseScheduler:            baseScheduler,
+		hotDramaScheduler:        hotDramaScheduler,
+		readyResourceScheduler:   readyResourceScheduler,
+		sitemapScheduler:         sitemapScheduler,
+		googleIndexScheduler:     googleIndexScheduler,
+		cleanupScheduler:         cleanupScheduler,
+		xunleiKeepaliveScheduler: xunleiKeepaliveScheduler,
 	}
 }
 
@@ -76,6 +79,9 @@ func (m *Manager) StartAll() {
 	// 启动Google索引调度任务
 	m.googleIndexScheduler.Start()
 
+	// 启动迅雷 token 保活任务
+	m.xunleiKeepaliveScheduler.Start()
+
 	utils.Debug("所有调度任务已启动")
 }
 
@@ -91,6 +97,9 @@ func (m *Manager) StopAll() {
 
 	// 停止Google索引调度任务
 	m.googleIndexScheduler.Stop()
+
+	// 停止迅雷 token 保活任务
+	m.xunleiKeepaliveScheduler.Stop()
 
 	utils.Debug("所有调度任务已停止")
 }
@@ -193,10 +202,11 @@ func (m *Manager) IsCleanupRunning() bool {
 // GetStatus 获取所有调度任务的状态
 func (m *Manager) GetStatus() map[string]bool {
 	return map[string]bool{
-		"hot_drama":      m.IsHotDramaRunning(),
-		"ready_resource": m.IsReadyResourceRunning(),
-		"sitemap":        m.IsSitemapRunning(),
-		"google_index":   m.IsGoogleIndexRunning(),
-		"cleanup":        m.IsCleanupRunning(),
+		"hot_drama":        m.IsHotDramaRunning(),
+		"ready_resource":   m.IsReadyResourceRunning(),
+		"sitemap":          m.IsSitemapRunning(),
+		"google_index":     m.IsGoogleIndexRunning(),
+		"cleanup":          m.IsCleanupRunning(),
+		"xunlei_keepalive": m.xunleiKeepaliveScheduler.IsRunning(),
 	}
 }
