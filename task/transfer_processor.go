@@ -291,6 +291,7 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 	default:
 		serviceType = ""
 	}
+	utils.Debug("[转存] 识别资源类型 urlType=%s serviceType=%s url=%s", urlType, serviceType, input.URL)
 
 	var account *entity.Cks
 	for _, ck := range cks {
@@ -299,8 +300,10 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		}
 	}
 	if account == nil {
+		utils.Debug("[转存] 未找到匹配账号 serviceType=%s 候选账号数=%d", serviceType, len(cks))
 		return 0, "", fmt.Errorf("为找到匹配的账号: %v", serviceType)
 	}
+	utils.Debug("[转存] 选中账号 serviceType=%s accountID=%d isValid=%v username=%s", serviceType, account.ID, account.IsValid, account.Username)
 
 	// 先执行转存操作
 	saveData, err := tp.transferToCloud(ctx, input.URL, account)
@@ -346,6 +349,11 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 			"transferred_at": now,
 			"error_msg":     "",
 			"updated_at":    now,
+			// 重转产生了新 fid，必须重置清理标记，否则旧的 cleaned_at 会让
+			// FindDueForCleanup（条件 cleaned_at IS NULL）跳过它，导致新文件永远不会被自动清理。
+			"cleaned_at":          nil,
+			"clean_error_msg":     "",
+			"last_clean_error_at": nil,
 		}); err != nil {
 			utils.Error("更新资源转存信息失败: %v", err)
 			return 0, "", fmt.Errorf("更新资源失败: %v", err)
@@ -452,6 +460,7 @@ func (tp *TransferProcessor) transferToCloud(ctx context.Context, url string, ac
 
 	// 提取分享ID
 	shareID, _ := pan.ExtractShareId(url)
+	utils.Debug("[转存] 调用服务转存 serviceType=%s url=%s shareID=%s accountID=%d", account.ServiceType, url, shareID, account.ID)
 
 	// 执行转存
 	transferResult, err := service.Transfer(shareID) // 有些链接还需要其他信息从 url 中自行解析
@@ -465,6 +474,7 @@ func (tp *TransferProcessor) transferToCloud(ctx context.Context, url string, ac
 		if transferResult != nil && transferResult.Message != "" {
 			errMsg = transferResult.Message
 		}
+		utils.Error("[转存] 服务返回失败 serviceType=%s url=%s msg=%s", account.ServiceType, url, errMsg)
 		return nil, fmt.Errorf("转存失败: %v", errMsg)
 	}
 

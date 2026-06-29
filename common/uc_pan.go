@@ -3,7 +3,6 @@ package pan
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -20,6 +19,9 @@ import (
 // 仅以下 4 项 HTTP 调用配置不同。取值依据：demo/OpenList-main/drivers/quark_uc
 // （QuarkOrUC 单驱动同时支撑夸克与 UC，UC 的 Conf 配置）。本项目 common/quark_pan.go
 // 为转存链路的镜像模板，本文件按 UC 配置改写，不修改 quark_pan.go（FR-012 零回归）。
+//
+// 日志约定：诊断日志统一用 utils.Debug（开发环境 DEBUG 级可见，生产 INFO 级自动屏蔽），
+// 关键里程碑用 utils.Info，失败用 utils.Error。严禁打印 Cookie 明文。
 // ============================================================================
 
 const (
@@ -61,6 +63,7 @@ func NewUCService(config *PanConfig) *UCService {
 
 	service.UpdateConfig(config)
 
+	utils.Debug("[UC] 创建UC服务 cookieLen=%d apiBase=%s", len(cookie), ucAPIBase)
 	return service
 }
 
@@ -113,28 +116,37 @@ func (u *UCService) Transfer(shareID string) (*TransferResult, error) {
 	config := u.config
 	u.configMutex.RUnlock()
 
-	log.Printf("开始处理UC分享: %s", shareID)
+	isType := 0
+	if config != nil {
+		isType = config.IsType
+	}
+	utils.Info("[UC] 开始处理分享 shareID=%s isType=%d(0=转存,1=校验)", shareID, isType)
 
 	// 获取 stoken
 	var stoken string
 	if config == nil || config.Stoken == "" {
 		stokenResult, err := u.getStoken(shareID)
 		if err != nil {
+			utils.Error("[UC] 获取stoken失败 shareID=%s err=%v", shareID, err)
 			return ErrorResult(fmt.Sprintf("获取stoken失败: %v", err)), nil
 		}
 		stoken = strings.ReplaceAll(stokenResult.Stoken, " ", "+")
 	} else {
 		stoken = strings.ReplaceAll(config.Stoken, " ", "+")
 	}
+	utils.Debug("[UC] 获取stoken成功 shareID=%s stokenLen=%d", shareID, len(stoken))
 
 	// 获取分享详情
 	shareResult, err := u.getShare(shareID, stoken)
 	if err != nil || len(shareResult.List) == 0 {
+		utils.Error("[UC] 获取分享详情失败 shareID=%s listLen=%d err=%v", shareID, len(shareResult.List), err)
 		return ErrorResult(fmt.Sprintf("获取分享详情失败: %v", err)), nil
 	}
+	utils.Debug("[UC] 获取分享详情成功 shareID=%s title=%s fileCount=%d", shareID, shareResult.Share.Title, len(shareResult.List))
 
 	// 检验模式：只读取资源信息，不实际转存（FR-007）
-	if config != nil && config.IsType == 1 {
+	if isType == 1 {
+		utils.Info("[UC] 校验模式完成（不转存）shareID=%s title=%s", shareID, shareResult.Share.Title)
 		return SuccessResult("检验成功", map[string]interface{}{
 			"title":    shareResult.Share.Title,
 			"shareUrl": config.URL,
@@ -154,44 +166,53 @@ func (u *UCService) Transfer(shareID string) (*TransferResult, error) {
 	// 转存资源
 	saveResult, err := u.getShareSave(shareID, stoken, fidList, fidTokenList)
 	if err != nil {
+		utils.Error("[UC] 转存失败 shareID=%s err=%v", shareID, err)
 		return ErrorResult(fmt.Sprintf("转存失败: %v", err)), nil
 	}
+	utils.Debug("[UC] 转存请求成功 shareID=%s taskID=%s", shareID, saveResult.TaskID)
 
 	// 等待转存完成
 	myData, err := u.waitForTask(saveResult.TaskID)
 	if err != nil {
+		utils.Error("[UC] 等待转存完成失败 shareID=%s taskID=%s err=%v", shareID, saveResult.TaskID, err)
 		return ErrorResult(fmt.Sprintf("等待转存完成失败: %v", err)), nil
 	}
 
 	if len(myData.SaveAs.SaveAsTopFids) == 0 {
+		utils.Error("[UC] 转存完成但未获取到文件标识 shareID=%s", shareID)
 		return ErrorResult("转存完成但未获取到文件标识"), nil
 	}
+	utils.Debug("[UC] 转存完成 shareID=%s topFids=%v", shareID, myData.SaveAs.SaveAsTopFids)
 
 	// 删除广告文件（如果有配置）
 	if err := u.deleteAdFiles(myData.SaveAs.SaveAsTopFids[0]); err != nil {
-		log.Printf("删除UC广告文件失败: %v", err)
+		utils.Debug("[UC] 删除广告文件失败（不阻断）fid=%s err=%v", myData.SaveAs.SaveAsTopFids[0], err)
 	}
 
 	// 添加个人自定义广告
 	if err := u.addAd(myData.SaveAs.SaveAsTopFids[0]); err != nil {
-		log.Printf("添加UC广告文件失败: %v", err)
+		utils.Debug("[UC] 添加广告文件失败（不阻断）fid=%s err=%v", myData.SaveAs.SaveAsTopFids[0], err)
 	}
 
 	// 分享资源
 	shareBtnResult, err := u.getShareBtn(myData.SaveAs.SaveAsTopFids, title)
 	if err != nil {
+		utils.Error("[UC] 创建再分享失败 shareID=%s err=%v", shareID, err)
 		return ErrorResult(fmt.Sprintf("分享失败: %v", err)), nil
 	}
+	utils.Debug("[UC] 创建再分享请求成功 taskID=%s", shareBtnResult.TaskID)
 
 	// 等待分享完成
 	shareTaskResult, err := u.waitForTask(shareBtnResult.TaskID)
 	if err != nil {
+		utils.Error("[UC] 等待分享完成失败 taskID=%s err=%v", shareBtnResult.TaskID, err)
 		return ErrorResult(fmt.Sprintf("等待分享完成失败: %v", err)), nil
 	}
 
 	// 获取分享密码
 	passwordResult, err := u.getSharePassword(shareTaskResult.ShareID)
 	if err != nil {
+		utils.Error("[UC] 获取分享密码失败 shareID=%s err=%v", shareTaskResult.ShareID, err)
 		return ErrorResult(fmt.Sprintf("获取分享密码失败: %v", err)), nil
 	}
 
@@ -203,6 +224,7 @@ func (u *UCService) Transfer(shareID string) (*TransferResult, error) {
 		fid = passwordResult.FirstFile.Fid
 	}
 
+	utils.Info("[UC] 转存成功 shareID=%s newShareUrl=%s title=%s fid=%s", shareID, passwordResult.ShareURL, passwordResult.ShareTitle, fid)
 	return SuccessResult("转存成功", map[string]interface{}{
 		"shareUrl": passwordResult.ShareURL,
 		"title":    passwordResult.ShareTitle,
@@ -220,6 +242,7 @@ func (u *UCService) GetFiles(pdirFid string) (*TransferResult, error) {
 	if pdirFid == "" {
 		pdirFid = "0"
 	}
+	utils.Debug("[UC] GetFiles pdirFid=%s", pdirFid)
 
 	queryParams := map[string]string{
 		"pr":              ucPR,
@@ -235,6 +258,7 @@ func (u *UCService) GetFiles(pdirFid string) (*TransferResult, error) {
 
 	data, err := u.HTTPGet(ucAPIBase+"/file/sort", queryParams)
 	if err != nil {
+		utils.Error("[UC] GetFiles 请求失败 pdirFid=%s err=%v", pdirFid, err)
 		return ErrorResult(fmt.Sprintf("获取UC文件列表失败: %v", err)), nil
 	}
 
@@ -247,6 +271,7 @@ func (u *UCService) GetFiles(pdirFid string) (*TransferResult, error) {
 	}
 
 	if err := json.Unmarshal(data, &response); err != nil {
+		utils.Error("[UC] GetFiles 解析响应失败 pdirFid=%s err=%v bodyHead=%s", pdirFid, err, headSnippet(data))
 		return ErrorResult("解析UC响应失败"), nil
 	}
 
@@ -255,9 +280,11 @@ func (u *UCService) GetFiles(pdirFid string) (*TransferResult, error) {
 		if strings.Contains(message, "require login") || strings.Contains(message, "guest") {
 			message = "UC未登录，请检查cookie"
 		}
+		utils.Error("[UC] GetFiles 接口返回非200 pdirFid=%s status=%d msg=%s", pdirFid, response.Status, message)
 		return ErrorResult(message), nil
 	}
 
+	utils.Debug("[UC] GetFiles 成功 pdirFid=%s count=%d", pdirFid, len(response.Data.List))
 	return SuccessResult("获取成功", response.Data.List), nil
 }
 
@@ -266,20 +293,22 @@ func (u *UCService) DeleteFiles(fileList []string) (*TransferResult, error) {
 	if len(fileList) == 0 {
 		return ErrorResult("文件列表为空"), nil
 	}
+	utils.Debug("[UC] DeleteFiles count=%d fids=%v", len(fileList), fileList)
 
 	for _, fileID := range fileList {
 		if err := u.deleteSingleFile(fileID); err != nil {
-			log.Printf("删除UC文件 %s 失败: %v", fileID, err)
+			utils.Error("[UC] 删除UC文件失败 fid=%s err=%v", fileID, err)
 			return ErrorResult(fmt.Sprintf("删除UC文件 %s 失败: %v", fileID, err)), nil
 		}
 	}
 
+	utils.Debug("[UC] DeleteFiles 成功 count=%d", len(fileList))
 	return SuccessResult("删除成功", nil), nil
 }
 
 // deleteSingleFile 删除单个文件
 func (u *UCService) deleteSingleFile(fileID string) error {
-	log.Printf("正在删除UC文件: %s", fileID)
+	utils.Debug("[UC] 删除文件 fid=%s", fileID)
 
 	data := map[string]interface{}{
 		"action_type":  2,
@@ -301,20 +330,19 @@ func (u *UCService) deleteSingleFile(fileID string) error {
 	}
 
 	if err := json.Unmarshal(respData, &response); err != nil {
-		return fmt.Errorf("解析UC删除响应失败: %v", err)
+		return fmt.Errorf("解析UC删除响应失败: %v bodyHead=%s", err, headSnippet(respData))
 	}
 
 	if response.Status != 200 {
-		return fmt.Errorf("删除UC文件失败: %s", response.Message)
+		return fmt.Errorf("删除UC文件失败: status=%d msg=%s", response.Status, response.Message)
 	}
 
 	if response.Data.TaskID != "" {
-		log.Printf("UC删除文件任务ID: %s", response.Data.TaskID)
+		utils.Debug("[UC] 删除文件任务提交 fid=%s taskID=%s", fileID, response.Data.TaskID)
 		if _, err := u.waitForTask(response.Data.TaskID); err != nil {
 			return fmt.Errorf("等待UC删除任务完成失败: %v", err)
 		}
 	}
-
 	return nil
 }
 
@@ -324,54 +352,57 @@ func (u *UCService) deleteSingleFile(fileID string) error {
 
 // getStoken 提取码换 stoken
 func (u *UCService) getStoken(shareID string) (*UCStokenResult, error) {
+	passcode := u.configCode()
 	data := map[string]interface{}{
-		"passcode": u.configCode(), // 加密分享的提取码（公开分享为空）
+		"passcode": passcode, // 加密分享的提取码（公开分享为空）
 		"pwd_id":   shareID,
 	}
+	utils.Debug("[UC] 请求 stoken shareID=%s passcodeLen=%d", shareID, len(passcode))
 
 	respData, err := u.HTTPPost(ucAPIBase+"/share/sharepage/token", data, u.ucCommonQuery())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("请求失败: %v", err)
 	}
 
 	var response struct {
-		Status  int           `json:"status"`
-		Message string        `json:"message"`
+		Status  int            `json:"status"`
+		Message string         `json:"message"`
 		Data    UCStokenResult `json:"data"`
 	}
 
 	if err := json.Unmarshal(respData, &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("解析响应失败: %v bodyHead=%s", err, headSnippet(respData))
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf("%s", response.Message)
+		return nil, fmt.Errorf("获取stoken失败: status=%d msg=%s", response.Status, response.Message)
 	}
 
+	utils.Debug("[UC] stoken 响应成功 shareID=%s stokenLen=%d title=%s", shareID, len(response.Data.Stoken), response.Data.Title)
 	return &response.Data, nil
 }
 
 // getShare 获取分享详情
 func (u *UCService) getShare(shareID, stoken string) (*UCShareResult, error) {
 	queryParams := map[string]string{
-		"pr":            ucPR,
+		"pr":             ucPR,
 		"fr":             "pc",
-		"uc_param_str":  "",
-		"pwd_id":        shareID,
-		"stoken":        stoken,
-		"pdir_fid":      "0",
-		"force":         "0",
-		"_page":         "1",
-		"_size":         "100",
-		"_fetch_banner": "1",
-		"_fetch_share":  "1",
-		"_fetch_total":  "1",
-		"_sort":         "file_type:asc,updated_at:desc",
+		"uc_param_str":   "",
+		"pwd_id":         shareID,
+		"stoken":         stoken,
+		"pdir_fid":       "0",
+		"force":          "0",
+		"_page":          "1",
+		"_size":          "100",
+		"_fetch_banner":  "1",
+		"_fetch_share":   "1",
+		"_fetch_total":   "1",
+		"_sort":          "file_type:asc,updated_at:desc",
 	}
 
 	respData, err := u.HTTPGet(ucAPIBase+"/share/sharepage/detail", queryParams)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("请求失败: %v", err)
 	}
 
 	var response struct {
@@ -381,11 +412,11 @@ func (u *UCService) getShare(shareID, stoken string) (*UCShareResult, error) {
 	}
 
 	if err := json.Unmarshal(respData, &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("解析响应失败: %v bodyHead=%s", err, headSnippet(respData))
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf("%s", response.Message)
+		return nil, fmt.Errorf("获取分享详情失败: status=%d msg=%s", response.Status, response.Message)
 	}
 
 	return &response.Data, nil
@@ -408,7 +439,7 @@ func (u *UCService) getShareSaveToDir(shareID, stoken string, fidList, fidTokenL
 
 	respData, err := u.HTTPPost(ucAPIBase+"/share/sharepage/save", data, u.ucCommonQuery())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("请求失败: %v", err)
 	}
 
 	var response struct {
@@ -418,13 +449,14 @@ func (u *UCService) getShareSaveToDir(shareID, stoken string, fidList, fidTokenL
 	}
 
 	if err := json.Unmarshal(respData, &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("解析响应失败: %v bodyHead=%s", err, headSnippet(respData))
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf("%s", response.Message)
+		return nil, fmt.Errorf("转存失败: status=%d msg=%s", response.Status, response.Message)
 	}
 
+	utils.Debug("[UC] save 响应成功 taskID=%s toPdirFid=%s fileCount=%d", response.Data.TaskID, toPdirFid, len(fidList))
 	return &response.Data, nil
 }
 
@@ -450,7 +482,7 @@ func (u *UCService) getShareBtn(fidList []string, title string) (*UCShareBtnResu
 
 	respData, err := u.HTTPPost(ucAPIBase+"/share", data, u.ucCommonQuery())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("请求失败: %v", err)
 	}
 
 	var response struct {
@@ -460,17 +492,18 @@ func (u *UCService) getShareBtn(fidList []string, title string) (*UCShareBtnResu
 	}
 
 	if err := json.Unmarshal(respData, &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("解析响应失败: %v bodyHead=%s", err, headSnippet(respData))
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf("%s", response.Message)
+		return nil, fmt.Errorf("创建分享失败: status=%d msg=%s", response.Status, response.Message)
 	}
 
+	utils.Debug("[UC] share 创建成功 taskID=%s title=%s fidCount=%d", response.Data.TaskID, title, len(fidList))
 	return &response.Data, nil
 }
 
-// getShareTask 获取任务状态
+// getShareTask 获取任务状态（高频轮询调用，内部不打日志，避免噪声；由 waitForTask 汇总）
 func (u *UCService) getShareTask(taskID string, retryIndex int) (*UCTaskResult, error) {
 	queryParams := map[string]string{
 		"pr":           ucPR,
@@ -484,7 +517,7 @@ func (u *UCService) getShareTask(taskID string, retryIndex int) (*UCTaskResult, 
 
 	respData, err := u.HTTPGet(ucAPIBase+"/task", queryParams)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("请求失败: %v", err)
 	}
 
 	var response struct {
@@ -494,7 +527,7 @@ func (u *UCService) getShareTask(taskID string, retryIndex int) (*UCTaskResult, 
 	}
 
 	if err := json.Unmarshal(respData, &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("解析响应失败: %v bodyHead=%s", err, headSnippet(respData))
 	}
 
 	if response.Status != 200 {
@@ -512,7 +545,7 @@ func (u *UCService) getSharePassword(shareID string) (*UCPasswordResult, error) 
 
 	respData, err := u.HTTPPost(ucAPIBase+"/share/password", data, u.ucCommonQuery())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("请求失败: %v", err)
 	}
 
 	var response struct {
@@ -522,13 +555,14 @@ func (u *UCService) getSharePassword(shareID string) (*UCPasswordResult, error) 
 	}
 
 	if err := json.Unmarshal(respData, &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("解析响应失败: %v bodyHead=%s", err, headSnippet(respData))
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf("%s", response.Message)
+		return nil, fmt.Errorf("获取分享密码失败: status=%d msg=%s", response.Status, response.Message)
 	}
 
+	utils.Debug("[UC] share/password 成功 shareUrl=%s hasCode=%v", response.Data.ShareURL, response.Data.Code != "")
 	return &response.Data, nil
 }
 
@@ -536,30 +570,33 @@ func (u *UCService) getSharePassword(shareID string) (*UCPasswordResult, error) 
 func (u *UCService) waitForTask(taskID string) (*UCTaskResult, error) {
 	maxRetries := 50
 	retryDelay := 2 * time.Second
+	utils.Debug("[UC] 开始轮询任务 taskID=%s maxRetries=%d", taskID, maxRetries)
 
 	for retryIndex := 0; retryIndex < maxRetries; retryIndex++ {
 		result, err := u.getShareTask(taskID, retryIndex)
 		if err != nil {
+			utils.Debug("[UC] 任务查询返回错误 taskID=%s retry=%d rawErr=%v", taskID, retryIndex, err)
 			if strings.Contains(err.Error(), "capacity limit") {
+				utils.Error("[UC] 任务失败-容量不足 taskID=%s", taskID)
 				return nil, fmt.Errorf("UC账号容量不足")
 			}
 			return nil, err
 		}
 
 		if result.Status == 2 { // 任务完成
+			utils.Debug("[UC] 任务完成 taskID=%s retry=%d", taskID, retryIndex)
 			return result, nil
 		}
 
 		time.Sleep(retryDelay)
 	}
 
+	utils.Error("[UC] 任务轮询超时 taskID=%s", taskID)
 	return nil, fmt.Errorf("UC转存任务超时")
 }
 
 // getDirFile 获取指定文件夹的文件列表
 func (u *UCService) getDirFile(pdirFid string) ([]map[string]interface{}, error) {
-	log.Printf("正在遍历UC父文件夹: %s", pdirFid)
-
 	queryParams := map[string]string{
 		"pr":              ucPR,
 		"fr":              "pc",
@@ -574,8 +611,7 @@ func (u *UCService) getDirFile(pdirFid string) ([]map[string]interface{}, error)
 
 	respData, err := u.HTTPGet(ucAPIBase+"/file/sort", queryParams)
 	if err != nil {
-		log.Printf("获取UC目录文件失败: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("请求失败: %v", err)
 	}
 
 	var response struct {
@@ -587,14 +623,14 @@ func (u *UCService) getDirFile(pdirFid string) ([]map[string]interface{}, error)
 	}
 
 	if err := json.Unmarshal(respData, &response); err != nil {
-		log.Printf("解析UC目录文件响应失败: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("解析响应失败: %v bodyHead=%s", err, headSnippet(respData))
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf("%s", response.Message)
+		return nil, fmt.Errorf("获取目录文件失败: status=%d msg=%s", response.Status, response.Message)
 	}
 
+	utils.Debug("[UC] getDirFile 成功 pdirFid=%s count=%d", pdirFid, len(response.Data.List))
 	return response.Data.List, nil
 }
 
@@ -604,18 +640,17 @@ func (u *UCService) getDirFile(pdirFid string) ([]map[string]interface{}, error)
 
 // deleteAdFiles 删除转存目录内命中广告关键词的文件
 func (u *UCService) deleteAdFiles(pdirFid string) error {
-	log.Printf("开始删除UC广告文件，目录ID: %s", pdirFid)
-
 	fileList, err := u.getDirFile(pdirFid)
 	if err != nil {
 		return err
 	}
 
 	if len(fileList) == 0 {
-		log.Printf("UC目录为空，无需删除广告文件")
+		utils.Debug("[UC] 目录为空，无广告文件可删 pdirFid=%s", pdirFid)
 		return nil
 	}
 
+	deleted := 0
 	for _, file := range fileList {
 		fileName, ok := file["file_name"].(string)
 		if !ok {
@@ -623,28 +658,27 @@ func (u *UCService) deleteAdFiles(pdirFid string) error {
 		}
 		if containsAdKeywords(fileName) { // pan_ad.go 共享函数
 			if fid, ok := file["fid"].(string); ok {
-				log.Printf("删除UC广告文件: %s (FID: %s)", fileName, fid)
+				utils.Debug("[UC] 命中广告关键词，删除 fileName=%s fid=%s", fileName, fid)
 				if _, err := u.DeleteFiles([]string{fid}); err != nil {
-					log.Printf("删除UC广告文件失败: %v", err)
+					utils.Debug("[UC] 删除广告文件失败（继续）fileName=%s err=%v", fileName, err)
+				} else {
+					deleted++
 				}
 			}
 		}
 	}
-
+	utils.Debug("[UC] 广告清理完成 pdirFid=%s deleted=%d", pdirFid, deleted)
 	return nil
 }
 
 // addAd 添加个人自定义广告到转存目录（随机选一条系统配置的广告）
 func (u *UCService) addAd(dirID string) error {
-	log.Printf("开始添加UC自定义广告到目录: %s", dirID)
-
 	autoInsertAdStr, err := getAdSystemConfigValue(entity.ConfigKeyAutoInsertAd)
 	if err != nil {
-		log.Printf("获取自动插入广告配置失败: %v", err)
 		return err
 	}
 	if autoInsertAdStr == "" {
-		log.Printf("没有配置自动插入广告，跳过UC广告插入")
+		utils.Debug("[UC] 未配置自动插入广告，跳过")
 		return nil
 	}
 
@@ -654,13 +688,13 @@ func (u *UCService) addAd(dirID string) error {
 	}
 	adFileIDs := extractAdFileIDs(adURLs)
 	if len(adFileIDs) == 0 {
-		log.Printf("没有有效的UC广告文件ID，跳过广告插入")
+		utils.Debug("[UC] 无有效广告文件ID，跳过 adURLCount=%d", len(adURLs))
 		return nil
 	}
 
 	rand.Seed(utils.GetCurrentTimestampNano())
 	selectedAdID := adFileIDs[rand.Intn(len(adFileIDs))]
-	log.Printf("选择UC广告文件ID: %s", selectedAdID)
+	utils.Debug("[UC] 选中广告文件 adShareID=%s dirID=%s", selectedAdID, dirID)
 
 	stokenResult, err := u.getStoken(selectedAdID)
 	if err != nil {
@@ -683,7 +717,7 @@ func (u *UCService) addAd(dirID string) error {
 		return err
 	}
 
-	log.Printf("UC广告文件添加成功")
+	utils.Debug("[UC] 广告插入成功 adShareID=%s dirID=%s", selectedAdID, dirID)
 	return nil
 }
 
@@ -691,56 +725,63 @@ func (u *UCService) addAd(dirID string) error {
 // GetUserInfo 账号信息查询
 // ============================================================================
 
-// GetUserInfo 获取用户信息
+// GetUserInfo 获取用户信息（容量 + 会员状态）。
+//
+// 走 UC 已验证可用的 /member 接口（主机 pc-api.uc.cn/1/clouddrive，pr=UCBrowser），
+// 取 total_capacity / use_capacity / member_type。
+//
+// 注意：早期实现的 https://drive.uc.cn/api/user/info 为无效端点（302 跳转回首页 HTML，
+// 导致 "invalid character '<'" 解析错误），已弃用。/member 不返回昵称，而 UC 无公开的
+// 昵称接口（/user/info 返回 404），故 Username 使用占位值。
 func (u *UCService) GetUserInfo(cookie *string) (*UserInfo, error) {
 	// 设置Cookie
 	u.SetHeader("Cookie", *cookie)
+	utils.Debug("[UC] GetUserInfo 请求 /member cookieLen=%d", len(*cookie))
 
-	// 调用UC网盘用户信息API
-	userInfoURL := "https://drive.uc.cn/api/user/info"
+	queryParams := map[string]string{
+		"pr":              ucPR,
+		"fr":              "pc",
+		"uc_param_str":    "",
+		"fetch_subscribe": "false",
+		"_ch":             "home",
+		"fetch_identity":  "false",
+	}
 
-	resp, err := u.HTTPGet(userInfoURL, nil)
+	resp, err := u.HTTPGet(ucAPIBase+"/member", queryParams)
 	if err != nil {
 		return nil, fmt.Errorf("获取UC用户信息失败: %v", err)
 	}
 
-	// 解析响应
 	var result struct {
-		Code int `json:"code"`
-		Data struct {
-			Username   string `json:"username"`
-			Nickname   string `json:"nickname"`
-			VipStatus  int    `json:"vip_status"`
-			TotalSpace int64  `json:"total_space"`
-			UsedSpace  int64  `json:"used_space"`
+		Status  int    `json:"status"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			MemberType    string `json:"member_type"`
+			UseCapacity   int64  `json:"use_capacity"`
+			TotalCapacity int64  `json:"total_capacity"`
 		} `json:"data"`
 	}
 
 	if err := u.ParseJSONResponse(resp, &result); err != nil {
+		utils.Error("[UC] GetUserInfo 解析失败 err=%v bodyHead=%s", err, headSnippet(resp))
 		return nil, fmt.Errorf("解析UC用户信息失败: %v", err)
 	}
 
-	if result.Code != 0 {
-		return nil, fmt.Errorf("UC API返回错误: %d", result.Code)
+	if result.Status != 200 || result.Code != 0 {
+		utils.Error("[UC] GetUserInfo 接口返回错误 status=%d code=%d msg=%s", result.Status, result.Code, result.Message)
+		return nil, fmt.Errorf("UC接口返回错误: status=%d code=%d msg=%s", result.Status, result.Code, result.Message)
 	}
 
-	// 转换VIP状态
-	vipStatus := result.Data.VipStatus > 0
+	// 会员判定：member_type 非 NORMAL 即视为 VIP（与夸克一致）
+	vipStatus := result.Data.MemberType != "NORMAL" && result.Data.MemberType != ""
 
-	// 使用nickname或username
-	username := result.Data.Nickname
-	if username == "" {
-		username = result.Data.Username
-	}
-	if username == "" {
-		username = "UC网盘用户"
-	}
-
+	utils.Debug("[UC] GetUserInfo 成功 memberType=%s total=%d used=%d vip=%v", result.Data.MemberType, result.Data.TotalCapacity, result.Data.UseCapacity, vipStatus)
 	return &UserInfo{
-		Username:    username,
+		Username:    "UC网盘用户",
 		VIPStatus:   vipStatus,
-		UsedSpace:   result.Data.UsedSpace,
-		TotalSpace:  result.Data.TotalSpace,
+		UsedSpace:   result.Data.UseCapacity,
+		TotalSpace:  result.Data.TotalCapacity,
 		ServiceType: "uc",
 	}, nil
 }
@@ -800,4 +841,14 @@ type UCPasswordResult struct {
 	FirstFile  struct {
 		Fid string `json:"fid"`
 	} `json:"first_file"`
+}
+
+// headSnippet 返回响应体的前 200 字符（用于解析失败时定位是否返回 HTML/错误页），
+// 仅截断展示，避免打印过长的响应体；Cookie 不会出现在响应体中。
+func headSnippet(data []byte) string {
+	n := len(data)
+	if n > 200 {
+		n = 200
+	}
+	return string(data[:n])
 }
