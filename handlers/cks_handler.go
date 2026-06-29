@@ -12,6 +12,7 @@ import (
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
 	"github.com/ctwj/urldb/db/entity"
+	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -210,11 +211,14 @@ func CreateCks(c *gin.Context) {
 		}
 	} else {
 		// 获取用户信息
+		utils.Debug("[账号] 调用 GetUserInfo panName=%s serviceType=%s ckLen=%d", pan.Name, serviceType, len(req.Ck))
 		userInfo, err := service.GetUserInfo(&req.Ck)
 		if err != nil {
+			utils.Error("[账号] 获取用户信息失败 panName=%s serviceType=%s err=%v", pan.Name, serviceType, err)
 			ErrorResponse(c, "无法获取用户信息，账号创建失败: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		utils.Debug("[账号] 获取用户信息成功 panName=%s username=%s total=%d used=%d vip=%v", pan.Name, userInfo.Username, userInfo.TotalSpace, userInfo.UsedSpace, userInfo.VIPStatus)
 
 		leftSpaceBytes := userInfo.TotalSpace - userInfo.UsedSpace
 

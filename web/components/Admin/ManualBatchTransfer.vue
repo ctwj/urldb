@@ -280,7 +280,19 @@ const isValidUrl = (url: string) => {
   try {
     new URL(url)
     // 简单检查是否包含常见网盘域名
-    const diskDomains = ['quark.cn', 'pan.baidu.com', 'aliyundrive.com', 'pan.xunlei.com']
+    // 与后端 common/pan_factory.go ExtractServiceType 识别的域名保持一致，
+    // 避免前端白名单漏掉某网盘（如 UC）导致 URL 被静默丢弃。
+    const diskDomains = [
+      'quark.cn',                                                         // 夸克
+      'alipan.com',                                                       // 阿里云盘（新域名）
+      'aliyundrive.com',                                                  // 阿里云盘（旧域名）
+      'pan.baidu.com',                                                    // 百度网盘
+      'uc.cn',                                                            // UC网盘（drive.uc.cn / fast.uc.cn）
+      'pan.xunlei.com',                                                   // 迅雷网盘
+      'cloud.189.cn',                                                     // 天翼云盘
+      '123pan.com', '123912.com', '123684.com', '123865.com', '123685.com', // 123网盘及其镜像
+      '115cdn.com', 'anxia.com', '115.com',                              // 115网盘
+    ]
     return diskDomains.some(domain => url.includes(domain))
   } catch {
     return false

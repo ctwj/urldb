@@ -921,6 +921,10 @@ func performAutoTransfer(resource *entity.Resource) TransferResult {
 			"error_msg":      "",
 			"transferred_at": now,
 			"updated_at":     now,
+			// 重转产生新 fid，重置清理标记，否则旧 cleaned_at 会让该资源被清理调度跳过（新文件永远不会被清理）。
+			"cleaned_at":          nil,
+			"clean_error_msg":     "",
+			"last_clean_error_at": nil,
 		}); err != nil {
 			utils.Error("更新资源转存信息失败: %v", err)
 		}
