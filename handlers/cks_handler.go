@@ -107,7 +107,7 @@ func CreateCks(c *gin.Context) {
 	switch pan.Name {
 	case "quark":
 		serviceType = panutils.Quark
-	case "alipan":
+	case "aliyun", "alipan":
 		serviceType = panutils.Alipan
 	case "baidu":
 		serviceType = panutils.BaiduPan
@@ -465,7 +465,7 @@ func RefreshCapacity(c *gin.Context) {
 	switch pan.Name {
 	case "quark":
 		serviceType = panutils.Quark
-	case "alipan":
+	case "aliyun", "alipan":
 		serviceType = panutils.Alipan
 	case "baidu":
 		serviceType = panutils.BaiduPan
@@ -514,6 +514,10 @@ func RefreshCapacity(c *gin.Context) {
 	// GetUserInfo 成功本身就证明 cookie 有效，与 VIP 状态无关。
 	// 历史代码曾把 IsValid 绑到 VIPStatus，导致非 VIP 账号被误判为无效；这里强制 true。
 	cks.IsValid = true
+	// 保留 GetUserInfo 返回的运行期数据（如阿里云盘/迅雷刷新轮换后的 token），避免被旧 Extra 覆盖
+	if userInfo.ExtraData != "" {
+		cks.Extra = userInfo.ExtraData
+	}
 
 	err = repoManager.CksRepository.UpdateWithAllFields(cks)
 	if err != nil {

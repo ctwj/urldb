@@ -75,3 +75,24 @@ describe('FR-002: 选中百度网盘后呈现 Cookie 字段', () => {
     expect(vifExpr).toMatch(/\|\||\bOR\b/)
   })
 })
+
+describe('阿里云盘: 选中后呈现 refresh_token 字段（feature 008）', () => {
+  // 背景：阿里云盘用 refresh_token 授权（非 Cookie），曾因 accounts.vue 的 watch/表单
+  // 缺少 alipan 分支，导致选中阿里云盘后无任何输入项。此处固化修复。
+
+  it('必须存在 isAlipan 响应式变量', () => {
+    expect(source()).toMatch(/const\s+isAlipan\s*=\s*ref\(false\)/)
+  })
+
+  it('watch(form.pan_id) 必须在 pan.name 为 alipan/aliyun 时设置 isAlipan=true', () => {
+    const src = source()
+    expect(src).toMatch(/pan\.name\s*===?\s*['"]alipan['"]/)
+    expect(src).toMatch(/isAlipan\.value\s*=\s*true/)
+  })
+
+  it('必须存在阿里云盘 refresh_token 输入区（v-if="isAlipan"）', () => {
+    const src = source()
+    expect(src).toMatch(/<div\s+v-if="isAlipan"/)
+    expect(src).toMatch(/Refresh Token/)
+  })
+})
