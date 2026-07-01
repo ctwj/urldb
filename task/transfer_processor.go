@@ -242,6 +242,7 @@ func (tp *TransferProcessor) isValidURL(url string) bool {
 		`https?://pan\.baidu\.com/s/[a-zA-Z0-9_-]+`,    // 百度网盘 /s/ 格式
 		`https?://pan\.baidu\.com/share/init\?surl=.+`, // 百度网盘 /share/init?surl= 格式
 		`https?://(drive|fast)\.uc\.cn/.+`,             // UC网盘
+		`https?://(www\.)?(alipan|aliyundrive)\.com/s/[a-zA-Z0-9]+`, // 阿里云盘
 	}
 	for _, pattern := range patterns {
 		matched, _ := regexp.MatchString(pattern, url)
@@ -288,35 +289,53 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		serviceType = "baidu"
 	case pan.UC:
 		serviceType = "uc"
+	case pan.Alipan:
+		serviceType = "alipan"
 	default:
 		serviceType = ""
 	}
 	utils.Debug("[转存] 识别资源类型 urlType=%s serviceType=%s url=%s", urlType, serviceType, input.URL)
 
-	var account *entity.Cks
+	// 按平台筛选候选账号（FR-017：容量不足时在候选账号间切换）
+	matched := make([]*entity.Cks, 0)
 	for _, ck := range cks {
 		if ck.ServiceType == serviceType {
-			account = ck
+			matched = append(matched, ck)
 		}
 	}
-	if account == nil {
+	if len(matched) == 0 {
 		utils.Debug("[转存] 未找到匹配账号 serviceType=%s 候选账号数=%d", serviceType, len(cks))
-		return 0, "", fmt.Errorf("为找到匹配的账号: %v", serviceType)
-	}
-	utils.Debug("[转存] 选中账号 serviceType=%s accountID=%d isValid=%v username=%s", serviceType, account.ID, account.IsValid, account.Username)
-
-	// 先执行转存操作
-	saveData, err := tp.transferToCloud(ctx, input.URL, account)
-	if err != nil {
-		utils.Error("云端转存失败: %v", err)
-		// transferToCloud 已带"转存失败:"前缀，直接透传避免多层嵌套
-		return 0, "", err
+		return 0, "", fmt.Errorf("未找到匹配的账号: %v", serviceType)
 	}
 
-	// 验证转存链接是否有效
-	if saveData.SaveURL == "" {
-		utils.Error("转存成功但未获取到分享链接")
-		return 0, "", fmt.Errorf("转存成功但未获取到分享链接")
+	// 遍历候选账号尝试转存；仅"容量不足"类错误切换下一个，其他错误（分享失效/提取码错等）切账号无意义直接跳出
+	var saveData *TransferResult
+	var lastErr error
+	var selectedAcc *entity.Cks
+	for _, acc := range matched {
+		utils.Debug("[转存] 尝试账号 serviceType=%s accountID=%d isValid=%v", serviceType, acc.ID, acc.IsValid)
+		sd, err := tp.transferToCloud(ctx, input.URL, acc)
+		if err == nil && sd != nil && sd.SaveURL != "" {
+			saveData = sd
+			selectedAcc = acc
+			break
+		}
+		lastErr = err
+		if err != nil && tp.isCapacityErr(err) {
+			utils.Warn("[转存] 账号容量不足，切换下一个 accountID=%d serviceType=%s", acc.ID, serviceType)
+			continue
+		}
+		break
+	}
+
+	if saveData == nil || saveData.SaveURL == "" {
+		if lastErr != nil {
+			utils.Error("[转存] 全部候选账号均失败 serviceType=%s lastErr=%v", serviceType, lastErr)
+			// transferToCloud 已带"转存失败:"前缀，直接透传避免多层嵌套
+			return 0, "", lastErr
+		}
+		utils.Error("[转存] 无可用账号/容量不足 serviceType=%s", serviceType)
+		return 0, "", fmt.Errorf("无可用账号/容量不足，转存失败: %v", serviceType)
 	}
 
 	// 转存成功，创建资源记录
@@ -330,7 +349,7 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 	panIdInt := uint(panID)
 
 	// 绑定转存账号 ID，供 cleanup_service 解析删除文件所需的 cookie（FR-012 防跨账号误删）
-	accountID := account.ID
+	accountID := selectedAcc.ID
 
 	now := time.Now()
 
@@ -475,7 +494,8 @@ func (tp *TransferProcessor) transferToCloud(ctx context.Context, url string, ac
 			errMsg = transferResult.Message
 		}
 		utils.Error("[转存] 服务返回失败 serviceType=%s url=%s msg=%s", account.ServiceType, url, errMsg)
-		return nil, fmt.Errorf("转存失败: %v", errMsg)
+		// errMsg 已是具体原因（由各网盘 Transfer 的 ErrorResult 提供），直接透传，避免"转存失败: 转存失败:"多层嵌套
+		return nil, fmt.Errorf("%s", errMsg)
 	}
 
 	// 提取转存链接
@@ -531,4 +551,16 @@ type TransferResult struct {
 	SaveURL  string `json:"save_url"`
 	Fid      string `json:"fid`
 	ErrorMsg string `json:"error_msg"`
+}
+
+// isCapacityErr 判断错误是否为"容量不足"（用于 FR-017 账号切换判定）
+func (tp *TransferProcessor) isCapacityErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "容量不足") ||
+		strings.Contains(msg, "capacity") ||
+		strings.Contains(msg, "space insufficient") ||
+		strings.Contains(msg, "存储空间不足")
 }

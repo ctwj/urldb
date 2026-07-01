@@ -90,7 +90,7 @@ func (b *BasePanService) HTTPGet(requestURL string, queryParams map[string]strin
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(body))
 	}
 
@@ -150,7 +150,7 @@ func (b *BasePanService) HTTPPost(requestURL string, data interface{}, queryPara
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(respBody))
 	}
 
@@ -195,7 +195,7 @@ func (b *BasePanService) HTTPPut(requestURL string, data interface{}) ([]byte, e
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(respBody))
 	}
 
@@ -231,7 +231,7 @@ func (b *BasePanService) HTTPPatch(requestURL string, data interface{}) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(respBody))
 	}
 	return respBody, nil
@@ -260,7 +260,7 @@ func (b *BasePanService) HTTPDelete(requestURL string) ([]byte, error) {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(respBody))
 	}
 
@@ -386,7 +386,7 @@ func (b *BasePanService) HTTPPostForm(requestURL string, rawBody string, queryPa
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("HTTP请求失败: %d, %s", resp.StatusCode, string(respBody))
 	}
 	return respBody, nil

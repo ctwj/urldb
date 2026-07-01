@@ -298,21 +298,18 @@ const taskItemColumns = [
   {
     title: '结果',
     key: 'output',
-    minWidth: 200,
-    ellipsis: {
-      tooltip: true
-    },
+    minWidth: 240,
     render: (row: any) => {
       if (!row.output) return h('span', { class: 'text-sm text-gray-500' }, '无输出')
       if (row.output.error) {
         return h('div', { class: 'text-sm' }, [
-          h('div', { class: 'text-red-600 font-medium' }, '失败'),
-          h('div', { class: 'text-xs text-gray-500 mt-1' }, row.output.error)
+          h('div', { class: 'text-red-600 dark:text-red-400 font-medium' }, '失败'),
+          h('div', { class: 'text-xs text-red-500 dark:text-red-400 mt-1 break-all' }, row.output.error)
         ])
       }
       return h('div', { class: 'text-sm' }, [
-        h('div', { class: 'text-green-600 font-medium' }, '成功'),
-        h('div', { class: 'text-xs text-gray-500 mt-1' }, row.output.save_url || '处理完成')
+        h('div', { class: 'text-green-600 dark:text-green-400 font-medium' }, '成功'),
+        h('div', { class: 'text-xs text-gray-500 mt-1 break-all' }, row.output.save_url || '处理完成')
       ])
     }
   },

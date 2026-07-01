@@ -225,6 +225,16 @@
         </n-alert>
       </div>
 
+      <div v-if="isAlipan">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Refresh Token <span class="text-red-500">*</span>
+        </label>
+        <n-input v-model:value="form.ck" type="textarea" :rows="3" placeholder="登录阿里云盘网页版（alipan.com）后，从浏览器开发者工具 → Application → Local Storage → token 中的 refresh_token 字段复制" required />
+        <n-alert type="info" class="mt-2" :show-icon="true">
+          阿里云盘采用 refresh_token 授权（非 Cookie）。系统据此自动换取 access_token、识别容量并自动续期；转存文件统一保存到账号网盘的 <code class="px-1 bg-gray-100 dark:bg-gray-700 rounded">urldb</code> 目录。
+        </n-alert>
+      </div>
+
       <div v-if="isXunlei">
         <div class="space-y-4">
           <div>
@@ -327,6 +337,7 @@ const isQuark = ref(false)
 const isXunlei = ref(false)
 const isBaidu = ref(false)
 const isUC = ref(false)
+const isAlipan = ref(false)
 
 const notification = useNotification()
 const router = useRouter()
@@ -360,6 +371,7 @@ watch(() => form.value.pan_id, (newVal) => {
   isXunlei.value = false
   isBaidu.value = false
   isUC.value = false
+  isAlipan.value = false
   const list = platforms.value.filter(it => it.id === newVal)
   if (!list || list.length === 0) {
     return
@@ -373,6 +385,8 @@ watch(() => form.value.pan_id, (newVal) => {
     isBaidu.value = true
   } else if (pan.name === 'uc') {
     isUC.value = true
+  } else if (pan.name === 'alipan' || pan.name === 'aliyun') {
+    isAlipan.value = true
   }
 })
 
@@ -714,6 +728,20 @@ const handleSubmit = async () => {
         })
       }
     }
+  } else if (isAlipan.value) {
+    // 阿里云盘：form.ck 即 refresh_token；容错提取整个 token JSON 中的 refresh_token
+    let token = (form.value.ck || '').trim()
+    if (!token) {
+      notification.error({ title: '失败', content: '请填写 refresh_token', duration: 3000 })
+      return
+    }
+    if (token.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(token)
+        if (parsed && parsed.refresh_token) token = parsed.refresh_token
+      } catch (e) { /* 非法 JSON，按原样作为 token 处理 */ }
+    }
+    form.value.ck = token
   }
 
   if (showEditModal.value) {
