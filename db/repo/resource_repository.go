@@ -45,6 +45,9 @@ type ResourceRepository interface {
 	CountSyncedToMeilisearch() (int64, error)
 	CountInvalid() (int64, error)
 	CountInvalidByDate(date string) (int64, error)
+	// FindFailedResourceMetaByKey 取某 key 下任一失效资源的基本信息（失效页面优化）。
+	// 命中返回非 nil；该 key 下无失效资源时返回 (nil, nil)。
+	FindFailedResourceMetaByKey(key string) (*FailedResourceMeta, error)
 	MarkAsSyncedToMeilisearch(ids []uint) error
 	MarkAllAsUnsyncedToMeilisearch() error
 	FindAllWithPagination(page, limit int) ([]entity.Resource, int64, error)
@@ -686,6 +689,32 @@ func (r *ResourceRepositoryImpl) CountInvalidByDate(date string) (int64, error) 
 		Where("DATE(invalidated_at) = ?", date).
 		Count(&count).Error
 	return count, err
+}
+
+// FailedResourceMeta 失效资源的基本信息（失效页面优化：标题/封面/key）
+type FailedResourceMeta struct {
+	Title string `json:"title"`
+	Cover string `json:"cover"`
+	Key   string `json:"key"`
+}
+
+// FindFailedResourceMetaByKey 取某 key 下任一失效资源的基本信息（失效页面优化）。
+// 走 key 索引 + LIMIT 1，只读一行；未命中返回 (nil, nil)。
+func (r *ResourceRepositoryImpl) FindFailedResourceMetaByKey(key string) (*FailedResourceMeta, error) {
+	var meta FailedResourceMeta
+	err := r.db.Model(&entity.Resource{}).
+		Select("title, cover, key").
+		Where("key = ? AND is_valid = ?", key, false).
+		Limit(1).
+		Scan(&meta).Error
+	if err != nil {
+		return nil, err
+	}
+	// Scan 无记录时返回零值 struct（不报错）；据此判断是否命中
+	if meta.Key == "" && meta.Title == "" {
+		return nil, nil
+	}
+	return &meta, nil
 }
 
 // FindAllWithPagination 分页查找所有资源
