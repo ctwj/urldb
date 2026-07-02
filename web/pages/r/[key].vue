@@ -58,7 +58,7 @@
       </nav>
 
       <!-- 资源详情内容 -->
-      <div v-if="resourcesData" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div v-if="mainResource" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- 主内容区域 -->
         <article class="lg:col-span-2 space-y-6" itemscope itemtype="https://schema.org/SoftwareApplication">
           <!-- 资源主卡片 -->
@@ -428,10 +428,75 @@
         </aside>
       </div>
 
-      <!-- 404 状态 -->
-      <div v-else-if="!resourcesData" class="flex flex-col items-center justify-center py-20">
+      <!-- 失效态：全组失效，有 failed_resource -->
+      <div v-else-if="failedResource" class="max-w-3xl mx-auto py-12 px-4 space-y-8">
         <div class="text-center space-y-4">
-          <i class="fas fa-search text-6xl text-gray-300 dark:text-gray-600"></i>
+          <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30">
+            <i class="fas fa-link-slash text-4xl text-red-500 dark:text-red-400"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            《{{ failedDisplayTitle }}》经过检测已失效
+          </h2>
+          <p class="text-gray-600 dark:text-gray-400">该资源链接已无法访问，为你找到以下同名资源</p>
+          <div class="flex items-center justify-center gap-3 pt-2">
+            <NuxtLink
+              :to="failedSearchHref"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200"
+            >
+              <i class="fas fa-search"></i>
+              一键搜索同名资源
+            </NuxtLink>
+            <NuxtLink
+              to="/"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition-all duration-200"
+            >
+              <i class="fas fa-home"></i>
+              返回首页
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- 标题搜出的替代资源 -->
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">为你找到的相关资源</h3>
+          <div v-if="titleSearchLoading" class="text-center py-8 text-gray-500 dark:text-gray-400">
+            <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
+          </div>
+          <div v-else-if="titleSearchResults.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <NuxtLink
+              v-for="item in titleSearchResults"
+              :key="item.id"
+              :to="`/r/${item.key}`"
+              class="flex items-center gap-3 p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+            >
+              <img
+                v-if="item.cover"
+                :src="item.cover"
+                :alt="item.title"
+                class="w-12 h-16 object-cover rounded"
+              />
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ item.title }}</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <span v-if="item.pan?.remark">{{ item.pan.remark }}</span>
+                  <span v-if="item.file_size" class="ml-2">{{ item.file_size }}</span>
+                </div>
+              </div>
+              <i class="fas fa-chevron-right text-gray-400"></i>
+            </NuxtLink>
+          </div>
+          <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
+            暂无同名资源，试试上方一键搜索
+          </div>
+        </div>
+      </div>
+
+      <!-- 真 404：key 完全不存在 -->
+      <div v-else class="flex flex-col items-center justify-center py-20">
+        <div class="text-center space-y-4 max-w-md">
+          <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700">
+            <i class="fas fa-ghost text-4xl text-gray-400 dark:text-gray-500"></i>
+          </div>
           <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">资源不存在</h2>
           <p class="text-gray-600 dark:text-gray-400">抱歉，您访问的资源不存在或已被删除</p>
           <NuxtLink
@@ -510,7 +575,7 @@
 
 <script setup lang="ts">
 // 导入必要的 Vue 函数
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, watchEffect, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { navigateTo } from '#app/composables'
 import { useAsyncData } from '#app/composables'
@@ -518,6 +583,8 @@ import { useNotification } from 'naive-ui'
 
 // 导入API
 import { useResourceApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { parseApiResponse } from '~/composables/useApi'
 import SystemConfigCacheInfo from '~/components/SystemConfigCacheInfo.vue'
 
 // 导入组件
@@ -593,6 +660,49 @@ const { data: relatedResourcesData } = await useAsyncData(
 const mainResource = computed(() => {
   const resources = resourcesData.value?.resources
   return resources && resources.length > 0 ? resources[0] : null
+})
+
+// 失效资源元信息（全组失效时后端返回 failed_resource）
+const failedResource = computed(() => {
+  const fr = (resourcesData.value as any)?.failed_resource
+  return fr && fr.title ? fr : (fr && fr.key ? fr : null)
+})
+
+// 失效态：用失效资源标题搜出的替代资源（客户端加载，失效态才触发）
+const titleSearchResults = ref<any[]>([])
+const titleSearchLoading = ref(false)
+
+const loadTitleSearchResults = async (title: string) => {
+  if (!title) return
+  titleSearchLoading.value = true
+  try {
+    const res = await useApiFetch('/search', {
+      params: { search: title, page: 1, page_size: 6 }
+    }).then(parseApiResponse) as any
+    titleSearchResults.value = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
+  } catch (e) {
+    titleSearchResults.value = []
+  } finally {
+    titleSearchLoading.value = false
+  }
+}
+
+watchEffect(() => {
+  const title = failedResource.value?.title
+  if (title) loadTitleSearchResults(title)
+})
+
+// 失效展示标题：优先 title，空则用 key 兜底
+const failedDisplayTitle = computed(() => {
+  const fr = failedResource.value
+  if (!fr) return ''
+  return fr.title || `资源 ${fr.key}`
+})
+
+// 失效态一键搜索目标
+const failedSearchHref = computed(() => {
+  const t = failedResource.value?.title
+  return t ? `/?search=${encodeURIComponent(t)}` : '/'
 })
 
 // 生成完整的资源URL
