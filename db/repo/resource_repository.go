@@ -702,16 +702,15 @@ type FailedResourceMeta struct {
 // 走 key 索引 + LIMIT 1，只读一行；未命中返回 (nil, nil)。
 func (r *ResourceRepositoryImpl) FindFailedResourceMetaByKey(key string) (*FailedResourceMeta, error) {
 	var meta FailedResourceMeta
-	err := r.db.Model(&entity.Resource{}).
+	result := r.db.Model(&entity.Resource{}).
 		Select("title, cover, key").
 		Where("key = ? AND is_valid = ?", key, false).
 		Limit(1).
-		Scan(&meta).Error
-	if err != nil {
-		return nil, err
+		Scan(&meta)
+	if result.Error != nil {
+		return nil, result.Error
 	}
-	// Scan 无记录时返回零值 struct（不报错）；据此判断是否命中
-	if meta.Key == "" && meta.Title == "" {
+	if result.RowsAffected == 0 {
 		return nil, nil
 	}
 	return &meta, nil
