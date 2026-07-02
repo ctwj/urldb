@@ -675,7 +675,7 @@ const loadTitleSearchResults = async (title: string) => {
   titleSearchLoading.value = true
   try {
     const res = await resourceApi.searchResources({ q: title, page: 1, page_size: 6 }) as any
-    titleSearchResults.value = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
+    titleSearchResults.value = Array.isArray(res?.resources) ? res.resources : (Array.isArray(res) ? res : [])
   } catch (e) {
     console.warn('[r/[key]] title search failed:', e)
     titleSearchResults.value = []
