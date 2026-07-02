@@ -583,8 +583,6 @@ import { useNotification } from 'naive-ui'
 
 // 导入API
 import { useResourceApi } from '~/composables/useApi'
-import { useApiFetch } from '~/composables/useApiFetch'
-import { parseApiResponse } from '~/composables/useApi'
 import SystemConfigCacheInfo from '~/components/SystemConfigCacheInfo.vue'
 
 // 导入组件
@@ -665,7 +663,7 @@ const mainResource = computed(() => {
 // 失效资源元信息（全组失效时后端返回 failed_resource）
 const failedResource = computed(() => {
   const fr = (resourcesData.value as any)?.failed_resource
-  return fr && fr.title ? fr : (fr && fr.key ? fr : null)
+  return fr && (fr.title || fr.key) ? fr : null
 })
 
 // 失效态：用失效资源标题搜出的替代资源（客户端加载，失效态才触发）
@@ -676,11 +674,10 @@ const loadTitleSearchResults = async (title: string) => {
   if (!title) return
   titleSearchLoading.value = true
   try {
-    const res = await useApiFetch('/search', {
-      params: { search: title, page: 1, page_size: 6 }
-    }).then(parseApiResponse) as any
+    const res = await resourceApi.searchResources({ q: title, page: 1, page_size: 6 }) as any
     titleSearchResults.value = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
   } catch (e) {
+    console.warn('[r/[key]] title search failed:', e)
     titleSearchResults.value = []
   } finally {
     titleSearchLoading.value = false
