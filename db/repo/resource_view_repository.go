@@ -9,7 +9,10 @@ import (
 // ResourceViewRepository 资源访问记录仓库接口
 type ResourceViewRepository interface {
 	BaseRepository[entity.ResourceView]
-	RecordView(resourceID uint, ipAddress, userAgent string) error
+	RecordView(resourceID uint, ipAddress, userAgent, source string) error
+	GetTotalViews() (int64, error)
+	GetPanDistribution() ([]map[string]interface{}, error)
+	GetSourceDistribution() ([]map[string]interface{}, error)
 	GetTodayViews() (int64, error)
 	GetViewsByDate(date string) (int64, error)
 	GetViewsTrend(days int) ([]map[string]interface{}, error)
@@ -29,13 +32,45 @@ func NewResourceViewRepository(db *gorm.DB) ResourceViewRepository {
 }
 
 // RecordView 记录资源访问
-func (r *ResourceViewRepositoryImpl) RecordView(resourceID uint, ipAddress, userAgent string) error {
+func (r *ResourceViewRepositoryImpl) RecordView(resourceID uint, ipAddress, userAgent, source string) error {
 	view := &entity.ResourceView{
 		ResourceID: resourceID,
 		IPAddress:  ipAddress,
 		UserAgent:  userAgent,
+		Source:     source,
 	}
 	return r.db.Create(view).Error
+}
+
+// GetTotalViews 获取获取资源（访问）总次数。009-statistics-enhancement FR-001
+func (r *ResourceViewRepositoryImpl) GetTotalViews() (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.ResourceView{}).Count(&count).Error
+	return count, err
+}
+
+// GetPanDistribution 获取访问（获取资源）的网盘分布：resource_views join resources+pan，按网盘聚合。009 FR-004
+func (r *ResourceViewRepositoryImpl) GetPanDistribution() ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+	err := r.db.Table("resource_views").
+		Select("COALESCE(NULLIF(pan.remark, ''), pan.name, '未知') as pan, COUNT(*) as count").
+		Joins("LEFT JOIN resources ON resources.id = resource_views.resource_id").
+		Joins("LEFT JOIN pan ON pan.id = resources.pan_id").
+		Group("pan.remark, pan.name").
+		Order("count DESC").
+		Scan(&results).Error
+	return results, err
+}
+
+// GetSourceDistribution 获取访问（获取资源）的来源渠道分布。009-statistics-enhancement FR-025
+func (r *ResourceViewRepositoryImpl) GetSourceDistribution() ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+	err := r.db.Table("resource_views").
+		Select("source, COUNT(*) as count").
+		Group("source").
+		Order("count DESC").
+		Scan(&results).Error
+	return results, err
 }
 
 // GetTodayViews 获取今日访问量

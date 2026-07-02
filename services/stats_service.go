@@ -14,23 +14,36 @@ import (
 // 契约: specs/004-admin-ui-optimization/contracts/stats-summary-api.md
 // 该结构序列化后与原 handlers.GetSummary 的 gin.H 嵌套结构等价
 type StatsSummary struct {
-	Resources ResourcesStats `json:"resources"`
-	Views     ViewsStats     `json:"views"`
-	Searches  SearchesStats  `json:"searches"`
-	Todos     TodosStats     `json:"todos"`
+	Resources              ResourcesStats         `json:"resources"`
+	Views                  ViewsStats             `json:"views"`
+	Searches               SearchesStats          `json:"searches"`
+	Todos                  TodosStats             `json:"todos"`
+	ViewPanDistribution    []ViewDistributionItem `json:"view_pan_distribution"`
+	ViewSourceDistribution []ViewDistributionItem `json:"view_source_distribution"`
 }
 
-// ResourcesStats 资源指标（今日/昨日/总量）
+// ResourcesStats 资源指标（今日/昨日/总量 + 失效/同步）
 type ResourcesStats struct {
-	Today     int64 `json:"today"`
-	Yesterday int64 `json:"yesterday"`
-	Total     int64 `json:"total"`
+	Today        int64 `json:"today"`
+	Yesterday    int64 `json:"yesterday"`
+	Total        int64 `json:"total"`
+	InvalidTotal int64 `json:"invalid_total"` // 009: 失效资源总数（is_valid=false）
+	SyncedTotal  int64 `json:"synced_total"`  // 009: 已同步搜索索引资源数
 }
 
 // ViewsStats 浏览量指标
 type ViewsStats struct {
 	Today     int64 `json:"today"`
 	Yesterday int64 `json:"yesterday"`
+	Total     int64 `json:"total"` // 009: 访问（获取资源）总次数
+}
+
+// ViewDistributionItem 访问分布项（网盘 / 来源通用）。009-statistics-enhancement
+type ViewDistributionItem struct {
+	Key     string `json:"key"`
+	Name    string `json:"name"`
+	Count   int64  `json:"count"`
+	Percent int    `json:"percent"`
 }
 
 // SearchesStats 搜索量指标
@@ -109,6 +122,28 @@ func (s *StatsService) GetSummary() (*StatsSummary, error) {
 	s.db.Model(&entity.Task{}).Where("status = ?", entity.TaskStatusFailed).Count(&failedTasks)
 	s.db.Model(&entity.Report{}).Where("status = ?", "pending").Count(&pendingReports)
 
+	// 009-statistics-enhancement: 失效/同步总量
+	var invalidTotal, syncedTotal int64
+	s.db.Model(&entity.Resource{}).Where("is_valid = ?", false).Count(&invalidTotal)
+	syncedTotal, _ = s.repo.ResourceRepository.CountSyncedToMeilisearch()
+
+	// 009: 访问（获取资源）总次数 + 网盘/来源分布（均来自 resource_views）
+	viewsTotal, vErr := s.repo.ResourceViewRepository.GetTotalViews()
+	if vErr != nil {
+		utils.Error("GetSummary 获取访问总次数失败: %v", vErr)
+		viewsTotal = 0
+	}
+	panRows, pErr := s.repo.ResourceViewRepository.GetPanDistribution()
+	if pErr != nil {
+		utils.Error("GetSummary 获取网盘分布失败: %v", pErr)
+		panRows = nil
+	}
+	sourceRows, sErr := s.repo.ResourceViewRepository.GetSourceDistribution()
+	if sErr != nil {
+		utils.Error("GetSummary 获取来源分布失败: %v", sErr)
+		sourceRows = nil
+	}
+
 	// 负值防护（防御性归零）
 	clamp := func(v int64) int64 {
 		if v < 0 {
@@ -119,13 +154,16 @@ func (s *StatsService) GetSummary() (*StatsSummary, error) {
 
 	return &StatsSummary{
 		Resources: ResourcesStats{
-			Today:     clamp(resourcesToday),
-			Yesterday: clamp(resourcesYesterday),
-			Total:     clamp(resourcesTotal),
+			Today:        clamp(resourcesToday),
+			Yesterday:    clamp(resourcesYesterday),
+			Total:        clamp(resourcesTotal),
+			InvalidTotal: clamp(invalidTotal),
+			SyncedTotal:  clamp(syncedTotal),
 		},
 		Views: ViewsStats{
 			Today:     clamp(viewsToday),
 			Yesterday: clamp(viewsYesterday),
+			Total:     clamp(viewsTotal),
 		},
 		Searches: SearchesStats{
 			Today:     clamp(searchesToday),
@@ -136,7 +174,68 @@ func (s *StatsService) GetSummary() (*StatsSummary, error) {
 			FailedTasks:    clamp(failedTasks),
 			PendingReports: clamp(pendingReports),
 		},
+		ViewPanDistribution:    toViewDistribution(panRows, "pan", viewsTotal),
+		ViewSourceDistribution: toViewDistribution(sourceRows, "source", viewsTotal),
 	}, nil
+}
+
+// toViewDistribution 将 repo 返回的分布行（map）转为前端分布项，并计算占比。
+// keyField 为分布键列名（"pan" 或 "source"）；total 为该分布的总计数，用于求 percent。
+func toViewDistribution(rows []map[string]interface{}, keyField string, total int64) []ViewDistributionItem {
+	items := make([]ViewDistributionItem, 0, len(rows))
+	for _, row := range rows {
+		key := ""
+		if v, ok := row[keyField]; ok && v != nil {
+			key = interfaceToString(v)
+		}
+		var count int64
+		if v, ok := row["count"]; ok {
+			count = interfaceToInt64(v)
+		}
+		name := key
+		if keyField == "source" {
+			name = entity.SourceDisplayName(key)
+		}
+		percent := 0
+		if total > 0 {
+			percent = int(float64(count)/float64(total)*100 + 0.5)
+		}
+		items = append(items, ViewDistributionItem{Key: key, Name: name, Count: count, Percent: percent})
+	}
+	return items
+}
+
+// interfaceToString 从 interface{} 安全取字符串
+func interfaceToString(v interface{}) string {
+	switch s := v.(type) {
+	case string:
+		return s
+	case []byte:
+		return string(s)
+	default:
+		if v != nil {
+			return ""
+		}
+		return ""
+	}
+}
+
+// interfaceToInt64 从 interface{} 安全取 int64（兼容 PG/GORM 返回的 int64/float64 等）
+func interfaceToInt64(v interface{}) int64 {
+	switch n := v.(type) {
+	case int64:
+		return n
+	case int:
+		return int64(n)
+	case int32:
+		return int64(n)
+	case float64:
+		return int64(n)
+	case float32:
+		return int64(n)
+	default:
+		return 0
+	}
 }
 
 // 默认实例：在 main.go 中通过 SetDefaultStatsService 注入，

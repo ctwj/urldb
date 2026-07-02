@@ -14,6 +14,7 @@ type SearchStat struct {
 	Date      time.Time      `json:"date" gorm:"type:date;not null;comment:搜索日期"`
 	IP        string         `json:"ip" gorm:"size:45;comment:用户IP"`
 	UserAgent string         `json:"user_agent" gorm:"size:500;comment:用户代理"`
+	Source    string         `json:"source" gorm:"size:32;default:web;index;comment:搜索来源渠道(web/wechat)"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `json:"deleted_at" gorm:"index"`

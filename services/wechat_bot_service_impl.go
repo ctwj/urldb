@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/ctwj/urldb/db"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/utils"
 	"github.com/silenceper/wechat/v2/cache"
@@ -335,6 +336,19 @@ func (s *WechatBotServiceImpl) handleGetResource(userID, command string) (interf
 	// 获取指定资源
 	resource := session.Resources[index-1]
 
+	// 009-statistics-enhancement: 记录公众号"获取资源"行为（source=wechat），纳入获取来源分布统计
+	if resource.ID > 0 && db.DB != nil {
+		view := &entity.ResourceView{
+			ResourceID: resource.ID,
+			IPAddress:  userID,
+			UserAgent:  "wechat-official-account",
+			Source:     entity.SourceWechat,
+		}
+		if err := db.DB.Create(view).Error; err != nil {
+			utils.Error("[WECHAT] 记录获取资源访问失败: %v", err)
+		}
+	}
+
 	// 格式化资源详细信息（美化输出）
 	var result strings.Builder
 	// result.WriteString(fmt.Sprintf("📌 资源详情\n\n"))
@@ -495,6 +509,19 @@ func (s *WechatBotServiceImpl) handleEventMessage(msg *message.MixMessage) (inte
 
 // SearchResources 搜索资源
 func (s *WechatBotServiceImpl) SearchResources(keyword string) ([]entity.Resource, error) {
+	// 009-statistics-enhancement: 记录公众号搜索（source=wechat），纳入搜索来源分布
+	if keyword != "" && db.DB != nil {
+		stat := &entity.SearchStat{
+			Keyword:   keyword,
+			Count:     1,
+			Date:      utils.GetCurrentTime(),
+			Source:    entity.SourceWechat,
+			UserAgent: "wechat-official-account",
+		}
+		if err := db.DB.Create(stat).Error; err != nil {
+			utils.Error("[WECHAT] 记录搜索统计失败: %v", err)
+		}
+	}
 	// 使用统一搜索函数（包含Meilisearch优先搜索和违禁词处理）
 	return UnifiedSearchResources(keyword, s.config.SearchLimit, s.systemConfigRepo, s.resourceRepo)
 }

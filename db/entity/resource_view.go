@@ -11,6 +11,7 @@ type ResourceView struct {
 	ResourceID uint           `json:"resource_id" gorm:"not null;index;comment:资源ID"`
 	IPAddress  string         `json:"ip_address" gorm:"size:45;comment:访问者IP地址"`
 	UserAgent  string         `json:"user_agent" gorm:"type:text;comment:用户代理"`
+	Source     string         `json:"source" gorm:"size:32;default:web;index;comment:获取资源来源渠道(web/wechat)"`
 	CreatedAt  time.Time      `json:"created_at" gorm:"autoCreateTime;comment:访问时间"`
 	UpdatedAt  time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 	DeletedAt  gorm.DeletedAt `json:"deleted_at" gorm:"index"`

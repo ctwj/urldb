@@ -65,15 +65,34 @@
       </div>
     </n-card>
 
-    <!-- 热门关键词和搜索记录并排显示 -->
+    <!-- 009: 搜索来源分布 -->
+    <n-card>
+      <template #header>
+        <span class="text-xl font-semibold text-gray-900 dark:text-white">搜索来源分布</span>
+      </template>
+      <div v-if="sourceDistribution.length" class="space-y-3">
+        <div v-for="item in sourceDistribution" :key="item.source" class="flex items-center">
+          <span class="w-28 text-sm text-gray-600 dark:text-gray-300 truncate">{{ item.name || item.source || '未知' }}</span>
+          <div class="flex-1 mx-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div class="bg-green-600 h-2 rounded-full" :style="{ width: Math.min(item.percent, 100) + '%' }"></div>
+          </div>
+          <span class="w-24 text-right text-sm text-gray-500 dark:text-gray-400">{{ item.count }} ({{ item.percent }}%)</span>
+        </div>
+      </div>
+      <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
+        暂无来源数据
+      </div>
+    </n-card>
+
+    <!-- 009: 热门关键词（全量）和近期热搜（近30天）并排 -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- 热门关键词 -->
+      <!-- 热门关键词（全量） -->
       <n-card>
         <template #header>
-          <span class="text-xl font-semibold text-gray-900 dark:text-white">热门关键词</span>
+          <span class="text-xl font-semibold text-gray-900 dark:text-white">热门关键词 <span class="text-sm font-normal text-gray-500">（全部）</span></span>
         </template>
         <div class="space-y-4">
-          <div v-for="keyword in limitedHotKeywords" :key="keyword.keyword" 
+          <div v-for="keyword in limitedHotKeywords" :key="keyword.keyword"
                class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <div class="flex items-center">
               <span class="inline-flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full text-sm font-medium mr-3">
@@ -84,7 +103,7 @@
             <div class="flex items-center">
               <span class="text-gray-600 dark:text-gray-400 mr-2">{{ keyword.count }}次</span>
               <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div class="bg-blue-600 h-2 rounded-full" 
+                <div class="bg-blue-600 h-2 rounded-full"
                      :style="{ width: getPercentage(keyword.count) + '%' }"></div>
               </div>
             </div>
@@ -95,30 +114,58 @@
         </div>
       </n-card>
 
-      <!-- 搜索记录 -->
+      <!-- 近期热搜关键词（近30天）— 009 -->
       <n-card>
         <template #header>
-          <span class="text-xl font-semibold text-gray-900 dark:text-white">搜索记录</span>
+          <span class="text-xl font-semibold text-gray-900 dark:text-white">近期热搜 <span class="text-sm font-normal text-gray-500">（近30天）</span></span>
         </template>
-        <div class="space-y-3">
-          <div v-for="record in limitedSearchList" :key="record.id" 
-               class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div class="flex-1">
-              <div class="font-medium text-gray-900 dark:text-white">{{ record.keyword }}</div>
-              <div class="text-sm text-gray-500 dark:text-gray-400">
-                {{ formatDate(record.created_at) }}
+        <div class="space-y-4">
+          <div v-for="keyword in limitedRecentHotKeywords" :key="keyword.keyword"
+               class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div class="flex items-center">
+              <span class="inline-flex items-center justify-center w-8 h-8 bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 rounded-full text-sm font-medium mr-3">
+                {{ keyword.rank }}
+              </span>
+              <span class="text-gray-900 dark:text-white font-medium">{{ keyword.keyword }}</span>
+            </div>
+            <div class="flex items-center">
+              <span class="text-gray-600 dark:text-gray-400 mr-2">{{ keyword.count }}次</span>
+              <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-orange-500 h-2 rounded-full"
+                     :style="{ width: getRecentPercentage(keyword.count) + '%' }"></div>
               </div>
             </div>
-            <div class="text-right">
-              <div class="text-sm font-medium text-gray-900 dark:text-white">{{ record.count }}次</div>
-            </div>
           </div>
-          <div v-if="searchList.length === 0 && !loading" class="text-center py-8 text-gray-500 dark:text-gray-400">
-            暂无搜索记录
+          <div v-if="!stats.recentHotKeywords || stats.recentHotKeywords.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
+            暂无近期热搜数据
           </div>
         </div>
       </n-card>
     </div>
+
+    <!-- 搜索记录（全宽，位于近期热搜之后，009 顺序：热门 → 近期热搜 → 搜索记录） -->
+    <n-card>
+      <template #header>
+        <span class="text-xl font-semibold text-gray-900 dark:text-white">搜索记录</span>
+      </template>
+      <div class="space-y-3">
+        <div v-for="record in limitedSearchList" :key="record.id"
+             class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div class="flex-1">
+            <div class="font-medium text-gray-900 dark:text-white">{{ record.keyword }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              {{ formatDate(record.created_at) }}
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-sm font-medium text-gray-900 dark:text-white">{{ record.count }}次</div>
+          </div>
+        </div>
+        <div v-if="searchList.length === 0 && !loading" class="text-center py-8 text-gray-500 dark:text-gray-400">
+          暂无搜索记录
+        </div>
+      </div>
+    </n-card>
   </div>
 </template>
 
@@ -143,6 +190,11 @@ const stats = ref<{
     count: number
     rank: number
   }>
+  recentHotKeywords: Array<{
+    keyword: string
+    count: number
+    rank: number
+  }>
   searchTrend: {
     days: string[]
     values: number[]
@@ -152,6 +204,7 @@ const stats = ref<{
   weekSearches: 0,
   monthSearches: 0,
   hotKeywords: [],
+  recentHotKeywords: [],
   searchTrend: {
     days: [],
     values: []
@@ -165,6 +218,8 @@ const searchList = ref<Array<{
   date: string
   created_at: string
 }>>([])
+// 009: 搜索来源渠道分布
+const sourceDistribution = ref<Array<{ source: string; name: string; count: number; percent: number }>>([])
 const loading = ref(false)
 const trendChart = ref<HTMLCanvasElement | null>(null)
 let chart: any = null
@@ -206,6 +261,18 @@ const getPercentage = (count: number) => {
   return Math.round((count / maxCount) * 100)
 }
 
+// 009: 限制显示前10条近期热搜
+const limitedRecentHotKeywords = computed(() => {
+  return (stats.value.recentHotKeywords || []).slice(0, 10)
+})
+
+// 009: 近期热搜百分比（基于近期热搜最大值）
+const getRecentPercentage = (count: number) => {
+  if (!stats.value.recentHotKeywords || stats.value.recentHotKeywords.length === 0) return 0
+  const maxCount = Math.max(...stats.value.recentHotKeywords.map((k: any) => k.count))
+  return Math.round((count / maxCount) * 100)
+}
+
 // 加载搜索统计
 const loadSearchStats = async () => {
   try {
@@ -217,16 +284,24 @@ const loadSearchStats = async () => {
     stats.value.weekSearches = summary?.week || 0
     stats.value.monthSearches = summary?.month || 0
     
-    // 2. 热门关键词
-    const hotKeywords = await useApiFetch('/search-stats/hot-keywords').then(parseApiResponse) as any[]
+    // 2. 热门关键词（全量 days=0）+ 近期热搜（近30天 days=30）— 009-statistics-enhancement
+    const [hotKeywords, recentHotKeywords] = await Promise.all([
+      useApiFetch('/search-stats/hot-keywords?days=0').then(parseApiResponse),
+      useApiFetch('/search-stats/hot-keywords?days=30').then(parseApiResponse),
+    ]) as any[]
     stats.value.hotKeywords = hotKeywords || []
+    stats.value.recentHotKeywords = recentHotKeywords || []
     
     // 3. 趋势
     const trend = await useApiFetch('/search-stats/trend').then(parseApiResponse) as any[]
     stats.value.searchTrend.days = (trend || []).map((item: any) => item.date ? new Date(item.date).toLocaleDateString() : '')
     stats.value.searchTrend.values = (trend || []).map((item: any) => item.total_searches)
     
-    // 4. 更新图表
+    // 4. 搜索来源分布 — 009
+    const sourceDist = await useApiFetch('/search-stats/source-distribution').then(parseApiResponse) as any[]
+    sourceDistribution.value = sourceDist || []
+
+    // 5. 更新图表
     await nextTick()
     updateChart()
   } catch (error) {

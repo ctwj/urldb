@@ -625,7 +625,7 @@ func IncrementResourceViewCount(c *gin.Context) {
 	// 记录访问记录
 	ipAddress := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
-	err = repoManager.ResourceViewRepository.RecordView(uint(id), ipAddress, userAgent)
+	err = repoManager.ResourceViewRepository.RecordView(uint(id), ipAddress, userAgent, entity.SourceWeb)
 	if err != nil {
 		// 记录访问失败不影响主要功能，只记录日志
 		utils.Error("记录资源访问失败: %v", err)
@@ -749,7 +749,7 @@ func GetResourceLink(c *gin.Context) {
 	// 记录访问记录
 	ipAddress := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
-	err = repoManager.ResourceViewRepository.RecordView(uint(resourceID), ipAddress, userAgent)
+	err = repoManager.ResourceViewRepository.RecordView(uint(resourceID), ipAddress, userAgent, entity.SourceWeb)
 	if err != nil {
 		utils.Error("记录资源访问失败: %v", err)
 	}

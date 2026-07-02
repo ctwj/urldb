@@ -50,6 +50,56 @@
         />
       </div>
 
+      <!-- 009: 资源大盘（总/同步/失效/访问总数） -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-database mr-2 text-blue-500"></i>总资源数</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{{ summary.resources.total || 0 }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-sync-alt mr-2 text-green-500"></i>同步资源数</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{{ summary.resources.synced_total || 0 }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-exclamation-triangle mr-2 text-red-500"></i>失效资源数</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{{ summary.resources.invalid_total || 0 }}</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-mouse-pointer mr-2 text-orange-500"></i>访问次数</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{{ summary.views.total || 0 }}</div>
+        </div>
+      </div>
+
+      <!-- 009: 访问分布（网盘分布 / 获取资源来源分布） -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">访问网盘分布</h3>
+          <div v-if="summary.view_pan_distribution?.length" class="space-y-3">
+            <div v-for="item in summary.view_pan_distribution" :key="item.key" class="flex items-center">
+              <span class="w-28 text-sm text-gray-600 dark:text-gray-300 truncate">{{ item.name || '未知' }}</span>
+              <div class="flex-1 mx-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-blue-600 h-2 rounded-full" :style="{ width: Math.min(item.percent, 100) + '%' }"></div>
+              </div>
+              <span class="w-24 text-right text-sm text-gray-500 dark:text-gray-400">{{ item.count }} ({{ item.percent }}%)</span>
+            </div>
+          </div>
+          <EmptyState v-else icon="fas fa-chart-pie" title="暂无访问数据" />
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">获取资源来源分布</h3>
+          <div v-if="summary.view_source_distribution?.length" class="space-y-3">
+            <div v-for="item in summary.view_source_distribution" :key="item.key" class="flex items-center">
+              <span class="w-28 text-sm text-gray-600 dark:text-gray-300 truncate">{{ item.name || item.key || '未知' }}</span>
+              <div class="flex-1 mx-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-purple-600 h-2 rounded-full" :style="{ width: Math.min(item.percent, 100) + '%' }"></div>
+              </div>
+              <span class="w-24 text-right text-sm text-gray-500 dark:text-gray-400">{{ item.count }} ({{ item.percent }}%)</span>
+            </div>
+          </div>
+          <EmptyState v-else icon="fas fa-chart-pie" title="暂无来源数据" />
+        </div>
+      </div>
+
       <!-- 待办聚合区 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center mb-4">

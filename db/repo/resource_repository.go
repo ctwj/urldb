@@ -43,6 +43,8 @@ type ResourceRepository interface {
 	FindSyncedToMeilisearch(page, limit int) ([]entity.Resource, int64, error)
 	CountUnsyncedToMeilisearch() (int64, error)
 	CountSyncedToMeilisearch() (int64, error)
+	CountInvalid() (int64, error)
+	CountInvalidByDate(date string) (int64, error)
 	MarkAsSyncedToMeilisearch(ids []uint) error
 	MarkAllAsUnsyncedToMeilisearch() error
 	FindAllWithPagination(page, limit int) ([]entity.Resource, int64, error)
@@ -664,6 +666,24 @@ func (r *ResourceRepositoryImpl) CountSyncedToMeilisearch() (int64, error) {
 	var count int64
 	err := r.db.Model(&entity.Resource{}).
 		Where("synced_to_meilisearch = ?", true).
+		Count(&count).Error
+	return count, err
+}
+
+// CountInvalid 统计失效资源数量（is_valid=false）。009-statistics-enhancement FR-003
+func (r *ResourceRepositoryImpl) CountInvalid() (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Resource{}).
+		Where("is_valid = ?", false).
+		Count(&count).Error
+	return count, err
+}
+
+// CountInvalidByDate 统计指定日期发生失效的资源数（按 invalidated_at 的日期）。009 FR-007/008
+func (r *ResourceRepositoryImpl) CountInvalidByDate(date string) (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Resource{}).
+		Where("DATE(invalidated_at) = ?", date).
 		Count(&count).Error
 	return count, err
 }

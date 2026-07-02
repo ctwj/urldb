@@ -125,15 +125,28 @@
         
         <!-- 统计信息 -->
         <div class="flex justify-between mt-3 text-sm text-gray-600 dark:text-gray-300 px-2" role="status" aria-live="polite">
-          <div class="flex items-center">
-            <i class="fas fa-calendar-day text-pink-600 mr-1" aria-hidden="true"></i>
-            <span class="sr-only">今日新增资源数量：</span>
-            今日资源: 
-            <span v-if="statsLoading" class="font-medium text-pink-600 ml-1">
-              <i class="fas fa-spinner fa-spin text-xs" aria-hidden="true"></i>
-              <span class="sr-only">加载中</span>
-            </span>
-            <span v-else class="font-medium text-pink-600 ml-1 count-up" :data-target="safeStats?.today_resources || 0" :aria-label="`今日新增${safeStats?.today_resources || 0}个资源`">0</span>
+          <!-- 左侧：今日资源 + 今日失效 紧挨成组 -->
+          <div class="flex items-center gap-4">
+            <div class="flex items-center">
+              <i class="fas fa-calendar-day text-pink-600 mr-1" aria-hidden="true"></i>
+              <span class="sr-only">今日新增资源数量：</span>
+              今日资源:
+              <span v-if="statsLoading" class="font-medium text-pink-600 ml-1">
+                <i class="fas fa-spinner fa-spin text-xs" aria-hidden="true"></i>
+                <span class="sr-only">加载中</span>
+              </span>
+              <span v-else class="font-medium text-pink-600 ml-1 count-up" :data-target="safeStats?.today_resources || 0" :aria-label="`今日新增${safeStats?.today_resources || 0}个资源`">0</span>
+            </div>
+            <div class="flex items-center">
+              <i class="fas fa-triangle-exclamation text-red-600 mr-1" aria-hidden="true"></i>
+              <span class="sr-only">今日失效资源数量：</span>
+              今日失效:
+              <span v-if="statsLoading" class="font-medium text-red-600 ml-1">
+                <i class="fas fa-spinner fa-spin text-xs" aria-hidden="true"></i>
+                <span class="sr-only">加载中</span>
+              </span>
+              <span v-else class="font-medium text-red-600 ml-1 count-up" :data-target="safeStats?.today_invalid || 0" :aria-label="`今日失效${safeStats?.today_invalid || 0}个资源`">0</span>
+            </div>
           </div>
           <div class="flex items-center">
             <i class="fas fa-database text-blue-600 mr-1" aria-hidden="true"></i>
@@ -774,7 +787,7 @@ const recordSearchStats = (keyword: string) => {
   // 延迟执行，确保页面完全加载
   setTimeout(() => {
     const searchStatsApi = useSearchStatsApi()
-    searchStatsApi.recordSearch({ keyword: trimmedKeyword }).catch(err => {
+    searchStatsApi.recordSearch({ keyword: trimmedKeyword, source: 'web' }).catch(err => {
       console.error('记录搜索统计失败:', err)
     })
   }, 0)

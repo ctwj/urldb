@@ -5,6 +5,7 @@ import "time"
 // SearchStatRequest 搜索统计请求
 type SearchStatRequest struct {
 	Keyword string `json:"keyword" binding:"required"`
+	Source  string `json:"source"`
 }
 
 // SearchStatResponse 搜索统计响应

@@ -442,6 +442,7 @@ func main() {
 		api.POST("/search-stats", handlers.RecordSearch)
 		api.POST("/search-stats/record", handlers.RecordSearch)
 		api.GET("/search-stats/summary", handlers.GetSearchStatsSummary)
+		api.GET("/search-stats/source-distribution", handlers.GetSearchSourceDistribution)
 
 		// API访问日志路由
 		api.GET("/api-access-logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetAPIAccessLogs)
