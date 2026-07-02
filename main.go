@@ -384,6 +384,7 @@ func main() {
 		api.GET("/performance", handlers.GetPerformanceStats)
 		api.GET("/stats/views-trend", handlers.GetViewsTrend)
 		api.GET("/stats/searches-trend", handlers.GetSearchesTrend)
+		api.GET("/stats/invalid-trend", handlers.GetInvalidTrend)
 		api.GET("/stats/summary", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSummary)
 		api.GET("/system/info", handlers.GetSystemInfo)
 
@@ -442,6 +443,7 @@ func main() {
 		api.POST("/search-stats", handlers.RecordSearch)
 		api.POST("/search-stats/record", handlers.RecordSearch)
 		api.GET("/search-stats/summary", handlers.GetSearchStatsSummary)
+		api.GET("/search-stats/source-distribution", handlers.GetSearchSourceDistribution)
 
 		// API访问日志路由
 		api.GET("/api-access-logs", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetAPIAccessLogs)

@@ -51,6 +51,13 @@ func GetStats(c *gin.Context) {
 	var todaySearches int64
 	db.DB.Model(&entity.SearchStat{}).Where("date >= ? AND date < ?", startOfToday.Format(utils.TimeFormatDate), endOfToday.Format(utils.TimeFormatDate)).Count(&todaySearches)
 
+	// 009: 今日失效资源数（按 invalidated_at 日期）
+	todayInvalid, errInv := repoManager.ResourceRepository.CountInvalidByDate(startOfToday.Format(utils.TimeFormatDate))
+	if errInv != nil {
+		utils.Error("获取今日失效资源数失败: %v", errInv)
+		todayInvalid = 0
+	}
+
 	// 添加调试日志
 	utils.Info("统计数据 - 总资源: %d, 总分类: %d, 总标签: %d, 总浏览量: %d",
 		totalResources, totalCategories, totalTags, totalViews)
@@ -66,6 +73,7 @@ func GetStats(c *gin.Context) {
 		"today_updates":    todayUpdates,
 		"today_views":      todayViews,
 		"today_searches":   todaySearches,
+		"today_invalid":    todayInvalid,
 	})
 }
 
@@ -146,6 +154,16 @@ func GetViewsTrend(c *gin.Context) {
 		utils.Info("第%d天: 日期=%s, 访问量=%d", i+1, result["date"], result["views"])
 	}
 
+	SuccessResponse(c, results)
+}
+
+// GetInvalidTrend 获取每日失效资源数趋势（近7天，仪表盘失效资源数迷你图）
+func GetInvalidTrend(c *gin.Context) {
+	results, err := repoManager.ResourceRepository.GetInvalidTrend(7)
+	if err != nil {
+		utils.Error("获取失效趋势数据失败: %v", err)
+		results = []map[string]interface{}{}
+	}
 	SuccessResponse(c, results)
 }
 

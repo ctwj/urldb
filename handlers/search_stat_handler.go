@@ -6,6 +6,7 @@ import (
 
 	"github.com/ctwj/urldb/db/converter"
 	"github.com/ctwj/urldb/db/dto"
+	"github.com/ctwj/urldb/db/entity"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,8 +23,12 @@ func RecordSearch(c *gin.Context) {
 	ip := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 
-	// 记录搜索
-	err := repoManager.SearchStatRepository.RecordSearch(req.Keyword, ip, userAgent)
+	// 记录搜索（来源缺省时按网页归因，保证历史/未传 source 的调用回退到 web）
+	source := req.Source
+	if source == "" {
+		source = entity.SourceWeb
+	}
+	err := repoManager.SearchStatRepository.RecordSearch(req.Keyword, source, ip, userAgent)
 	if err != nil {
 		ErrorResponse(c, "记录搜索失败", http.StatusInternalServerError)
 		return
@@ -77,6 +82,56 @@ func GetHotKeywords(c *gin.Context) {
 
 	response := converter.ToHotKeywordResponseList(keywords)
 	SuccessResponse(c, response)
+}
+
+// GetSearchSourceDistribution 获取搜索来源渠道分布。009-statistics-enhancement FR-021
+func GetSearchSourceDistribution(c *gin.Context) {
+	daysStr := c.DefaultQuery("days", "0")
+	days, err := strconv.Atoi(daysStr)
+	if err != nil {
+		ErrorResponse(c, "无效的天数参数", http.StatusBadRequest)
+		return
+	}
+	rows, err := repoManager.SearchStatRepository.GetSourceDistribution(days)
+	if err != nil {
+		ErrorResponse(c, "获取搜索来源分布失败", http.StatusInternalServerError)
+		return
+	}
+
+	var total int64
+	for _, row := range rows {
+		total += sourceCountToInt64(row["count"])
+	}
+	items := make([]gin.H, 0, len(rows))
+	for _, row := range rows {
+		source, _ := row["source"].(string)
+		count := sourceCountToInt64(row["count"])
+		percent := 0
+		if total > 0 {
+			percent = int(float64(count)/float64(total)*100 + 0.5)
+		}
+		items = append(items, gin.H{
+			"source":  source,
+			"name":    entity.SourceDisplayName(source),
+			"count":   count,
+			"percent": percent,
+		})
+	}
+	SuccessResponse(c, items)
+}
+
+// sourceCountToInt64 从 interface{} 提取 int64（兼容 PG SUM 返回的 int64/float64）
+func sourceCountToInt64(v interface{}) int64 {
+	switch n := v.(type) {
+	case int64:
+		return n
+	case int:
+		return int64(n)
+	case float64:
+		return int64(n)
+	default:
+		return 0
+	}
 }
 
 // GetDailyStats 获取每日统计（使用全局repoManager）

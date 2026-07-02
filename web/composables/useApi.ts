@@ -178,11 +178,19 @@ export const useReadyResourceApi = () => {
 }
 
 // 仪表盘首屏聚合统计响应类型（与后端 StatsSummary 对应，见 contracts/stats-summary-api.md）
+export interface ViewDistributionItem {
+  key: string
+  name: string
+  count: number
+  percent: number
+}
 export interface StatsSummary {
-  resources: { today: number; yesterday: number; total: number }
-  views: { today: number; yesterday: number }
+  resources: { today: number; yesterday: number; total: number; invalid_total: number; synced_total: number; today_invalid: number; today_synced: number }
+  views: { today: number; yesterday: number; total: number }
   searches: { today: number; yesterday: number }
   todos: { ready_resources: number; failed_tasks: number; pending_reports: number }
+  view_pan_distribution: ViewDistributionItem[]
+  view_source_distribution: ViewDistributionItem[]
 }
 
 export const useStatsApi = () => {
@@ -200,7 +208,9 @@ export const useSearchStatsApi = () => {
   const getSearchTrend = (params?: any) => useApiFetch('/search-stats/trend', { params }).then(parseApiResponse)
   const getKeywordTrend = (keyword: string, params?: any) => useApiFetch(`/search-stats/keyword/${keyword}/trend`, { params }).then(parseApiResponse)
   const getSearchStatsSummary = () => useApiFetch('/search-stats/summary').then(parseApiResponse)
-  const recordSearch = (data: { keyword: string }) => useApiFetch('/search-stats/record', { method: 'POST', body: data }).then(parseApiResponse)
+  const recordSearch = (data: { keyword: string; source?: string }) => useApiFetch('/search-stats/record', { method: 'POST', body: data }).then(parseApiResponse)
+  // 009: 搜索来源渠道分布
+  const getSearchSourceDistribution = (params?: any) => useApiFetch('/search-stats/source-distribution', { params }).then(parseApiResponse)
   return { 
     getSearchStats, 
     getHotKeywords, 
@@ -208,7 +218,8 @@ export const useSearchStatsApi = () => {
     getSearchTrend, 
     getKeywordTrend, 
     getSearchStatsSummary,
-    recordSearch
+    recordSearch,
+    getSearchSourceDistribution
   }
 }
 

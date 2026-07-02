@@ -141,6 +141,11 @@ func InitDB() error {
 		createIndexes(DB)
 	}
 
+	// 009-statistics-enhancement: 历史来源数据回填（幂等，仅在迁移时执行）
+	if shouldRunMigration() {
+		backfillSourceColumn(DB)
+	}
+
 	// 插入默认数据（只在数据库为空时）
 	if err := insertDefaultDataIfEmpty(); err != nil {
 		utils.Error("插入默认数据失败: %v", err)
@@ -250,6 +255,12 @@ func createIndexes(db *gorm.DB) {
 	// 搜索统计表索引
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_search_stats_keyword ON search_stats(keyword)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_search_stats_created_at ON search_stats(created_at DESC)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_search_stats_source ON search_stats(source)") // 009 来源分布
+
+	// 资源访问记录表索引（009-statistics-enhancement：获取资源来源/网盘分布）
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_views_resource_id ON resource_views(resource_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_views_source ON resource_views(source)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_resource_views_created_at ON resource_views(created_at DESC)")
 
 	// 热播剧表索引
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_hot_dramas_title ON hot_dramas(title)")
@@ -309,6 +320,22 @@ func createIndexes(db *gorm.DB) {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_system_health_status ON system_health(status)")
 
 	utils.Info("数据库索引创建完成（已移除全文搜索索引，准备使用Meilisearch，新增API访问日志性能索引，任务项表索引优化，插件系统索引）")
+}
+
+// backfillSourceColumn 009-statistics-enhancement: 将历史搜索/获取记录的来源回填为 web。
+// search_stats / resource_views 新增 source 列带 default:'web'，但 AutoMigrate 不会回填历史已存在行，
+// 故显式将 NULL/空值记录置为 web（代码可确定历史记录均来自网页前端）。幂等，重复执行无害。
+func backfillSourceColumn(db *gorm.DB) {
+	if res := db.Exec("UPDATE search_stats SET source = ? WHERE source IS NULL OR source = ''", entity.SourceWeb); res.Error != nil {
+		utils.Error("回填 search_stats.source 失败: %v", res.Error)
+	} else {
+		utils.Info("回填 search_stats.source=web，影响行数: %d", res.RowsAffected)
+	}
+	if res := db.Exec("UPDATE resource_views SET source = ? WHERE source IS NULL OR source = ''", entity.SourceWeb); res.Error != nil {
+		utils.Error("回填 resource_views.source 失败: %v", res.Error)
+	} else {
+		utils.Info("回填 resource_views.source=web，影响行数: %d", res.RowsAffected)
+	}
 }
 
 // insertDefaultDataIfEmpty 只在数据库为空时插入默认数据

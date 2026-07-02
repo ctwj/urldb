@@ -235,6 +235,23 @@ func ApplyValidityWriteback(
 		utils.Error("写回资源有效性失败 - ID: %d, Error: %v", resource.ID, err)
 		return
 	}
+
+	// 009-statistics-enhancement: 维护失效时间 invalidated_at，支撑每日失效统计（FR-007~009）
+	if newValid {
+		// 恢复有效：清空失效时间
+		if err := resourceRepo.UpdateFields(resource.ID, map[string]interface{}{"invalidated_at": nil}); err != nil {
+			utils.Error("清空 invalidated_at 失败 - ID: %d, Error: %v", resource.ID, err)
+		}
+		resource.InvalidatedAt = nil
+	} else {
+		// 失效：写入失效发生时间
+		now := utils.GetCurrentTime()
+		if err := resourceRepo.UpdateFields(resource.ID, map[string]interface{}{"invalidated_at": now}); err != nil {
+			utils.Error("写入 invalidated_at 失败 - ID: %d, Error: %v", resource.ID, err)
+		}
+		resource.InvalidatedAt = &now
+	}
+
 	utils.Info("资源有效性翻转 - ID: %d, %v -> %v", resource.ID, !newValid, newValid)
 
 	// 清除热门资源缓存，避免失效资源继续展示在热门列表

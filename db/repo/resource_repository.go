@@ -43,6 +43,15 @@ type ResourceRepository interface {
 	FindSyncedToMeilisearch(page, limit int) ([]entity.Resource, int64, error)
 	CountUnsyncedToMeilisearch() (int64, error)
 	CountSyncedToMeilisearch() (int64, error)
+	CountInvalid() (int64, error)
+	CountInvalidByDate(date string) (int64, error)
+	// CountSyncedByDate 统计指定日期新同步到搜索索引的资源数（synced_at 当天且 synced_to_meilisearch=true）
+	CountSyncedByDate(date string) (int64, error)
+	// GetInvalidTrend 获取近 days 天每日失效资源数趋势（仪表盘失效资源数迷你图）
+	GetInvalidTrend(days int) ([]map[string]interface{}, error)
+	// FindFailedResourceMetaByKey 取某 key 下任一失效资源的基本信息（失效页面优化）。
+	// 命中返回非 nil；该 key 下无失效资源时返回 (nil, nil)。
+	FindFailedResourceMetaByKey(key string) (*FailedResourceMeta, error)
 	MarkAsSyncedToMeilisearch(ids []uint) error
 	MarkAllAsUnsyncedToMeilisearch() error
 	FindAllWithPagination(page, limit int) ([]entity.Resource, int64, error)
@@ -666,6 +675,77 @@ func (r *ResourceRepositoryImpl) CountSyncedToMeilisearch() (int64, error) {
 		Where("synced_to_meilisearch = ?", true).
 		Count(&count).Error
 	return count, err
+}
+
+// CountInvalid 统计失效资源数量（is_valid=false）。009-statistics-enhancement FR-003
+func (r *ResourceRepositoryImpl) CountInvalid() (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Resource{}).
+		Where("is_valid = ?", false).
+		Count(&count).Error
+	return count, err
+}
+
+// CountInvalidByDate 统计指定日期发生失效的资源数（按 invalidated_at 的日期）。009 FR-007/008
+func (r *ResourceRepositoryImpl) CountInvalidByDate(date string) (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Resource{}).
+		Where("DATE(invalidated_at) = ?", date).
+		Count(&count).Error
+	return count, err
+}
+
+// CountSyncedByDate 统计指定日期新同步到搜索索引的资源数（synced_at 当天且 synced_to_meilisearch=true）。
+func (r *ResourceRepositoryImpl) CountSyncedByDate(date string) (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Resource{}).
+		Where("synced_to_meilisearch = ? AND DATE(synced_at) = ?", true, date).
+		Count(&count).Error
+	return count, err
+}
+
+// GetInvalidTrend 获取近 days 天每日失效资源数趋势（仪表盘失效资源数迷你图）。
+// 返回 [{date, invalid}]，最早在前。沿用 Asia/Shanghai 时区的自然日。
+func (r *ResourceRepositoryImpl) GetInvalidTrend(days int) ([]map[string]interface{}, error) {
+	results := make([]map[string]interface{}, 0, days)
+	for i := days - 1; i >= 0; i-- {
+		date := utils.GetCurrentTime().AddDate(0, 0, -i)
+		dateStr := date.Format(utils.TimeFormatDate)
+		count, err := r.CountInvalidByDate(dateStr)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, map[string]interface{}{
+			"date":    dateStr,
+			"invalid": count,
+		})
+	}
+	return results, nil
+}
+
+// FailedResourceMeta 失效资源的基本信息（失效页面优化：标题/封面/key）
+type FailedResourceMeta struct {
+	Title string `json:"title"`
+	Cover string `json:"cover"`
+	Key   string `json:"key"`
+}
+
+// FindFailedResourceMetaByKey 取某 key 下任一失效资源的基本信息（失效页面优化）。
+// 走 key 索引 + LIMIT 1，只读一行；未命中返回 (nil, nil)。
+func (r *ResourceRepositoryImpl) FindFailedResourceMetaByKey(key string) (*FailedResourceMeta, error) {
+	var meta FailedResourceMeta
+	result := r.db.Model(&entity.Resource{}).
+		Select("title, cover, key").
+		Where("key = ? AND is_valid = ?", key, false).
+		Limit(1).
+		Scan(&meta)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, nil
+	}
+	return &meta, nil
 }
 
 // FindAllWithPagination 分页查找所有资源

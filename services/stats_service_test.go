@@ -175,3 +175,98 @@ func TestNewStatsService_Construction(t *testing.T) {
 	}
 	// 不调用 GetSummary（db 为 nil 会 panic），仅验证构造成功
 }
+
+// TestToViewDistribution 验证分布行 → 分布项的转换（纯函数，无需 DB）。009-statistics-enhancement
+func TestToViewDistribution(t *testing.T) {
+	rows := []map[string]interface{}{
+		{"source": "web", "count": int64(80)},
+		{"source": "wechat", "count": int64(20)},
+	}
+	items := toViewDistribution(rows, "source", 100)
+	if len(items) != 2 {
+		t.Fatalf("期望 2 项，得到 %d", len(items))
+	}
+	if items[0].Key != "web" || items[0].Name != "网页" {
+		t.Errorf("第1项 key/name 期望 web/网页，得到 %s/%s", items[0].Key, items[0].Name)
+	}
+	if items[1].Key != "wechat" || items[1].Name != "公众号" {
+		t.Errorf("第2项 key/name 期望 wechat/公众号，得到 %s/%s", items[1].Key, items[1].Name)
+	}
+	if items[0].Percent != 80 {
+		t.Errorf("web 占比期望 80，得到 %d", items[0].Percent)
+	}
+	if items[0].Count != 80 {
+		t.Errorf("web count 期望 80，得到 %d", items[0].Count)
+	}
+
+	// pan 字段：name 原样返回（不经过 SourceDisplayName）
+	panRows := []map[string]interface{}{
+		{"pan": "夸克网盘", "count": int64(50)},
+	}
+	panItems := toViewDistribution(panRows, "pan", 50)
+	if len(panItems) != 1 || panItems[0].Name != "夸克网盘" {
+		t.Errorf("pan name 期望原样 '夸克网盘'，得到 %+v", panItems)
+	}
+
+	// total=0 时 percent 应为 0（避免除零）
+	zeroItems := toViewDistribution(rows, "source", 0)
+	if zeroItems[0].Percent != 0 {
+		t.Errorf("total=0 时 percent 期望 0，得到 %d", zeroItems[0].Percent)
+	}
+}
+
+// TestInterfaceToInt64 验证 interface{} → int64 的安全转换（纯函数）。009
+func TestInterfaceToInt64(t *testing.T) {
+	cases := []struct {
+		in  interface{}
+		out int64
+	}{
+		{int64(42), 42},
+		{int(7), 7},
+		{float64(99), 99},
+		{nil, 0},
+		{"abc", 0},
+	}
+	for _, c := range cases {
+		got := interfaceToInt64(c.in)
+		if got != c.out {
+			t.Errorf("interfaceToInt64(%v) = %d，期望 %d", c.in, got, c.out)
+		}
+	}
+}
+
+// TestGetSummary_NewFields 验证 009 新增字段（失效/同步/访问总数/分布）非负且口径对齐。
+// 需 DB，无 DB 时 skip。
+func TestGetSummary_NewFields(t *testing.T) {
+	svc := newServiceFromDB(t)
+
+	summary, err := svc.GetSummary()
+	if err != nil {
+		t.Fatalf("GetSummary 返回错误: %v", err)
+	}
+
+	if summary.Resources.InvalidTotal < 0 {
+		t.Errorf("InvalidTotal = %d，期望非负", summary.Resources.InvalidTotal)
+	}
+	if summary.Resources.SyncedTotal < 0 {
+		t.Errorf("SyncedTotal = %d，期望非负", summary.Resources.SyncedTotal)
+	}
+	if summary.Views.Total < 0 {
+		t.Errorf("Views.Total = %d，期望非负", summary.Views.Total)
+	}
+
+	// 口径对齐：分布各项 count 之和应等于 views.total（同一份 resource_views）
+	var panSum, sourceSum int64
+	for _, item := range summary.ViewPanDistribution {
+		panSum += item.Count
+	}
+	for _, item := range summary.ViewSourceDistribution {
+		sourceSum += item.Count
+	}
+	if panSum != summary.Views.Total {
+		t.Errorf("网盘分布 count 之和 %d != views.total %d（口径不对齐）", panSum, summary.Views.Total)
+	}
+	if sourceSum != summary.Views.Total {
+		t.Errorf("来源分布 count 之和 %d != views.total %d（口径不对齐）", sourceSum, summary.Views.Total)
+	}
+}

@@ -164,17 +164,20 @@ const currentUrl = computed(() => {
   transform: translateY(0);
 }
 
-/* 按钮位置样式 */
+/* 按钮位置样式：弹出统一向上展开（按钮在右下角，向上避免超出屏幕底） */
 .hover-show-con.qrcode-btn {
-  top: -60px;
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 
 .hover-show-con.newadd-btns {
-  top: -100px;
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 
 .hover-show-con.service-wechat {
-  top: -100px;
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 
 /* 图片容器 */

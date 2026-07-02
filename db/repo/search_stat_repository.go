@@ -12,9 +12,10 @@ import (
 // SearchStatRepository 搜索统计Repository接口
 type SearchStatRepository interface {
 	BaseRepository[entity.SearchStat]
-	RecordSearch(keyword, ip, userAgent string) error
+	RecordSearch(keyword, source, ip, userAgent string) error
 	GetDailyStats(days int) ([]entity.DailySearchStat, error)
 	GetHotKeywords(days int, limit int) ([]entity.KeywordStat, error)
+	GetSourceDistribution(days int) ([]map[string]interface{}, error)
 	GetSearchTrend(days int) ([]entity.DailySearchStat, error)
 	GetKeywordTrend(keyword string, days int) ([]entity.DailySearchStat, error)
 	GetSummary() (map[string]int64, error)
@@ -34,13 +35,14 @@ func NewSearchStatRepository(db *gorm.DB) SearchStatRepository {
 }
 
 // RecordSearch 记录搜索（每次都插入新记录）
-func (r *SearchStatRepositoryImpl) RecordSearch(keyword, ip, userAgent string) error {
+func (r *SearchStatRepositoryImpl) RecordSearch(keyword, source, ip, userAgent string) error {
 	stat := entity.SearchStat{
 		Keyword:   keyword,
 		Count:     1,
 		Date:      utils.GetCurrentTime(), // 可保留 date 字段，实际用 created_at 统计
 		IP:        ip,
 		UserAgent: userAgent,
+		Source:    source,
 	}
 	return r.db.Create(&stat).Error
 }
@@ -65,23 +67,63 @@ func (r *SearchStatRepositoryImpl) GetDailyStats(days int) ([]entity.DailySearch
 }
 
 // GetHotKeywords 获取热门关键词
+// 009-statistics-enhancement: days<=0 表示不限时间（全量累计口径）；days>0 仅统计近 days 天。
 func (r *SearchStatRepositoryImpl) GetHotKeywords(days int, limit int) ([]entity.KeywordStat, error) {
 	var keywords []entity.KeywordStat
 
-	query := fmt.Sprintf(`
-		SELECT 
-			keyword,
-			SUM(count) as count,
-			RANK() OVER (ORDER BY SUM(count) DESC) as rank
-		FROM search_stats 
-		WHERE date >= CURRENT_DATE - INTERVAL '%d days'
-		GROUP BY keyword 
-		ORDER BY count DESC 
-		LIMIT ?
-	`, days)
+	var query string
+	if days > 0 {
+		query = fmt.Sprintf(`
+			SELECT
+				keyword,
+				SUM(count) as count,
+				RANK() OVER (ORDER BY SUM(count) DESC) as rank
+			FROM search_stats
+			WHERE date >= CURRENT_DATE - INTERVAL '%d days'
+			GROUP BY keyword
+			ORDER BY count DESC
+			LIMIT ?
+		`, days)
+	} else {
+		query = `
+			SELECT
+				keyword,
+				SUM(count) as count,
+				RANK() OVER (ORDER BY SUM(count) DESC) as rank
+			FROM search_stats
+			GROUP BY keyword
+			ORDER BY count DESC
+			LIMIT ?
+		`
+	}
 
 	err := r.db.Raw(query, limit).Scan(&keywords).Error
 	return keywords, err
+}
+
+// GetSourceDistribution 获取搜索来源渠道分布（按 source 聚合 SUM(count)）。009 FR-021
+// days<=0 表示全量；days>0 仅统计近 days 天。
+func (r *SearchStatRepositoryImpl) GetSourceDistribution(days int) ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+	var query string
+	if days > 0 {
+		query = fmt.Sprintf(`
+			SELECT source, SUM(count) as count
+			FROM search_stats
+			WHERE date >= CURRENT_DATE - INTERVAL '%d days'
+			GROUP BY source
+			ORDER BY count DESC
+		`, days)
+	} else {
+		query = `
+			SELECT source, SUM(count) as count
+			FROM search_stats
+			GROUP BY source
+			ORDER BY count DESC
+		`
+	}
+	err := r.db.Raw(query).Scan(&results).Error
+	return results, err
 }
 
 // GetSearchTrend 获取搜索趋势

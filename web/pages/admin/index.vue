@@ -50,6 +50,52 @@
         />
       </div>
 
+      <!-- 009: 总资源 + 同步（小卡） -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-database mr-2 text-blue-500"></i>总资源数</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{{ summary.resources.total || 0 }}<span class="text-xs font-normal text-gray-400 ml-2">今日 +{{ summary.resources.today || 0 }}</span></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-sync-alt mr-2 text-green-500"></i>同步资源数</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{{ summary.resources.synced_total || 0 }}<span class="text-xs font-normal text-gray-400 ml-2">今日 +{{ summary.resources.today_synced || 0 }}</span></div>
+        </div>
+      </div>
+
+      <!-- 009: 失效资源数 + 访问次数（大卡：左数字 + 右一周迷你柱状） -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-exclamation-triangle mr-2 text-red-500"></i>失效资源数</div>
+              <div class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{{ summary.resources.invalid_total || 0 }}<span class="text-xs font-normal text-red-400 ml-2">今日 +{{ summary.resources.today_invalid || 0 }}</span></div>
+              <div class="text-xs text-gray-400 mt-1">近7天每日失效</div>
+            </div>
+            <div class="flex items-end gap-1 h-16 w-36">
+              <div v-for="(v, i) in invalidSpark" :key="i"
+                   class="flex-1 bg-red-500/70 rounded-t"
+                   :style="{ height: sparkHeight(v, invalidSpark) + '%' }"
+                   :title="`${weeklyInvalid[i]?.label || ''}: ${v}`"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-mouse-pointer mr-2 text-orange-500"></i>访问次数</div>
+              <div class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{{ summary.views.total || 0 }}<span class="text-xs font-normal text-orange-400 ml-2">今日 +{{ summary.views.today || 0 }}</span></div>
+              <div class="text-xs text-gray-400 mt-1">近7天每日访问</div>
+            </div>
+            <div class="flex items-end gap-1 h-16 w-36">
+              <div v-for="(v, i) in viewsSpark" :key="i"
+                   class="flex-1 bg-orange-500/70 rounded-t"
+                   :style="{ height: sparkHeight(v, viewsSpark) + '%' }"
+                   :title="`${weeklyViews[i]?.label || ''}: ${v}`"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 待办聚合区 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center mb-4">
@@ -110,6 +156,36 @@
           />
         </div>
       </div>
+
+      <!-- 009: 访问分布（移至最底：网盘分布 / 获取资源来源分布） -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">访问网盘分布</h3>
+          <div v-if="summary.view_pan_distribution?.length" class="space-y-3">
+            <div v-for="item in summary.view_pan_distribution" :key="item.key" class="flex items-center">
+              <span class="w-28 text-sm text-gray-600 dark:text-gray-300 truncate">{{ item.name || '未知' }}</span>
+              <div class="flex-1 mx-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-blue-600 h-2 rounded-full" :style="{ width: Math.min(item.percent, 100) + '%' }"></div>
+              </div>
+              <span class="w-24 text-right text-sm text-gray-500 dark:text-gray-400">{{ item.count }} ({{ item.percent }}%)</span>
+            </div>
+          </div>
+          <EmptyState v-else icon="fas fa-chart-pie" title="暂无访问数据" />
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">获取资源来源分布</h3>
+          <div v-if="summary.view_source_distribution?.length" class="space-y-3">
+            <div v-for="item in summary.view_source_distribution" :key="item.key" class="flex items-center">
+              <span class="w-28 text-sm text-gray-600 dark:text-gray-300 truncate">{{ item.name || item.key || '未知' }}</span>
+              <div class="flex-1 mx-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-purple-600 h-2 rounded-full" :style="{ width: Math.min(item.percent, 100) + '%' }"></div>
+              </div>
+              <span class="w-24 text-right text-sm text-gray-500 dark:text-gray-400">{{ item.count }} ({{ item.percent }}%)</span>
+            </div>
+          </div>
+          <EmptyState v-else icon="fas fa-chart-pie" title="暂无来源数据" />
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -134,15 +210,26 @@ const { data: summary, pending, error, refresh } = await useAsyncData<StatsSumma
 // 趋势数据
 const weeklyViews = ref<Array<{ label: string; value: number }>>([])
 const weeklySearches = ref<Array<{ label: string; value: number }>>([])
+const weeklyInvalid = ref<Array<{ label: string; value: number }>>([])
 
 const hasViewsData = computed(() => weeklyViews.value.some((d) => d.value > 0))
 const hasSearchesData = computed(() => weeklySearches.value.some((d) => d.value > 0))
 
+// 009: 失效/访问 迷你柱状的 7 天数值数组 + 高度百分比（max 归一，最小 6% 保证可见）
+const invalidSpark = computed(() => weeklyInvalid.value.map((d) => d.value))
+const viewsSpark = computed(() => weeklyViews.value.map((d) => d.value))
+const sparkHeight = (val: number, arr: number[]) => {
+  const max = Math.max(...arr, 0)
+  if (max <= 0) return 0
+  return Math.max(Math.round((val / max) * 100), val > 0 ? 6 : 0)
+}
+
 const fetchTrendData = async () => {
   try {
-    const [viewsRes, searchesRes] = await Promise.all([
+    const [viewsRes, searchesRes, invalidRes] = await Promise.all([
       useApiFetch('/stats/views-trend').then(parseApiResponse),
       useApiFetch('/stats/searches-trend').then(parseApiResponse),
+      useApiFetch('/stats/invalid-trend').then(parseApiResponse),
     ])
     weeklyViews.value = Array.isArray(viewsRes)
       ? viewsRes.map((item: any) => ({
@@ -156,9 +243,16 @@ const fetchTrendData = async () => {
           value: Number(item.searches) || 0,
         }))
       : []
+    weeklyInvalid.value = Array.isArray(invalidRes)
+      ? invalidRes.map((item: any) => ({
+          label: item.date ? new Date(item.date).toLocaleDateString('zh-CN', { weekday: 'short' }) : '',
+          value: Number(item.invalid) || 0,
+        }))
+      : []
   } catch {
     weeklyViews.value = []
     weeklySearches.value = []
+    weeklyInvalid.value = []
   }
 }
 

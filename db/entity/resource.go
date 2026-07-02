@@ -37,6 +37,10 @@ type Resource struct {
 	CleanErrorMsg    string     `json:"clean_error_msg" gorm:"size:255;comment:清理失败原因"`
 	LastCleanErrorAt *time.Time `json:"last_clean_error_at" gorm:"comment:最近清理失败时间"`
 
+	// 失效追踪（009-statistics-enhancement）：记录资源失效发生时刻，支撑每日失效统计。
+	// 仅在 IsValid 由 true→false 时写入、false→true 时清空；nil 表示当前有效或从未失效。
+	InvalidatedAt *time.Time `json:"invalidated_at" gorm:"index;comment:失效时间(仅失效时有值)"`
+
 	// 关联关系
 	Category Category `json:"category" gorm:"foreignKey:CategoryID"`
 	Pan      Pan      `json:"pan" gorm:"foreignKey:PanID"`
