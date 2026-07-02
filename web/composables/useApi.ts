@@ -185,7 +185,7 @@ export interface ViewDistributionItem {
   percent: number
 }
 export interface StatsSummary {
-  resources: { today: number; yesterday: number; total: number; invalid_total: number; synced_total: number }
+  resources: { today: number; yesterday: number; total: number; invalid_total: number; synced_total: number; today_invalid: number; today_synced: number }
   views: { today: number; yesterday: number; total: number }
   searches: { today: number; yesterday: number }
   todos: { ready_resources: number; failed_tasks: number; pending_reports: number }

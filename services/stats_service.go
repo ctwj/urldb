@@ -29,6 +29,8 @@ type ResourcesStats struct {
 	Total        int64 `json:"total"`
 	InvalidTotal int64 `json:"invalid_total"` // 009: 失效资源总数（is_valid=false）
 	SyncedTotal  int64 `json:"synced_total"`  // 009: 已同步搜索索引资源数
+	TodayInvalid int64 `json:"today_invalid"` // 009: 今日失效资源数
+	TodaySynced  int64 `json:"today_synced"`  // 009: 今日新同步资源数
 }
 
 // ViewsStats 浏览量指标
@@ -127,6 +129,10 @@ func (s *StatsService) GetSummary() (*StatsSummary, error) {
 	s.db.Model(&entity.Resource{}).Where("is_valid = ?", false).Count(&invalidTotal)
 	syncedTotal, _ = s.repo.ResourceRepository.CountSyncedToMeilisearch()
 
+	// 009: 今日失效 / 今日同步（仪表盘卡片"今日"小字）
+	todayInvalid, _ := s.repo.ResourceRepository.CountInvalidByDate(todayStr)
+	todaySynced, _ := s.repo.ResourceRepository.CountSyncedByDate(todayStr)
+
 	// 009: 访问（获取资源）总次数 + 网盘/来源分布（均来自 resource_views）
 	viewsTotal, vErr := s.repo.ResourceViewRepository.GetTotalViews()
 	if vErr != nil {
@@ -159,6 +165,8 @@ func (s *StatsService) GetSummary() (*StatsSummary, error) {
 			Total:        clamp(resourcesTotal),
 			InvalidTotal: clamp(invalidTotal),
 			SyncedTotal:  clamp(syncedTotal),
+			TodayInvalid: clamp(todayInvalid),
+			TodaySynced:  clamp(todaySynced),
 		},
 		Views: ViewsStats{
 			Today:     clamp(viewsToday),

@@ -384,6 +384,7 @@ func main() {
 		api.GET("/performance", handlers.GetPerformanceStats)
 		api.GET("/stats/views-trend", handlers.GetViewsTrend)
 		api.GET("/stats/searches-trend", handlers.GetSearchesTrend)
+		api.GET("/stats/invalid-trend", handlers.GetInvalidTrend)
 		api.GET("/stats/summary", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSummary)
 		api.GET("/system/info", handlers.GetSystemInfo)
 

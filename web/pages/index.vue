@@ -128,16 +128,16 @@
           <!-- 左侧：今日资源 + 今日失效 紧挨成组 -->
           <div class="flex items-center gap-4">
             <div class="flex items-center">
-              <i class="fas fa-calendar-day text-pink-600 mr-1" aria-hidden="true"></i>
+              <i class="fas fa-calendar-day text-cyan-600 mr-1" aria-hidden="true"></i>
               <span class="sr-only">今日新增资源数量：</span>
               今日资源:
-              <span v-if="statsLoading" class="font-medium text-pink-600 ml-1">
+              <span v-if="statsLoading" class="font-medium text-cyan-600 ml-1">
                 <i class="fas fa-spinner fa-spin text-xs" aria-hidden="true"></i>
                 <span class="sr-only">加载中</span>
               </span>
-              <span v-else class="font-medium text-pink-600 ml-1 count-up" :data-target="safeStats?.today_resources || 0" :aria-label="`今日新增${safeStats?.today_resources || 0}个资源`">0</span>
+              <span v-else class="font-medium text-cyan-600 ml-1 count-up" :data-target="safeStats?.today_resources || 0" :aria-label="`今日新增${safeStats?.today_resources || 0}个资源`">0</span>
             </div>
-            <div class="flex items-center">
+            <div class="hidden sm:flex items-center">
               <i class="fas fa-triangle-exclamation text-red-600 mr-1" aria-hidden="true"></i>
               <span class="sr-only">今日失效资源数量：</span>
               今日失效:
@@ -164,7 +164,48 @@
       <!-- 资源列表 -->
       <section aria-label="资源列表" class="overflow-x-auto bg-white dark:bg-slate-800 rounded-lg shadow-lg shadow-slate-900/10 dark:shadow-slate-900/50">
         <h2 class="sr-only">{{ searchQuery ? `"${searchQuery}" 的搜索结果` : '最新网盘资源列表' }}</h2>
-        <table class="w-full min-w-full" role="table" aria-label="网盘资源列表">
+        <!-- 移动端卡片流 -->
+        <div class="sm:hidden space-y-2 p-2">
+          <div v-if="safeLoading" class="p-10 text-center text-gray-500 dark:text-gray-400">
+            <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
+          </div>
+          <div v-else-if="safeResources.length === 0" class="p-12 text-center text-gray-500 dark:text-slate-500 text-sm">
+            {{ searchQuery ? '没有找到相关资源' : '暂无资源数据' }}
+          </div>
+          <article
+            v-for="(resource, index) in safeResources"
+            :key="resource.id"
+            @click="navigateToDetail(resource.key)"
+            :class="['flex gap-3 p-3 rounded-lg bg-gray-50 dark:bg-slate-700/40 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700/70 transition-colors', isUpdatedToday(resource.updated_at) ? '!bg-cyan-50 dark:!bg-cyan-500/10' : '']"
+            :data-index="index"
+          >
+            <ClientOnly>
+              <n-image
+                :src="getResourceImageUrl(resource)"
+                :alt="`${resource.title} 封面`"
+                width="64"
+                class="w-16 h-16 rounded object-cover flex-shrink-0 border border-gray-200 dark:border-slate-600"
+                lazy
+                @error="handleResourceImageError"
+              />
+              <template #fallback>
+                <div class="w-16 h-16 rounded bg-gray-200 dark:bg-slate-700 flex-shrink-0"></div>
+              </template>
+            </ClientOnly>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1">
+                <span class="flex-shrink-0" v-html="getPlatformIcon(resource.pan_id || 0)" aria-hidden="true"></span>
+                <h3 class="font-medium text-sm break-words line-clamp-1 text-gray-900 dark:text-slate-100" v-html="resource.title_highlight || resource.title"></h3>
+              </div>
+              <p v-if="resource.description_highlight || resource.description" class="text-xs text-gray-500 dark:text-slate-400 mt-1 line-clamp-2 break-words" v-html="resource.description_highlight || resource.description"></p>
+              <div class="flex items-center justify-between mt-1.5">
+                <span class="text-xs text-gray-400 dark:text-slate-500" v-html="formatRelativeTime(resource.updated_at)"></span>
+                <span class="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1"><i class="fas fa-eye" aria-hidden="true"></i>详情</span>
+              </div>
+            </div>
+          </article>
+        </div>
+        <table class="w-full min-w-full hidden sm:table" role="table" aria-label="网盘资源列表">
           <caption class="sr-only">
             {{ searchQuery ? `搜索"${searchQuery}"找到${safeResources.length}个资源` : `最新网盘资源，共${safeResources.length}个` }}
           </caption>
@@ -217,7 +258,7 @@
             <tr
               v-for="(resource, index) in safeResources"
               :key="resource.id"
-              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-pink-50 dark:hover:bg-pink-500/10 bg-pink-50/30 dark:bg-pink-500/5 cursor-pointer' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer'"
+              :class="isUpdatedToday(resource.updated_at) ? 'hover:bg-cyan-50 dark:hover:bg-cyan-500/10 bg-cyan-50/30 dark:bg-cyan-500/5 cursor-pointer' : 'hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer'"
               :data-index="index"
               @click="navigateToDetail(resource.key)"
             >
@@ -888,11 +929,11 @@ const formatRelativeTime = (dateString: string) => {
   // 处理今天更新的情况
   if (isToday) {
     if (diffMin < 1) {
-      return '<span class="text-pink-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>刚刚更新</span>'
+      return '<span class="text-cyan-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>刚刚更新</span>'
     } else if (diffHour < 1) {
-      return `<span class="text-pink-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>${diffMin}分钟前</span>`
+      return `<span class="text-cyan-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>${diffMin}分钟前</span>`
     } else {
-      return `<span class="text-pink-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>${diffHour}小时前</span>`
+      return `<span class="text-cyan-600 font-medium flex items-center"><i class="fas fa-circle-dot text-xs mr-1 animate-pulse"></i>${diffHour}小时前</span>`
     }
   }
 

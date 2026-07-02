@@ -157,6 +157,16 @@ func GetViewsTrend(c *gin.Context) {
 	SuccessResponse(c, results)
 }
 
+// GetInvalidTrend 获取每日失效资源数趋势（近7天，仪表盘失效资源数迷你图）
+func GetInvalidTrend(c *gin.Context) {
+	results, err := repoManager.ResourceRepository.GetInvalidTrend(7)
+	if err != nil {
+		utils.Error("获取失效趋势数据失败: %v", err)
+		results = []map[string]interface{}{}
+	}
+	SuccessResponse(c, results)
+}
+
 // GetSearchesTrend 获取搜索量趋势数据
 func GetSearchesTrend(c *gin.Context) {
 	// 获取最近7天的搜索量数据

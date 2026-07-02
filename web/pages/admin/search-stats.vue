@@ -84,8 +84,8 @@
       </div>
     </n-card>
 
-    <!-- 009: 热门关键词（全量）和近期热搜（近30天）并排 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- 009: 热门关键词 / 近期热搜 / 搜索记录 三栏等分 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- 热门关键词（全量） -->
       <n-card>
         <template #header>
@@ -141,31 +141,31 @@
           </div>
         </div>
       </n-card>
-    </div>
 
-    <!-- 搜索记录（全宽，位于近期热搜之后，009 顺序：热门 → 近期热搜 → 搜索记录） -->
-    <n-card>
-      <template #header>
-        <span class="text-xl font-semibold text-gray-900 dark:text-white">搜索记录</span>
-      </template>
-      <div class="space-y-3">
-        <div v-for="record in limitedSearchList" :key="record.id"
-             class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div class="flex-1">
-            <div class="font-medium text-gray-900 dark:text-white">{{ record.keyword }}</div>
-            <div class="text-sm text-gray-500 dark:text-gray-400">
-              {{ formatDate(record.created_at) }}
+      <!-- 搜索记录（三栏第三列，009 顺序：热门 → 近期热搜 → 搜索记录） -->
+      <n-card>
+        <template #header>
+          <span class="text-xl font-semibold text-gray-900 dark:text-white">搜索记录</span>
+        </template>
+        <div class="space-y-3">
+          <div v-for="record in limitedSearchList" :key="record.id"
+               class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div class="flex-1">
+              <div class="font-medium text-gray-900 dark:text-white">{{ record.keyword }}</div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">
+                {{ formatDate(record.created_at) }}
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm font-medium text-gray-900 dark:text-white">{{ record.count }}次</div>
             </div>
           </div>
-          <div class="text-right">
-            <div class="text-sm font-medium text-gray-900 dark:text-white">{{ record.count }}次</div>
+          <div v-if="searchList.length === 0 && !loading" class="text-center py-8 text-gray-500 dark:text-gray-400">
+            暂无搜索记录
           </div>
         </div>
-        <div v-if="searchList.length === 0 && !loading" class="text-center py-8 text-gray-500 dark:text-gray-400">
-          暂无搜索记录
-        </div>
-      </div>
-    </n-card>
+      </n-card>
+    </div>
   </div>
 </template>
 
