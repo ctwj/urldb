@@ -269,6 +269,21 @@ func GetResourcesByKey(c *gin.Context) {
 	}
 
 	if len(resources) == 0 {
+		// 失效页面优化：全组失效时返回失效资源基本信息（标题/封面/key），
+		// 供前端展示「《标题》已失效」+ 一键搜索 + 替代资源；该 key 下无失效资源才真 404。
+		failed, ferr := repoManager.ResourceRepository.FindFailedResourceMetaByKey(key)
+		if ferr != nil {
+			utils.Error("查询失效资源元信息失败 key=%s: %v", key, ferr)
+		}
+		if failed != nil {
+			SuccessResponse(c, gin.H{
+				"resources":       []dto.ResourceResponse{},
+				"total":           0,
+				"key":             key,
+				"failed_resource": failed,
+			})
+			return
+		}
 		ErrorResponse(c, "资源不存在", http.StatusNotFound)
 		return
 	}
