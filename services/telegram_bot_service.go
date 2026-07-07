@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -43,17 +44,24 @@ type TelegramBotService interface {
 }
 
 type TelegramBotServiceImpl struct {
-	bot              *tgbotapi.BotAPI
-	isRunning        bool
-	systemConfigRepo repo.SystemConfigRepository
-	channelRepo      repo.TelegramChannelRepository
-	resourceRepo     repo.ResourceRepository // 添加资源仓库用于搜索
-	readyRepo        repo.ReadyResourceRepository
-	cronScheduler    *cron.Cron
-	config           *TelegramBotConfig
-	pushHistory      map[int64][]uint // 每个频道的推送历史记录，最多100条
-	mu               sync.RWMutex     // 用于保护pushHistory的读写锁
-	stopChan         chan struct{}    // 用于停止消息循环的channel
+	bot                *tgbotapi.BotAPI
+	isRunning          bool
+	systemConfigRepo   repo.SystemConfigRepository
+	channelRepo        repo.TelegramChannelRepository
+	resourceRepo       repo.ResourceRepository // 添加资源仓库用于搜索
+	readyRepo          repo.ReadyResourceRepository
+	meilisearchManager *MeilisearchManager         // 011：分页搜索（Meilisearch）
+	sessions           TgSearchSessionStore        // 011：分页状态（进程内）
+	linkCheckService   LinkCheckService            // 011：取链前有效性校验
+	linkService        ResourceLinkService         // 011：取链（与网页端共用）
+	linkInFlight       sync.Map                    // 011：取链/转存去重（按 resourceID）
+	searchStatRepo     repo.SearchStatRepository   // 011-US3：搜索归因
+	resourceViewRepo   repo.ResourceViewRepository // 011-US3：取链归因
+	cronScheduler      *cron.Cron
+	config             *TelegramBotConfig
+	pushHistory        map[int64][]uint // 每个频道的推送历史记录，最多100条
+	mu                 sync.RWMutex     // 用于保护pushHistory的读写锁
+	stopChan           chan struct{}    // 用于停止消息循环的channel
 }
 
 type TelegramBotConfig struct {
@@ -63,6 +71,7 @@ type TelegramBotConfig struct {
 	AutoReplyTemplate  string
 	AutoDeleteEnabled  bool
 	AutoDeleteInterval int // 分钟
+	SearchPageSize     int // 011：搜索每页条数（钳制 3–8）
 	ProxyEnabled       bool
 	ProxyType          string // http, https, socks5
 	ProxyHost          string
@@ -76,17 +85,29 @@ func NewTelegramBotService(
 	channelRepo repo.TelegramChannelRepository,
 	resourceRepo repo.ResourceRepository,
 	readyResourceRepo repo.ReadyResourceRepository,
+	meilisearchManager *MeilisearchManager,
+	sessions TgSearchSessionStore,
+	linkCheckService LinkCheckService,
+	linkService ResourceLinkService,
+	searchStatRepo repo.SearchStatRepository,
+	resourceViewRepo repo.ResourceViewRepository,
 ) TelegramBotService {
 	return &TelegramBotServiceImpl{
-		isRunning:        false,
-		systemConfigRepo: systemConfigRepo,
-		channelRepo:      channelRepo,
-		resourceRepo:     resourceRepo,
-		readyRepo:        readyResourceRepo,
-		cronScheduler:    cron.New(),
-		config:           &TelegramBotConfig{},
-		pushHistory:      make(map[int64][]uint),
-		stopChan:         make(chan struct{}),
+		isRunning:          false,
+		systemConfigRepo:   systemConfigRepo,
+		channelRepo:        channelRepo,
+		resourceRepo:       resourceRepo,
+		readyRepo:          readyResourceRepo,
+		meilisearchManager: meilisearchManager,
+		sessions:           sessions,
+		linkCheckService:   linkCheckService,
+		linkService:        linkService,
+		searchStatRepo:     searchStatRepo,
+		resourceViewRepo:   resourceViewRepo,
+		cronScheduler:      cron.New(),
+		config:             &TelegramBotConfig{},
+		pushHistory:        make(map[int64][]uint),
+		stopChan:           make(chan struct{}),
 	}
 }
 
@@ -106,6 +127,7 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 	s.config.AutoReplyTemplate = "您好！我可以帮您搜索网盘资源，请输入您要搜索的内容。"
 	s.config.AutoDeleteEnabled = false
 	s.config.AutoDeleteInterval = 60
+	s.config.SearchPageSize = 5
 	// 初始化代理默认值
 	s.config.ProxyEnabled = false
 	s.config.ProxyType = "http"
@@ -134,6 +156,14 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 		case entity.ConfigKeyTelegramAutoDeleteInterval:
 			if config.Value != "" {
 				fmt.Sscanf(config.Value, "%d", &s.config.AutoDeleteInterval)
+			}
+		case entity.ConfigKeyTelegramSearchPageSize:
+			if config.Value != "" {
+				var psize int
+				fmt.Sscanf(config.Value, "%d", &psize)
+				if psize >= 3 && psize <= 8 {
+					s.config.SearchPageSize = psize
+				}
 			}
 		case entity.ConfigKeyTelegramProxyEnabled:
 			s.config.ProxyEnabled = config.Value == "true"
@@ -568,6 +598,8 @@ func (s *TelegramBotServiceImpl) messageLoop() {
 			if update.Message != nil {
 				utils.Info("[TELEGRAM:MESSAGE] 接收到新消息更新")
 				s.handleMessage(update.Message)
+			} else if update.CallbackQuery != nil {
+				s.handleCallbackQuery(update.CallbackQuery)
 			} else {
 				utils.Debug("[TELEGRAM:MESSAGE] 接收到其他类型更新: %v", update)
 			}
@@ -832,8 +864,9 @@ func (s *TelegramBotServiceImpl) handleResourceRequest(message *tgbotapi.Message
 	s.sendReply(message, "资源已发送，请注意查收")
 }
 
-// handleSearchRequest 处理搜索请求
-func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, keyword string) {
+// handleSearchRequestLegacy 旧版纯文本搜索（011 前）。
+// 保留作为回退参考；当前路由走 011 的 handleSearchRequest（Meilisearch 分页 + 内联编号按钮）。
+func (s *TelegramBotServiceImpl) handleSearchRequestLegacy(message *tgbotapi.Message, keyword string) {
 
 	// 使用资源仓库进行搜索
 	resources, total, err := s.resourceRepo.Search(keyword, nil, 1, 5) // 限制为5个结果
@@ -878,6 +911,380 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 	s.sendReplyWithResourceAutoDelete(message, resultText)
 }
 
+// handleSearchRequest 处理搜索请求（011-telegram-bot-enhance：Meilisearch 分页 + 内联编号按钮）
+func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, keyword string) {
+	keyword = strings.TrimSpace(keyword)
+	if keyword == "" {
+		s.sendReply(message, "请输入搜索关键词")
+		return
+	}
+
+	pageSize := s.config.SearchPageSize
+	if pageSize < 3 || pageSize > 8 {
+		pageSize = 5
+	}
+
+	// 011：优先 Meilisearch（已支持分页与 is_valid 过滤）；未启用则提示
+	if s.meilisearchManager == nil || s.meilisearchManager.GetService() == nil {
+		utils.Info("[TELEGRAM:SEARCH] Meilisearch 未启用，无法提供分页搜索")
+		s.sendReply(message, "搜索服务（Meilisearch）未启用，请联系管理员开启后再试。")
+		return
+	}
+
+	docs, total, err := s.meilisearchManager.GetService().Search(keyword, map[string]interface{}{"is_valid": true}, 1, pageSize)
+	if err != nil {
+		utils.Error("[TELEGRAM:SEARCH] 搜索失败: %v", err)
+		s.sendReply(message, "搜索服务暂时不可用，请稍后重试")
+		return
+	}
+
+	// 011-US3：记录搜索归因（telegram 来源），即使 0 结果也计入（与网页端一致）
+	if s.searchStatRepo != nil {
+		if err := s.searchStatRepo.RecordSearch(keyword, entity.SourceTelegram, "", "telegram-bot"); err != nil {
+			utils.Error("[TELEGRAM:SEARCH] 记录搜索统计失败: %v", err)
+		}
+	}
+
+	if total == 0 || len(docs) == 0 {
+		response := fmt.Sprintf("🔍 <b>搜索结果</b>\n\n关键词: %s\n\n❌ 未找到相关资源\n\n💡 建议:\n• 尝试使用更通用的关键词\n• 检查拼写是否正确\n• 减少关键词数量", s.cleanMessageTextForHTML(keyword))
+		s.sendReply(message, response)
+		return
+	}
+
+	// 创建分页 session（承载关键字/页大小，供翻页 callback 复用，规避 64 字节限制）
+	var sess *TgSearchSession
+	if s.sessions != nil {
+		var userID int64
+		if message.From != nil {
+			userID = message.From.ID
+		}
+		sess = s.sessions.Create(message.Chat.ID, userID, keyword, pageSize, total)
+	}
+
+	text := s.renderSearchListText(keyword, docs, 1, pageSize, total)
+	markup := s.buildSearchKeyboard(sess, docs, 1, pageSize, total)
+	// 搜索/分页消息不自动删除：持久保留便于翻页与点击编号取链
+	s.sendHTMLWithKeyboard(message, text, markup, false)
+}
+
+// renderSearchListText 渲染某一页的列表文本（页内编号 1..N）
+func (s *TelegramBotServiceImpl) renderSearchListText(keyword string, docs []MeilisearchDocument, page, pageSize int, total int64) string {
+	totalPages := (total + int64(pageSize) - 1) / int64(pageSize)
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	text := fmt.Sprintf("🔍 <b>搜索结果</b>  关键词: %s\n共 %d 个资源 · 第 %d/%d 页\n\n",
+		s.cleanMessageTextForHTML(keyword), total, page, totalPages)
+	for i, doc := range docs {
+		// 每条记录两行：首行标题（加粗）、第二行描述（斜体，过长截断）；不显示链接地址
+		title := s.cleanMessageTextForHTML(doc.Title)
+		if title == "" {
+			title = "(无标题)"
+		}
+		text += fmt.Sprintf("<b>%d. %s</b>\n", i+1, title)
+		if desc := strings.TrimSpace(doc.Description); desc != "" {
+			if r := []rune(desc); len(r) > 80 {
+				desc = string(r[:80]) + "…"
+			}
+			text += fmt.Sprintf("<i>%s</i>\n", s.cleanMessageTextForHTML(desc))
+		}
+	}
+	text += "\n<i>点击下方编号获取可用链接</i>"
+	return text
+}
+
+// buildSearchKeyboard 构建分页（上一页/页码/下一页）+ 编号（1..N，tgg:<资源ID>）内联键盘
+func (s *TelegramBotServiceImpl) buildSearchKeyboard(sess *TgSearchSession, docs []MeilisearchDocument, page, pageSize int, total int64) tgbotapi.InlineKeyboardMarkup {
+	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	sid := ""
+	if sess != nil {
+		sid = sess.SessionID
+	}
+
+	var prevBtn tgbotapi.InlineKeyboardButton
+	if page > 1 {
+		prevBtn = tgbotapi.NewInlineKeyboardButtonData("⬅️ 上一页", fmt.Sprintf("tgp:%s:%d", sid, page-1))
+	} else {
+		prevBtn = tgbotapi.NewInlineKeyboardButtonData("· 上一页", "tgp:-:0")
+	}
+	pageBtn := tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("%d / %d", page, totalPages), fmt.Sprintf("tgp:%s:%d", sid, page))
+	var nextBtn tgbotapi.InlineKeyboardButton
+	if page < totalPages {
+		nextBtn = tgbotapi.NewInlineKeyboardButtonData("下一页 ➡️", fmt.Sprintf("tgp:%s:%d", sid, page+1))
+	} else {
+		nextBtn = tgbotapi.NewInlineKeyboardButtonData("· 下一页", "tgp:-:0")
+	}
+	navRow := tgbotapi.NewInlineKeyboardRow(prevBtn, pageBtn, nextBtn)
+
+	numRow := make([]tgbotapi.InlineKeyboardButton, 0, len(docs))
+	for i, doc := range docs {
+		// 按钮标签为页内序号（1..N），与列表编号一致；callback_data 携带资源 ID
+		numRow = append(numRow, tgbotapi.NewInlineKeyboardButtonData(
+			fmt.Sprintf("%d", i+1),
+			fmt.Sprintf("tgg:%d:%d", doc.ID, i+1),
+		))
+	}
+	return tgbotapi.NewInlineKeyboardMarkup(navRow, numRow)
+}
+
+// handleCallbackQuery 处理内联按钮回调（011）：先即时回执，再按前缀路由
+func (s *TelegramBotServiceImpl) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
+	if callback == nil {
+		return
+	}
+	// 即时回执，避免客户端转圈（Telegram 要求尽快应答）
+	if s.bot != nil {
+		ackText := ""
+		if strings.HasPrefix(callback.Data, "tgg:") {
+			ackText = "检测中…"
+		}
+		if _, err := s.bot.Request(tgbotapi.NewCallback(callback.ID, ackText)); err != nil {
+			utils.Error("[TELEGRAM:CALLBACK] answerCallbackQuery 失败: %v", err)
+		}
+	}
+	if !s.isRunning || !s.config.Enabled || s.bot == nil {
+		return
+	}
+	switch {
+	case strings.HasPrefix(callback.Data, "tgp:"):
+		s.handlePagingCallback(callback)
+	case strings.HasPrefix(callback.Data, "tgg:"):
+		s.handleGetLinkCallback(callback)
+	default:
+		utils.Debug("[TELEGRAM:CALLBACK] 未知回调数据: %s", callback.Data)
+	}
+}
+
+// handlePagingCallback 处理翻页回调 tgp:<sid>:<page>：原地编辑同一消息
+func (s *TelegramBotServiceImpl) handlePagingCallback(callback *tgbotapi.CallbackQuery) {
+	if callback.Message == nil {
+		return
+	}
+	parts := strings.SplitN(callback.Data, ":", 3)
+	if len(parts) < 3 {
+		return
+	}
+	sid := parts[1]
+	page, err := strconv.Atoi(parts[2])
+	if err != nil || page < 1 {
+		return
+	}
+	if sid == "-" || s.sessions == nil {
+		s.editCallbackMessageText(callback, "⚠️ 该搜索已失效，请重新发送关键词搜索。", nil)
+		return
+	}
+	sess, ok := s.sessions.Get(sid)
+	if !ok {
+		s.editCallbackMessageText(callback, "⚠️ 搜索会话已过期，请重新发送关键词搜索。", nil)
+		return
+	}
+	if s.meilisearchManager == nil || s.meilisearchManager.GetService() == nil {
+		s.editCallbackMessageText(callback, "搜索服务暂不可用。", nil)
+		return
+	}
+	docs, _, err := s.meilisearchManager.GetService().Search(sess.Keyword, map[string]interface{}{"is_valid": true}, page, sess.PageSize)
+	if err != nil {
+		utils.Error("[TELEGRAM:PAGING] 第 %d 页搜索失败 (sid=%s): %v", page, sid, err)
+		s.editCallbackMessageText(callback, "搜索失败，请稍后重试。", nil)
+		return
+	}
+	if len(docs) == 0 {
+		utils.Info("[TELEGRAM:PAGING] 第 %d 页无结果 (sid=%s, 会话总数=%d)", page, sid, sess.Total)
+		s.editCallbackMessageText(callback, "该页无结果。", nil)
+		return
+	}
+	utils.Debug("[TELEGRAM:PAGING] 翻到第 %d 页 (sid=%s, 本页 %d 条, 会话总数=%d)", page, sid, len(docs), sess.Total)
+	// 用会话创建时记录的总数计算总页数，保证「上一页/下一页」按钮状态稳定，
+	// 避免 Meilisearch estimatedTotalHits 估算值波动导致末页按钮忽隐忽现。
+	text := s.renderSearchListText(sess.Keyword, docs, page, sess.PageSize, sess.Total)
+	markup := s.buildSearchKeyboard(sess, docs, page, sess.PageSize, sess.Total)
+	s.editCallbackMessageText(callback, text, &markup)
+}
+
+// handleGetLinkCallback 处理取链回调 tgg:<resourceID>（011-US2）
+// 流程：去重 → 取资源 → 有效性校验（翻转回写）→ 取链 → 单独新消息交付；失效则给备选。
+func (s *TelegramBotServiceImpl) handleGetLinkCallback(callback *tgbotapi.CallbackQuery) {
+	if callback.Message == nil || s.bot == nil {
+		return
+	}
+	chatID := callback.Message.Chat.ID
+
+	// 解析 tgg:<resourceID>[:<页内编号>]
+	parts := strings.SplitN(callback.Data, ":", 3)
+	if len(parts) < 2 {
+		s.sendChatMessage(chatID, "无效的资源编号。", 0)
+		return
+	}
+	resourceID, err := strconv.ParseUint(parts[1], 10, 64)
+	if err != nil {
+		s.sendChatMessage(chatID, "无效的资源编号。", 0)
+		return
+	}
+	ordinal := 0
+	if len(parts) >= 3 {
+		if v, err := strconv.Atoi(parts[2]); err == nil {
+			ordinal = v
+		}
+	}
+
+	// 去重锁：防止快速连点重复触发转存（转存昂贵且耗系统账号配额）
+	if _, loaded := s.linkInFlight.LoadOrStore(resourceID, struct{}{}); loaded {
+		s.sendChatMessage(chatID, "该资源正在检测中，请稍候…", 0)
+		return
+	}
+	defer s.linkInFlight.Delete(resourceID)
+
+	// 取资源
+	resource, err := s.resourceRepo.FindByID(uint(resourceID))
+	if err != nil || resource == nil {
+		s.sendChatMessage(chatID, "资源不存在或已被移除。", 0)
+		return
+	}
+
+	// 有效性校验（与网页端同一套机制）
+	ctx := context.Background()
+	if s.linkCheckService != nil {
+		results := s.linkCheckService.CheckResources(ctx, []*entity.Resource{resource}, false)
+		if r, ok := results[resource.ID]; ok {
+			// 翻转时回写 DB + Meilisearch（内部判断，未翻转/未确定则空操作）
+			ApplyValidityWriteback(resource, r, s.resourceRepo, s.meilisearchManager)
+			if r.Status == "invalid" {
+				// 失效：纯文案提示，30 秒后自动删除，不带按钮
+				notice := "❌ 该资源检测发现已经失效，请切换使用别的资源"
+				if ordinal > 0 {
+					notice = fmt.Sprintf("❌ 编号 %d 的资源，检测发现已经失效，请切换使用别的资源", ordinal)
+				}
+				s.sendChatMessage(chatID, notice, 30*time.Second)
+				return
+			}
+		}
+	}
+
+	// 取链（优先 SaveURL，否则按网页端转存路径产生）
+	if s.linkService == nil {
+		s.sendChatMessage(chatID, "取链服务暂不可用。", 0)
+		return
+	}
+	resolution, err := s.linkService.Resolve(ctx, resource)
+	if err != nil {
+		utils.Error("[TELEGRAM:GETLINK] 取链失败 (resource=%d): %v", resource.ID, err)
+		s.sendChatMessage(chatID, "获取链接失败，请稍后重试。", 0)
+		return
+	}
+
+	// 以单独新消息交付链接（原列表消息保留，可继续点击其他编号），并在文末附自动删除时间
+	title := s.cleanMessageTextForHTML(resource.Title)
+	linkText := fmt.Sprintf("🔗 <b>%s</b>\n<a href=\"%s\">点此打开</a>", title, resolution.URL)
+	if resolution.Note != "" {
+		linkText += fmt.Sprintf("\n⚠️ %s", resolution.Note)
+	}
+	delAfter := time.Duration(0)
+	if s.config.AutoDeleteInterval > 0 {
+		linkText += fmt.Sprintf("\n\n⏰ <b>此消息将在 %d 分钟后自动删除</b>", s.config.AutoDeleteInterval)
+		delAfter = time.Duration(s.config.AutoDeleteInterval) * time.Minute
+	}
+	s.sendChatMessage(chatID, linkText, delAfter)
+
+	// 011-US3：取链归因（telegram 来源）— 访问量 + 来源分布 + 网盘分布
+	if err := s.resourceRepo.IncrementViewCount(resource.ID); err != nil {
+		utils.Error("[TELEGRAM:GETLINK] 增加访问量失败: %v", err)
+	}
+	if s.resourceViewRepo != nil {
+		if err := s.resourceViewRepo.RecordView(resource.ID, "", "telegram-bot", entity.SourceTelegram); err != nil {
+			utils.Error("[TELEGRAM:GETLINK] 记录访问来源失败: %v", err)
+		}
+	}
+}
+
+// sendChatMessage 发送独立新 HTML 消息；delAfter>0 时按时长后自动删除（0=不删除）
+func (s *TelegramBotServiceImpl) sendChatMessage(chatID int64, text string, delAfter time.Duration) {
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
+	sentMsg, err := s.bot.Send(msg)
+	if err != nil {
+		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送消息失败: %v", err)
+		return
+	}
+	if delAfter > 0 {
+		s.armAutoDeleteAfter(sentMsg, delAfter)
+	}
+}
+
+// editCallbackMessageText 原地编辑回调所属消息文本（可选更新键盘）
+func (s *TelegramBotServiceImpl) editCallbackMessageText(callback *tgbotapi.CallbackQuery, text string, markup *tgbotapi.InlineKeyboardMarkup) {
+	if callback.Message == nil || s.bot == nil {
+		return
+	}
+	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
+	edit.ParseMode = "HTML"
+	if markup != nil {
+		edit.ReplyMarkup = markup
+	}
+	if _, err := s.bot.Request(edit); err != nil {
+		// "message is not modified"：内容已是最新，视为成功，不回退（避免重复发消息）
+		if strings.Contains(err.Error(), "not modified") {
+			return
+		}
+		utils.Error("[TELEGRAM:CALLBACK] 原地编辑失败，回退为新消息发送: %v", err)
+		// 回退：编辑失败（网络/限流/解析等）→ 发新消息，确保翻页结果一定可见
+		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
+		msg.ParseMode = "HTML"
+		if markup != nil {
+			msg.ReplyMarkup = markup
+		}
+		if _, err := s.bot.Send(msg); err != nil {
+			utils.Error("[TELEGRAM:CALLBACK] 回退发送消息也失败: %v", err)
+		}
+	}
+}
+
+// sendHTMLWithKeyboard 发送带内联键盘的 HTML 消息，可选自动删除
+func (s *TelegramBotServiceImpl) sendHTMLWithKeyboard(message *tgbotapi.Message, text string, markup tgbotapi.InlineKeyboardMarkup, autoDelete bool) {
+	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyToMessageID = message.MessageID
+	msg.ReplyMarkup = &markup
+	sentMsg, err := s.bot.Send(msg)
+	if err != nil {
+		utils.Error("[TELEGRAM:MESSAGE:ERROR] 发送键盘消息失败: %v", err)
+		return
+	}
+	utils.Info("[TELEGRAM:MESSAGE:SUCCESS] 键盘消息发送成功 to ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
+	if autoDelete && s.config.AutoDeleteInterval > 0 {
+		s.armAutoDelete(sentMsg)
+	}
+}
+
+// armAutoDelete 为已发送消息设置自动删除定时器
+func (s *TelegramBotServiceImpl) armAutoDelete(sentMsg tgbotapi.Message) {
+	if s.config.AutoDeleteInterval <= 0 {
+		return
+	}
+	utils.Info("[TELEGRAM:MESSAGE] 设置自动删除定时器: %d 分钟后删除消息", s.config.AutoDeleteInterval)
+	time.AfterFunc(time.Duration(s.config.AutoDeleteInterval)*time.Minute, func() {
+		if _, err := s.bot.Request(tgbotapi.DeleteMessageConfig{ChatID: sentMsg.Chat.ID, MessageID: sentMsg.MessageID}); err != nil {
+			utils.Error("[TELEGRAM:MESSAGE:ERROR] 删除消息失败: %v", err)
+		} else {
+			utils.Info("[TELEGRAM:MESSAGE] 消息已自动删除: ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
+		}
+	})
+}
+
+// armAutoDeleteAfter 在指定时长后删除消息（用于自定义时效，如失效提示 30 秒）
+func (s *TelegramBotServiceImpl) armAutoDeleteAfter(sentMsg tgbotapi.Message, d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	time.AfterFunc(d, func() {
+		if _, err := s.bot.Request(tgbotapi.DeleteMessageConfig{ChatID: sentMsg.Chat.ID, MessageID: sentMsg.MessageID}); err != nil {
+			utils.Error("[TELEGRAM:MESSAGE:ERROR] 删除消息失败: %v", err)
+		}
+	})
+}
+
 // sendReply 发送回复消息
 func (s *TelegramBotServiceImpl) sendReply(message *tgbotapi.Message, text string) {
 	s.sendReplyWithAutoDelete(message, text, false)
@@ -904,19 +1311,7 @@ func (s *TelegramBotServiceImpl) sendReplyWithAutoDelete(message *tgbotapi.Messa
 
 	// 如果启用了自动删除，启动删除定时器
 	if autoDelete && s.config.AutoDeleteInterval > 0 {
-		utils.Info("[TELEGRAM:MESSAGE] 设置自动删除定时器: %d 分钟后删除消息", s.config.AutoDeleteInterval)
-		time.AfterFunc(time.Duration(s.config.AutoDeleteInterval)*time.Minute, func() {
-			deleteConfig := tgbotapi.DeleteMessageConfig{
-				ChatID:    sentMsg.Chat.ID,
-				MessageID: sentMsg.MessageID,
-			}
-			_, err := s.bot.Request(deleteConfig)
-			if err != nil {
-				utils.Error("[TELEGRAM:MESSAGE:ERROR] 删除消息失败: %v", err)
-			} else {
-				utils.Info("[TELEGRAM:MESSAGE] 消息已自动删除: ChatID=%d, MessageID=%d", sentMsg.Chat.ID, sentMsg.MessageID)
-			}
-		})
+		s.armAutoDelete(sentMsg)
 	}
 }
 

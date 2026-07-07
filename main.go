@@ -463,7 +463,7 @@ func main() {
 		api.GET("/system/config/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetConfigStatus)
 		api.POST("/system/config/toggle-auto-process", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ToggleAutoProcess)
 		api.GET("/public/system-config", handlers.GetPublicSystemConfig)
-api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  // 网站验证代码（公开访问）
+		api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode) // 网站验证代码（公开访问）
 
 		// 热播剧管理路由（查询接口无需认证）
 		api.GET("/hot-dramas", handlers.GetHotDramaList)
@@ -513,11 +513,23 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 		api.POST("/wechat/verify-file", fileHandler.UploadWechatVerifyFile)
 
 		// 创建Telegram Bot服务
+		resourceLinkService := services.NewResourceLinkService(
+			repoManager.CksRepository,
+			repoManager.PanRepository,
+			repoManager.SystemConfigRepository,
+			repoManager.ResourceRepository,
+		)
 		telegramBotService := services.NewTelegramBotService(
 			repoManager.SystemConfigRepository,
 			repoManager.TelegramChannelRepository,
 			repoManager.ResourceRepository,
 			repoManager.ReadyResourceRepository,
+			meilisearchManager,
+			services.NewInMemoryTgSearchSessionStore(1000, 15*time.Minute),
+			linkCheckService,
+			resourceLinkService,
+			repoManager.SearchStatRepository,
+			repoManager.ResourceViewRepository,
 		)
 
 		// 启动Telegram Bot服务
@@ -625,10 +637,10 @@ api.GET("/public/site-verification", handlers.GetPublicSiteVerificationCode)  //
 
 		// Google索引管理API
 		api.GET("/google-index/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetConfig)
-		api.GET("/google-index/config-all", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetAllConfig)  // 获取所有配置
+		api.GET("/google-index/config-all", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetAllConfig) // 获取所有配置
 		api.POST("/google-index/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.UpdateConfig)
-		api.POST("/google-index/config/update", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.UpdateGoogleIndexConfig)  // 分组配置更新
-		api.GET("/google-index/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetStatus)  // 获取状态
+		api.POST("/google-index/config/update", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.UpdateGoogleIndexConfig) // 分组配置更新
+		api.GET("/google-index/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetStatus)                       // 获取状态
 		api.POST("/google-index/tasks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.CreateTask)
 		api.GET("/google-index/tasks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetTasks)
 		api.GET("/google-index/tasks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), googleIndexHandler.GetTaskStatus)

@@ -62,6 +62,7 @@ type TelegramBotConfigRequest struct {
 	AutoReplyTemplate  *string `json:"auto_reply_template"`
 	AutoDeleteEnabled  *bool   `json:"auto_delete_enabled"`
 	AutoDeleteInterval *int    `json:"auto_delete_interval"`
+	SearchPageSize     *int    `json:"search_page_size"` // 011-telegram-bot-enhance：搜索每页条数（3–8）
 	ProxyEnabled       *bool   `json:"proxy_enabled"`
 	ProxyType          *string `json:"proxy_type"`
 	ProxyHost          *string `json:"proxy_host"`
@@ -78,6 +79,7 @@ type TelegramBotConfigResponse struct {
 	AutoReplyTemplate  string `json:"auto_reply_template"`
 	AutoDeleteEnabled  bool   `json:"auto_delete_enabled"`
 	AutoDeleteInterval int    `json:"auto_delete_interval"`
+	SearchPageSize     int    `json:"search_page_size"` // 011-telegram-bot-enhance：搜索每页条数（3–8）
 	ProxyEnabled       bool   `json:"proxy_enabled"`
 	ProxyType          string `json:"proxy_type"`
 	ProxyHost          string `json:"proxy_host"`
