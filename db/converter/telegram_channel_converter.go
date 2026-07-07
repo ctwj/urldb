@@ -82,6 +82,7 @@ func TelegramBotConfigToResponse(
 	autoReplyTemplate string,
 	autoDeleteEnabled bool,
 	autoDeleteInterval int,
+	searchPageSize int,
 	proxyEnabled bool,
 	proxyType string,
 	proxyHost string,
@@ -96,6 +97,7 @@ func TelegramBotConfigToResponse(
 		AutoReplyTemplate:  autoReplyTemplate,
 		AutoDeleteEnabled:  autoDeleteEnabled,
 		AutoDeleteInterval: autoDeleteInterval,
+		SearchPageSize:     searchPageSize,
 		ProxyEnabled:       proxyEnabled,
 		ProxyType:          proxyType,
 		ProxyHost:          proxyHost,
@@ -113,6 +115,7 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 	autoReplyTemplate := "您好！我可以帮您搜索网盘资源，请输入您要搜索的内容。"
 	autoDeleteEnabled := false
 	autoDeleteInterval := 60
+	searchPageSize := 5
 	proxyEnabled := false
 	proxyType := "http"
 	proxyHost := ""
@@ -138,6 +141,15 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 				var val int
 				if _, err := fmt.Sscanf(config.Value, "%d", &val); err == nil {
 					autoDeleteInterval = val
+				}
+			}
+		case entity.ConfigKeyTelegramSearchPageSize:
+			if config.Value != "" {
+				var val int
+				if _, err := fmt.Sscanf(config.Value, "%d", &val); err == nil {
+					if val >= 3 && val <= 8 {
+						searchPageSize = val
+					}
 				}
 			}
 		case entity.ConfigKeyTelegramProxyEnabled:
@@ -167,6 +179,7 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 		autoReplyTemplate,
 		autoDeleteEnabled,
 		autoDeleteInterval,
+		searchPageSize,
 		proxyEnabled,
 		proxyType,
 		proxyHost,
@@ -227,6 +240,18 @@ func TelegramBotConfigRequestToSystemConfigs(req dto.TelegramBotConfigRequest) [
 		configs = append(configs, entity.SystemConfig{
 			Key:   entity.ConfigKeyTelegramAutoDeleteInterval,
 			Value: intToString(*req.AutoDeleteInterval),
+			Type:  entity.ConfigTypeInt,
+		})
+	}
+
+	if req.SearchPageSize != nil {
+		size := *req.SearchPageSize
+		if size < 3 || size > 8 {
+			size = 5 // 越界回退默认
+		}
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramSearchPageSize,
+			Value: intToString(size),
 			Type:  entity.ConfigTypeInt,
 		})
 	}

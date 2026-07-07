@@ -56,16 +56,17 @@ const (
 	ConfigKeyTelegramProxyPort          = "telegram_proxy_port"
 	ConfigKeyTelegramProxyUsername      = "telegram_proxy_username"
 	ConfigKeyTelegramProxyPassword      = "telegram_proxy_password"
+	ConfigKeyTelegramSearchPageSize     = "telegram_search_page_size" // 011-telegram-bot-enhance：搜索每页条数
 
 	// 微信公众号配置
-	ConfigKeyWechatBotEnabled         = "wechat_bot_enabled"
-	ConfigKeyWechatAppId              = "wechat_app_id"
-	ConfigKeyWechatAppSecret          = "wechat_app_secret"
-	ConfigKeyWechatToken              = "wechat_token"
-	ConfigKeyWechatEncodingAesKey     = "wechat_encoding_aes_key"
-	ConfigKeyWechatWelcomeMessage     = "wechat_welcome_message"
-	ConfigKeyWechatAutoReplyEnabled   = "wechat_auto_reply_enabled"
-	ConfigKeyWechatSearchLimit        = "wechat_search_limit"
+	ConfigKeyWechatBotEnabled       = "wechat_bot_enabled"
+	ConfigKeyWechatAppId            = "wechat_app_id"
+	ConfigKeyWechatAppSecret        = "wechat_app_secret"
+	ConfigKeyWechatToken            = "wechat_token"
+	ConfigKeyWechatEncodingAesKey   = "wechat_encoding_aes_key"
+	ConfigKeyWechatWelcomeMessage   = "wechat_welcome_message"
+	ConfigKeyWechatAutoReplyEnabled = "wechat_auto_reply_enabled"
+	ConfigKeyWechatSearchLimit      = "wechat_search_limit"
 
 	// 界面配置
 	ConfigKeyEnableAnnouncements = "enable_announcements"
@@ -164,16 +165,17 @@ const (
 	ConfigResponseFieldTelegramProxyPort          = "telegram_proxy_port"
 	ConfigResponseFieldTelegramProxyUsername      = "telegram_proxy_username"
 	ConfigResponseFieldTelegramProxyPassword      = "telegram_proxy_password"
+	ConfigResponseFieldTelegramSearchPageSize     = "telegram_search_page_size"
 
 	// 微信公众号配置字段
-	ConfigResponseFieldWechatBotEnabled         = "wechat_bot_enabled"
-	ConfigResponseFieldWechatAppId              = "wechat_app_id"
-	ConfigResponseFieldWechatAppSecret          = "wechat_app_secret"
-	ConfigResponseFieldWechatToken              = "wechat_token"
-	ConfigResponseFieldWechatEncodingAesKey     = "wechat_encoding_aes_key"
-	ConfigResponseFieldWechatWelcomeMessage     = "wechat_welcome_message"
-	ConfigResponseFieldWechatAutoReplyEnabled   = "wechat_auto_reply_enabled"
-	ConfigResponseFieldWechatSearchLimit        = "wechat_search_limit"
+	ConfigResponseFieldWechatBotEnabled       = "wechat_bot_enabled"
+	ConfigResponseFieldWechatAppId            = "wechat_app_id"
+	ConfigResponseFieldWechatAppSecret        = "wechat_app_secret"
+	ConfigResponseFieldWechatToken            = "wechat_token"
+	ConfigResponseFieldWechatEncodingAesKey   = "wechat_encoding_aes_key"
+	ConfigResponseFieldWechatWelcomeMessage   = "wechat_welcome_message"
+	ConfigResponseFieldWechatAutoReplyEnabled = "wechat_auto_reply_enabled"
+	ConfigResponseFieldWechatSearchLimit      = "wechat_search_limit"
 
 	// 界面配置字段
 	ConfigResponseFieldEnableAnnouncements = "enable_announcements"
@@ -247,16 +249,17 @@ const (
 	ConfigDefaultTelegramProxyPort          = "8080"
 	ConfigDefaultTelegramProxyUsername      = ""
 	ConfigDefaultTelegramProxyPassword      = ""
+	ConfigDefaultTelegramSearchPageSize     = "5" // 011-telegram-bot-enhance：默认每页 5 条（范围 3–8）
 
 	// 微信公众号配置默认值
-	ConfigDefaultWechatBotEnabled         = "false"
-	ConfigDefaultWechatAppId              = ""
-	ConfigDefaultWechatAppSecret          = ""
-	ConfigDefaultWechatToken              = ""
-	ConfigDefaultWechatEncodingAesKey     = ""
-	ConfigDefaultWechatWelcomeMessage     = "欢迎关注老九网盘资源库！发送关键词即可搜索资源。"
-	ConfigDefaultWechatAutoReplyEnabled   = "true"
-	ConfigDefaultWechatSearchLimit        = "5"
+	ConfigDefaultWechatBotEnabled       = "false"
+	ConfigDefaultWechatAppId            = ""
+	ConfigDefaultWechatAppSecret        = ""
+	ConfigDefaultWechatToken            = ""
+	ConfigDefaultWechatEncodingAesKey   = ""
+	ConfigDefaultWechatWelcomeMessage   = "欢迎关注老九网盘资源库！发送关键词即可搜索资源。"
+	ConfigDefaultWechatAutoReplyEnabled = "true"
+	ConfigDefaultWechatSearchLimit      = "5"
 
 	// 界面配置默认值
 	ConfigDefaultEnableAnnouncements = "false"

@@ -224,6 +224,18 @@
               @update:value="handleBotConfigChange"
             />
           </div>
+
+          <!-- 搜索每页条数（011-telegram-bot-enhance） -->
+          <div>
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">搜索每页条数（3–8）</label>
+            <n-input-number
+              v-model:value="telegramBotConfig.search_page_size"
+              :min="3"
+              :max="8"
+              @update:value="handleBotConfigChange"
+            />
+            <p class="text-xs text-gray-500 dark:text-gray-400">机器人搜索结果每页显示的资源数，对应编号按钮数量</p>
+          </div>
         </div>
       </div>
 
@@ -697,6 +709,7 @@ const telegramBotConfig = ref<any>({
   auto_reply_template: '您好！我可以帮您搜索网盘资源，请输入您要搜索的内容。',
   auto_delete_enabled: false,
   auto_delete_interval: 60,
+  search_page_size: 5,
   proxy_enabled: false,
   proxy_type: 'http',
   proxy_host: '',
@@ -906,6 +919,7 @@ const saveBotConfig = async () => {
       configRequest.auto_reply_template = config.auto_reply_template
       configRequest.auto_delete_enabled = config.auto_delete_enabled
       configRequest.auto_delete_interval = config.auto_delete_interval
+      configRequest.search_page_size = config.search_page_size
       configRequest.proxy_enabled = config.proxy_enabled
       configRequest.proxy_type = config.proxy_type
       configRequest.proxy_host = config.proxy_host
