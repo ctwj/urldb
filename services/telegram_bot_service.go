@@ -1085,17 +1085,22 @@ func (s *TelegramBotServiceImpl) handlePagingCallback(callback *tgbotapi.Callbac
 		s.editCallbackMessageText(callback, "搜索服务暂不可用。", nil)
 		return
 	}
-	docs, total, err := s.meilisearchManager.GetService().Search(sess.Keyword, map[string]interface{}{"is_valid": true}, page, sess.PageSize)
+	docs, _, err := s.meilisearchManager.GetService().Search(sess.Keyword, map[string]interface{}{"is_valid": true}, page, sess.PageSize)
 	if err != nil {
+		utils.Error("[TELEGRAM:PAGING] 第 %d 页搜索失败 (sid=%s): %v", page, sid, err)
 		s.editCallbackMessageText(callback, "搜索失败，请稍后重试。", nil)
 		return
 	}
 	if len(docs) == 0 {
+		utils.Info("[TELEGRAM:PAGING] 第 %d 页无结果 (sid=%s, 会话总数=%d)", page, sid, sess.Total)
 		s.editCallbackMessageText(callback, "该页无结果。", nil)
 		return
 	}
-	text := s.renderSearchListText(sess.Keyword, docs, page, sess.PageSize, total)
-	markup := s.buildSearchKeyboard(sess, docs, page, sess.PageSize, total)
+	utils.Debug("[TELEGRAM:PAGING] 翻到第 %d 页 (sid=%s, 本页 %d 条, 会话总数=%d)", page, sid, len(docs), sess.Total)
+	// 用会话创建时记录的总数计算总页数，保证「上一页/下一页」按钮状态稳定，
+	// 避免 Meilisearch estimatedTotalHits 估算值波动导致末页按钮忽隐忽现。
+	text := s.renderSearchListText(sess.Keyword, docs, page, sess.PageSize, sess.Total)
+	markup := s.buildSearchKeyboard(sess, docs, page, sess.PageSize, sess.Total)
 	s.editCallbackMessageText(callback, text, &markup)
 }
 
@@ -1210,7 +1215,7 @@ func (s *TelegramBotServiceImpl) sendChatMessage(chatID int64, text string, delA
 
 // editCallbackMessageText 原地编辑回调所属消息文本（可选更新键盘）
 func (s *TelegramBotServiceImpl) editCallbackMessageText(callback *tgbotapi.CallbackQuery, text string, markup *tgbotapi.InlineKeyboardMarkup) {
-	if callback.Message == nil {
+	if callback.Message == nil || s.bot == nil {
 		return
 	}
 	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, text)
@@ -1219,7 +1224,20 @@ func (s *TelegramBotServiceImpl) editCallbackMessageText(callback *tgbotapi.Call
 		edit.ReplyMarkup = markup
 	}
 	if _, err := s.bot.Request(edit); err != nil {
-		utils.Error("[TELEGRAM:CALLBACK] 编辑消息失败: %v", err)
+		// "message is not modified"：内容已是最新，视为成功，不回退（避免重复发消息）
+		if strings.Contains(err.Error(), "not modified") {
+			return
+		}
+		utils.Error("[TELEGRAM:CALLBACK] 原地编辑失败，回退为新消息发送: %v", err)
+		// 回退：编辑失败（网络/限流/解析等）→ 发新消息，确保翻页结果一定可见
+		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
+		msg.ParseMode = "HTML"
+		if markup != nil {
+			msg.ReplyMarkup = markup
+		}
+		if _, err := s.bot.Send(msg); err != nil {
+			utils.Error("[TELEGRAM:CALLBACK] 回退发送消息也失败: %v", err)
+		}
 	}
 }
 
