@@ -918,7 +918,10 @@ func (r *ResourceRepositoryImpl) GetAllValidResources() ([]entity.Resource, erro
 }
 
 // FindDueForCleanup 查询需要清理的已转存资源
-// 条件：已转存(transferred_at不为空)、未清理(cleaned_at为空)、转存时间超过保留期、有有效 fid
+// 条件：已转存(transferred_at不为空)、未清理(cleaned_at为空)、转存时间超过保留期、有有效 fid、
+//        且无前序清理失败记录(clean_error_msg为空)——已有失败记录的资源不再重试，
+//        避免对永久性失败(如账号已删除)反复重试并副作用刷新 updated_at。
+//        若需让资源重新进入清理队列，应在重新转存时清空 clean_error_msg。
 // 使用内存过滤模式以保证跨数据库兼容（参照 telegram_channel_repository.go 的 FindDueForPush）
 func (r *ResourceRepositoryImpl) FindDueForCleanup(retentionDays int, limit int) ([]*entity.Resource, error) {
 	if retentionDays <= 0 {
@@ -931,7 +934,8 @@ func (r *ResourceRepositoryImpl) FindDueForCleanup(retentionDays int, limit int)
 	var candidates []*entity.Resource
 	query := r.db.Where("transferred_at IS NOT NULL").
 		Where("fid IS NOT NULL AND fid <> ''").
-		Where("cleaned_at IS NULL")
+		Where("cleaned_at IS NULL").
+		Where("(clean_error_msg IS NULL OR clean_error_msg = '')")
 	if limit > 0 {
 		query = query.Limit(limit * 2) // 多取一些以应对过滤后的数量
 	}
@@ -957,7 +961,9 @@ func (r *ResourceRepositoryImpl) FindDueForCleanup(retentionDays int, limit int)
 
 // MarkCleaned 标记资源清理成功：清空 fid/save_url 等转存写入字段，并设置 cleaned_at
 func (r *ResourceRepositoryImpl) MarkCleaned(id uint, cleanedAt time.Time) error {
-	return r.db.Model(&entity.Resource{}).Where("id = ?", id).Updates(map[string]interface{}{
+	// UpdateColumns：清理标记不应触发 GORM autoUpdateTime 推进 updated_at，
+	// 否则被清理任务反复处理的资源 updated_at 会被持续刷新，污染首页排序与详情页时间展示。
+	return r.db.Model(&entity.Resource{}).Where("id = ?", id).UpdateColumns(map[string]interface{}{
 		"fid":              "",
 		"save_url":         "",
 		"cleaned_at":       cleanedAt,
@@ -966,13 +972,16 @@ func (r *ResourceRepositoryImpl) MarkCleaned(id uint, cleanedAt time.Time) error
 	}).Error
 }
 
-// MarkCleanError 标记资源清理失败：记录失败原因和时间，不清空转存字段（等待下一轮重试）
+// MarkCleanError 标记资源清理失败：记录失败原因和时间，不清空转存字段。
+// 使用 UpdateColumns 而非 Updates：清理标记不应触发 GORM autoUpdateTime 推进 updated_at，
+// 否则被清理任务反复处理的资源 updated_at 会被持续刷新，污染首页排序与详情页时间展示。
+// 写入 clean_error_msg 后，FindDueForCleanup 会在后续轮次跳过该资源，避免对永久性失败反复重试。
 func (r *ResourceRepositoryImpl) MarkCleanError(id uint, errMsg string, errAt time.Time) error {
 	// 截断错误信息避免超出字段长度
 	if len(errMsg) > 255 {
 		errMsg = errMsg[:255]
 	}
-	return r.db.Model(&entity.Resource{}).Where("id = ?", id).Updates(map[string]interface{}{
+	return r.db.Model(&entity.Resource{}).Where("id = ?", id).UpdateColumns(map[string]interface{}{
 		"clean_error_msg":    errMsg,
 		"last_clean_error_at": errAt,
 	}).Error
