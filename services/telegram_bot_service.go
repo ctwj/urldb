@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -631,13 +632,12 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	// 处理 /start <payload>（深链跳私聊：群搜索结果在私聊打开，payload=search_<sid>）
+	// 处理 /start <payload>（深链跳私聊：payload=s.<base64关键字>，任何时候点击都可用）
 	if strings.HasPrefix(strings.ToLower(text), "/start ") {
 		payload := strings.TrimSpace(text[len("/start "):])
-		if strings.HasPrefix(payload, "search_") {
-			sid := strings.TrimPrefix(payload, "search_")
-			utils.Info("[TELEGRAM:MESSAGE] 处理 /start search_ 深链 from ChatID=%d, sid=%s", chatID, sid)
-			s.handlePrivateSearchStart(message, sid)
+		if strings.HasPrefix(payload, "s.") {
+			utils.Info("[TELEGRAM:MESSAGE] 处理 /start 深链搜索 from ChatID=%d", chatID)
+			s.handleSearchDeepLink(message, payload)
 			return
 		}
 		s.handleStartCommand(message)
@@ -951,8 +951,8 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 		return
 	}
 
-	// 011-US3：记录搜索归因（telegram 来源），即使 0 结果也计入（与网页端一致）
-	if s.searchStatRepo != nil {
+	// 011-US3：仅私聊计入搜索统计（群里只发启动器、不计；实际查看结果在私聊打开时由 handleSearchDeepLink 计）
+	if message.Chat.Type == "private" && s.searchStatRepo != nil {
 		if err := s.searchStatRepo.RecordSearch(keyword, entity.SourceTelegram, "", "telegram-bot"); err != nil {
 			utils.Error("[TELEGRAM:SEARCH] 记录搜索统计失败: %v", err)
 		}
@@ -964,7 +964,13 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 		return
 	}
 
-	// 创建分页 session（承载关键字/页大小，供翻页 callback 复用，规避 64 字节限制）
+	// 群聊 + 有 username：只发启动器（深链携带关键字，任何时候点击都可用；每个点击者各自独立搜索，不共享会话）
+	if message.Chat.Type != "private" && s.GetBotUsername() != "" {
+		s.renderGroupSearchLauncher(message, keyword, total)
+		return
+	}
+
+	// 私聊 或 群聊无 username（回退）：创建 session + 完整分页（不自动删除，便于翻页与取链）
 	var sess *TgSearchSession
 	if s.sessions != nil {
 		var userID int64
@@ -973,33 +979,38 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 		}
 		sess = s.sessions.Create(message.Chat.ID, userID, keyword, pageSize, total)
 	}
-
-	// 群聊：只展示「查询到 N 条 + 点击获取」按钮，跳转私聊浏览（避免群里多人翻页互相干扰）
-	if message.Chat.Type != "private" {
-		s.renderGroupSearchLauncher(message, keyword, total, sess, docs, pageSize)
-		return
-	}
-	// 私聊：直接展示完整分页 + 编号按钮（搜索/分页消息不自动删除，便于翻页与取链）
 	s.renderSearchResultsMessage(message, keyword, docs, total, pageSize, sess)
 }
 
-// renderGroupSearchLauncher 群聊搜索启动器：展示命中数量 + 「点击获取」深链按钮，跳转私聊浏览。
-// 机器人若无 username 无法深链时，回退为群内完整分页。
-func (s *TelegramBotServiceImpl) renderGroupSearchLauncher(message *tgbotapi.Message, keyword string, total int64, sess *TgSearchSession, docs []MeilisearchDocument, pageSize int) {
-	username := s.GetBotUsername()
-	if username == "" || sess == nil {
-		s.renderSearchResultsMessage(message, keyword, docs, total, pageSize, sess)
-		return
-	}
+// renderGroupSearchLauncher 群聊搜索启动器：展示命中数量 + 「点击获取资源」深链按钮。
+// 深链 payload 直接编码关键字（base64url），不依赖内存会话 → 任何时候点击都可用，每个点击者各自独立搜索。
+func (s *TelegramBotServiceImpl) renderGroupSearchLauncher(message *tgbotapi.Message, keyword string, total int64) {
 	text := fmt.Sprintf("🔍 关键词「%s」查询到 <b>%d</b> 条结果", s.cleanMessageTextForHTML(keyword), total)
-	// 深链：t.me/<bot>?start=search_<sid>，用 sessionID 承载关键字（规避 start 参数长度限制）
-	link := fmt.Sprintf("https://t.me/%s?start=search_%s", username, sess.SessionID)
+	link := fmt.Sprintf("https://t.me/%s?start=s.%s", s.GetBotUsername(), encodeSearchPayload(keyword))
 	markup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("点击获取资源", link),
 		),
 	)
 	s.sendHTMLWithKeyboard(message, text, markup, false)
+}
+
+// encodeSearchPayload 把搜索关键字编码为可放入深链 start 参数的 URL 安全字符串。
+// 用 base64url（RawURLEncoding，无 = 填充）：字符集仅 A-Za-z0-9-_，无需 URL 转义，Telegram 原样透传。
+func encodeSearchPayload(keyword string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(keyword))
+}
+
+// decodeSearchPayload 反解深链 start 参数中的关键字（payload 形如 "s.<base64url>"）。
+func decodeSearchPayload(payload string) (string, bool) {
+	if !strings.HasPrefix(payload, "s.") {
+		return "", false
+	}
+	b, err := base64.RawURLEncoding.DecodeString(payload[2:])
+	if err != nil {
+		return "", false
+	}
+	return string(b), true
 }
 
 // renderSearchResultsMessage 渲染首页完整分页（列表 + 翻页 + 编号按钮），不自动删除
@@ -1009,18 +1020,14 @@ func (s *TelegramBotServiceImpl) renderSearchResultsMessage(message *tgbotapi.Me
 	s.sendHTMLWithKeyboard(message, text, markup, false)
 }
 
-// handlePrivateSearchStart 深链跳私聊后：按群内搜索的关键字，在私聊里重新渲染完整分页（新 session 绑定私聊）
-func (s *TelegramBotServiceImpl) handlePrivateSearchStart(message *tgbotapi.Message, sid string) {
-	if s.sessions == nil {
+// handleSearchDeepLink 深链跳私聊后：从 payload 反解关键字，在私聊里直接搜索并渲染完整分页。
+// 关键字来自深链（base64url 编码），不依赖内存会话 → 任何时候点击都可用；每个用户各自独立搜索、独立翻页。
+func (s *TelegramBotServiceImpl) handleSearchDeepLink(message *tgbotapi.Message, payload string) {
+	keyword, ok := decodeSearchPayload(payload)
+	if !ok || strings.TrimSpace(keyword) == "" {
 		s.handleStartCommand(message)
 		return
 	}
-	sess, ok := s.sessions.Get(sid)
-	if !ok {
-		s.sendReply(message, "⚠️ 该搜索已过期（超过 15 分钟），请在群里重新发送 /s 关键词 搜索。")
-		return
-	}
-	keyword := sess.Keyword
 
 	pageSize := s.config.SearchPageSize
 	if pageSize < 3 || pageSize > 8 {
@@ -1036,19 +1043,27 @@ func (s *TelegramBotServiceImpl) handlePrivateSearchStart(message *tgbotapi.Mess
 		s.sendReply(message, "搜索服务暂时不可用，请稍后重试")
 		return
 	}
+	// 011-US3：记录搜索归因（telegram 来源）—— 每个用户私聊打开结果都计 1 次（与群里发起搜索各自独立）
+	if s.searchStatRepo != nil {
+		if err := s.searchStatRepo.RecordSearch(keyword, entity.SourceTelegram, "", "telegram-bot"); err != nil {
+			utils.Error("[TELEGRAM:SEARCH] 记录搜索统计失败: %v", err)
+		}
+	}
 	if total == 0 || len(docs) == 0 {
 		s.sendReply(message, fmt.Sprintf("🔍 关键词「%s」未找到相关资源。", s.cleanMessageTextForHTML(keyword)))
 		return
 	}
 
-	var newSess *TgSearchSession
-	var userID int64
-	if message.From != nil {
-		userID = message.From.ID
+	var sess *TgSearchSession
+	if s.sessions != nil {
+		var userID int64
+		if message.From != nil {
+			userID = message.From.ID
+		}
+		sess = s.sessions.Create(message.Chat.ID, userID, keyword, pageSize, total)
 	}
-	newSess = s.sessions.Create(message.Chat.ID, userID, keyword, pageSize, total)
-	utils.Info("[TELEGRAM:SEARCH] 群搜索跳转私聊打开 keyword=%q total=%d (新 sid=%s)", keyword, total, newSess.SessionID)
-	s.renderSearchResultsMessage(message, keyword, docs, total, pageSize, newSess)
+	utils.Info("[TELEGRAM:SEARCH] 深链私聊打开 keyword=%q total=%d", keyword, total)
+	s.renderSearchResultsMessage(message, keyword, docs, total, pageSize, sess)
 }
 
 // renderSearchListText 渲染某一页的列表文本（页内编号 1..N）
