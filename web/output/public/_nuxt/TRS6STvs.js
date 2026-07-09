@@ -1,1 +1,0 @@
-import{c8 as o,H as r,c9 as i,a4 as n}from"./DmHPR5lg.js";const d=o(async(u,c)=>{let e,t;const s=r();if(s.initAuth(),[e,t]=i(()=>new Promise(a=>setTimeout(a,100))),await e,t(),!s.isAuthenticated)return n("/login")});export{d as default};
