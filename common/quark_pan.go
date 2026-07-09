@@ -517,6 +517,36 @@ func (q *QuarkPanService) getShareBtn(fidList []string, title string) (*ShareBtn
 	return &response.Data, nil
 }
 
+// Share 对系统已存文件按 fid 重新生成夸克分享链接（实现 Sharer，FR-015）。
+// 夸克分享为异步任务：getShareBtn 创建任务 → 轮询 getShareTask 取 share_id → 拼接分享 URL。
+// 失败时由调用方（决策树）回退到「判原始→转存」，故此处失败是安全的降级。
+func (q *QuarkPanService) Share(fid string) (*TransferResult, error) {
+	if fid == "" {
+		return &TransferResult{Success: false, Message: "fid 为空"}, nil
+	}
+	btn, err := q.getShareBtn([]string{fid}, "资源分享")
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("创建分享失败: %v", err)}, nil
+	}
+	if btn == nil || btn.TaskID == "" {
+		return &TransferResult{Success: false, Message: "未获取到分享任务"}, nil
+	}
+	// 轮询任务直到拿到 share_id（上限约 5 秒；超时则回退到转存）
+	for retry := 0; retry < 10; retry++ {
+		task, err := q.getShareTask(btn.TaskID, retry)
+		if err != nil {
+			return &TransferResult{Success: false, Message: fmt.Sprintf("查询分享任务失败: %v", err)}, nil
+		}
+		if task != nil && task.ShareID != "" {
+			shareURL := "https://pan.quark.cn/s/" + task.ShareID
+			utils.Info("[QUARK:SHARE] 重新分享成功 - fid=%s, url=%s", fid, shareURL)
+			return &TransferResult{Success: true, ShareURL: shareURL, Fid: fid}, nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return &TransferResult{Success: false, Message: "分享任务超时未完成"}, nil
+}
+
 // getShareTask 获取分享任务状态
 func (q *QuarkPanService) getShareTask(taskID string, retryIndex int) (*TaskResult, error) {
 	queryParams := map[string]string{

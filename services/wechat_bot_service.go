@@ -1,6 +1,8 @@
 package services
 
 import (
+	"sync"
+
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/silenceper/wechat/v2/officialaccount"
 	"github.com/silenceper/wechat/v2/officialaccount/message"
@@ -39,6 +41,9 @@ type WechatBotServiceImpl struct {
 	config           *WechatBotConfig
 	wechatClient     *officialaccount.OfficialAccount
 	searchSessionManager *SearchSessionManager
+	// 012-wechat-bot-transfer：统一取链 + 去重锁
+	linkService      ResourceLinkService // ResolveWithCheck 决策树
+	linkInFlight      sync.Map           // 取链去重锁：resourceID -> struct{}（防并发重复转存）
 }
 
 // NewWechatBotService 创建微信公众号机器人服务
@@ -46,13 +51,15 @@ func NewWechatBotService(
 	systemConfigRepo repo.SystemConfigRepository,
 	resourceRepo repo.ResourceRepository,
 	readyResourceRepo repo.ReadyResourceRepository,
+	linkService ResourceLinkService,
 ) WechatBotService {
 	return &WechatBotServiceImpl{
-		isRunning:        false,
-		systemConfigRepo: systemConfigRepo,
-		resourceRepo:     resourceRepo,
-		readyRepo:        readyResourceRepo,
-		config:           &WechatBotConfig{},
+		isRunning:            false,
+		systemConfigRepo:     systemConfigRepo,
+		resourceRepo:         resourceRepo,
+		readyRepo:            readyResourceRepo,
+		config:               &WechatBotConfig{},
 		searchSessionManager: GlobalSearchSessionManager,
+		linkService:          linkService,
 	}
 }

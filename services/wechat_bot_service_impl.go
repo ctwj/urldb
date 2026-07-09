@@ -1,9 +1,11 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/ctwj/urldb/db"
@@ -293,6 +295,32 @@ func (s *WechatBotServiceImpl) handleNextPage(userID string) (interface{}, error
 	return message.NewText(resultText), nil
 }
 
+// sendCustomerMessage 通过客服消息把文本异步送达用户（须在用户与公众号 48h 交互窗口内；
+// 取链回执紧随用户消息，窗口必然满足）。access_token 由 SDK cache 管理。
+// 失败时有限次重试 + 日志（US3：不向用户二次回执，被动回复早已结束）。
+func (s *WechatBotServiceImpl) sendCustomerMessage(openID, text string) error {
+	if !s.isRunning || s.wechatClient == nil {
+		return fmt.Errorf("微信客户端未初始化")
+	}
+	mgr := s.wechatClient.GetCustomerMessageManager()
+	if mgr == nil {
+		return fmt.Errorf("客服消息管理器不可用")
+	}
+	msg := message.NewCustomerTextMessage(openID, text)
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if err := mgr.Send(msg); err == nil {
+			return nil
+		} else {
+			lastErr = err
+			utils.Warn("[WECHAT:CS] 客服消息发送失败 (attempt=%d, openID=%s): %v", attempt+1, openID, err)
+			time.Sleep(time.Duration(500*(attempt+1)) * time.Millisecond) // 退避 0.5s / 1s / 1.5s
+		}
+	}
+	utils.Error("[WECHAT:CS] 客服消息最终发送失败 (openID=%s): %v", openID, lastErr)
+	return lastErr
+}
+
 // handleGetResource 处理获取资源命令
 func (s *WechatBotServiceImpl) handleGetResource(userID, command string) (interface{}, error) {
 	session := s.searchSessionManager.GetSession(userID)
@@ -333,70 +361,69 @@ func (s *WechatBotServiceImpl) handleGetResource(userID, command string) (interf
 		return message.NewText(fmt.Sprintf("❌ 资源编号超出范围\n\n📌 请输入 1-%d 之间的数字\n💡 提示：回复\"获取 %d\"获取第%d个资源", len(session.Resources), index, index)), nil
 	}
 
-	// 获取指定资源
+	// 获取指定资源（session 缓存的完整资源对象副本）
 	resource := session.Resources[index-1]
 
-	// 009-statistics-enhancement: 记录公众号"获取资源"行为（source=wechat），纳入获取来源分布统计
-	if resource.ID > 0 && db.DB != nil {
-		view := &entity.ResourceView{
-			ResourceID: resource.ID,
-			IPAddress:  userID,
-			UserAgent:  "wechat-official-account",
-			Source:     entity.SourceWechat,
+	// 012-wechat-bot-transfer：统一取链（含校验 + 转存/分享）改为异步——
+	// 转存常态超 5 秒被动回复时限，必须先回执、再用客服消息送达（FR-004/SC-002）。
+	if s.linkService == nil {
+		return message.NewText("❌ 取链服务暂不可用"), nil
+	}
+
+	// 去重锁：同一资源正在获取中则提示，不重复触发转存（FR-005/SC-004）
+	if _, loaded := s.linkInFlight.LoadOrStore(resource.ID, struct{}{}); loaded {
+		return message.NewText("⏳ 该资源正在获取中，请稍候…"), nil
+	}
+
+	// 即时回执（被动回复，<5s 返回）；慢操作在 goroutine 内完成，结果经客服消息送达
+	go func(r entity.Resource, openID string) {
+		defer s.linkInFlight.Delete(r.ID)
+
+		// 统一取链决策树（双链接批量校验 + 分享/转存 + 仅原始驱动回写）
+		resolution, err := s.linkService.ResolveWithCheck(context.Background(), &r)
+		if err != nil {
+			utils.Error("[WECHAT:GETLINK] 取链失败 (resource=%d): %v", r.ID, err)
+			_ = s.sendCustomerMessage(openID, "❌ 获取链接失败，请稍后重试")
+			return
 		}
-		if err := db.DB.Create(view).Error; err != nil {
-			utils.Error("[WECHAT] 记录获取资源访问失败: %v", err)
+
+		// 据结果组装文案
+		var text string
+		switch {
+		case resolution.Invalid:
+			// 原始链接失效 → 资源失效，不交付链接（FR-016）
+			text = "❌ 该资源检测已失效，请换一条或重新搜索"
+		case resolution.Type == "transferred" || resolution.Type == "reshared":
+			text = fmt.Sprintf("📥 %s\n链接：%s", r.Title, resolution.URL)
+			if resolution.Note != "" {
+				text += fmt.Sprintf("\n⚠️ %s", resolution.Note)
+			}
+		default: // original（非转存平台，或转存失败回退）
+			text = fmt.Sprintf("🔗 %s\n原始链接：%s", r.Title, resolution.URL)
+			if resolution.Note != "" {
+				text += fmt.Sprintf("\n⚠️ %s", resolution.Note)
+			}
 		}
-	}
 
-	// 格式化资源详细信息（美化输出）
-	var result strings.Builder
-	// result.WriteString(fmt.Sprintf("📌 资源详情\n\n"))
-
-	// 标题
-	result.WriteString(fmt.Sprintf("📌 标题: %s\n", resource.Title))
-
-	// 描述
-	if resource.Description != "" {
-		result.WriteString(fmt.Sprintf("\n📝 描述:\n   %s\n", resource.Description))
-	}
-
-	// 文件大小
-	if resource.FileSize != "" {
-		result.WriteString(fmt.Sprintf("\n📊 大小: %s\n", resource.FileSize))
-	}
-
-	// 作者
-	if resource.Author != "" {
-		result.WriteString(fmt.Sprintf("\n👤 作者: %s\n", resource.Author))
-	}
-
-	// 分类
-	if resource.Category.Name != "" {
-		result.WriteString(fmt.Sprintf("\n📂 分类: %s\n", resource.Category.Name))
-	}
-
-	// 标签
-	if len(resource.Tags) > 0 {
-		result.WriteString("\n🏷️ 标签: ")
-		var tags []string
-		for _, tag := range resource.Tags {
-			tags = append(tags, tag.Name)
+		if err := s.sendCustomerMessage(openID, text); err != nil {
+			utils.Error("[WECHAT:GETLINK] 客服消息发送失败 (resource=%d): %v", r.ID, err)
 		}
-		result.WriteString(fmt.Sprintf("%s\n", strings.Join(tags, " ")))
-	}
 
-	// 链接（美化）
-	if resource.SaveURL != "" {
-		result.WriteString(fmt.Sprintf("\n📥 转存链接:\n   %s", resource.SaveURL))
-	} else if resource.URL != "" {
-		result.WriteString(fmt.Sprintf("\n🔗 资源链接:\n   %s", resource.URL))
-	}
+		// 取链归因（source=wechat，纳入获取来源分布统计）
+		if r.ID > 0 && db.DB != nil {
+			view := &entity.ResourceView{
+				ResourceID: r.ID,
+				IPAddress:  openID,
+				UserAgent:  "wechat-official-account",
+				Source:     entity.SourceWechat,
+			}
+			if err := db.DB.Create(view).Error; err != nil {
+				utils.Error("[WECHAT] 记录获取资源访问失败: %v", err)
+			}
+		}
+	}(resource, userID)
 
-	// 添加操作提示
-	result.WriteString(fmt.Sprintf("\n\n💡 提示：回复\"获取 %d\"可再次查看此资源", index))
-
-	return message.NewText(result.String()), nil
+	return message.NewText("⏳ 正在校验并获取可用链接，结果将单独送达，请稍候…"), nil
 }
 
 // formatSearchResultsWithPagination 格式化带分页的搜索结果

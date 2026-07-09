@@ -518,6 +518,8 @@ func main() {
 			repoManager.PanRepository,
 			repoManager.SystemConfigRepository,
 			repoManager.ResourceRepository,
+			linkCheckService,
+			meilisearchManager,
 		)
 		telegramBotService := services.NewTelegramBotService(
 			repoManager.SystemConfigRepository,
@@ -542,6 +544,7 @@ func main() {
 			repoManager.SystemConfigRepository,
 			repoManager.ResourceRepository,
 			repoManager.ReadyResourceRepository,
+			resourceLinkService,
 		)
 
 		// 启动微信公众号机器人服务

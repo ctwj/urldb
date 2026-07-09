@@ -1243,34 +1243,25 @@ func (s *TelegramBotServiceImpl) handleGetLinkCallback(callback *tgbotapi.Callba
 		return
 	}
 
-	// 有效性校验（与网页端同一套机制）
+	// 统一取链（决策树：双链接校验 + 分享/转存 + 仅原始驱动回写）—— 与公众号同一套逻辑（FR-003/Q4）
 	ctx := context.Background()
-	if s.linkCheckService != nil {
-		results := s.linkCheckService.CheckResources(ctx, []*entity.Resource{resource}, false)
-		if r, ok := results[resource.ID]; ok {
-			// 翻转时回写 DB + Meilisearch（内部判断，未翻转/未确定则空操作）
-			ApplyValidityWriteback(resource, r, s.resourceRepo, s.meilisearchManager)
-			if r.Status == "invalid" {
-				// 失效：纯文案提示，30 秒后自动删除，不带按钮
-				notice := "❌ 该资源检测发现已经失效，请切换使用别的资源"
-				if ordinal > 0 {
-					notice = fmt.Sprintf("❌ 编号 %d 的资源，检测发现已经失效，请切换使用别的资源", ordinal)
-				}
-				s.sendChatMessage(chatID, notice, 30*time.Second)
-				return
-			}
-		}
-	}
-
-	// 取链（优先 SaveURL，否则按网页端转存路径产生）
 	if s.linkService == nil {
 		s.sendChatMessage(chatID, "取链服务暂不可用。", 0)
 		return
 	}
-	resolution, err := s.linkService.Resolve(ctx, resource)
+	resolution, err := s.linkService.ResolveWithCheck(ctx, resource)
 	if err != nil {
 		utils.Error("[TELEGRAM:GETLINK] 取链失败 (resource=%d): %v", resource.ID, err)
 		s.sendChatMessage(chatID, "获取链接失败，请稍后重试。", 0)
+		return
+	}
+	// 失效：纯文案提示，30 秒后自动删除
+	if resolution.Invalid {
+		notice := "❌ 该资源检测发现已经失效，请切换使用别的资源"
+		if ordinal > 0 {
+			notice = fmt.Sprintf("❌ 编号 %d 的资源，检测发现已经失效，请切换使用别的资源", ordinal)
+		}
+		s.sendChatMessage(chatID, notice, 30*time.Second)
 		return
 	}
 
