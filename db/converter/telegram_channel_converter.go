@@ -89,6 +89,8 @@ func TelegramBotConfigToResponse(
 	proxyPort int,
 	proxyUsername string,
 	proxyPassword string,
+	welcomeEnabled bool,
+	welcomeMessage string,
 ) dto.TelegramBotConfigResponse {
 	return dto.TelegramBotConfigResponse{
 		BotEnabled:         botEnabled,
@@ -104,6 +106,8 @@ func TelegramBotConfigToResponse(
 		ProxyPort:          proxyPort,
 		ProxyUsername:      proxyUsername,
 		ProxyPassword:      proxyPassword,
+		WelcomeEnabled:     welcomeEnabled,
+		WelcomeMessage:     welcomeMessage,
 	}
 }
 
@@ -122,6 +126,8 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 	proxyPort := 8080
 	proxyUsername := ""
 	proxyPassword := ""
+	welcomeEnabled := false
+	welcomeMessage := entity.ConfigDefaultTelegramWelcomeMessage
 
 	for _, config := range configs {
 		switch config.Key {
@@ -169,6 +175,12 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 			proxyUsername = config.Value
 		case entity.ConfigKeyTelegramProxyPassword:
 			proxyPassword = config.Value
+		case entity.ConfigKeyTelegramWelcomeEnabled:
+			welcomeEnabled = config.Value == "true"
+		case entity.ConfigKeyTelegramWelcomeMessage:
+			if config.Value != "" {
+				welcomeMessage = config.Value
+			}
 		}
 	}
 
@@ -186,6 +198,8 @@ func SystemConfigToTelegramBotConfig(configs []entity.SystemConfig) dto.Telegram
 		proxyPort,
 		proxyUsername,
 		proxyPassword,
+		welcomeEnabled,
+		welcomeMessage,
 	)
 }
 
@@ -304,6 +318,22 @@ func TelegramBotConfigRequestToSystemConfigs(req dto.TelegramBotConfigRequest) [
 		configs = append(configs, entity.SystemConfig{
 			Key:   entity.ConfigKeyTelegramProxyPassword,
 			Value: *req.ProxyPassword,
+			Type:  entity.ConfigTypeString,
+		})
+	}
+
+	if req.WelcomeEnabled != nil {
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramWelcomeEnabled,
+			Value: boolToString(*req.WelcomeEnabled),
+			Type:  entity.ConfigTypeBool,
+		})
+	}
+
+	if req.WelcomeMessage != nil {
+		configs = append(configs, entity.SystemConfig{
+			Key:   entity.ConfigKeyTelegramWelcomeMessage,
+			Value: *req.WelcomeMessage,
 			Type:  entity.ConfigTypeString,
 		})
 	}

@@ -239,6 +239,53 @@
         </div>
       </div>
 
+      <!-- 群组欢迎消息 -->
+      <div v-if="telegramBotConfig.bot_enabled" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="flex items-center mb-6">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">群组欢迎消息</h3>
+        </div>
+
+        <div class="space-y-4">
+          <!-- 提示信息 -->
+          <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+            <div class="flex items-start space-x-3">
+              <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 mt-1"></i>
+              <div class="text-sm text-blue-700 dark:text-blue-300">
+                <p class="mb-1">• <b>群聊行为</b>：机器人只回复 <code class="bg-blue-200 dark:bg-blue-800 px-1 rounded">@机器人</code> 的消息或回复机器人消息，不对每条消息响应。</p>
+                <p>• <b>新成员入群</b>：开启后，新成员加入群组时将自动发送欢迎消息（机器人自身入群不发送）。</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 欢迎开关 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">启用入群欢迎</label>
+              <p class="text-xs text-gray-500 dark:text-gray-400">新成员加入群组时自动发送欢迎消息</p>
+            </div>
+            <n-switch
+              v-model:value="telegramBotConfig.welcome_enabled"
+              @update:value="handleBotConfigChange"
+            />
+          </div>
+
+          <!-- 欢迎模板 -->
+          <div v-if="telegramBotConfig.welcome_enabled">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">欢迎消息模板</label>
+            <n-input
+              v-model:value="telegramBotConfig.welcome_message"
+              type="textarea"
+              placeholder="支持占位符：{{username}}（入群用户）、{{chatname}}（群组名）"
+              :rows="4"
+              @input="handleBotConfigChange"
+            />
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              支持占位符：<code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{{username}}</code> 入群用户、<code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">{{chatname}}</code> 群组名
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- 频道和群组管理 -->
       <div v-if="telegramBotConfig.bot_enabled" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-center justify-between mb-6">
@@ -716,6 +763,8 @@ const telegramBotConfig = ref<any>({
   proxy_port: 8080,
   proxy_username: '',
   proxy_password: '',
+  welcome_enabled: false,
+  welcome_message: '',
 })
 
 const telegramChannels = ref<any[]>([])
@@ -926,6 +975,8 @@ const saveBotConfig = async () => {
       configRequest.proxy_port = config.proxy_port
       configRequest.proxy_username = config.proxy_username
       configRequest.proxy_password = config.proxy_password
+      configRequest.welcome_enabled = config.welcome_enabled
+      configRequest.welcome_message = config.welcome_message
     }
 
     await telegramApi.updateBotConfig(configRequest)
