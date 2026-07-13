@@ -128,7 +128,7 @@ func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource
 	if platform == "" {
 		platform = panName
 	}
-	transferSupported := panName == "quark" || panName == "xunlei" || panName == "baidu"
+	transferSupported := panName == "quark" || panName == "xunlei" || panName == "baidu" || panName == "uc"
 
 	// 1) 构造待检 URL 集：原始链接 + saveUrl（若有）
 	urls := make([]string, 0, 2)
@@ -141,6 +141,8 @@ func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource
 	}
 
 	// 2) 一次批量校验（PanCheck 未启用时全为 undetermined/disabled，按既有状态降级放行）
+	utils.Info("[RESOURCE_LINK:DEBUG] 取链决策入口 - resource=%d, hasSave=%v, saveUrl=%q, fid=%q, ck_id=%v, transferSupported=%v, origURL=%q",
+		resource.ID, hasSave, resource.SaveURL, resource.Fid, resource.CkID, transferSupported, resource.URL)
 	origResult := ResourceCheckResult{Status: "undetermined", DetectionMethod: "disabled"}
 	saveResult := ResourceCheckResult{Status: "undetermined", DetectionMethod: "disabled"}
 	if s.linkCheckService != nil && len(urls) > 0 {
@@ -156,6 +158,8 @@ func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource
 			}
 		}
 	}
+	utils.Info("[RESOURCE_LINK:DEBUG] PanCheck 结果 - resource=%d, orig{status=%s, method=%s, reason=%q}, save{status=%s, method=%s, reason=%q}",
+		resource.ID, origResult.Status, origResult.DetectionMethod, origResult.FailReason, saveResult.Status, saveResult.DetectionMethod, saveResult.FailReason)
 
 	// 3) 资源级有效性回写：仅以「原始链接」结果驱动（R7）。saveUrl 失效属可恢复问题，不翻转 is_valid。
 	if resource.URL != "" && (origResult.Status == "valid" || origResult.Status == "invalid") && s.resourceRepo != nil {
@@ -167,9 +171,11 @@ func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource
 	if hasSave {
 		if saveResult.Status != "invalid" {
 			// 有效或未确定（PanCheck 未启用等降级场景）→ 复用现有 saveUrl
+			utils.Info("[RESOURCE_LINK:DEBUG] 决策分支 → 复用现有 saveUrl (resource=%d, saveStatus=%s 非invalid)", resource.ID, saveResult.Status)
 			return UnifiedLinkResult{URL: resource.SaveURL, Type: "transferred", Platform: platform}, nil
 		}
 		// saveUrl 确定失效 → 先尝试分享（仅转存平台持有 fid）
+		utils.Info("[RESOURCE_LINK:DEBUG] 决策分支 → saveUrl 失效，触发 PerformShare (resource=%d)", resource.ID)
 		if transferSupported {
 			res := PerformShare(s.cksRepo, s.resourceRepo, resource)
 			if res.Success {

@@ -233,6 +233,43 @@ func (u *UCService) Transfer(shareID string) (*TransferResult, error) {
 	}), nil
 }
 
+// Share 对系统已存文件按 fid 重新生成 UC 分享链接（实现 Sharer，FR-015）。
+// UC 与夸克同构，分享为异步任务，流程须与 Transfer 的分享段完全对齐：
+//   getShareBtn 创建任务 → waitForTask 轮询直到 Status==2 拿 share_id → getSharePassword 取最终 ShareURL。
+// 若像早期 quark Share 那样只看 share_id 非空就返回、跳过 getSharePassword，
+// 会拿到任务尚未完成时的未生效 share_id，导致链接打开是「已删除」状态。
+// 失败时由调用方（决策树）回退到「判原始→转存」，故此处失败是安全的降级。
+func (u *UCService) Share(fid string) (*TransferResult, error) {
+	if fid == "" {
+		return &TransferResult{Success: false, Message: "fid 为空"}, nil
+	}
+	btn, err := u.getShareBtn([]string{fid}, "资源分享")
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("创建分享失败: %v", err)}, nil
+	}
+	if btn == nil || btn.TaskID == "" {
+		return &TransferResult{Success: false, Message: "未获取到分享任务"}, nil
+	}
+	// 等待分享任务真正完成（Status==2），与 Transfer 对齐
+	taskResult, err := u.waitForTask(btn.TaskID)
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("分享任务未完成: %v", err)}, nil
+	}
+	if taskResult == nil || taskResult.ShareID == "" {
+		return &TransferResult{Success: false, Message: "分享任务完成但未获取到 share_id"}, nil
+	}
+	// getSharePassword 是分享最终化步骤，返回的 ShareURL 才是生效链接（Transfer 同样依赖此步）
+	passwordResult, err := u.getSharePassword(taskResult.ShareID)
+	if err != nil || passwordResult == nil || passwordResult.ShareURL == "" {
+		// getSharePassword 失败时回退用 share_id 拼接（保留降级能力）
+		shareURL := "https://drive.uc.cn/s/" + taskResult.ShareID
+		utils.Warn("[UC:SHARE] getSharePassword 失败，回退拼接 shareURL - fid=%s, url=%s, err=%v", fid, shareURL, err)
+		return &TransferResult{Success: true, ShareURL: shareURL, Fid: fid}, nil
+	}
+	utils.Info("[UC:SHARE] 重新分享成功 - fid=%s, url=%s", fid, passwordResult.ShareURL)
+	return &TransferResult{Success: true, ShareURL: passwordResult.ShareURL, Fid: fid}, nil
+}
+
 // ============================================================================
 // GetFiles / DeleteFiles
 // ============================================================================
