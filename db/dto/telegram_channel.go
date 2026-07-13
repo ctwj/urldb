@@ -69,6 +69,8 @@ type TelegramBotConfigRequest struct {
 	ProxyPort          *int    `json:"proxy_port"`
 	ProxyUsername      *string `json:"proxy_username"`
 	ProxyPassword      *string `json:"proxy_password"`
+	WelcomeEnabled     *bool   `json:"welcome_enabled"`
+	WelcomeMessage     *string `json:"welcome_message"`
 }
 
 // TelegramBotConfigResponse Telegram 机器人配置响应
@@ -86,6 +88,8 @@ type TelegramBotConfigResponse struct {
 	ProxyPort          int    `json:"proxy_port"`
 	ProxyUsername      string `json:"proxy_username"`
 	ProxyPassword      string `json:"proxy_password"`
+	WelcomeEnabled     bool   `json:"welcome_enabled"`
+	WelcomeMessage     string `json:"welcome_message"`
 }
 
 // ValidateTelegramApiKeyRequest 验证 Telegram API Key 请求

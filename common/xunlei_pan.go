@@ -900,6 +900,26 @@ func (x *XunleiPanService) FileBatchShare(ids []string, needPassword bool, expir
 	return &data, nil
 }
 
+// Share 对系统已存文件按 fid 重新生成迅雷分享链接（实现 Sharer，FR-015）。
+// expiration_days=0 表示永久分享（迅雷语义）。失败时由调用方（决策树）回退到「判原始→转存」。
+func (x *XunleiPanService) Share(fid string) (*TransferResult, error) {
+	if fid == "" {
+		return &TransferResult{Success: false, Message: "fid 为空"}, nil
+	}
+	resp, err := x.FileBatchShare([]string{fid}, false, 0)
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("创建分享失败: %v", err)}, nil
+	}
+	if resp == nil || resp.Code != 0 || resp.Data.ShareURL == "" {
+		msg := "创建分享失败"
+		if resp != nil && resp.Msg != "" {
+			msg = resp.Msg
+		}
+		return &TransferResult{Success: false, Message: msg}, nil
+	}
+	return &TransferResult{Success: true, ShareURL: resp.Data.ShareURL, Fid: fid}, nil
+}
+
 // ShareBatchDelete 取消分享（使用 BasePanService）
 func (x *XunleiPanService) ShareBatchDelete(ids []string) (*XLCommonResp, error) {
 	apiURL := x.apiHost("") + "/drive/v1/share/batch/delete"

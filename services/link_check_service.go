@@ -28,6 +28,8 @@ type LinkCheckService interface {
 	CheckURL(ctx context.Context, rawURL string, ignoreCache bool) ResourceCheckResult
 	// CheckResources 批量检测资源（详情页用），返回 map[resourceID] -> 结论
 	CheckResources(ctx context.Context, resources []*entity.Resource, ignoreCache bool) map[uint]ResourceCheckResult
+	// CheckURLs 按 URL 批量检测（按 url 键返回）。供统一取链服务一次校验「原始链接 + saveUrl」（FR-013）。
+	CheckURLs(ctx context.Context, urls []string, ignoreCache bool) map[string]ResourceCheckResult
 }
 
 // linkCheckServiceImpl 服务实现
@@ -82,14 +84,14 @@ func (s *linkCheckServiceImpl) CheckURL(ctx context.Context, rawURL string, igno
 	return ResourceCheckResult{Status: "undetermined", DetectionMethod: "disabled"}
 }
 
-// CheckResources 批量检测资源
+// CheckResources 批量检测资源（按 resource.ID 键返回）。内部收集各资源 URL 后复用 CheckURLs。
 func (s *linkCheckServiceImpl) CheckResources(ctx context.Context, resources []*entity.Resource, ignoreCache bool) map[uint]ResourceCheckResult {
 	results := make(map[uint]ResourceCheckResult, len(resources))
 
-	enabled, host, timeout, batch, concurrency := s.loadConfig()
-	utils.Info("[PanCheck] CheckResources 入口: 资源数=%d, enabled=%v, host=%q, batch=%d, concurrency=%d, ignoreCache=%v", len(resources), enabled, host, batch, concurrency, ignoreCache)
+	enabled, host, _, _, _ := s.loadConfig()
+	utils.Info("[PanCheck] CheckResources 入口: 资源数=%d, enabled=%v, host=%q, ignoreCache=%v", len(resources), enabled, host, ignoreCache)
 
-	// 未启用或未配置 → 跳过检测，调用方按未检测处理
+	// 未启用或未配置 → 跳过检测，调用方按未检测处理（与既有行为一致）
 	if !enabled || host == "" {
 		utils.Warn("[PanCheck] 检测被跳过(enabled=%v, host=%q) → 所有资源按未检测放行，不调用 PanCheck 服务", enabled, host)
 		for _, res := range resources {
@@ -101,28 +103,80 @@ func (s *linkCheckServiceImpl) CheckResources(ctx context.Context, resources []*
 		return results
 	}
 
-	// 构建待检测项：规范化 URL + 所属资源ID列表（一个规范化 URL 可能对应多个资源）
-	type pendingItem struct {
-		normalized  string
-		resourceIDs []uint
-	}
-	pending := make(map[string]*pendingItem) // normalized -> item
+	// url -> 关联 resourceID 列表（同一 URL 可能对应多个资源）
+	urlToIDs := make(map[string][]uint)
 	for _, res := range resources {
-		// 先填充默认结论（启用但尚未得出结论）
+		// 默认结论（启用但尚未得出结论）
 		results[res.ID] = ResourceCheckResult{
 			Status:          "undetermined",
 			DetectionMethod: "pancheck",
 		}
-		n := NormalizeURL(res.URL)
+		if res.URL == "" {
+			continue
+		}
+		urlToIDs[res.URL] = append(urlToIDs[res.URL], res.ID)
+	}
+
+	if len(urlToIDs) == 0 {
+		return results
+	}
+
+	urls := make([]string, 0, len(urlToIDs))
+	for u := range urlToIDs {
+		urls = append(urls, u)
+	}
+
+	urlResults := s.CheckURLs(ctx, urls, ignoreCache)
+	for u, r := range urlResults {
+		for _, rid := range urlToIDs[u] {
+			results[rid] = r
+		}
+	}
+	return results
+}
+
+// CheckURLs 按 URL 批量检测（按 url 键返回）。
+// 供统一取链服务 ResolveWithCheck 一次校验「原始链接 + 转存链接 saveUrl」（FR-013）。
+// 内部按规范化 URL 去重后分批并发调用 PanCheck（结果缓存由 PanCheck 服务端自行管理）。
+func (s *linkCheckServiceImpl) CheckURLs(ctx context.Context, urls []string, ignoreCache bool) map[string]ResourceCheckResult {
+	results := make(map[string]ResourceCheckResult, len(urls))
+
+	enabled, host, timeout, batch, concurrency := s.loadConfig()
+	utils.Info("[PanCheck] CheckURLs 入口: url数=%d, enabled=%v, host=%q, batch=%d, concurrency=%d, ignoreCache=%v", len(urls), enabled, host, batch, concurrency, ignoreCache)
+
+	// 未启用或未配置 → 跳过检测
+	if !enabled || host == "" {
+		utils.Warn("[PanCheck] CheckURLs 检测被跳过(enabled=%v, host=%q) → 所有 URL 按未检测放行", enabled, host)
+		for _, u := range urls {
+			results[u] = ResourceCheckResult{
+				Status:          "undetermined",
+				DetectionMethod: "disabled",
+			}
+		}
+		return results
+	}
+
+	// 默认结论（启用但尚未得出结论）；按规范化 URL 去重（一个规范化 URL 可能对应多个原始 URL）
+	type pendingItem struct {
+		normalized string
+		originals  []string
+	}
+	pending := make(map[string]*pendingItem) // normalized -> item
+	for _, u := range urls {
+		results[u] = ResourceCheckResult{
+			Status:          "undetermined",
+			DetectionMethod: "pancheck",
+		}
+		n := NormalizeURL(u)
 		if n == "" {
 			continue
 		}
 		if item, ok := pending[n]; ok {
-			item.resourceIDs = append(item.resourceIDs, res.ID)
+			item.originals = append(item.originals, u)
 		} else {
 			pending[n] = &pendingItem{
-				normalized:  n,
-				resourceIDs: []uint{res.ID},
+				normalized: n,
+				originals:  []string{u},
 			}
 		}
 	}
@@ -131,21 +185,21 @@ func (s *linkCheckServiceImpl) CheckResources(ctx context.Context, resources []*
 		return results
 	}
 
-	// 分批并发调用 PanCheck（结果缓存由 PanCheck 服务端自行维护，客户端不再落库）
-	urls := make([]string, 0, len(pending))
+	// 分批并发调用 PanCheck
+	normURLs := make([]string, 0, len(pending))
 	for _, item := range pending {
-		urls = append(urls, item.normalized)
+		normURLs = append(normURLs, item.normalized)
 	}
-	utils.Info("[PanCheck] 待检测 URL 数=%d，将分 %d 批调用 PanCheck 服务 %s", len(urls), len(chunkStrings(urls, batch)), host)
+	utils.Info("[PanCheck] 待检测 URL 数=%d，将分 %d 批调用 PanCheck 服务 %s", len(normURLs), len(chunkStrings(normURLs, batch)), host)
 
 	type batchOutcome struct {
 		url     string
 		outcome LinkCheckOutcome
 		has     bool
 	}
-	outcomeCh := make(chan batchOutcome, len(urls))
+	outcomeCh := make(chan batchOutcome, len(normURLs))
 
-	batches := chunkStrings(urls, batch)
+	batches := chunkStrings(normURLs, batch)
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 
@@ -174,7 +228,7 @@ func (s *linkCheckServiceImpl) CheckResources(ctx context.Context, resources []*
 		close(outcomeCh)
 	}()
 
-	// 收集结论，填充结果
+	// 收集结论，回填到各原始 URL
 	for bo := range outcomeCh {
 		item, ok := pending[bo.url]
 		if !ok {
@@ -190,8 +244,8 @@ func (s *linkCheckServiceImpl) CheckResources(ctx context.Context, resources []*
 			Platform:        bo.outcome.Platform,
 			DetectionMethod: "pancheck",
 		}
-		for _, rid := range item.resourceIDs {
-			results[rid] = res
+		for _, orig := range item.originals {
+			results[orig] = res
 		}
 	}
 

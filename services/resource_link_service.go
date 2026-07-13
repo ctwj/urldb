@@ -28,23 +28,38 @@ type LinkResolution struct {
 	Note        string // 可选提示（如易和谐提醒）
 }
 
+// UnifiedLinkResult 统一取链决策输出（决策树 FR-013~FR-017，Telegram/公众号/QQ 共用）
+type UnifiedLinkResult struct {
+	URL       string // 最终交付链接（Invalid=true 时为空）
+	Type      string // "transferred" | "reshared" | "original" | "invalid"
+	Invalid   bool   // 资源判定失效（原始链接失效）→ 调用方给失效提示、不交付链接
+	Platform  string // 展示用平台名
+	Note      string // 可选提示（如易和谐提醒）
+	Refreshed bool   // 是否刷新了 saveUrl（分享/转存成功并回写）
+}
+
 // ResourceLinkService 资源取链服务：网页端 GetResourceLink 与电报机器人共用，避免逻辑漂移。
 // 访问计数 / 来源归因由调用方各自处理（网页=web，机器人=telegram）。
 // Feature: 011-telegram-bot-enhance
 type ResourceLinkService interface {
 	Resolve(ctx context.Context, resource *entity.Resource) (LinkResolution, error)
+	// ResolveWithCheck 统一取链决策树（FR-013~FR-017）：双链接批量校验 → 仅原始驱动回写 →
+	// saveUrl 有效直返 / saveUrl 失效先分享 / 原始失效判失效 / 原始有效转存。
+	ResolveWithCheck(ctx context.Context, resource *entity.Resource) (UnifiedLinkResult, error)
 }
 
 type resourceLinkServiceImpl struct {
-	cksRepo      repo.CksRepository
-	panRepo      repo.PanRepository
-	configRepo   repo.SystemConfigRepository
-	resourceRepo repo.ResourceRepository
+	cksRepo         repo.CksRepository
+	panRepo         repo.PanRepository
+	configRepo      repo.SystemConfigRepository
+	resourceRepo    repo.ResourceRepository
+	linkCheckService LinkCheckService  // ResolveWithCheck 用（双链接校验 + 回写）
+	meiliManager    *MeilisearchManager // ApplyValidityWriteback 用（同步搜索索引）
 }
 
 // NewResourceLinkService 创建取链服务
-func NewResourceLinkService(cksRepo repo.CksRepository, panRepo repo.PanRepository, configRepo repo.SystemConfigRepository, resourceRepo repo.ResourceRepository) ResourceLinkService {
-	return &resourceLinkServiceImpl{cksRepo: cksRepo, panRepo: panRepo, configRepo: configRepo, resourceRepo: resourceRepo}
+func NewResourceLinkService(cksRepo repo.CksRepository, panRepo repo.PanRepository, configRepo repo.SystemConfigRepository, resourceRepo repo.ResourceRepository, linkCheckService LinkCheckService, meiliManager *MeilisearchManager) ResourceLinkService {
+	return &resourceLinkServiceImpl{cksRepo: cksRepo, panRepo: panRepo, configRepo: configRepo, resourceRepo: resourceRepo, linkCheckService: linkCheckService, meiliManager: meiliManager}
 }
 
 // Resolve 按网页端 GetResourceLink 同一逻辑解析可用链接：
@@ -87,6 +102,112 @@ func (s *resourceLinkServiceImpl) Resolve(ctx context.Context, resource *entity.
 	}
 	utils.Error("[RESOURCE_LINK] 自动转存失败 (resource=%d): %s", resource.ID, res.ErrorMsg)
 	return LinkResolution{URL: resource.URL, Type: "original", Platform: platform}, nil
+}
+
+// ResolveWithCheck 统一取链决策树（FR-013~FR-017，Telegram/公众号/QQ 共用）。
+//
+//	构造 [原始链接]+[saveUrl?] → 一次 CheckURLs 批量校验 → 仅以原始链接结果回写 is_valid →
+//	① saveUrl 有效（或未确定）→ 返回 saveUrl；
+//	② saveUrl 失效 → 先 PerformShare（按 fid 重新分享），成功返新 saveUrl，失败落判原始；
+//	③ 原始失效 → 判资源失效（Invalid=true）；原始有效 → 非转存平台返原链，否则 PerformAutoTransfer。
+func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource *entity.Resource) (UnifiedLinkResult, error) {
+	_ = ctx
+	if resource == nil {
+		return UnifiedLinkResult{}, fmt.Errorf("resource 为空")
+	}
+
+	// 平台信息
+	var panName, panRemark string
+	if resource.PanID != nil {
+		if pan, err := s.panRepo.FindByID(*resource.PanID); err == nil && pan != nil {
+			panName = pan.Name
+			panRemark = pan.Remark
+		}
+	}
+	platform := panRemark
+	if platform == "" {
+		platform = panName
+	}
+	transferSupported := panName == "quark" || panName == "xunlei" || panName == "baidu" || panName == "uc"
+
+	// 1) 构造待检 URL 集：原始链接 + saveUrl（若有）
+	urls := make([]string, 0, 2)
+	if resource.URL != "" {
+		urls = append(urls, resource.URL)
+	}
+	hasSave := resource.SaveURL != ""
+	if hasSave {
+		urls = append(urls, resource.SaveURL)
+	}
+
+	// 2) 一次批量校验（PanCheck 未启用时全为 undetermined/disabled，按既有状态降级放行）
+	utils.Info("[RESOURCE_LINK:DEBUG] 取链决策入口 - resource=%d, hasSave=%v, saveUrl=%q, fid=%q, ck_id=%v, transferSupported=%v, origURL=%q",
+		resource.ID, hasSave, resource.SaveURL, resource.Fid, resource.CkID, transferSupported, resource.URL)
+	origResult := ResourceCheckResult{Status: "undetermined", DetectionMethod: "disabled"}
+	saveResult := ResourceCheckResult{Status: "undetermined", DetectionMethod: "disabled"}
+	if s.linkCheckService != nil && len(urls) > 0 {
+		all := s.linkCheckService.CheckURLs(ctx, urls, false)
+		if resource.URL != "" {
+			if r, ok := all[resource.URL]; ok {
+				origResult = r
+			}
+		}
+		if hasSave {
+			if r, ok := all[resource.SaveURL]; ok {
+				saveResult = r
+			}
+		}
+	}
+	utils.Info("[RESOURCE_LINK:DEBUG] PanCheck 结果 - resource=%d, orig{status=%s, method=%s, reason=%q}, save{status=%s, method=%s, reason=%q}",
+		resource.ID, origResult.Status, origResult.DetectionMethod, origResult.FailReason, saveResult.Status, saveResult.DetectionMethod, saveResult.FailReason)
+
+	// 3) 资源级有效性回写：仅以「原始链接」结果驱动（R7）。saveUrl 失效属可恢复问题，不翻转 is_valid。
+	if resource.URL != "" && (origResult.Status == "valid" || origResult.Status == "invalid") && s.resourceRepo != nil {
+		ApplyValidityWriteback(resource, origResult, s.resourceRepo, s.meiliManager)
+	}
+
+	// 4) 决策树
+	// 4a/4b) 有 saveUrl：仅当「确定失效」才尝试恢复（分享）；有效或未确定 → 直接复用现有 saveUrl
+	if hasSave {
+		if saveResult.Status != "invalid" {
+			// 有效或未确定（PanCheck 未启用等降级场景）→ 复用现有 saveUrl
+			utils.Info("[RESOURCE_LINK:DEBUG] 决策分支 → 复用现有 saveUrl (resource=%d, saveStatus=%s 非invalid)", resource.ID, saveResult.Status)
+			return UnifiedLinkResult{URL: resource.SaveURL, Type: "transferred", Platform: platform}, nil
+		}
+		// saveUrl 确定失效 → 先尝试分享（仅转存平台持有 fid）
+		utils.Info("[RESOURCE_LINK:DEBUG] 决策分支 → saveUrl 失效，触发 PerformShare (resource=%d)", resource.ID)
+		if transferSupported {
+			res := PerformShare(s.cksRepo, s.resourceRepo, resource)
+			if res.Success {
+				return UnifiedLinkResult{URL: res.SaveURL, Type: "reshared", Platform: platform, Refreshed: true}, nil
+			}
+			utils.Warn("[RESOURCE_LINK] 分享失败，回退判原始 (resource=%d): %s", resource.ID, res.ErrorMsg)
+		}
+		// 分享失败/不支持 → 落到「判原始」
+	}
+
+	// 4c) 判原始链接
+	if origResult.Status == "invalid" {
+		// 原始失效 → 资源失效，不交付链接
+		return UnifiedLinkResult{Invalid: true, Type: "invalid", Platform: platform}, nil
+	}
+
+	// 原始有效或未确定（降级放行）
+	if !transferSupported {
+		return UnifiedLinkResult{URL: resource.URL, Type: "original", Platform: platform}, nil
+	}
+
+	// 转存平台 + 原始有效 → 走自动转存（受总开关约束）
+	autoTransfer, err := s.configRepo.GetConfigBool(entity.ConfigKeyAutoTransferEnabled)
+	if err != nil || !autoTransfer {
+		return UnifiedLinkResult{URL: resource.URL, Type: "original", Platform: platform}, nil
+	}
+	res := PerformAutoTransfer(s.cksRepo, s.configRepo, s.resourceRepo, resource)
+	if res.Success {
+		return UnifiedLinkResult{URL: res.SaveURL, Type: "transferred", Platform: platform, Note: "资源易和谐，请及时转存", Refreshed: true}, nil
+	}
+	utils.Error("[RESOURCE_LINK] 自动转存失败 (resource=%d): %s", resource.ID, res.ErrorMsg)
+	return UnifiedLinkResult{URL: resource.URL, Type: "original", Platform: platform, Note: "自动转存失败：" + res.ErrorMsg}, nil
 }
 
 // PerformAutoTransfer 执行自动转存（由 handlers 迁移，逻辑保持一致）。

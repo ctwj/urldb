@@ -102,6 +102,13 @@ type PanService interface {
 	UpdateConfig(config *PanConfig)
 }
 
+// Sharer 对系统已存文件按 fid 重新生成分享链接的能力（独立于 PanService，仅 quark/xunlei/baidu 实现）。
+// 用于「转存链接 saveUrl 已存在但失效」时的恢复操作（FR-015），避免对原始链接重复转存。
+type Sharer interface {
+	// Share 对系统已存文件（fid）重新生成分享链接，返回含 ShareURL 的结果。
+	Share(fid string) (*TransferResult, error)
+}
+
 // PanFactory 网盘工厂
 type PanFactory struct{}
 

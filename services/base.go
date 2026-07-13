@@ -27,8 +27,8 @@ func UnifiedSearchResources(keyword string, limit int, systemConfigRepo repo.Sys
 
 	// 如果启用了Meilisearch，优先使用Meilisearch搜索
 	if meilisearchManager != nil && meilisearchManager.IsEnabled() {
-		// 构建MeiliSearch过滤器
-		filters := make(map[string]interface{})
+		// 构建MeiliSearch过滤器（FR-011：过滤掉已失效资源，与网页/Telegram 一致）
+		filters := map[string]interface{}{"is_valid": true}
 
 		// 使用Meilisearch搜索
 		service := meilisearchManager.GetService()
@@ -83,6 +83,15 @@ func UnifiedSearchResources(keyword string, limit int, systemConfigRepo repo.Sys
 	if total == 0 {
 		return []entity.Resource{}, nil
 	}
+
+	// FR-011：DB 回退路径同样过滤已失效资源（与 Meili 路径一致）
+	filtered := resources[:0]
+	for _, r := range resources {
+		if r.IsValid {
+			filtered = append(filtered, r)
+		}
+	}
+	resources = filtered
 
 	// 获取违禁词配置并处理违禁词
 	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {

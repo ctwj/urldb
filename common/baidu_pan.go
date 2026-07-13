@@ -290,6 +290,30 @@ func (b *BaiduPanService) createShare(fsIDs []int64, period, pwd, bdstoken strin
 	return shareURL, nil
 }
 
+// Share 对系统已存文件按 fid 重新生成百度分享链接（实现 Sharer，FR-015）。
+// fid 即百度 fs_id（int64，存为字符串）；period=1 永久分享。失败时由调用方回退到「判原始→转存」。
+func (b *BaiduPanService) Share(fid string) (*TransferResult, error) {
+	if fid == "" {
+		return &TransferResult{Success: false, Message: "fid 为空"}, nil
+	}
+	fsID, err := strconv.ParseInt(fid, 10, 64)
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("fid 非法: %v", err)}, nil
+	}
+	bdstoken, err := b.getBdstoken()
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("获取 bdstoken 失败: %v", err)}, nil
+	}
+	shareURL, err := b.createShare([]int64{fsID}, "1", "", bdstoken)
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("创建分享失败: %v", err)}, nil
+	}
+	if shareURL == "" {
+		return &TransferResult{Success: false, Message: "未获取到分享链接"}, nil
+	}
+	return &TransferResult{Success: true, ShareURL: shareURL, Fid: fid}, nil
+}
+
 // deleteByPaths 按路径批量删除文件（百度删除 API 基于路径，非 fs_id）
 //
 // 关键：参数与 filelist 格式必须与浏览器抓包一致，否则触发 errno=132 短信二次验证：

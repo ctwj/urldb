@@ -146,6 +146,8 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyWebsiteURL, Value: entity.ConfigDefaultWebsiteURL, Type: entity.ConfigTypeString},
 			// Telegram 搜索每页条数（011-telegram-bot-enhance）
 			{Key: entity.ConfigKeyTelegramSearchPageSize, Value: entity.ConfigDefaultTelegramSearchPageSize, Type: entity.ConfigTypeInt},
+		{Key: entity.ConfigKeyTelegramWelcomeEnabled, Value: entity.ConfigDefaultTelegramWelcomeEnabled, Type: entity.ConfigTypeBool},
+		{Key: entity.ConfigKeyTelegramWelcomeMessage, Value: entity.ConfigDefaultTelegramWelcomeMessage, Type: entity.ConfigTypeString},
 			// 自动清理转存文件默认配置（002-auto-cleanup-transfer）
 			{Key: entity.ConfigKeyAutoCleanupEnabled, Value: entity.ConfigDefaultAutoCleanupEnabled, Type: entity.ConfigTypeBool},
 			{Key: entity.ConfigKeyAutoCleanupRetentionDays, Value: entity.ConfigDefaultAutoCleanupRetentionDays, Type: entity.ConfigTypeInt},
@@ -209,6 +211,8 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		entity.ConfigKeyWebsiteURL:                {Key: entity.ConfigKeyWebsiteURL, Value: entity.ConfigDefaultWebsiteURL, Type: entity.ConfigTypeString},
 		// Telegram 搜索每页条数（011-telegram-bot-enhance）
 		entity.ConfigKeyTelegramSearchPageSize: {Key: entity.ConfigKeyTelegramSearchPageSize, Value: entity.ConfigDefaultTelegramSearchPageSize, Type: entity.ConfigTypeInt},
+	entity.ConfigKeyTelegramWelcomeEnabled: {Key: entity.ConfigKeyTelegramWelcomeEnabled, Value: entity.ConfigDefaultTelegramWelcomeEnabled, Type: entity.ConfigTypeBool},
+	entity.ConfigKeyTelegramWelcomeMessage: {Key: entity.ConfigKeyTelegramWelcomeMessage, Value: entity.ConfigDefaultTelegramWelcomeMessage, Type: entity.ConfigTypeString},
 		// PanCheck 链接检测服务配置
 		entity.ConfigKeyPanCheckEnabled:        {Key: entity.ConfigKeyPanCheckEnabled, Value: entity.ConfigDefaultPanCheckEnabled, Type: entity.ConfigTypeBool},
 		entity.ConfigKeyPanCheckHost:           {Key: entity.ConfigKeyPanCheckHost, Value: entity.ConfigDefaultPanCheckHost, Type: entity.ConfigTypeString},

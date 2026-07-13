@@ -57,6 +57,8 @@ const (
 	ConfigKeyTelegramProxyUsername      = "telegram_proxy_username"
 	ConfigKeyTelegramProxyPassword      = "telegram_proxy_password"
 	ConfigKeyTelegramSearchPageSize     = "telegram_search_page_size" // 011-telegram-bot-enhance：搜索每页条数
+	ConfigKeyTelegramWelcomeEnabled     = "telegram_welcome_enabled"      // 入群欢迎消息开关
+	ConfigKeyTelegramWelcomeMessage     = "telegram_welcome_message"      // 入群欢迎消息模板
 
 	// 微信公众号配置
 	ConfigKeyWechatBotEnabled       = "wechat_bot_enabled"
@@ -166,6 +168,8 @@ const (
 	ConfigResponseFieldTelegramProxyUsername      = "telegram_proxy_username"
 	ConfigResponseFieldTelegramProxyPassword      = "telegram_proxy_password"
 	ConfigResponseFieldTelegramSearchPageSize     = "telegram_search_page_size"
+	ConfigResponseFieldTelegramWelcomeEnabled     = "telegram_welcome_enabled"
+	ConfigResponseFieldTelegramWelcomeMessage     = "telegram_welcome_message"
 
 	// 微信公众号配置字段
 	ConfigResponseFieldWechatBotEnabled       = "wechat_bot_enabled"
@@ -250,6 +254,8 @@ const (
 	ConfigDefaultTelegramProxyUsername      = ""
 	ConfigDefaultTelegramProxyPassword      = ""
 	ConfigDefaultTelegramSearchPageSize     = "5" // 011-telegram-bot-enhance：默认每页 5 条（范围 3–8）
+	ConfigDefaultTelegramWelcomeEnabled    = "false"
+	ConfigDefaultTelegramWelcomeMessage    = "欢迎 @{{username}} 加入 {{chatname}}！\n\n我是网盘资源机器人，发送「搜索 + 关键词」或 @ 我 + 关键词即可搜索资源。"
 
 	// 微信公众号配置默认值
 	ConfigDefaultWechatBotEnabled       = "false"

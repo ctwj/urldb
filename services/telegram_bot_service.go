@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -78,6 +79,8 @@ type TelegramBotConfig struct {
 	ProxyPort          int
 	ProxyUsername      string
 	ProxyPassword      string
+	WelcomeEnabled     bool   // 入群欢迎开关
+	WelcomeMessage     string // 入群欢迎模板（支持 {{username}} {{chatname}} 占位符）
 }
 
 func NewTelegramBotService(
@@ -135,6 +138,9 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 	s.config.ProxyPort = 8080
 	s.config.ProxyUsername = ""
 	s.config.ProxyPassword = ""
+	// 初始化欢迎消息默认值
+	s.config.WelcomeEnabled = false
+	s.config.WelcomeMessage = entity.ConfigDefaultTelegramWelcomeMessage
 
 	// 统计配置项数量，用于汇总日志
 	configCount := 0
@@ -179,6 +185,12 @@ func (s *TelegramBotServiceImpl) loadConfig() error {
 			s.config.ProxyUsername = config.Value
 		case entity.ConfigKeyTelegramProxyPassword:
 			s.config.ProxyPassword = config.Value
+		case entity.ConfigKeyTelegramWelcomeEnabled:
+			s.config.WelcomeEnabled = config.Value == "true"
+		case entity.ConfigKeyTelegramWelcomeMessage:
+			if config.Value != "" {
+				s.config.WelcomeMessage = config.Value
+			}
 		default:
 			utils.Debug("未知Telegram配置: %s", config.Key)
 		}
@@ -596,8 +608,15 @@ func (s *TelegramBotServiceImpl) messageLoop() {
 				return
 			}
 			if update.Message != nil {
-				utils.Info("[TELEGRAM:MESSAGE] 接收到新消息更新")
-				s.handleMessage(update.Message)
+				// 优先处理新成员入群事件（不进入通用消息路由）
+				if len(update.Message.NewChatMembers) > 0 {
+					utils.Info("[TELEGRAM:MESSAGE] 收到新成员入群事件 ChatID=%d 成员数=%d",
+						update.Message.Chat.ID, len(update.Message.NewChatMembers))
+					s.handleNewChatMembers(update.Message)
+				} else {
+					utils.Info("[TELEGRAM:MESSAGE] 接收到新消息更新")
+					s.handleMessage(update.Message)
+				}
 			} else if update.CallbackQuery != nil {
 				s.handleCallbackQuery(update.CallbackQuery)
 			} else {
@@ -624,6 +643,47 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
+	// 群组场景：除命令（/开头）外，普通文本消息必须 @ 机器人才处理，
+	// 避免机器人对群内每条消息都回复。
+	isGroupChat := message.Chat.IsGroup() || message.Chat.IsSuperGroup()
+	if isGroupChat && !strings.HasPrefix(strings.ToLower(text), "/") {
+		if !s.isBotMentioned(message) {
+			utils.Debug("[TELEGRAM:MESSAGE] 群聊非@消息，忽略: ChatID=%d", chatID)
+			return
+		}
+		// 去掉消息中的 @botusername，避免把 @ 当作搜索关键词的一部分
+		text = s.stripBotMention(text)
+		message.Text = text
+
+		// 群聊 @ 机器人 + 非命令文本：默认作为搜索请求处理（不再走自动回复模板）。
+		// 兼容三种形态：
+		//   1. 【123】xxx     → 直接取指定资源
+		//   2. 搜索 xxx       → 去掉"搜索"前缀后查
+		//   3. 其他任意文本   → 整段当关键词查
+		if text == "" {
+			// 只是 @ 了一下没说话，给个使用提示
+			utils.Info("[TELEGRAM:MESSAGE] 群聊@但无文本，发送使用提示 ChatID=%d", chatID)
+			s.sendReply(message, "请告诉我你要搜索的关键词，例如：@"+s.GetBotUsername()+" 庆余年")
+			return
+		}
+		// 兼容 【ID】xxx 形式
+		if num, ok := matchResourceID(text); ok {
+			utils.Info("[TELEGRAM:MESSAGE] 群聊@取资源 from ChatID=%d: ID=%d", chatID, num)
+			s.handleResourceRequest(message, uint(num))
+			return
+		}
+		// 兼容 "搜索xxx" 形式：去掉前缀后查
+		if kw, ok := matchSearchPrefix(text); ok {
+			utils.Info("[TELEGRAM:MESSAGE] 群聊@搜索(带前缀) from ChatID=%d: %s", chatID, kw)
+			s.handleSearchRequest(message, kw)
+			return
+		}
+		// 默认：整段文本作为关键词搜索
+		utils.Info("[TELEGRAM:MESSAGE] 群聊@默认搜索 from ChatID=%d: %s", chatID, text)
+		s.handleSearchRequest(message, text)
+		return
+	}
+
 	// 处理 /register 命令（包括参数）
 	if strings.HasPrefix(strings.ToLower(text), "/register") {
 		utils.Info("[TELEGRAM:MESSAGE] 处理 /register 命令 from ChatID=%d", chatID)
@@ -631,13 +691,12 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	// 处理 /start <payload>（深链跳私聊：群搜索结果在私聊打开，payload=search_<sid>）
+	// 处理 /start <payload>（深链跳私聊：payload=s_<base64关键字>，任何时候点击都可用）
 	if strings.HasPrefix(strings.ToLower(text), "/start ") {
 		payload := strings.TrimSpace(text[len("/start "):])
-		if strings.HasPrefix(payload, "search_") {
-			sid := strings.TrimPrefix(payload, "search_")
-			utils.Info("[TELEGRAM:MESSAGE] 处理 /start search_ 深链 from ChatID=%d, sid=%s", chatID, sid)
-			s.handlePrivateSearchStart(message, sid)
+		if strings.HasPrefix(payload, searchPayloadPrefix) {
+			utils.Info("[TELEGRAM:MESSAGE] 处理 /start 深链搜索 from ChatID=%d", chatID)
+			s.handleSearchDeepLink(message, payload)
 			return
 		}
 		s.handleStartCommand(message)
@@ -709,7 +768,142 @@ func (s *TelegramBotServiceImpl) handleMessage(message *tgbotapi.Message) {
 	}
 }
 
-// handleRegisterCommand 处理注册命令
+// isBotMentioned 判断当前消息是否 @ 了本机器人。
+// 判定规则（任一命中即视为 @）：
+//  1. 文本中包含 "@botusername"
+//  2. message.Entities 中存在 mention 类型且文本匹配机器人用户名
+//  3. 该消息是回复机器人此前发的消息（ReplyToMessage.From == bot）
+func (s *TelegramBotServiceImpl) isBotMentioned(message *tgbotapi.Message) bool {
+	if message == nil {
+		return false
+	}
+	botUsername := s.GetBotUsername()
+	if botUsername == "" || s.bot == nil {
+		return false
+	}
+	mention := "@" + botUsername
+
+	// 1. 文本包含 @username
+	if strings.Contains(message.Text, mention) {
+		return true
+	}
+	// 2. entities 中存在匹配的 mention
+	for _, entity := range message.Entities {
+		if entity.Type == "mention" {
+			start := entity.Offset
+			end := entity.Offset + entity.Length
+			if start >= 0 && end <= len(message.Text) && message.Text[start:end] == mention {
+				return true
+			}
+		}
+	}
+	// 3. 回复机器人的消息
+	if message.ReplyToMessage != nil && message.ReplyToMessage.From != nil {
+		if message.ReplyToMessage.From.ID == s.bot.Self.ID {
+			return true
+		}
+	}
+	return false
+}
+
+// stripBotMention 移除消息文本中的 @botusername，避免把 @ 当作关键词一部分
+func (s *TelegramBotServiceImpl) stripBotMention(text string) string {
+	botUsername := s.GetBotUsername()
+	if botUsername == "" {
+		return text
+	}
+	mention := "@" + botUsername
+	text = strings.ReplaceAll(text, mention, "")
+	return strings.TrimSpace(text)
+}
+
+// matchResourceID 匹配 "【123】xxx" 形式，返回其中的数字 ID。
+// 与私聊分支保持一致的规则：^【(\d+)】.*?
+func matchResourceID(text string) (int, bool) {
+	re := regexp.MustCompile(`^【(\d+)】.*?`)
+	matches := re.FindStringSubmatch(text)
+	if len(matches) < 2 {
+		return 0, false
+	}
+	num, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, false
+	}
+	return num, true
+}
+
+// matchSearchPrefix 匹配 "搜索 xxx" / "搜索xxx" 形式，返回去掉前缀后的关键词。
+// 与私聊分支保持一致的规则：^搜索(.*?)$
+func matchSearchPrefix(text string) (string, bool) {
+	re := regexp.MustCompile(`^搜索(.*?)$`)
+	matches := re.FindStringSubmatch(text)
+	if len(matches) < 2 {
+		return "", false
+	}
+	kw := strings.TrimSpace(matches[1])
+	if kw == "" {
+		return "", false
+	}
+	return kw, true
+}
+
+// handleNewChatMembers 处理新成员入群事件
+func (s *TelegramBotServiceImpl) handleNewChatMembers(message *tgbotapi.Message) {
+	if !s.isRunning || !s.config.Enabled || s.bot == nil {
+		utils.Info("[TELEGRAM:WELCOME] 跳过：bot 未运行/未启用 (isRunning=%v, enabled=%v, botNil=%v)",
+			s.isRunning, s.config.Enabled, s.bot == nil)
+		return
+	}
+	// 仅在群组/超级群组生效
+	if !(message.Chat.IsGroup() || message.Chat.IsSuperGroup()) {
+		utils.Info("[TELEGRAM:WELCOME] 跳过：非群组（chatType=%s）", message.Chat.Type)
+		return
+	}
+	// 未启用欢迎消息，直接返回
+	if !s.config.WelcomeEnabled {
+		utils.Info("[TELEGRAM:WELCOME] 跳过：欢迎消息未启用 ChatID=%d", message.Chat.ID)
+		return
+	}
+
+	chatTitle := message.Chat.Title
+	if chatTitle == "" {
+		chatTitle = "本群"
+	}
+
+	for _, member := range message.NewChatMembers {
+		// 机器人自己被加入群，不发送欢迎消息（避免自言自语）
+		if s.bot != nil && member.ID == s.bot.Self.ID {
+			utils.Info("[TELEGRAM:WELCOME] 机器人被加入群组 ChatID=%d，跳过自我欢迎", message.Chat.ID)
+			continue
+		}
+
+		displayName := member.FirstName
+		if member.UserName != "" {
+			displayName = "@" + member.UserName
+		} else if member.LastName != "" {
+			displayName = member.FirstName + " " + member.LastName
+		}
+
+		// 渲染模板
+		tmpl := s.config.WelcomeMessage
+		if tmpl == "" {
+			tmpl = entity.ConfigDefaultTelegramWelcomeMessage
+		}
+		tmpl = strings.ReplaceAll(tmpl, "{{username}}", s.cleanMessageTextForHTML(displayName))
+		tmpl = strings.ReplaceAll(tmpl, "{{chatname}}", s.cleanMessageTextForHTML(chatTitle))
+		// 兼容单花括号写法
+		tmpl = strings.ReplaceAll(tmpl, "{username}", s.cleanMessageTextForHTML(displayName))
+		tmpl = strings.ReplaceAll(tmpl, "{chatname}", s.cleanMessageTextForHTML(chatTitle))
+
+		utils.Info("[TELEGRAM:WELCOME] 新成员入群 ChatID=%d, User=%s", message.Chat.ID, displayName)
+		// 直接发送到群，不回复原系统消息（避免消息过重）；不自动删除欢迎消息
+		msg := tgbotapi.NewMessage(message.Chat.ID, tmpl)
+		msg.ParseMode = "HTML"
+		if _, err := s.bot.Send(msg); err != nil {
+			utils.Error("[TELEGRAM:WELCOME] 发送欢迎消息失败: %v", err)
+		}
+	}
+}
 func (s *TelegramBotServiceImpl) handleRegisterCommand(message *tgbotapi.Message) {
 	chatID := message.Chat.ID
 	text := strings.TrimSpace(message.Text)
@@ -951,8 +1145,8 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 		return
 	}
 
-	// 011-US3：记录搜索归因（telegram 来源），即使 0 结果也计入（与网页端一致）
-	if s.searchStatRepo != nil {
+	// 011-US3：仅私聊计入搜索统计（群里只发启动器、不计；实际查看结果在私聊打开时由 handleSearchDeepLink 计）
+	if message.Chat.Type == "private" && s.searchStatRepo != nil {
 		if err := s.searchStatRepo.RecordSearch(keyword, entity.SourceTelegram, "", "telegram-bot"); err != nil {
 			utils.Error("[TELEGRAM:SEARCH] 记录搜索统计失败: %v", err)
 		}
@@ -964,7 +1158,13 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 		return
 	}
 
-	// 创建分页 session（承载关键字/页大小，供翻页 callback 复用，规避 64 字节限制）
+	// 群聊 + 有 username：只发启动器（深链携带关键字，任何时候点击都可用；每个点击者各自独立搜索，不共享会话）
+	if message.Chat.Type != "private" && s.GetBotUsername() != "" {
+		s.renderGroupSearchLauncher(message, keyword, total)
+		return
+	}
+
+	// 私聊 或 群聊无 username（回退）：创建 session + 完整分页（不自动删除，便于翻页与取链）
 	var sess *TgSearchSession
 	if s.sessions != nil {
 		var userID int64
@@ -973,33 +1173,75 @@ func (s *TelegramBotServiceImpl) handleSearchRequest(message *tgbotapi.Message, 
 		}
 		sess = s.sessions.Create(message.Chat.ID, userID, keyword, pageSize, total)
 	}
-
-	// 群聊：只展示「查询到 N 条 + 点击获取」按钮，跳转私聊浏览（避免群里多人翻页互相干扰）
-	if message.Chat.Type != "private" {
-		s.renderGroupSearchLauncher(message, keyword, total, sess, docs, pageSize)
-		return
-	}
-	// 私聊：直接展示完整分页 + 编号按钮（搜索/分页消息不自动删除，便于翻页与取链）
 	s.renderSearchResultsMessage(message, keyword, docs, total, pageSize, sess)
 }
 
-// renderGroupSearchLauncher 群聊搜索启动器：展示命中数量 + 「点击获取」深链按钮，跳转私聊浏览。
-// 机器人若无 username 无法深链时，回退为群内完整分页。
-func (s *TelegramBotServiceImpl) renderGroupSearchLauncher(message *tgbotapi.Message, keyword string, total int64, sess *TgSearchSession, docs []MeilisearchDocument, pageSize int) {
+// renderGroupSearchLauncher 群聊搜索启动器：展示命中数量 + 「点击获取资源」深链按钮。
+// 深链 payload 直接编码关键字（base64url），不依赖内存会话 → 任何时候点击都可用，每个点击者各自独立搜索。
+// 注意：Telegram 深链 start 参数只允许 [A-Za-z0-9_-]，所以前缀用 "s_" 而非 "s."。
+func (s *TelegramBotServiceImpl) renderGroupSearchLauncher(message *tgbotapi.Message, keyword string, total int64) {
 	username := s.GetBotUsername()
-	if username == "" || sess == nil {
-		s.renderSearchResultsMessage(message, keyword, docs, total, pageSize, sess)
+	if username == "" {
+		utils.Error("[TELEGRAM:SEARCH] bot username 为空，无法生成深链，降级为提示用户私聊搜索")
+		s.sendReply(message, "⚠️ 无法生成跳转链接（机器人未正确获取 username）。\n请直接私聊我发送关键词进行搜索。")
 		return
 	}
-	text := fmt.Sprintf("🔍 关键词「%s」查询到 <b>%d</b> 条结果", s.cleanMessageTextForHTML(keyword), total)
-	// 深链：t.me/<bot>?start=search_<sid>，用 sessionID 承载关键字（规避 start 参数长度限制）
-	link := fmt.Sprintf("https://t.me/%s?start=search_%s", username, sess.SessionID)
+	// Telegram 深链 start 参数硬限制 64 字符；payload 形如 "s_<base64url>"
+	// 前缀 "s_" 占 2 字符，base64url 每 3 字节→4 字符，故关键字字节数上限 ≈ 46（含余量）。
+	// 超长会被 Telegram 静默拒绝跳转（按钮点了无反应），需要主动截断。
+	const maxKeywordBytes = 46
+	truncated, dropped := truncateKeywordBytes(keyword, maxKeywordBytes)
+	if dropped {
+		utils.Info("[TELEGRAM:SEARCH] 关键词过长，已截断用于深链: 原始=%d字节 截断=%d字节", len(keyword), len(truncated))
+	}
+	text := fmt.Sprintf("🔍 关键词「%s」查询到 <b>%d</b> 条结果", s.cleanMessageTextForHTML(truncated), total)
+	link := fmt.Sprintf("https://t.me/%s?start=%s%s", username, searchPayloadPrefix, encodeSearchPayload(truncated))
+	utils.Info("[TELEGRAM:SEARCH] 群聊启动器 username=%s payloadLen=%d link=%s", username, len(link), link)
 	markup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("点击获取资源", link),
 		),
 	)
 	s.sendHTMLWithKeyboard(message, text, markup, false)
+}
+
+// searchPayloadPrefix 深链 start 参数中用于标识"搜索"用途的前缀。
+// 必须只含 [A-Za-z0-9_-]，否则 Telegram 会拒绝整个 payload。
+const searchPayloadPrefix = "s_"
+
+// truncateKeywordBytes 把关键字按 UTF-8 rune 安全截断到不超过 maxBytes 字节。
+// 第二个返回值表示是否真的发生了截断。
+func truncateKeywordBytes(keyword string, maxBytes int) (string, bool) {
+	if len(keyword) <= maxBytes {
+		return keyword, false
+	}
+	runes := []rune(keyword)
+	// 从尾部逐字删除，直到字节数满足
+	for len(runes) > 0 {
+		runes = runes[:len(runes)-1]
+		if len(string(runes)) <= maxBytes {
+			return string(runes), true
+		}
+	}
+	return "", true
+}
+
+// encodeSearchPayload 把搜索关键字编码为可放入深链 start 参数的 URL 安全字符串。
+// 用 base64url（RawURLEncoding，无 = 填充）：字符集仅 A-Za-z0-9-_，无需 URL 转义，Telegram 原样透传。
+func encodeSearchPayload(keyword string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(keyword))
+}
+
+// decodeSearchPayload 反解深链 start 参数中的关键字（payload 形如 "s_<base64url>"）。
+func decodeSearchPayload(payload string) (string, bool) {
+	if !strings.HasPrefix(payload, searchPayloadPrefix) {
+		return "", false
+	}
+	b, err := base64.RawURLEncoding.DecodeString(payload[len(searchPayloadPrefix):])
+	if err != nil {
+		return "", false
+	}
+	return string(b), true
 }
 
 // renderSearchResultsMessage 渲染首页完整分页（列表 + 翻页 + 编号按钮），不自动删除
@@ -1009,46 +1251,63 @@ func (s *TelegramBotServiceImpl) renderSearchResultsMessage(message *tgbotapi.Me
 	s.sendHTMLWithKeyboard(message, text, markup, false)
 }
 
-// handlePrivateSearchStart 深链跳私聊后：按群内搜索的关键字，在私聊里重新渲染完整分页（新 session 绑定私聊）
-func (s *TelegramBotServiceImpl) handlePrivateSearchStart(message *tgbotapi.Message, sid string) {
-	if s.sessions == nil {
+// handleSearchDeepLink 深链跳私聊后：从 payload 反解关键字，在私聊里直接搜索并渲染完整分页。
+// 关键字来自深链（base64url 编码），不依赖内存会话 → 任何时候点击都可用；每个用户各自独立搜索、独立翻页。
+func (s *TelegramBotServiceImpl) handleSearchDeepLink(message *tgbotapi.Message, payload string) {
+	keyword, ok := decodeSearchPayload(payload)
+	utils.Info("[TELEGRAM:SEARCH] 深链跳转到达 payload=%s keyword=%q decodeOk=%v", payload, keyword, ok)
+	if !ok || strings.TrimSpace(keyword) == "" {
+		utils.Info("[TELEGRAM:SEARCH] 深链 payload 无效，转走 Start 命令")
 		s.handleStartCommand(message)
 		return
 	}
-	sess, ok := s.sessions.Get(sid)
-	if !ok {
-		s.sendReply(message, "⚠️ 该搜索已过期（超过 15 分钟），请在群里重新发送 /s 关键词 搜索。")
-		return
-	}
-	keyword := sess.Keyword
 
 	pageSize := s.config.SearchPageSize
 	if pageSize < 3 || pageSize > 8 {
 		pageSize = 5
 	}
-	if s.meilisearchManager == nil || s.meilisearchManager.GetService() == nil {
+	if s.meilisearchManager == nil {
+		utils.Info("[TELEGRAM:SEARCH] meilisearchManager 为 nil")
 		s.sendReply(message, "搜索服务（Meilisearch）未启用。")
 		return
 	}
-	docs, total, err := s.meilisearchManager.GetService().Search(keyword, map[string]interface{}{"is_valid": true}, 1, pageSize)
+	svc := s.meilisearchManager.GetService()
+	if svc == nil {
+		utils.Info("[TELEGRAM:SEARCH] Meilisearch Service 为 nil（未启用或未连接）")
+		s.sendReply(message, "搜索服务（Meilisearch）未启用。")
+		return
+	}
+	utils.Info("[TELEGRAM:SEARCH] 准备调用 Meilisearch keyword=%q pageSize=%d", keyword, pageSize)
+	docs, total, err := svc.Search(keyword, map[string]interface{}{"is_valid": true}, 1, pageSize)
+	utils.Info("[TELEGRAM:SEARCH] Meilisearch 返回 total=%d docs=%d err=%v", total, len(docs), err)
 	if err != nil {
 		utils.Error("[TELEGRAM:SEARCH] 私聊深链搜索失败: %v", err)
 		s.sendReply(message, "搜索服务暂时不可用，请稍后重试")
 		return
 	}
+	// 011-US3：记录搜索归因（telegram 来源）—— 每个用户私聊打开结果都计 1 次（与群里发起搜索各自独立）
+	if s.searchStatRepo != nil {
+		if err := s.searchStatRepo.RecordSearch(keyword, entity.SourceTelegram, "", "telegram-bot"); err != nil {
+			utils.Error("[TELEGRAM:SEARCH] 记录搜索统计失败: %v", err)
+		}
+	}
 	if total == 0 || len(docs) == 0 {
+		utils.Info("[TELEGRAM:SEARCH] 深链搜索结果为空 keyword=%q", keyword)
 		s.sendReply(message, fmt.Sprintf("🔍 关键词「%s」未找到相关资源。", s.cleanMessageTextForHTML(keyword)))
 		return
 	}
 
-	var newSess *TgSearchSession
-	var userID int64
-	if message.From != nil {
-		userID = message.From.ID
+	var sess *TgSearchSession
+	if s.sessions != nil {
+		var userID int64
+		if message.From != nil {
+			userID = message.From.ID
+		}
+		sess = s.sessions.Create(message.Chat.ID, userID, keyword, pageSize, total)
 	}
-	newSess = s.sessions.Create(message.Chat.ID, userID, keyword, pageSize, total)
-	utils.Info("[TELEGRAM:SEARCH] 群搜索跳转私聊打开 keyword=%q total=%d (新 sid=%s)", keyword, total, newSess.SessionID)
-	s.renderSearchResultsMessage(message, keyword, docs, total, pageSize, newSess)
+	utils.Info("[TELEGRAM:SEARCH] 深链私聊打开 keyword=%q total=%d", keyword, total)
+	s.renderSearchResultsMessage(message, keyword, docs, total, pageSize, sess)
+	utils.Info("[TELEGRAM:SEARCH] 深链私聊渲染完成 keyword=%q", keyword)
 }
 
 // renderSearchListText 渲染某一页的列表文本（页内编号 1..N）
@@ -1228,34 +1487,25 @@ func (s *TelegramBotServiceImpl) handleGetLinkCallback(callback *tgbotapi.Callba
 		return
 	}
 
-	// 有效性校验（与网页端同一套机制）
+	// 统一取链（决策树：双链接校验 + 分享/转存 + 仅原始驱动回写）—— 与公众号同一套逻辑（FR-003/Q4）
 	ctx := context.Background()
-	if s.linkCheckService != nil {
-		results := s.linkCheckService.CheckResources(ctx, []*entity.Resource{resource}, false)
-		if r, ok := results[resource.ID]; ok {
-			// 翻转时回写 DB + Meilisearch（内部判断，未翻转/未确定则空操作）
-			ApplyValidityWriteback(resource, r, s.resourceRepo, s.meilisearchManager)
-			if r.Status == "invalid" {
-				// 失效：纯文案提示，30 秒后自动删除，不带按钮
-				notice := "❌ 该资源检测发现已经失效，请切换使用别的资源"
-				if ordinal > 0 {
-					notice = fmt.Sprintf("❌ 编号 %d 的资源，检测发现已经失效，请切换使用别的资源", ordinal)
-				}
-				s.sendChatMessage(chatID, notice, 30*time.Second)
-				return
-			}
-		}
-	}
-
-	// 取链（优先 SaveURL，否则按网页端转存路径产生）
 	if s.linkService == nil {
 		s.sendChatMessage(chatID, "取链服务暂不可用。", 0)
 		return
 	}
-	resolution, err := s.linkService.Resolve(ctx, resource)
+	resolution, err := s.linkService.ResolveWithCheck(ctx, resource)
 	if err != nil {
 		utils.Error("[TELEGRAM:GETLINK] 取链失败 (resource=%d): %v", resource.ID, err)
 		s.sendChatMessage(chatID, "获取链接失败，请稍后重试。", 0)
+		return
+	}
+	// 失效：纯文案提示，30 秒后自动删除
+	if resolution.Invalid {
+		notice := "❌ 该资源检测发现已经失效，请切换使用别的资源"
+		if ordinal > 0 {
+			notice = fmt.Sprintf("❌ 编号 %d 的资源，检测发现已经失效，请切换使用别的资源", ordinal)
+		}
+		s.sendChatMessage(chatID, notice, 30*time.Second)
 		return
 	}
 

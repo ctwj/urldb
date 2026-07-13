@@ -517,6 +517,43 @@ func (q *QuarkPanService) getShareBtn(fidList []string, title string) (*ShareBtn
 	return &response.Data, nil
 }
 
+// Share 对系统已存文件按 fid 重新生成夸克分享链接（实现 Sharer，FR-015）。
+// 夸克分享为异步任务，流程须与 Transfer 的分享段完全对齐：
+//   getShareBtn 创建任务 → waitForTask 轮询直到 Status==2 拿 share_id → getSharePassword 取最终 ShareURL。
+// 早期实现只看 share_id 非空就返回、且跳过 getSharePassword，会在任务尚未完成时拿到未生效的 share_id，
+// 导致拼出的链接打开是「已删除」状态。此处复用 waitForTask（检查 Status==2）+ getSharePassword 修复。
+// 失败时由调用方（决策树）回退到「判原始→转存」，故此处失败是安全的降级。
+func (q *QuarkPanService) Share(fid string) (*TransferResult, error) {
+	if fid == "" {
+		return &TransferResult{Success: false, Message: "fid 为空"}, nil
+	}
+	btn, err := q.getShareBtn([]string{fid}, "资源分享")
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("创建分享失败: %v", err)}, nil
+	}
+	if btn == nil || btn.TaskID == "" {
+		return &TransferResult{Success: false, Message: "未获取到分享任务"}, nil
+	}
+	// 等待分享任务真正完成（Status==2），与 Transfer 对齐
+	taskResult, err := q.waitForTask(btn.TaskID)
+	if err != nil {
+		return &TransferResult{Success: false, Message: fmt.Sprintf("分享任务未完成: %v", err)}, nil
+	}
+	if taskResult == nil || taskResult.ShareID == "" {
+		return &TransferResult{Success: false, Message: "分享任务完成但未获取到 share_id"}, nil
+	}
+	// getSharePassword 是分享最终化步骤，返回的 ShareURL 才是生效链接（Transfer 同样依赖此步）
+	passwordResult, err := q.getSharePassword(taskResult.ShareID)
+	if err != nil || passwordResult == nil || passwordResult.ShareURL == "" {
+		// getSharePassword 失败时回退用 share_id 拼接（保留降级能力）
+		shareURL := "https://pan.quark.cn/s/" + taskResult.ShareID
+		utils.Warn("[QUARK:SHARE] getSharePassword 失败，回退拼接 shareURL - fid=%s, url=%s, err=%v", fid, shareURL, err)
+		return &TransferResult{Success: true, ShareURL: shareURL, Fid: fid}, nil
+	}
+	utils.Info("[QUARK:SHARE] 重新分享成功 - fid=%s, url=%s", fid, passwordResult.ShareURL)
+	return &TransferResult{Success: true, ShareURL: passwordResult.ShareURL, Fid: fid}, nil
+}
+
 // getShareTask 获取分享任务状态
 func (q *QuarkPanService) getShareTask(taskID string, retryIndex int) (*TaskResult, error) {
 	queryParams := map[string]string{
