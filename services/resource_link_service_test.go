@@ -146,7 +146,7 @@ func TestResolveWithCheck_DecisionTree(t *testing.T) {
 			wantType: "transferred", wantURL: saveURL, wantNoteEmpty: true,
 		},
 		{
-			name: "quark·saveUrl失效→分享失败+转存失败→original+失败Note",
+			name: "quark·saveUrl失效→分享失败+转存失败→original(静默回退,无错误Note)",
 			pan: panQuark, resource: func() *entity.Resource {
 				r := mkRes(5, origURL, saveURL, true)
 				r.Fid = "fid-5"
@@ -155,7 +155,7 @@ func TestResolveWithCheck_DecisionTree(t *testing.T) {
 			}(),
 			checkURLs: map[string]ResourceCheckResult{origURL: validRes, saveURL: invalidRes},
 			autoTransfer: true,
-			wantType: "original", wantURL: origURL, wantNoteEmpty: false,
+			wantType: "original", wantURL: origURL, wantNoteEmpty: true,
 		},
 		{
 			name: "quark·无saveUrl·原始有效·自动转存关→original",

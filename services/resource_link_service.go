@@ -206,8 +206,10 @@ func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource
 	if res.Success {
 		return UnifiedLinkResult{URL: res.SaveURL, Type: "transferred", Platform: platform, Note: "资源易和谐，请及时转存", Refreshed: true}, nil
 	}
-	utils.Error("[RESOURCE_LINK] 自动转存失败 (resource=%d): %s", resource.ID, res.ErrorMsg)
-	return UnifiedLinkResult{URL: resource.URL, Type: "original", Platform: platform, Note: "自动转存失败：" + res.ErrorMsg}, nil
+	// 回推方案：转存失败（DNS 超时 / 无可用账号 / stoken 获取失败等）静默回退到原始网盘地址，
+	// 不把内部错误以 ⚠️ 形式抛给用户（错误已记入服务端日志，不影响排查）。
+	utils.Error("[RESOURCE_LINK] 自动转存失败，静默回退原始链接 (resource=%d): %s", resource.ID, res.ErrorMsg)
+	return UnifiedLinkResult{URL: resource.URL, Type: "original", Platform: platform}, nil
 }
 
 // PerformAutoTransfer 执行自动转存（由 handlers 迁移，逻辑保持一致）。
