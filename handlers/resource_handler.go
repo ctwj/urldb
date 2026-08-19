@@ -1169,7 +1169,7 @@ func CheckResourceValidity(c *gin.Context) {
 		return
 	}
 
-	utils.Info("开始检测资源有效性 - ID: %d, URL: %s", resource.ID)
+	utils.Info("开始检测资源有效性 - ID: %d, URL: %s", resource.ID, resource.URL)
 
 	if linkCheckService == nil {
 		SuccessResponse(c, gin.H{

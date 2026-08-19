@@ -74,7 +74,13 @@ const uploadedFiles = ref<Map<string, boolean>>(new Map()) // 文件哈希 -> �
 const uploadingFiles = ref<Set<string>>(new Set()) // 正在上传的文件哈希
 
 // 计算文件SHA256哈希值
+// crypto.subtle 仅在安全上下文(HTTPS 或 localhost)可用，普通HTTP下为 undefined
+// 降级返回空串，由后端计算哈希（仅失去秒传优化，不影响上传）
 const calculateFileHash = async (file: File): Promise<string> => {
+  if (typeof crypto === 'undefined' || !crypto.subtle?.digest) {
+    console.warn('当前为非安全上下文(HTTP)，crypto.subtle 不可用，跳过前端哈希计算')
+    return ''
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -163,7 +169,9 @@ const customRequest = async (options: any) => {
     const formData = new FormData()
     formData.append('file', file.file)
     formData.append('is_public', isPublic.value.toString())
-    formData.append('file_hash', fileHash)
+    if (fileHash) {
+      formData.append('file_hash', fileHash)
+    }
     
     // 调用统一的API接口
     const response = await fileApi.uploadFile(formData)
