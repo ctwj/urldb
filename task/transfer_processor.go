@@ -243,6 +243,7 @@ func (tp *TransferProcessor) isValidURL(url string) bool {
 		`https?://pan\.baidu\.com/share/init\?surl=.+`, // 百度网盘 /share/init?surl= 格式
 		`https?://(drive|fast)\.uc\.cn/.+`,             // UC网盘
 		`https?://(www\.)?(alipan|aliyundrive)\.com/s/[a-zA-Z0-9]+`, // 阿里云盘
+		`https?://(www\.|app\.)?guangyapan\.com/s/.+`,  // 光鸭云盘
 	}
 	for _, pattern := range patterns {
 		matched, _ := regexp.MatchString(pattern, url)
@@ -291,6 +292,8 @@ func (tp *TransferProcessor) performTransfer(ctx context.Context, input *Transfe
 		serviceType = "uc"
 	case pan.Alipan:
 		serviceType = "alipan"
+	case pan.Guangya:
+		serviceType = "guangya"
 	default:
 		serviceType = ""
 	}

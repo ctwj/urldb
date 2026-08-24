@@ -23,6 +23,7 @@ const (
 	Tianyi
 	Pan123
 	Pan115
+	Guangya
 )
 
 // String 返回服务类型的字符串表示
@@ -44,6 +45,8 @@ func (s ServiceType) String() string {
 		return "123pan"
 	case Pan115:
 		return "115"
+	case Guangya:
+		return "guangya"
 	default:
 		return "unknown"
 	}
@@ -146,6 +149,8 @@ func (f *PanFactory) CreatePanService(url string, config *PanConfig) (PanService
 		return NewUCService(config), nil
 	case Xunlei:
 		return NewXunleiPanService(config), nil
+	case Guangya:
+		return NewGuangyaService(config), nil
 	default:
 		return nil, fmt.Errorf("不支持的服务类型: %s", url)
 	}
@@ -164,6 +169,8 @@ func (f *PanFactory) CreatePanServiceByType(serviceType ServiceType, config *Pan
 		return NewUCService(config), nil
 	case Xunlei:
 		return NewXunleiPanService(config), nil
+	case Guangya:
+		return NewGuangyaService(config), nil
 	// case Tianyi:
 	// 	return NewTianyiService(config), nil
 	default:
@@ -229,6 +236,7 @@ func ExtractServiceType(url string) ServiceType {
 		"115cdn.com":          Pan115,
 		"anxia.com":           Pan115,
 		"115.com/":            Pan115,
+		"guangyapan.com":      Guangya,
 	}
 
 	for pattern, serviceType := range patterns {

@@ -21,6 +21,12 @@ func TestTransferProcessor_isValidURL(t *testing.T) {
 		{"baidu share/init", "https://pan.baidu.com/share/init?surl=abcdefg", true},
 		{"baidu share/init with pwd", "https://pan.baidu.com/share/init?surl=abc_def&pwd=wxyz", true},
 		{"not baidu (bare host)", "https://baidu.com/s/1abc", false},
+		// guangya (013-guangya-pan-integration)
+		{"guangya www /s/", "https://www.guangyapan.com/s/1938809643918233637_aoupdQ-VQOcjiwM3?code=yvy1", true},
+		{"guangya https no subdomain", "https://guangyapan.com/s/abc_def", true},
+		{"guangya app subdomain", "https://app.guangyapan.com/s/tok", true},
+		{"guangya http", "http://www.guangyapan.com/s/tok_1", true},
+		{"guangya not share path", "https://www.guangyapan.com/my/files", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

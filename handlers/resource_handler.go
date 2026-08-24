@@ -768,8 +768,8 @@ func GetResourceLink(c *gin.Context) {
 		utils.Error("记录资源访问失败: %v", err)
 	}
 
-	// 仅夸克/迅雷/百度支持详情页自动转存；其他平台直接返回原链接
-	if panInfo.Name != "quark" && panInfo.Name != "xunlei" && panInfo.Name != "baidu" {
+	// 仅夸克/迅雷/百度/光鸭支持详情页自动转存；其他平台直接返回原链接
+	if panInfo.Name != "quark" && panInfo.Name != "xunlei" && panInfo.Name != "baidu" && panInfo.Name != "guangya" {
 		utils.Info("该平台不支持详情页自动转存，直接返回原链接: %s", panInfo.Name)
 		SuccessResponse(c, gin.H{
 			"url":         resource.URL,
