@@ -49,8 +49,9 @@ const (
 	guangyaWebOrigin  = "https://www.guangyapan.com"
 	guangyaClientID   = "aMe-8VSlkrbQXpUR"
 	guangyaUA         = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
-	// guangyaTransferDirName 转存固定专用目录（D4）：fid 对齐范围小、清理按目录回收
-	guangyaTransferDirName = "转存"
+	// guangyaTransferDirName 转存固定专用目录（D4）：fid 对齐范围小、清理按目录回收。
+	// 命名与阿里云盘/百度一致（urldb），保持全平台统一约定（2026-08-31 用户确认，由「转存」更名）
+	guangyaTransferDirName = "urldb"
 	// guangyaTaskPollMax / guangyaTaskPollInterval 转存任务轮询上限与间隔（D5）
 	guangyaTaskPollMax      = 20
 	guangyaTaskPollInterval = time.Second

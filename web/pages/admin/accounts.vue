@@ -241,7 +241,7 @@
         </label>
         <n-input v-model:value="form.ck" type="textarea" :rows="3" placeholder="登录光鸭网页版（guangyapan.com）后，F12 → Network → 任选 api.guangyapan.com 请求 → Request Headers 中 authorization: Bearer 后的串即 access_token。格式：access_token=xxx;refresh_token=yyy（refresh_token 可选，建议一并填写以自动续期）" required />
         <n-alert type="info" class="mt-2" :show-icon="true">
-          光鸭云盘采用令牌授权（非 Cookie）。仅填 access_token 也可用，但令牌过期后需手动更新；同时填写 refresh_token 可自动续期。转存文件统一保存到账号网盘的 <code class="px-1 bg-gray-100 dark:bg-gray-700 rounded">转存</code> 目录。
+          光鸭云盘采用令牌授权（非 Cookie）。仅填 access_token 也可用，但令牌过期后需手动更新；同时填写 refresh_token 可自动续期。转存文件统一保存到账号网盘的 <code class="px-1 bg-gray-100 dark:bg-gray-700 rounded">urldb</code> 目录。
         </n-alert>
       </div>
 
