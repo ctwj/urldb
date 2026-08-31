@@ -115,6 +115,8 @@ func CreateCks(c *gin.Context) {
 		serviceType = panutils.UC
 	case "xunlei":
 		serviceType = panutils.Xunlei
+	case "guangya":
+		serviceType = panutils.Guangya
 	default:
 		ErrorResponse(c, "不支持的平台类型", http.StatusBadRequest)
 		return
@@ -263,6 +265,10 @@ func CreateCks(c *gin.Context) {
 			ServiceType: userInfo.ServiceType,
 			Extra:       userInfo.ExtraData,
 			Remark:      req.Remark,
+		}
+		// 013-guangya：Ck 存储规范化 kv（device_id 自动补全等），保持凭据单一真相
+		if serviceType == panutils.Guangya && userInfo.ExtraData != "" {
+			cks.Ck = userInfo.ExtraData
 		}
 	}
 
@@ -473,6 +479,8 @@ func RefreshCapacity(c *gin.Context) {
 		serviceType = panutils.UC
 	case "xunlei":
 		serviceType = panutils.Xunlei
+	case "guangya":
+		serviceType = panutils.Guangya
 	default:
 		ErrorResponse(c, "不支持的平台类型", http.StatusBadRequest)
 		return

@@ -292,6 +292,7 @@ const isValidUrl = (url: string) => {
       'cloud.189.cn',                                                     // 天翼云盘
       '123pan.com', '123912.com', '123684.com', '123865.com', '123685.com', // 123网盘及其镜像
       '115cdn.com', 'anxia.com', '115.com',                              // 115网盘
+      'guangyapan.com',                                                  // 光鸭云盘（www./app.）
     ]
     return diskDomains.some(domain => url.includes(domain))
   } catch {

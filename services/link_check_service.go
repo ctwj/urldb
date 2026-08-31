@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	panutils "github.com/ctwj/urldb/common"
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/utils"
@@ -91,8 +92,16 @@ func (s *linkCheckServiceImpl) CheckResources(ctx context.Context, resources []*
 	enabled, host, _, _, _ := s.loadConfig()
 	utils.Info("[PanCheck] CheckResources 入口: 资源数=%d, enabled=%v, host=%q, ignoreCache=%v", len(resources), enabled, host, ignoreCache)
 
-	// 未启用或未配置 → 跳过检测，调用方按未检测处理（与既有行为一致）
-	if !enabled || host == "" {
+	// 未启用 → 跳过检测，调用方按未检测处理（与既有行为一致）。
+	// host 未配置但含光鸭链接时仍继续：光鸭走内置匿名校验通道，不依赖 PanCheck（013-guangya FR-009）。
+	hasGuangya := false
+	for _, res := range resources {
+		if res.URL != "" && panutils.IsGuangyaURL(res.URL) {
+			hasGuangya = true
+			break
+		}
+	}
+	if !enabled || (host == "" && !hasGuangya) {
 		utils.Warn("[PanCheck] 检测被跳过(enabled=%v, host=%q) → 所有资源按未检测放行，不调用 PanCheck 服务", enabled, host)
 		for _, res := range resources {
 			results[res.ID] = ResourceCheckResult{
@@ -144,9 +153,9 @@ func (s *linkCheckServiceImpl) CheckURLs(ctx context.Context, urls []string, ign
 	enabled, host, timeout, batch, concurrency := s.loadConfig()
 	utils.Info("[PanCheck] CheckURLs 入口: url数=%d, enabled=%v, host=%q, batch=%d, concurrency=%d, ignoreCache=%v", len(urls), enabled, host, batch, concurrency, ignoreCache)
 
-	// 未启用或未配置 → 跳过检测
-	if !enabled || host == "" {
-		utils.Warn("[PanCheck] CheckURLs 检测被跳过(enabled=%v, host=%q) → 所有 URL 按未检测放行", enabled, host)
+	// 未启用 → 跳过（尊重全局"不做检测"意图；host 未配置时仅光鸭可检，见下方分流）
+	if !enabled {
+		utils.Warn("[PanCheck] CheckURLs 检测被跳过(enabled=%v) → 所有 URL 按未检测放行", enabled)
 		for _, u := range urls {
 			results[u] = ResourceCheckResult{
 				Status:          "undetermined",
@@ -185,10 +194,56 @@ func (s *linkCheckServiceImpl) CheckURLs(ctx context.Context, urls []string, ign
 		return results
 	}
 
-	// 分批并发调用 PanCheck
+	// 013-guangya（FR-009）：光鸭 URL 从 PanCheck 批次剔除，走内置匿名校验通道。
+	// PanCheck 平台列表不含光鸭；匿名校验无需账号，受光鸭客户端全局节流约束，顺序执行。
 	normURLs := make([]string, 0, len(pending))
+	guangyaItems := make([]*pendingItem, 0)
 	for _, item := range pending {
-		normURLs = append(normURLs, item.normalized)
+		if panutils.IsGuangyaURL(item.normalized) {
+			guangyaItems = append(guangyaItems, item)
+		} else {
+			normURLs = append(normURLs, item.normalized)
+		}
+	}
+	for _, item := range guangyaItems {
+		status, reason := panutils.CheckGuangyaLink(item.normalized)
+		if status == "valid" || status == "invalid" {
+			res := ResourceCheckResult{
+				Status:          status,
+				FailReason:      reason,
+				Platform:        "guangya",
+				DetectionMethod: "guangya",
+			}
+			for _, orig := range item.originals {
+				results[orig] = res
+			}
+		}
+		// undetermined（网络类失败）→ 保持默认未结论，不翻转 is_valid
+	}
+	if len(guangyaItems) > 0 {
+		utils.Info("[PanCheck] 光鸭内置校验完成: %d 条（%d 条转 PanCheck）", len(guangyaItems), len(normURLs))
+	}
+
+	// host 未配置：非光鸭 URL 无 PanCheck 可用 → 按未检测放行（与既有 host 空行为一致）
+	if host == "" {
+		if len(normURLs) > 0 {
+			utils.Warn("[PanCheck] host 未配置 → %d 条非光鸭 URL 按未检测放行", len(normURLs))
+			nonGuangya := make(map[string]bool, len(normURLs))
+			for _, n := range normURLs {
+				nonGuangya[n] = true
+			}
+			for _, item := range pending {
+				if nonGuangya[item.normalized] {
+					for _, orig := range item.originals {
+						results[orig] = ResourceCheckResult{Status: "undetermined", DetectionMethod: "disabled"}
+					}
+				}
+			}
+		}
+		return results
+	}
+	if len(normURLs) == 0 {
+		return results
 	}
 	utils.Info("[PanCheck] 待检测 URL 数=%d，将分 %d 批调用 PanCheck 服务 %s", len(normURLs), len(chunkStrings(normURLs, batch)), host)
 

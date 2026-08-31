@@ -235,6 +235,16 @@
         </n-alert>
       </div>
 
+      <div v-if="isGuangya">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          令牌凭据 <span class="text-red-500">*</span>
+        </label>
+        <n-input v-model:value="form.ck" type="textarea" :rows="3" placeholder="登录光鸭网页版（guangyapan.com）后，F12 → Network → 任选 api.guangyapan.com 请求 → Request Headers 中 authorization: Bearer 后的串即 access_token。格式：access_token=xxx;refresh_token=yyy（refresh_token 可选，建议一并填写以自动续期）" required />
+        <n-alert type="info" class="mt-2" :show-icon="true">
+          光鸭云盘采用令牌授权（非 Cookie）。仅填 access_token 也可用，但令牌过期后需手动更新；同时填写 refresh_token 可自动续期。转存文件统一保存到账号网盘的 <code class="px-1 bg-gray-100 dark:bg-gray-700 rounded">urldb</code> 目录。
+        </n-alert>
+      </div>
+
       <div v-if="isXunlei">
         <div class="space-y-4">
           <div>
@@ -338,6 +348,7 @@ const isXunlei = ref(false)
 const isBaidu = ref(false)
 const isUC = ref(false)
 const isAlipan = ref(false)
+const isGuangya = ref(false)
 
 const notification = useNotification()
 const router = useRouter()
@@ -372,6 +383,7 @@ watch(() => form.value.pan_id, (newVal) => {
   isBaidu.value = false
   isUC.value = false
   isAlipan.value = false
+  isGuangya.value = false
   const list = platforms.value.filter(it => it.id === newVal)
   if (!list || list.length === 0) {
     return
@@ -387,6 +399,8 @@ watch(() => form.value.pan_id, (newVal) => {
     isUC.value = true
   } else if (pan.name === 'alipan' || pan.name === 'aliyun') {
     isAlipan.value = true
+  } else if (pan.name === 'guangya') {
+    isGuangya.value = true
   }
 })
 

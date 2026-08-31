@@ -82,8 +82,8 @@ func (s *resourceLinkServiceImpl) Resolve(ctx context.Context, resource *entity.
 		platform = panName
 	}
 
-	// 仅 quark/xunlei/baidu 支持详情页自动转存；其他平台直接返回原链
-	if panName != "quark" && panName != "xunlei" && panName != "baidu" {
+	// 仅 quark/xunlei/baidu/guangya 支持详情页自动转存；其他平台直接返回原链
+	if panName != "quark" && panName != "xunlei" && panName != "baidu" && panName != "guangya" {
 		return LinkResolution{URL: resource.URL, Type: "original", Platform: platform}, nil
 	}
 	// 已存在转存链接
@@ -128,7 +128,7 @@ func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource
 	if platform == "" {
 		platform = panName
 	}
-	transferSupported := panName == "quark" || panName == "xunlei" || panName == "baidu" || panName == "uc"
+	transferSupported := panName == "quark" || panName == "xunlei" || panName == "baidu" || panName == "uc" || panName == "guangya"
 
 	// 1) 构造待检 URL 集：原始链接 + saveUrl（若有）
 	urls := make([]string, 0, 2)

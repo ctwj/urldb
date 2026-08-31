@@ -202,6 +202,8 @@ func toPanServiceType(serviceType string) pan.ServiceType {
 		return pan.UC
 	case "xunlei":
 		return pan.Xunlei
+	case "guangya":
+		return pan.Guangya
 	default:
 		return pan.NotFound
 	}

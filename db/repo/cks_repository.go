@@ -19,6 +19,8 @@ type CksRepository interface {
 	UpdateSpace(id uint, space, leftSpace int64) error
 	DeleteByPanID(panID uint) error
 	UpdateWithAllFields(cks *entity.Cks) error
+	// UpdateCk 仅更新凭据字段（013-guangya：令牌刷新回写，避免整行覆盖竞态）
+	UpdateCk(id uint, ck string) error
 }
 
 // CksRepositoryImpl Cks的Repository实现
@@ -109,4 +111,9 @@ func (r *CksRepositoryImpl) FindByIds(ids []uint) ([]*entity.Cks, error) {
 // UpdateWithAllFields 更新Cks，包括零值字段
 func (r *CksRepositoryImpl) UpdateWithAllFields(cks *entity.Cks) error {
 	return r.db.Save(cks).Error
+}
+
+// UpdateCk 仅更新凭据字段（013-guangya：令牌刷新回写，避免整行覆盖竞态）
+func (r *CksRepositoryImpl) UpdateCk(id uint, ck string) error {
+	return r.db.Model(&entity.Cks{}).Where("id = ?", id).Update("ck", ck).Error
 }

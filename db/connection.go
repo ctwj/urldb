@@ -388,6 +388,7 @@ func insertDefaultDataIfEmpty() error {
 		{Name: "123pan", Key: 8, Icon: "<i class=\"fas fa-folder text-red-500\"></i>", Remark: "123云盘"},
 		{Name: "115", Key: 12, Icon: "<i class=\"fas fa-cloud-upload-alt text-green-600\"></i>", Remark: "115网盘"},
 		{Name: "uc", Key: 14, Icon: "<i class=\"fas fa-cloud-download-alt text-purple-600\"></i>", Remark: "UC网盘"},
+		{Name: "guangya", Key: 16, Icon: "<i class=\"fas fa-dove text-pink-500\"></i>", Remark: "光鸭云盘"},
 		{Name: "other", Key: 15, Icon: "<i class=\"fas fa-cloud text-gray-500\"></i>", Remark: "其他"},
 	}
 
