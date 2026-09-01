@@ -55,6 +55,8 @@
 - [微信公众号自动回复](https://ecn5khs4t956.feishu.cn/wiki/APOEwOyDYicKGHk7gTzcQKpynkf?from=from_copylink)
 
 从v1.4.0版本起， 使用 [PanCheck](https://github.com/Lampon/PanCheck) 来检测网盘链接的有效性，需要自行部署，
+### v1.6.0
+1. 新增光鸭网盘支持
 
 ### v1.5.0
 1. 修复迅雷云盘
