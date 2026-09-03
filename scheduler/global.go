@@ -21,6 +21,8 @@ var (
 	globalMeilisearchManager *services.MeilisearchManager
 	// 全局链接检测服务
 	globalLinkCheckService services.LinkCheckService
+	// 全局用户上传资源仓储（015-user-resource-upload：scheduler 回写用户资源状态）
+	globalUserResourceRepo repo.UserResourceRepository
 )
 
 // SetGlobalMeilisearchManager 设置全局Meilisearch管理器
@@ -41,6 +43,16 @@ func SetGlobalLinkCheckService(svc services.LinkCheckService) {
 // GetGlobalLinkCheckService 获取全局链接检测服务
 func GetGlobalLinkCheckService() services.LinkCheckService {
 	return globalLinkCheckService
+}
+
+// SetGlobalUserResourceRepo 设置全局用户上传资源仓储（015-user-resource-upload）
+func SetGlobalUserResourceRepo(r repo.UserResourceRepository) {
+	globalUserResourceRepo = r
+}
+
+// GetGlobalUserResourceRepo 获取全局用户上传资源仓储
+func GetGlobalUserResourceRepo() repo.UserResourceRepository {
+	return globalUserResourceRepo
 }
 
 // GetGlobalScheduler 获取全局调度器实例（单例模式）

@@ -239,6 +239,9 @@ func main() {
 	// 设置全局调度器的Meilisearch管理器
 	scheduler.SetGlobalMeilisearchManager(meilisearchManager)
 
+	// 注入用户上传资源仓储（015-user-resource-upload：scheduler 处理完成后回写状态）
+	scheduler.SetGlobalUserResourceRepo(repoManager.UserResourceRepository)
+
 	// 初始化并启动调度器
 	globalScheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
@@ -353,6 +356,20 @@ func main() {
 		api.POST("/auth/login", handlers.Login)
 		api.POST("/auth/register", handlers.Register)
 		api.GET("/auth/profile", middleware.AuthMiddleware(), handlers.GetProfile)
+		api.PUT("/auth/password", middleware.AuthMiddleware(), handlers.ChangeOwnPassword)
+
+		// 用户下载历史（仅登录用户）
+		api.GET("/user/download-history", middleware.AuthMiddleware(), handlers.GetDownloadHistory)
+		api.GET("/user/download-history/stats", middleware.AuthMiddleware(), handlers.GetDownloadHistoryStats)
+		api.DELETE("/user/download-history", middleware.AuthMiddleware(), handlers.ClearDownloadHistory)
+		api.DELETE("/user/download-history/:id", middleware.AuthMiddleware(), handlers.DeleteDownloadHistoryItem)
+
+		// 用户上传资源（015-user-resource-upload，仅登录用户）
+		api.POST("/user/resources", middleware.AuthMiddleware(), handlers.SubmitUserResource)
+		api.POST("/user/resources/batch", middleware.AuthMiddleware(), handlers.BatchSubmitUserResources)
+		api.GET("/user/resources", middleware.AuthMiddleware(), handlers.GetUserResources)
+		api.POST("/user/resources/:id/recheck", middleware.AuthMiddleware(), handlers.RecheckUserResource)
+		api.DELETE("/user/resources/:id", middleware.AuthMiddleware(), handlers.DeleteUserResource)
 
 		// 资源管理
 		api.GET("/resources", handlers.GetResources)
@@ -365,7 +382,7 @@ func main() {
 		api.GET("/resources/check-exists", handlers.CheckResourceExists)
 		api.GET("/resources/related", handlers.GetRelatedResources)
 		api.POST("/resources/:id/view", handlers.IncrementResourceViewCount)
-		api.GET("/resources/:id/link", handlers.GetResourceLink)
+		api.GET("/resources/:id/link", middleware.OptionalAuthMiddleware(), handlers.GetResourceLink)
 		api.GET("/resources/:id/validity", handlers.CheckResourceValidity)
 		api.POST("/resources/validity/batch", handlers.BatchCheckResourceValidity)
 		api.DELETE("/resources/batch", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.BatchDeleteResources)
@@ -396,7 +413,7 @@ func main() {
 		api.GET("/pans/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetPan)
 
 		// Cookie管理
-		api.GET("/cks", handlers.GetCks)
+		api.GET("/cks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetCks)
 		api.POST("/cks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateCks)
 		api.PUT("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateCks)
 		api.DELETE("/cks/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteCks)

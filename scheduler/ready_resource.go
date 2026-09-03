@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -133,11 +134,16 @@ func (r *ReadyResourceScheduler) processReadyResources() {
 		}
 		if exits {
 			utils.Debug(fmt.Sprintf("资源已存在: %s", readyResource.URL))
+			// 用户上传来源：公开库已存在，直接关联已有资源回写已公开（015-user-resource-upload）
+			if existing, gerr := r.resourceRepo.GetByURL(readyResource.URL); gerr == nil {
+				r.finalizeUserResource(&readyResource, entity.UserResourceStatusPublished, &existing.ID, "")
+			}
 			r.readyResourceRepo.Delete(readyResource.ID)
 			continue
 		}
 
-		if err := r.convertReadyResourceToResource(readyResource, factory); err != nil {
+		createdResource, err := r.convertReadyResourceToResource(readyResource, factory)
+		if err != nil {
 			utils.Error(fmt.Sprintf("处理资源失败 (ID: %d): %v", readyResource.ID, err))
 
 			// 保存完整的错误信息
@@ -149,9 +155,15 @@ func (r *ReadyResourceScheduler) processReadyResources() {
 				utils.Debug(fmt.Sprintf("已保存错误信息到资源 (ID: %d): %s", readyResource.ID, err.Error()))
 			}
 
+			// 用户上传来源：回写 invalid + 失败原因（用户可重检，015-user-resource-upload）
+			r.finalizeUserResource(&readyResource, entity.UserResourceStatusInvalid, nil, err.Error())
+
 			// 处理失败后删除资源，避免重复处理
 			r.readyResourceRepo.Delete(readyResource.ID)
 		} else {
+			// 用户上传来源：回写 published + 关联公开资源（015-user-resource-upload）
+			r.finalizeUserResource(&readyResource, entity.UserResourceStatusPublished, &createdResource.ID, "")
+
 			// 处理成功，删除readyResource
 			r.readyResourceRepo.Delete(readyResource.ID)
 			processedCount++
@@ -164,15 +176,16 @@ func (r *ReadyResourceScheduler) processReadyResources() {
 	}
 }
 
-// convertReadyResourceToResource 将待处理资源转换为正式资源
-func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource entity.ReadyResource, factory *panutils.PanFactory) error {
+// convertReadyResourceToResource 将待处理资源转换为正式资源，
+// 返回创建的公开资源（用户上传来源回写 PublishResourceID 需要，015-user-resource-upload）
+func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource entity.ReadyResource, factory *panutils.PanFactory) (*entity.Resource, error) {
 	utils.Debug(fmt.Sprintf("开始处理资源: %s", readyResource.URL))
 
 	// 提取分享ID和服务类型
 	shareID, serviceType := panutils.ExtractShareId(readyResource.URL)
 	if serviceType == panutils.NotFound {
 		utils.Warn(fmt.Sprintf("不支持的链接地址: %s", readyResource.URL))
-		return fmt.Errorf("不支持的链接地址: %s", readyResource.URL)
+		return nil, fmt.Errorf("不支持的链接地址: %s", readyResource.URL)
 	}
 
 	utils.Debug(fmt.Sprintf("检测到服务类型: %s, 分享ID: %s", serviceType.String(), shareID))
@@ -220,7 +233,7 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		utils.Info(fmt.Sprintf("[PanCheck] 检测结果: URL=%s, status=%s, method=%s, reason=%s", readyResource.URL, lcResult.Status, lcResult.DetectionMethod, lcResult.FailReason))
 		if lcResult.Status == "invalid" {
 			utils.Warn(fmt.Sprintf("PanCheck 判定链接失效: %s, 原因: %s", readyResource.URL, lcResult.FailReason))
-			return fmt.Errorf("链接无效: %s", readyResource.URL)
+			return nil, fmt.Errorf("链接无效: %s", readyResource.URL)
 		}
 	} else {
 		utils.Warn("[PanCheck] globalLinkCheckService 未注入（nil），跳过 PanCheck 检测，资源直接放行")
@@ -229,7 +242,7 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 	// 夸克/百度：校验通过后通过转存服务获取标题（IsType=1，仅校验+取标题，不真转存）
 	if serviceType == panutils.Quark || serviceType == panutils.BaiduPan {
 		if err := r.fetchPanMeta(serviceType, shareID, readyResource.URL, resource, factory); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -252,7 +265,7 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 			// 保存资源
 			err = r.resourceRepo.Create(resource)
 			if err != nil {
-				return fmt.Errorf("创建资源失败: %v", err)
+				return nil, fmt.Errorf("创建资源失败: %v", err)
 			}
 
 			// 创建资源标签关联
@@ -271,7 +284,7 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		// 保存资源
 		err := r.resourceRepo.Create(resource)
 		if err != nil {
-			return fmt.Errorf("创建资源失败: %v", err)
+			return nil, fmt.Errorf("创建资源失败: %v", err)
 		}
 	}
 
@@ -300,7 +313,45 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		utils.Debug("Meilisearch管理器未初始化，跳过同步")
 	}
 
-	return nil
+	return resource, nil
+}
+
+// finalizeUserResource 用户上传来源的队列项处理完成后回写状态（015-user-resource-upload D4）。
+// 仅处理 Source=="user_upload" 且 Extra 携带 user_resource_id 的记录，其他来源不受影响；
+// published 时关联公开资源ID，invalid 时记录失败原因（用户可重检）。
+func (r *ReadyResourceScheduler) finalizeUserResource(ready *entity.ReadyResource, status string, publishResourceID *uint, failReason string) {
+	if ready.Source != "user_upload" || ready.Extra == "" {
+		return
+	}
+
+	userResourceRepo := GetGlobalUserResourceRepo()
+	if userResourceRepo == nil {
+		utils.Warn(fmt.Sprintf("[user_upload] 未注入 UserResourceRepository，跳过状态回写: %s", ready.URL))
+		return
+	}
+
+	id64, err := strconv.ParseUint(ready.Extra, 10, 32)
+	if err != nil {
+		utils.Error(fmt.Sprintf("[user_upload] Extra 不是合法的 user_resource_id: %s (URL: %s)", ready.Extra, ready.URL))
+		return
+	}
+
+	ur, err := userResourceRepo.FindByID(uint(id64))
+	if err != nil {
+		utils.Error(fmt.Sprintf("[user_upload] 回写失败，用户资源不存在: id=%d (URL: %s): %v", id64, ready.URL, err))
+		return
+	}
+
+	ur.Status = status
+	ur.FailReason = failReason
+	if status == entity.UserResourceStatusPublished && publishResourceID != nil {
+		ur.PublishResourceID = publishResourceID
+	}
+	if err := userResourceRepo.Update(ur); err != nil {
+		utils.Error(fmt.Sprintf("[user_upload] 回写状态失败: id=%d, status=%s: %v", id64, status, err))
+		return
+	}
+	utils.Info(fmt.Sprintf("[user_upload] 用户资源已回写: id=%d, status=%s, url=%s", id64, status, ready.URL))
 }
 
 // fetchPanMeta 通过转存服务获取资源标题（IsType=1，仅校验+取标题，不真转存），

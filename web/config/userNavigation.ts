@@ -11,13 +11,6 @@ export interface NavigationItem {
 // 用户导航菜单配置
 export const userNavigationConfig: NavigationItem[] = [
   {
-    to: '/user',
-    icon: 'fas fa-home',
-    label: '首页',
-    active: (route: any) => route.path === '/user',
-    description: '用户中心首页，查看个人概览'
-  },
-  {
     to: '/user/resources',
     icon: 'fas fa-cloud',
     label: '我的资源',
@@ -25,25 +18,11 @@ export const userNavigationConfig: NavigationItem[] = [
     description: '管理您的个人资源'
   },
   {
-    to: '/user/favorites',
-    icon: 'fas fa-heart',
-    label: '收藏夹',
-    active: (route: any) => route.path.startsWith('/user/favorites'),
-    description: '查看和管理收藏的资源'
-  },
-  {
-    to: '/user/history',
-    icon: 'fas fa-history',
-    label: '浏览历史',
-    active: (route: any) => route.path.startsWith('/user/history'),
-    description: '查看浏览历史记录'
-  },
-  {
-    to: '/user/profile',
-    icon: 'fas fa-user-edit',
-    label: '个人资料',
-    active: (route: any) => route.path.startsWith('/user/profile'),
-    description: '编辑个人信息'
+    to: '/user/downloads',
+    icon: 'fas fa-download',
+    label: '下载历史',
+    active: (route: any) => route.path.startsWith('/user/downloads'),
+    description: '查看和管理下载历史记录'
   },
   {
     to: '/user/settings',
@@ -89,12 +68,6 @@ export interface UserMenuItem {
 }
 
 export const getUserMenuItems = (handleLogout: () => void): UserMenuItem[] => [
-  {
-    to: '/user/profile',
-    icon: 'fas fa-user-edit',
-    label: '个人资料',
-    type: 'link'
-  },
   {
     to: '/user/settings',
     icon: 'fas fa-cog',
