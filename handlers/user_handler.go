@@ -339,6 +339,50 @@ func DeleteUser(c *gin.Context) {
 	SuccessResponse(c, gin.H{"message": "用户删除成功"})
 }
 
+// ChangeOwnPassword 用户修改自己的密码
+func ChangeOwnPassword(c *gin.Context) {
+	var req dto.ChangeOwnPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	username, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("ChangeOwnPassword - 用户自助修改密码 - 用户名: %s(ID:%v), IP: %s", username, userID, clientIP)
+
+	user, err := repoManager.UserRepository.FindByID(userID.(uint))
+	if err != nil {
+		utils.Warn("ChangeOwnPassword - 用户不存在 - 用户名: %s, IP: %s", username, clientIP)
+		ErrorResponse(c, "用户不存在", http.StatusNotFound)
+		return
+	}
+
+	if !middleware.CheckPassword(req.CurrentPassword, user.Password) {
+		utils.Warn("ChangeOwnPassword - 当前密码错误 - 用户名: %s, IP: %s", username, clientIP)
+		ErrorResponse(c, "当前密码错误", http.StatusBadRequest)
+		return
+	}
+
+	hashedPassword, err := middleware.HashPassword(req.NewPassword)
+	if err != nil {
+		utils.Error("ChangeOwnPassword - 密码加密失败 - 用户名: %s, IP: %s, Error: %v", username, clientIP, err)
+		ErrorResponse(c, "密码加密失败", http.StatusInternalServerError)
+		return
+	}
+
+	user.Password = hashedPassword
+	if err := repoManager.UserRepository.Update(user); err != nil {
+		utils.Error("ChangeOwnPassword - 更新密码失败 - 用户名: %s, IP: %s, Error: %v", username, clientIP, err)
+		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	utils.Info("ChangeOwnPassword - 密码修改成功 - 用户名: %s(ID:%v), IP: %s", username, userID, clientIP)
+	SuccessResponse(c, gin.H{"message": "密码修改成功"})
+}
+
 // GetProfile 获取用户资料
 func GetProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")

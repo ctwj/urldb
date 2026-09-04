@@ -24,6 +24,8 @@ type RepositoryManager struct {
 	APIAccessLogRepository    APIAccessLogRepository
 	ReportRepository          ReportRepository
 	CopyrightClaimRepository  CopyrightClaimRepository
+	DownloadHistoryRepository DownloadHistoryRepository
+	UserResourceRepository    UserResourceRepository
 	PluginConfigRepository    *PluginConfigRepository
 	PluginLogRepository       *PluginLogRepository
 	CronJobRepository         *CronJobRepository
@@ -50,6 +52,8 @@ func NewRepositoryManager(db *gorm.DB) *RepositoryManager {
 		APIAccessLogRepository:    NewAPIAccessLogRepository(db),
 		ReportRepository:          NewReportRepository(db),
 		CopyrightClaimRepository:  NewCopyrightClaimRepository(db),
+		DownloadHistoryRepository: NewDownloadHistoryRepository(db),
+		UserResourceRepository:    NewUserResourceRepository(db),
 		PluginConfigRepository:    NewPluginConfigRepository(db),
 		PluginLogRepository:       NewPluginLogRepository(db),
 		CronJobRepository:         NewCronJobRepository(db),

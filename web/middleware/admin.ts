@@ -18,9 +18,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return navigateTo('/login')
   }
 
-  // 检查用户是否为管理员（通常通过用户角色或权限判断）
-  // 这里可以根据具体实现来调整，例如检查 userStore.user?.is_admin 字段
-  const isAdmin = userStore.user?.is_admin || userStore.user?.role === 'admin' || userStore.user?.username === 'admin'
+  // 检查用户是否为管理员（以角色为准，不做用户名特判）
+  const isAdmin = userStore.user?.role === 'admin'
 
   if (!isAdmin) {
     console.log('admin middleware - 用户不是管理员，重定向到首页')

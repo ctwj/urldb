@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen max-h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+  <div v-if="isVerifiedAdmin" class="min-h-screen max-h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
     <Head>
       <title>管理后台 - 老九网盘资源数据库</title>
     </Head>
@@ -117,7 +117,7 @@
               </div>
               <div class="hidden md:block text-left">
                 <p class="text-sm font-medium text-gray-900 dark:text-white">{{ userStore.user?.username || '管理员' }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">管理员</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ userStore.user?.role === 'admin' ? '管理员' : '普通用户' }}</p>
               </div>
               <i class="fas fa-chevron-down text-xs text-gray-400"></i>
             </button>
@@ -199,6 +199,8 @@
     <!-- Cmd/Ctrl+K 命令面板 -->
     <AdminCommandPalette v-model:open="commandPaletteOpen" />
   </div>
+  <!-- 未验证/非管理员：不渲染任何管理界面，仅显示空白背景 -->
+  <div v-else class="min-h-screen bg-gray-50 dark:bg-gray-900"></div>
 </template>
 
 <script setup lang="ts">
@@ -219,6 +221,31 @@ const systemConfigStore = useSystemConfigStore()
 
 // 任务状态管理
 const taskStore = useTaskStore()
+
+// 管理员权限守卫（第二层兜底）：
+// 导航拦截由 middleware/admin.global.ts 在路由阶段完成（页面不渲染）；
+// 这里负责「直接刷新/直链进入」场景——验证通过前不渲染任何管理界面（防 SSR/首屏闪现），
+// 验证后持续监听，登出或令牌失效时立即移出。
+const isVerifiedAdmin = ref(false)
+
+if (process.client) {
+  userStore.initAuth()
+  if (userStore.isAuthenticated && userStore.user?.role === 'admin') {
+    isVerifiedAdmin.value = true
+  } else {
+    router.replace(userStore.isAuthenticated ? '/' : '/login')
+  }
+
+  watchEffect(() => {
+    if (!userStore.isAuthenticated) {
+      isVerifiedAdmin.value = false
+      router.replace('/login')
+    } else if (userStore.user?.role !== 'admin') {
+      isVerifiedAdmin.value = false
+      router.replace('/')
+    }
+  })
+}
 
 // 主题（Naive UI themeOverrides + dark mode 切换）
 const { mode, naiveOverrides } = useTheme()

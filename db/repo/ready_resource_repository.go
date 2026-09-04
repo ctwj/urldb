@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -25,6 +26,8 @@ type ReadyResourceRepository interface {
 	FindWithErrorsPaginatedIncludingDeleted(page, limit int, errorFilter string) ([]entity.ReadyResource, int64, error)
 	FindWithErrorsByQuery(errorFilter string) ([]entity.ReadyResource, error)
 	FindWithoutErrors() ([]entity.ReadyResource, error)
+	// DeleteByUserResourceID 删除用户上传来源（source='user_upload'）的队列项（015-user-resource-upload）
+	DeleteByUserResourceID(id uint) (int64, error)
 	ClearErrorMsg(id uint) error
 	ClearErrorMsgAndRestore(id uint) error
 	ClearAllErrorsByQuery(errorFilter string) (int64, error) // 批量清除错误信息并真正删除资源
@@ -137,6 +140,13 @@ func (r *ReadyResourceRepositoryImpl) FindWithoutErrors() ([]entity.ReadyResourc
 	var resources []entity.ReadyResource
 	err := r.db.Where("error_msg = '' OR error_msg IS NULL").Find(&resources).Error
 	return resources, err
+}
+
+// DeleteByUserResourceID 删除用户上传来源的队列项（软删除）
+func (r *ReadyResourceRepositoryImpl) DeleteByUserResourceID(id uint) (int64, error) {
+	result := r.db.Where("source = ? AND extra = ?", "user_upload", fmt.Sprintf("%d", id)).
+		Delete(&entity.ReadyResource{})
+	return result.RowsAffected, result.Error
 }
 
 // FindWithErrorsIncludingDeleted 查找有错误信息的资源（包括软删除的，用于管理页面）

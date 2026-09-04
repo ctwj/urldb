@@ -72,6 +72,25 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+// OptionalAuthMiddleware 可选认证中间件：携带有效令牌时注入用户信息，否则以匿名身份放行
+func OptionalAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("client_ip", c.ClientIP())
+
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			if claims, err := parseToken(tokenString); err == nil {
+				c.Set("user_id", claims.UserID)
+				c.Set("username", claims.Username)
+				c.Set("role", claims.Role)
+			}
+		}
+
+		c.Next()
+	}
+}
+
 // AdminMiddleware 管理员中间件
 func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -81,6 +100,7 @@ func AdminMiddleware() gin.HandlerFunc {
 
 		if !exists {
 			utils.Warn("AdminMiddleware - 未认证访问管理员接口 - IP: %s, Path: %s", clientIP, c.Request.URL.Path)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证", "message": "请先登录"})
 			c.Abort()
 			return
 		}
@@ -88,6 +108,7 @@ func AdminMiddleware() gin.HandlerFunc {
 		if role != "admin" {
 			utils.Warn("AdminMiddleware - 非管理员用户尝试访问管理员接口 - 用户: %s, 角色: %s, IP: %s, Path: %s",
 				username, role, clientIP, c.Request.URL.Path)
+			c.JSON(http.StatusForbidden, gin.H{"error": "需要管理员权限", "message": "当前账户无权访问该接口"})
 			c.Abort()
 			return
 		}

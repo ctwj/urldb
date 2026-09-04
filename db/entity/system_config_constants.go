@@ -289,4 +289,9 @@ const (
 	ConfigDefaultAutoCleanupEnabled         = "false"
 	ConfigDefaultAutoCleanupRetentionDays   = "7"
 	ConfigDefaultAutoCleanupIntervalMinutes = "60"
+
+	// 用户上传资源配置（015-user-resource-upload）
+	ConfigKeyUserUploadDailyLimit = "user_upload_daily_limit"
+	// 每用户每日提交上限，0 表示不限制
+	ConfigDefaultUserUploadDailyLimit = "50"
 )

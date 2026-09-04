@@ -111,6 +111,8 @@ func InitDB() error {
 			&entity.APIAccessLogSummary{},
 			&entity.Report{},
 			&entity.CopyrightClaim{},
+			&entity.DownloadHistory{},
+			&entity.UserResource{},
 			// 插件系统相关表
 			&entity.PluginConfig{},
 			&entity.PluginLog{},
@@ -435,6 +437,8 @@ func insertDefaultDataIfEmpty() error {
 		{Key: entity.ConfigKeyAutoCleanupEnabled, Value: entity.ConfigDefaultAutoCleanupEnabled, Type: entity.ConfigTypeBool},
 		{Key: entity.ConfigKeyAutoCleanupRetentionDays, Value: entity.ConfigDefaultAutoCleanupRetentionDays, Type: entity.ConfigTypeInt},
 		{Key: entity.ConfigKeyAutoCleanupIntervalMinutes, Value: entity.ConfigDefaultAutoCleanupIntervalMinutes, Type: entity.ConfigTypeInt},
+		// 用户上传资源默认配置（015-user-resource-upload）：每用户每日提交上限，0 表示不限制
+		{Key: entity.ConfigKeyUserUploadDailyLimit, Value: entity.ConfigDefaultUserUploadDailyLimit, Type: entity.ConfigTypeInt},
 	}
 
 	for _, config := range defaultSystemConfigs {
