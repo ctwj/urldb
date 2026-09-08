@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	pan "github.com/ctwj/urldb/common"
 	"github.com/ctwj/urldb/db/converter"
@@ -9,6 +13,7 @@ import (
 	"github.com/ctwj/urldb/db/entity"
 	"github.com/ctwj/urldb/db/repo"
 	"github.com/ctwj/urldb/scheduler"
+	"github.com/ctwj/urldb/services"
 	"github.com/ctwj/urldb/utils"
 
 	"github.com/gin-gonic/gin"
@@ -203,6 +208,41 @@ func UpdateSystemConfig(c *gin.Context) {
 		}
 	}
 
+	// 验证 SMTP 邮件配置（016-api-access-application）
+	if req.SmtpPort != nil {
+		if p, err := strconv.Atoi(strings.TrimSpace(*req.SmtpPort)); err != nil || p < 1 || p > 65535 {
+			utils.Warn("配置验证失败 - SmtpPort无效: %s", *req.SmtpPort)
+			ErrorResponse(c, "SMTP端口必须在1-65535之间", http.StatusBadRequest)
+			return
+		}
+	}
+	if req.SmtpEncryption != nil {
+		e := strings.TrimSpace(*req.SmtpEncryption)
+		if e != "ssl" && e != "starttls" && e != "plain" {
+			utils.Warn("配置验证失败 - SmtpEncryption无效: %s", e)
+			ErrorResponse(c, "SMTP加密方式仅支持 ssl/starttls/plain", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// 验证用户 API 开放配置（016-api-access-application）：0=永久/不限，负数非法
+	if req.ApiDefaultValidityDays != nil && *req.ApiDefaultValidityDays < 0 {
+		utils.Warn("配置验证失败 - ApiDefaultValidityDays为负数: %d", *req.ApiDefaultValidityDays)
+		ErrorResponse(c, "API 默认有效天数不能为负数（0 表示永久有效）", http.StatusBadRequest)
+		return
+	}
+	for name, v := range map[string]*int{
+		"api_rate_limit_minute": req.ApiRateLimitMinute,
+		"api_rate_limit_hour":   req.ApiRateLimitHour,
+		"api_rate_limit_day":    req.ApiRateLimitDay,
+	} {
+		if v != nil && *v < 0 {
+			utils.Warn("配置验证失败 - %s为负数: %d", name, *v)
+			ErrorResponse(c, "API 频率限制不能为负数（0 表示不限制）", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// 验证公告相关字段
 	if req.Announcements != nil {
 		// 简化验证，仅在需要时添加逻辑
@@ -210,9 +250,9 @@ func UpdateSystemConfig(c *gin.Context) {
 
 	// 转换为实体
 	configs := converter.RequestToSystemConfig(&req)
-	if configs == nil {
-		utils.Error("配置数据转换失败")
-		ErrorResponse(c, "数据转换失败", http.StatusInternalServerError)
+	if len(configs) == 0 {
+		utils.Warn("配置更新请求不含任何有效字段")
+		ErrorResponse(c, "没有需要更新的配置项", http.StatusBadRequest)
 		return
 	}
 
@@ -408,4 +448,39 @@ func ToggleAutoProcess(c *gin.Context) {
 	// 返回更新后的配置
 	configResponse := converter.SystemConfigToResponse(configs)
 	SuccessResponse(c, configResponse)
+}
+
+// TestSmtpConfig 校验 SMTP 配置有效性（016-api-access-application）
+// 建立连接并完成认证（不实际发信）。请求体可选：字段非空时校验表单当前值，否则校验已保存配置
+func TestSmtpConfig(c *gin.Context) {
+	var req dto.SystemConfigRequest
+	// 请求体可为空（此时仅校验已保存配置）
+	_ = c.ShouldBindJSON(&req)
+
+	adminUsername, _ := c.Get("username")
+	utils.Info("TestSmtpConfig - 管理员校验SMTP配置 - 管理员: %v, host: %v", adminUsername, req.SmtpHost)
+
+	elapsed, err := services.TestSmtpConnection(&services.SmtpTestRequest{
+		Host:       req.SmtpHost,
+		Port:       req.SmtpPort,
+		Username:   req.SmtpUsername,
+		Password:   req.SmtpPassword,
+		From:       req.SmtpFrom,
+		Encryption: req.SmtpEncryption,
+	})
+	if err != nil {
+		if errors.Is(err, services.ErrSmtpNotConfigured) {
+			ErrorResponse(c, "SMTP 未配置：请填写 SMTP 服务器和发件人地址", http.StatusBadRequest)
+			return
+		}
+		utils.Warn("TestSmtpConfig - 校验失败: %v", err)
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	SuccessResponse(c, gin.H{
+		"success":    true,
+		"message":    fmt.Sprintf("SMTP 连接成功（认证通过），耗时 %.1f 秒", elapsed.Seconds()),
+		"elapsed_ms": elapsed.Milliseconds(),
+	})
 }

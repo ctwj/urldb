@@ -239,8 +239,10 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		utils.Warn("[PanCheck] globalLinkCheckService 未注入（nil），跳过 PanCheck 检测，资源直接放行")
 	}
 
-	// 夸克/百度：校验通过后通过转存服务获取标题（IsType=1，仅校验+取标题，不真转存）
-	if serviceType == panutils.Quark || serviceType == panutils.BaiduPan {
+	// 夸克/百度：校验通过后通过转存服务获取标题（IsType=1，仅校验+取标题，不真转存）。
+	// 推送信息已带标题时跳过：该步骤需要本地网盘账号，无账号环境不应阻断入库。
+	if (serviceType == panutils.Quark || serviceType == panutils.BaiduPan) &&
+		strings.TrimSpace(resource.Title) == "" {
 		if err := r.fetchPanMeta(serviceType, shareID, readyResource.URL, resource, factory); err != nil {
 			return nil, err
 		}

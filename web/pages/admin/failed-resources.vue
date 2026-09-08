@@ -46,8 +46,10 @@
         <div class="flex flex-col md:flex-row gap-4">
           <n-select
             v-model:value="errorFilter"
-            placeholder="选择状态"
+            placeholder="选择或输入错误关键词"
             :options="statusOptions"
+            filterable
+            tag
             clearable
           />
           <n-button type="primary" @click="handleSearch" class="w-full md:w-auto md:min-w-[100px]">
@@ -272,7 +274,8 @@ const totalPages = ref(0)
    { label: '好友已取消了分享', value: '好友已取消了分享' },
    { label: '用户封禁', value: '用户封禁' },
    { label: '分享地址已失效', value: '分享地址已失效' },
-   { label: '链接无效: 链接状态检查失败', value: '链接无效: 链接状态检查失败' }
+   { label: '链接无效: 链接状态检查失败', value: '链接无效: 链接状态检查失败' },
+   { label: '没有可用的网盘账号', value: '没有可用的网盘账号' }
  ]
 
  // 获取失败资源API

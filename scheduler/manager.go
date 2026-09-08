@@ -17,6 +17,7 @@ type Manager struct {
 	googleIndexScheduler   *GoogleIndexScheduler
 	cleanupScheduler       *CleanupScheduler
 	xunleiKeepaliveScheduler *XunleiKeepaliveScheduler
+	apiExpirationScheduler   *ApiExpirationScheduler
 }
 
 // NewManager 创建调度器管理器
@@ -54,6 +55,7 @@ func NewManager(
 	googleIndexScheduler := NewGoogleIndexScheduler(baseScheduler, taskItemRepo, taskRepo)
 	cleanupScheduler := NewCleanupScheduler(baseScheduler, cleanupService)
 	xunleiKeepaliveScheduler := NewXunleiKeepaliveScheduler(baseScheduler)
+	apiExpirationScheduler := NewApiExpirationScheduler(baseScheduler)
 
 	return &Manager{
 		baseScheduler:            baseScheduler,
@@ -63,6 +65,7 @@ func NewManager(
 		googleIndexScheduler:     googleIndexScheduler,
 		cleanupScheduler:         cleanupScheduler,
 		xunleiKeepaliveScheduler: xunleiKeepaliveScheduler,
+		apiExpirationScheduler:   apiExpirationScheduler,
 	}
 }
 
@@ -209,4 +212,9 @@ func (m *Manager) GetStatus() map[string]bool {
 		"cleanup":          m.IsCleanupRunning(),
 		"xunlei_keepalive": m.xunleiKeepaliveScheduler.IsRunning(),
 	}
+}
+
+// StartApiExpirationScheduler 启动 API 凭证到期提醒调度任务（016-api-access-application FR-018）
+func (m *Manager) StartApiExpirationScheduler() {
+	m.apiExpirationScheduler.Start()
 }

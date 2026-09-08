@@ -215,6 +215,94 @@
             </div>
           </n-tab-pane>
 
+          <n-tab-pane name="mail" tab="邮件服务">
+            <div class="tab-content-container">
+              <n-form
+                ref="formRef"
+                :model="configForm"
+                :rules="rules"
+                label-placement="left"
+                label-width="auto"
+                require-mark-placement="right-hanging"
+              >
+                <div class="space-y-6">
+                <n-alert type="info" :show-icon="true" class="mb-2">
+                  用于发送邮箱验证码（API 申请的前置认证）与 API 凭证到期提醒。不配置时用户将无法完成邮箱认证。
+                </n-alert>
+
+                <!-- SMTP 服务器 -->
+                <div class="space-y-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">SMTP 服务器</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">例如 smtp.qq.com、smtp.163.com、smtpdm.aliyun.com</span>
+                  <n-input v-model:value="configForm.smtp_host" type="text" placeholder="smtp.qq.com" />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <!-- 端口 -->
+                  <div class="space-y-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">端口</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">SSL 常用 465，STARTTLS 常用 587</span>
+                    <n-input v-model:value="configForm.smtp_port" type="text" placeholder="465" />
+                  </div>
+                  <!-- 加密方式 -->
+                  <div class="space-y-2">
+                    <label class="text-base font-semibold text-gray-800 dark:text-gray-200">加密方式</label>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">需与端口匹配</span>
+                    <n-select
+                      v-model:value="configForm.smtp_encryption"
+                      :options="[
+                        { label: 'SSL（465 端口常用）', value: 'ssl' },
+                        { label: 'STARTTLS（587 端口常用）', value: 'starttls' },
+                        { label: '不加密', value: 'plain' }
+                      ]"
+                    />
+                  </div>
+                </div>
+
+                <!-- 用户名 -->
+                <div class="space-y-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">用户名</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">发信邮箱账号，留空表示无需认证</span>
+                  <n-input v-model:value="configForm.smtp_username" type="text" placeholder="发信邮箱账号" />
+                </div>
+
+                <!-- 密码 -->
+                <div class="space-y-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">密码 / 授权码</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">多数邮箱服务商使用的是专用授权码而非登录密码</span>
+                  <n-input
+                    v-model:value="configForm.smtp_password"
+                    type="password"
+                    show-password-on="click"
+                    placeholder="SMTP 授权码"
+                  />
+                </div>
+
+                <!-- 发件人地址 -->
+                <div class="space-y-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">发件人地址</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">邮件将以此地址发出，需与邮箱服务商允许的发信域名一致</span>
+                  <n-input v-model:value="configForm.smtp_from" type="text" placeholder="noreply@example.com" />
+                </div>
+
+                <!-- 连接测试 -->
+                <div class="flex items-center gap-3">
+                  <n-button
+                    type="primary"
+                    ghost
+                    :loading="smtpTesting"
+                    :disabled="smtpTesting"
+                    @click="testSmtpConnection"
+                  >
+                    测试连接
+                  </n-button>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">校验当前表单配置能否连接并认证（未保存的修改也会被校验），不实际发送邮件</span>
+                </div>
+              </div>
+              </n-form>
+            </div>
+          </n-tab-pane>
+
           <n-tab-pane name="ui" tab="界面配置">
             <div class="tab-content-container">
               <n-form
@@ -297,6 +385,7 @@ const notification = useNotification()
 const { getImageUrl } = useImageUrl()
 const formRef = ref()
 const saving = ref(false)
+const smtpTesting = ref(false)
 const activeTab = ref('basic')
 
 // Logo选择器相关数据
@@ -332,6 +421,12 @@ interface SiteConfigForm {
   wechat_search_image: string
   telegram_qr_image: string
   qr_code_style: string
+  smtp_host: string
+  smtp_port: string
+  smtp_username: string
+  smtp_password: string
+  smtp_from: string
+  smtp_encryption: string
 }
 
 // 公告配置子组件数据
@@ -395,7 +490,13 @@ const {
     enable_float_buttons: 'enable_float_buttons',
     wechat_search_image: 'wechat_search_image',
     telegram_qr_image: 'telegram_qr_image',
-    qr_code_style: 'qr_code_style'
+    qr_code_style: 'qr_code_style',
+    smtp_host: 'smtp_host',
+    smtp_port: 'smtp_port',
+    smtp_username: 'smtp_username',
+    smtp_password: 'smtp_password',
+    smtp_from: 'smtp_from',
+    smtp_encryption: 'smtp_encryption'
   }
 })
 
@@ -417,7 +518,13 @@ const configForm = ref<SiteConfigForm>({
   enable_float_buttons: false,
   wechat_search_image: '',
   telegram_qr_image: '',
-  qr_code_style: 'Plain'
+  qr_code_style: 'Plain',
+  smtp_host: '',
+  smtp_port: '465',
+  smtp_username: '',
+  smtp_password: '',
+  smtp_from: '',
+  smtp_encryption: 'ssl'
 })
 
 // 未保存变更守卫（路由切换/刷新前提示）
@@ -474,7 +581,13 @@ const fetchConfig = async () => {
         enable_float_buttons: response.enable_float_buttons || false,
         wechat_search_image: response.wechat_search_image || '',
         telegram_qr_image: response.telegram_qr_image || '',
-        qr_code_style: response.qr_code_style || 'Plain'
+        qr_code_style: response.qr_code_style || 'Plain',
+        smtp_host: response.smtp_host || '',
+        smtp_port: String(response.smtp_port || 465),
+        smtp_username: response.smtp_username || '',
+        smtp_password: response.smtp_password || '',
+        smtp_from: response.smtp_from || '',
+        smtp_encryption: response.smtp_encryption || 'ssl'
       }
 
       // 设置表单数据和原始数据
@@ -495,6 +608,35 @@ const fetchConfig = async () => {
 }
 
 
+
+// 测试 SMTP 连接（校验表单当前值，nil 字段由后端回退到已保存配置）
+const testSmtpConnection = async () => {
+  if (smtpTesting.value) return
+  smtpTesting.value = true
+  try {
+    const { useSystemConfigApi } = await import('~/composables/useApi')
+    const systemConfigApi = useSystemConfigApi()
+    const result = await systemConfigApi.testSmtpConfig({
+      smtp_host: configForm.value.smtp_host || null,
+      smtp_port: configForm.value.smtp_port || null,
+      smtp_username: configForm.value.smtp_username || null,
+      smtp_password: configForm.value.smtp_password || null,
+      smtp_from: configForm.value.smtp_from || null,
+      smtp_encryption: configForm.value.smtp_encryption || null
+    }) as any
+    notification.success({
+      content: result?.message || 'SMTP 连接成功',
+      duration: 4000
+    })
+  } catch (error: any) {
+    notification.error({
+      content: error?.data?.message || error?.message || 'SMTP 连接失败',
+      duration: 5000
+    })
+  } finally {
+    smtpTesting.value = false
+  }
+}
 
 // 保存配置
 const saveConfig = async () => {

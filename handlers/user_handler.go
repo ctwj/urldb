@@ -238,6 +238,10 @@ func UpdateUser(c *gin.Context) {
 		user.Username = req.Username
 	}
 	if req.Email != "" {
+		if user.Email != req.Email {
+			// 邮箱变更后需重新完成邮箱认证（016-api-access-application）
+			user.EmailVerified = false
+		}
 		user.Email = req.Email
 	}
 	if req.Role != "" {

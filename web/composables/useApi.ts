@@ -226,9 +226,10 @@ export const useSearchStatsApi = () => {
 export const useSystemConfigApi = () => {
   const getSystemConfig = () => useApiFetch('/system/config').then(parseApiResponse)
   const updateSystemConfig = (data: any) => useApiFetch('/system/config', { method: 'POST', body: data }).then(parseApiResponse)
+  const testSmtpConfig = (data: any) => useApiFetch('/system/config/smtp/test', { method: 'POST', body: data }).then(parseApiResponse)
   const getConfigStatus = () => useApiFetch('/system/config/status').then(parseApiResponse)
   const toggleAutoProcess = (enabled: boolean) => useApiFetch('/system/config/toggle-auto-process', { method: 'POST', body: { auto_process_ready_resources: enabled } }).then(parseApiResponse)
-  return { getSystemConfig, updateSystemConfig, getConfigStatus, toggleAutoProcess }
+  return { getSystemConfig, updateSystemConfig, testSmtpConfig, getConfigStatus, toggleAutoProcess }
 }
 export const useHotDramaApi = () => {
   // 为SSR优化版本，使用Nuxt3的useApiFetch

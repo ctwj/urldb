@@ -251,6 +251,35 @@
           </div>
         </div>
 
+        <!-- 开放资源查询（用户 API） -->
+        <div class="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+          <div class="bg-emerald-600 text-white px-6 py-4">
+            <h3 class="text-xl font-semibold flex items-center">
+              <i class="fas fa-key mr-2"></i>
+              开放资源查询（用户 API）
+            </h3>
+            <p class="text-emerald-100 mt-1">已开通 API 权限的用户可使用个人凭证检索平台公开资源，需在个人中心「API 访问」申请开通</p>
+          </div>
+          <div class="p-6">
+            <h4 class="font-semibold text-gray-900 dark:text-white mb-3">GET /api/open/resources/search</h4>
+            <div class="space-y-3 text-sm">
+              <p><strong>认证：</strong><span class="text-red-600 dark:text-red-400">必需</span>（<code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">X-API-Key: urldb_xxx</code> 请求头，兼容 <code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">?api_key=</code>）</p>
+              <p><strong>参数：</strong></p>
+              <ul class="list-disc pl-6 space-y-1">
+                <li><code>keyword</code>（必填）— 搜索关键词，不超过 100 字</li>
+                <li><code>size</code>（可选，默认 20）— 返回数量，<strong>最大 100</strong>，超过按 100 处理；接口无翻页，固定返回命中的前 size 条</li>
+              </ul>
+              <p><strong>返回：</strong>公开且有效的资源列表（title / description / url / key / cover / tags / created_at）与 size。<code>url</code> 优先返回转存链接（无转存时为原始链接）；不返回 <code>total</code>、<code>id</code>、<code>save_url</code>、<code>category</code>、<code>pan_name</code>、<code>file_size</code>，以 <code>key</code> 标识资源，<code>cover</code> 为封面图片。</p>
+              <p><strong>频率限制：</strong>每分钟、每小时、每天三档限制同时生效，超限返回 <code>429</code>。</p>
+              <p><strong>错误码：</strong><code>401</code> 凭证无效 · <code>403</code> 权限已停用 / 凭证已过期 · <code>429</code> 请求过于频繁</p>
+              <div class="bg-gray-50 dark:bg-gray-700 rounded p-4">
+                <pre class="text-sm overflow-x-auto"><code>curl "http://localhost:8080/api/open/resources/search?keyword=电影&size=20" \
+  -H "X-API-Key: urldb_your_api_key"</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 错误码说明 -->
         <div class="mt-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
           <div class="bg-red-600 text-white px-6 py-4">

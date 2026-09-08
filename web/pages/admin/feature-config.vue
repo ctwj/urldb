@@ -375,6 +375,53 @@
             </n-form>
           </div>
         </n-tab-pane>
+
+        <n-tab-pane name="api" tab="API 开放">
+          <div class="tab-content-container">
+            <n-form
+              ref="formRef"
+              :model="configForm"
+              :rules="rules"
+              label-placement="left"
+              label-width="auto"
+              require-mark-placement="right-hanging"
+            >
+            <div class="space-y-8">
+              <!-- API 开放配置组（016-api-access-application） -->
+              <div class="space-y-4">
+                <div class="flex items-center space-x-2 mb-4">
+                  <div class="w-1 h-6 bg-purple-500 rounded-full"></div>
+                  <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">API 开放配置</h3>
+                </div>
+
+                <div class="space-y-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">默认有效天数</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">用户开通 API 时凭证的有效天数，仅影响之后的新开通；0 表示永久有效</span>
+                  <n-input v-model:value="configForm.api_default_validity_days" type="text" placeholder="30" />
+                </div>
+
+                <div class="space-y-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">每分钟请求上限</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">每个用户每分钟可调用开放接口的次数；0 表示不限制</span>
+                  <n-input v-model:value="configForm.api_rate_limit_minute" type="text" placeholder="30" />
+                </div>
+
+                <div class="space-y-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">每小时请求上限</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">每个用户每小时可调用开放接口的次数，与每分钟/每天限制同时生效；0 表示不限制</span>
+                  <n-input v-model:value="configForm.api_rate_limit_hour" type="text" placeholder="600" />
+                </div>
+
+                <div class="space-y-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">每天请求上限</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">每个用户每天可调用开放接口的次数，与每分钟/每小时限制同时生效；0 表示不限制</span>
+                  <n-input v-model:value="configForm.api_rate_limit_day" type="text" placeholder="3000" />
+                </div>
+              </div>
+            </div>
+            </n-form>
+          </div>
+        </n-tab-pane>
         </n-tabs>
       </div>
     </template>
@@ -417,6 +464,10 @@ interface FeatureConfigForm {
   auto_cleanup_enabled: boolean
   auto_cleanup_retention_days: string
   auto_cleanup_interval_minutes: string
+  api_default_validity_days: string
+  api_rate_limit_minute: string
+  api_rate_limit_hour: string
+  api_rate_limit_day: string
 }
 
 // 使用配置改动检测
@@ -449,7 +500,11 @@ const {
     pancheck_concurrency: 'pancheck_concurrency',
     auto_cleanup_enabled: 'auto_cleanup_enabled',
     auto_cleanup_retention_days: 'auto_cleanup_retention_days',
-    auto_cleanup_interval_minutes: 'auto_cleanup_interval_minutes'
+    auto_cleanup_interval_minutes: 'auto_cleanup_interval_minutes',
+    api_default_validity_days: 'api_default_validity_days',
+    api_rate_limit_minute: 'api_rate_limit_minute',
+    api_rate_limit_hour: 'api_rate_limit_hour',
+    api_rate_limit_day: 'api_rate_limit_day'
   }
 })
 
@@ -483,7 +538,11 @@ const configForm = ref<FeatureConfigForm>({
   pancheck_concurrency: '5',
   auto_cleanup_enabled: false,
   auto_cleanup_retention_days: '7',
-  auto_cleanup_interval_minutes: '60'
+  auto_cleanup_interval_minutes: '60',
+  api_default_validity_days: '30',
+  api_rate_limit_minute: '30',
+  api_rate_limit_hour: '600',
+  api_rate_limit_day: '3000'
 })
 
 // 未保存变更守卫（路由切换/刷新前提示）
@@ -532,7 +591,11 @@ const fetchConfig = async () => {
         pancheck_concurrency: String(response.pancheck_concurrency || 5),
         auto_cleanup_enabled: response.auto_cleanup_enabled || false,
         auto_cleanup_retention_days: String(response.auto_cleanup_retention_days || 7),
-        auto_cleanup_interval_minutes: String(response.auto_cleanup_interval_minutes || 60)
+        auto_cleanup_interval_minutes: String(response.auto_cleanup_interval_minutes || 60),
+        api_default_validity_days: String(response.api_default_validity_days ?? 30),
+        api_rate_limit_minute: String(response.api_rate_limit_minute ?? 30),
+        api_rate_limit_hour: String(response.api_rate_limit_hour ?? 600),
+        api_rate_limit_day: String(response.api_rate_limit_day ?? 3000)
       }
       
       configForm.value = { ...configData }
@@ -577,7 +640,11 @@ const saveConfig = async () => {
       pancheck_concurrency: configForm.value.pancheck_concurrency,
       auto_cleanup_enabled: configForm.value.auto_cleanup_enabled,
       auto_cleanup_retention_days: configForm.value.auto_cleanup_retention_days,
-      auto_cleanup_interval_minutes: configForm.value.auto_cleanup_interval_minutes
+      auto_cleanup_interval_minutes: configForm.value.auto_cleanup_interval_minutes,
+      api_default_validity_days: configForm.value.api_default_validity_days,
+      api_rate_limit_minute: configForm.value.api_rate_limit_minute,
+      api_rate_limit_hour: configForm.value.api_rate_limit_hour,
+      api_rate_limit_day: configForm.value.api_rate_limit_day
     })
     
     const { useSystemConfigApi } = await import('~/composables/useApi')
@@ -621,6 +688,23 @@ const saveConfig = async () => {
               throw new Error('自动清理调度周期必须在 1-1440 分钟之间')
             }
             data.auto_cleanup_interval_minutes = interval
+          }
+          // API 开放配置类型转换（016-api-access-application）
+          if (data.api_default_validity_days !== undefined) {
+            const days = parseInt(data.api_default_validity_days) || 0
+            if (days < 0) {
+              throw new Error('API 默认有效天数不能为负数（0 表示永久有效）')
+            }
+            data.api_default_validity_days = days
+          }
+          for (const key of ['api_rate_limit_minute', 'api_rate_limit_hour', 'api_rate_limit_day'] as const) {
+            if (data[key] !== undefined) {
+              const v = parseInt(data[key]) || 0
+              if (v < 0) {
+                throw new Error('API 频率限制不能为负数（0 表示不限制）')
+              }
+              data[key] = v
+            }
           }
           return data
         }

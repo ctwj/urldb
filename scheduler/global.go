@@ -23,7 +23,19 @@ var (
 	globalLinkCheckService services.LinkCheckService
 	// 全局用户上传资源仓储（015-user-resource-upload：scheduler 回写用户资源状态）
 	globalUserResourceRepo repo.UserResourceRepository
+	// 全局 API 凭证仓储（016-api-access-application：到期提醒任务）
+	globalApiCredentialRepo repo.ApiCredentialRepository
 )
+
+// SetGlobalApiCredentialRepo 设置全局 API 凭证仓储
+func SetGlobalApiCredentialRepo(r repo.ApiCredentialRepository) {
+	globalApiCredentialRepo = r
+}
+
+// GetGlobalApiCredentialRepo 获取全局 API 凭证仓储
+func GetGlobalApiCredentialRepo() repo.ApiCredentialRepository {
+	return globalApiCredentialRepo
+}
 
 // SetGlobalMeilisearchManager 设置全局Meilisearch管理器
 func SetGlobalMeilisearchManager(manager *services.MeilisearchManager) {
@@ -262,9 +274,16 @@ func (gs *GlobalScheduler) IsGoogleIndexSchedulerRunning() bool {
 	return gs.manager.IsGoogleIndexRunning()
 }
 
-// StartCleanupScheduler 启动转存文件自动清理定时任务
-func (gs *GlobalScheduler) StartCleanupScheduler() {
+// StartApiExpirationScheduler 启动 API 凭证到期提醒定时任务（016-api-access-application FR-018）
+func (gs *GlobalScheduler) StartApiExpirationScheduler() {
 	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+	gs.manager.StartApiExpirationScheduler()
+	utils.Info("全局调度器已启动 API 凭证到期提醒任务")
+}
+
+// StartCleanupScheduler 启动转存文件自动清理定时任务
+func (gs *GlobalScheduler) StartCleanupScheduler() {	gs.mutex.Lock()
 	defer gs.mutex.Unlock()
 
 	if gs.manager.IsCleanupRunning() {

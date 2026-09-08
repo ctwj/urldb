@@ -294,4 +294,28 @@ const (
 	ConfigKeyUserUploadDailyLimit = "user_upload_daily_limit"
 	// 每用户每日提交上限，0 表示不限制
 	ConfigDefaultUserUploadDailyLimit = "50"
+
+	// 用户 API 开放配置（016-api-access-application）
+	ConfigKeyApiDefaultValidityDays = "api_default_validity_days" // 开通时凭证默认有效天数，0=永久
+	ConfigKeyApiRateLimitMinute     = "api_rate_limit_minute"     // 每分钟请求上限，0=不限
+	ConfigKeyApiRateLimitHour       = "api_rate_limit_hour"       // 每小时请求上限，0=不限
+	ConfigKeyApiRateLimitDay        = "api_rate_limit_day"        // 每天请求上限，0=不限
+
+	// SMTP 邮件发送配置（016-api-access-application）
+	ConfigKeySmtpHost       = "smtp_host"
+	ConfigKeySmtpPort       = "smtp_port"
+	ConfigKeySmtpUsername   = "smtp_username"
+	ConfigKeySmtpPassword   = "smtp_password"
+	ConfigKeySmtpFrom       = "smtp_from"
+	ConfigKeySmtpEncryption = "smtp_encryption" // ssl/starttls/plain
+
+	// 用户 API 开放配置默认值
+	ConfigDefaultApiDefaultValidityDays = "30"
+	ConfigDefaultApiRateLimitMinute     = "30"
+	ConfigDefaultApiRateLimitHour       = "600"
+	ConfigDefaultApiRateLimitDay        = "3000"
+
+	// SMTP 配置默认值
+	ConfigDefaultSmtpPort       = "465"
+	ConfigDefaultSmtpEncryption = "ssl"
 )

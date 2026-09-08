@@ -55,6 +55,20 @@ type SystemConfigRequest struct {
 	PancheckBatchSize      *int    `json:"pancheck_batch_size,omitempty"`
 	PancheckConcurrency    *int    `json:"pancheck_concurrency,omitempty"`
 
+	// SMTP 邮件发送配置（016-api-access-application）
+	SmtpHost       *string `json:"smtp_host,omitempty"`
+	SmtpPort       *string `json:"smtp_port,omitempty"`
+	SmtpUsername   *string `json:"smtp_username,omitempty"`
+	SmtpPassword   *string `json:"smtp_password,omitempty"`
+	SmtpFrom       *string `json:"smtp_from,omitempty"`
+	SmtpEncryption *string `json:"smtp_encryption,omitempty"` // ssl/starttls/plain
+
+	// 用户 API 开放配置（016-api-access-application）
+	ApiDefaultValidityDays *int `json:"api_default_validity_days,omitempty"` // 凭证默认有效天数，0=永久
+	ApiRateLimitMinute     *int `json:"api_rate_limit_minute,omitempty"`     // 每分钟请求上限，0=不限
+	ApiRateLimitHour       *int `json:"api_rate_limit_hour,omitempty"`       // 每小时请求上限，0=不限
+	ApiRateLimitDay        *int `json:"api_rate_limit_day,omitempty"`        // 每天请求上限，0=不限
+
 	// 界面配置
 	EnableAnnouncements *bool     `json:"enable_announcements,omitempty"`
 	Announcements       *[]map[string]interface{} `json:"announcements,omitempty"`
@@ -125,6 +139,20 @@ type SystemConfigResponse struct {
 	PancheckTimeoutSeconds int    `json:"pancheck_timeout_seconds"`
 	PancheckBatchSize      int    `json:"pancheck_batch_size"`
 	PancheckConcurrency    int    `json:"pancheck_concurrency"`
+
+	// SMTP 邮件发送配置（016-api-access-application）
+	SmtpHost       string `json:"smtp_host"`
+	SmtpPort       string `json:"smtp_port"`
+	SmtpUsername   string `json:"smtp_username"`
+	SmtpPassword   string `json:"smtp_password"`
+	SmtpFrom       string `json:"smtp_from"`
+	SmtpEncryption string `json:"smtp_encryption"`
+
+	// 用户 API 开放配置（016-api-access-application）
+	ApiDefaultValidityDays int `json:"api_default_validity_days"` // 凭证默认有效天数，0=永久
+	ApiRateLimitMinute     int `json:"api_rate_limit_minute"`     // 每分钟请求上限，0=不限
+	ApiRateLimitHour       int `json:"api_rate_limit_hour"`       // 每小时请求上限，0=不限
+	ApiRateLimitDay        int `json:"api_rate_limit_day"`        // 每天请求上限，0=不限
 
 	// 界面配置
 	EnableAnnouncements bool     `json:"enable_announcements"`

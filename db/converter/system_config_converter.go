@@ -144,6 +144,34 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			response.QrCodeStyle = config.Value
 		case entity.ConfigKeyWebsiteURL:
 			response.SiteURL = config.Value
+		case entity.ConfigKeySmtpHost:
+			response.SmtpHost = config.Value
+		case entity.ConfigKeySmtpPort:
+			response.SmtpPort = config.Value
+		case entity.ConfigKeySmtpUsername:
+			response.SmtpUsername = config.Value
+		case entity.ConfigKeySmtpPassword:
+			response.SmtpPassword = config.Value
+		case entity.ConfigKeySmtpFrom:
+			response.SmtpFrom = config.Value
+		case entity.ConfigKeySmtpEncryption:
+			response.SmtpEncryption = config.Value
+		case entity.ConfigKeyApiDefaultValidityDays:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.ApiDefaultValidityDays = val
+			}
+		case entity.ConfigKeyApiRateLimitMinute:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.ApiRateLimitMinute = val
+			}
+		case entity.ConfigKeyApiRateLimitHour:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.ApiRateLimitHour = val
+			}
+		case entity.ConfigKeyApiRateLimitDay:
+			if val, err := strconv.Atoi(config.Value); err == nil {
+				response.ApiRateLimitDay = val
+			}
 		}
 	}
 
@@ -344,6 +372,50 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 		updatedKeys = append(updatedKeys, entity.ConfigKeyWebsiteURL)
 	}
 
+	// SMTP 邮件发送配置（016-api-access-application）
+	if req.SmtpHost != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySmtpHost, Value: *req.SmtpHost, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySmtpHost)
+	}
+	if req.SmtpPort != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySmtpPort, Value: *req.SmtpPort, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySmtpPort)
+	}
+	if req.SmtpUsername != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySmtpUsername, Value: *req.SmtpUsername, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySmtpUsername)
+	}
+	if req.SmtpPassword != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySmtpPassword, Value: *req.SmtpPassword, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySmtpPassword)
+	}
+	if req.SmtpFrom != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySmtpFrom, Value: *req.SmtpFrom, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySmtpFrom)
+	}
+	if req.SmtpEncryption != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeySmtpEncryption, Value: *req.SmtpEncryption, Type: entity.ConfigTypeString})
+		updatedKeys = append(updatedKeys, entity.ConfigKeySmtpEncryption)
+	}
+
+	// 用户 API 开放配置（016-api-access-application）
+	if req.ApiDefaultValidityDays != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiDefaultValidityDays, Value: strconv.Itoa(*req.ApiDefaultValidityDays), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyApiDefaultValidityDays)
+	}
+	if req.ApiRateLimitMinute != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiRateLimitMinute, Value: strconv.Itoa(*req.ApiRateLimitMinute), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyApiRateLimitMinute)
+	}
+	if req.ApiRateLimitHour != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiRateLimitHour, Value: strconv.Itoa(*req.ApiRateLimitHour), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyApiRateLimitHour)
+	}
+	if req.ApiRateLimitDay != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyApiRateLimitDay, Value: strconv.Itoa(*req.ApiRateLimitDay), Type: entity.ConfigTypeInt})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyApiRateLimitDay)
+	}
+
 	// 记录更新的配置项
 	if len(updatedKeys) > 0 {
 		utils.Info("配置更新 - 被修改的配置项: %v", updatedKeys)
@@ -507,5 +579,15 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		TelegramQrImage:           entity.ConfigDefaultTelegramQrImage,
 		QrCodeStyle:               entity.ConfigDefaultQrCodeStyle,
 		SiteURL:                   entity.ConfigDefaultWebsiteURL,
+		SmtpHost:                  "",
+		SmtpPort:                  entity.ConfigDefaultSmtpPort,
+		SmtpUsername:              "",
+		SmtpPassword:              "",
+		SmtpFrom:                  "",
+		SmtpEncryption:            entity.ConfigDefaultSmtpEncryption,
+		ApiDefaultValidityDays:    30,
+		ApiRateLimitMinute:        30,
+		ApiRateLimitHour:          600,
+		ApiRateLimitDay:           3000,
 	}
 }
