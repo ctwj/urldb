@@ -242,6 +242,9 @@ func main() {
 	// 注入用户上传资源仓储（015-user-resource-upload：scheduler 处理完成后回写状态）
 	scheduler.SetGlobalUserResourceRepo(repoManager.UserResourceRepository)
 
+	// 注入 API 凭证仓储（016-api-access-application：到期提醒任务使用）
+	scheduler.SetGlobalApiCredentialRepo(repoManager.ApiCredentialRepository)
+
 	// 初始化并启动调度器
 	globalScheduler := scheduler.GetGlobalScheduler(
 		repoManager.HotDramaRepository,
@@ -292,6 +295,9 @@ func main() {
 	} else {
 		utils.Info("系统配置禁用Google索引自动提交功能")
 	}
+
+	// API 凭证到期提醒调度任务（016-api-access-application，FR-018：每日一次）
+	globalScheduler.StartApiExpirationScheduler()
 
 	utils.Info("调度器初始化完成")
 
@@ -357,6 +363,20 @@ func main() {
 		api.POST("/auth/register", handlers.Register)
 		api.GET("/auth/profile", middleware.AuthMiddleware(), handlers.GetProfile)
 		api.PUT("/auth/password", middleware.AuthMiddleware(), handlers.ChangeOwnPassword)
+
+		// 开放查询接口（016-api-access-application：X-API-Key 用户凭证 + 三窗口限流）
+		openAPI := api.Group("/open")
+		openAPI.Use(middleware.ApiKeyAuth(), middleware.ApiRateLimit())
+		{
+			openAPI.GET("/resources/search", handlers.OpenSearchResources)
+		}
+
+		// 用户 API 开放访问（016-api-access-application，仅登录用户）
+		api.POST("/user/email/verification-code", middleware.AuthMiddleware(), handlers.SendEmailCode)
+		api.POST("/user/email/verify", middleware.AuthMiddleware(), handlers.VerifyEmailCode)
+		api.POST("/user/api/apply", middleware.AuthMiddleware(), handlers.ApplyApiAccess)
+		api.GET("/user/api/status", middleware.AuthMiddleware(), handlers.GetMyApiStatus)
+		api.POST("/user/api/reset-key", middleware.AuthMiddleware(), handlers.ResetMyApiKey)
 
 		// 用户下载历史（仅登录用户）
 		api.GET("/user/download-history", middleware.AuthMiddleware(), handlers.GetDownloadHistory)
@@ -451,6 +471,15 @@ func main() {
 		api.PUT("/users/:id/password", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ChangePassword)
 		api.DELETE("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteUser)
 
+		// API 申请审核与凭证管理（016-api-access-application，管理员）
+		api.GET("/admin/api-applications/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetApiApplicationStats)
+		api.GET("/admin/api-applications", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ListApiApplications)
+		api.POST("/admin/api-applications/:id/approve", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ApproveApiApplication)
+		api.POST("/admin/api-applications/:id/reject", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.RejectApiApplication)
+		api.POST("/admin/api-credentials/:userId/disable", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DisableApiCredential)
+		api.POST("/admin/api-credentials/:userId/enable", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.EnableApiCredential)
+		api.POST("/admin/api-credentials/:userId/expiry", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateApiCredentialExpiry)
+
 		// 搜索统计路由
 		api.GET("/search-stats", handlers.GetSearchStats)
 		api.GET("/search-stats/hot-keywords", handlers.GetHotKeywords)
@@ -477,6 +506,7 @@ func main() {
 		// 系统配置路由
 		api.GET("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetSystemConfig)
 		api.POST("/system/config", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateSystemConfig)
+		api.POST("/system/config/smtp/test", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.TestSmtpConfig)
 		api.GET("/system/config/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetConfigStatus)
 		api.POST("/system/config/toggle-auto-process", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ToggleAutoProcess)
 		api.GET("/public/system-config", handlers.GetPublicSystemConfig)

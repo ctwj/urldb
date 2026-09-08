@@ -25,6 +25,13 @@ export const userNavigationConfig: NavigationItem[] = [
     description: '查看和管理下载历史记录'
   },
   {
+    to: '/user/api',
+    icon: 'fas fa-key',
+    label: 'API 访问',
+    active: (route: any) => route.path.startsWith('/user/api'),
+    description: '申请开通 API 并管理调用凭证'
+  },
+  {
     to: '/user/settings',
     icon: 'fas fa-cog',
     label: '设置',

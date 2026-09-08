@@ -6,6 +6,9 @@
       <p class="text-gray-500 dark:text-gray-400 mt-1">账户设置和安全偏好</p>
     </div>
 
+    <!-- 邮箱认证 -->
+    <UserEmailVerificationCard :verified="emailVerified" @verified="onEmailVerified" />
+
     <!-- 密码修改 -->
     <n-card :bordered="false" class="shadow-sm">
       <template #header>
@@ -78,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 
 // 页面元数据
@@ -85,6 +89,22 @@ definePageMeta({
   layout: 'user',
   title: '设置'
 })
+
+// 邮箱认证状态（016-api-access-application：设置页同步展示）
+const emailVerified = ref(false)
+
+const onEmailVerified = () => {
+  emailVerified.value = true
+}
+
+const fetchEmailVerified = async () => {
+  try {
+    const res: any = await useApiFetch('/user/api/status')
+    emailVerified.value = !!res?.data?.email_verified
+  } catch {
+    // 状态获取失败不影响本页其他功能
+  }
+}
 
 // 表单引用
 const passwordFormRef = ref()
@@ -174,4 +194,6 @@ const handleResetPassword = () => {
     confirmPassword: ''
   }
 }
+
+onMounted(fetchEmailVerified)
 </script> 

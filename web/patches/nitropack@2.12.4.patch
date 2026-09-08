@@ -1,0 +1,12 @@
+diff --git a/dist/rollup/index.mjs b/dist/rollup/index.mjs
+index 28314b8aad155eac090e67bd90ea2a3a522f8d0a..3e3ee0cbe9fefc2a478af12af7c0f890ab3acaf7 100644
+--- a/dist/rollup/index.mjs
++++ b/dist/rollup/index.mjs
+@@ -1867,7 +1867,6 @@ const getRollupConfig = (nitro) => {
+     replace({
+       preventAssignment: true,
+       values: {
+-        "typeof window": '"undefined"',
+         _import_meta_url_: "import.meta.url",
+         "globalThis.process.": "process.",
+         "process.env.RUNTIME_CONFIG": () => JSON.stringify(nitro.options.runtimeConfig, null, 2),

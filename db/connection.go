@@ -113,6 +113,8 @@ func InitDB() error {
 			&entity.CopyrightClaim{},
 			&entity.DownloadHistory{},
 			&entity.UserResource{},
+			&entity.ApiApplication{},
+			&entity.ApiCredential{},
 			// 插件系统相关表
 			&entity.PluginConfig{},
 			&entity.PluginLog{},
@@ -212,6 +214,8 @@ func autoMigrate() error {
 		&entity.ResourceTag{},
 		&entity.ReadyResource{},
 		&entity.User{},
+		&entity.ApiApplication{},
+		&entity.ApiCredential{},
 		&entity.SearchStat{},
 		&entity.HotDrama{},
 		&entity.File{},

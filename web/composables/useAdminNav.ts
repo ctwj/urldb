@@ -49,6 +49,7 @@ const dataManagementItems: NavItem[] = [
   { to: '/admin/files', label: '文件管理', icon: 'fas fa-file-upload', active: (r) => r.path.startsWith('/admin/files') },
   { to: '/admin/reports', label: '举报管理', icon: 'fas fa-flag', active: (r) => r.path.startsWith('/admin/reports') },
   { to: '/admin/copyright-claims', label: '版权申述', icon: 'fas fa-balance-scale', active: (r) => r.path.startsWith('/admin/copyright-claims') },
+  { to: '/admin/api-applications', label: 'API 审核', icon: 'fas fa-user-check', active: (r) => r.path.startsWith('/admin/api-applications') },
 ]
 
 const systemConfigItems: NavItem[] = [
