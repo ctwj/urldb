@@ -73,7 +73,9 @@ jobs:
       uses: pnpm/action-setup@v4
       with:
         standalone: true
-        version: 8
+        # 必须与 web/package.json 的 packageManager 字段一致（lockfile 是 9.0 格式，
+        # 且带 overrides/patchedDependencies，用 pnpm 8 会报 ERR_PNPM_LOCKFILE_CONFIG_MISMATCH）
+        version: 9.13.0
 
     - name: Build Frontend
       run: |
