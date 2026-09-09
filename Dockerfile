@@ -1,13 +1,15 @@
 # 前端构建阶段
 FROM node:20-slim AS frontend-builder
 
-# 安装pnpm
+# 安装pnpm（版本由 package.json 的 packageManager 字段锁定，corepack 已内置）
 WORKDIR /app/web
 COPY web/ ./
-RUN npm install --frozen-lockfile --legacy-peer-deps
+RUN corepack enable && pnpm install --frozen-lockfile
+# 容器 VM 内存有限（Docker Desktop 默认 2GB），显式调大 node 堆上限避免 SSR 构建阶段 OOM
+ENV NODE_OPTIONS=--max-old-space-size=1536
 ARG NUXT_PUBLIC_API_SERVER=http://backend:8080/api
 ARG NUXT_PUBLIC_API_CLIENT=/api
-RUN npm run build
+RUN pnpm run build
 
 # 前端运行阶段
 FROM node:20-alpine AS frontend
@@ -22,9 +24,12 @@ EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
 
 # 后端构建阶段
-FROM golang:1.24.5-alpine AS backend-builder
+FROM golang:1.25-alpine AS backend-builder
 
 WORKDIR /app
+# Go 模块代理（国内直连 proxy.golang.org 不可达），可用 --build-arg GOPROXY=... 覆盖
+ARG GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=${GOPROXY}
 COPY go.mod go.sum ./
 RUN go mod download
 
