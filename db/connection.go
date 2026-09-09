@@ -79,8 +79,8 @@ func InitDB() error {
 	maxIdleConns := getEnvInt("DB_MAX_IDLE_CONNS", 20)
 	connMaxLifetime := getEnvInt("DB_CONN_MAX_LIFETIME_MINUTES", 30)
 
-	sqlDB.SetMaxOpenConns(maxOpenConns)                               // 最大打开连接数
-	sqlDB.SetMaxIdleConns(maxIdleConns)                               // 最大空闲连接数
+	sqlDB.SetMaxOpenConns(maxOpenConns)                                    // 最大打开连接数
+	sqlDB.SetMaxIdleConns(maxIdleConns)                                    // 最大空闲连接数
 	sqlDB.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Minute) // 连接最大生命周期
 
 	utils.Info("数据库连接池配置 - 最大连接: %d, 空闲连接: %d, 生命周期: %d分钟",
@@ -148,6 +148,11 @@ func InitDB() error {
 	// 009-statistics-enhancement: 历史来源数据回填（幂等，仅在迁移时执行）
 	if shouldRunMigration() {
 		backfillSourceColumn(DB)
+	}
+
+	// 幂等补种默认网盘平台（老库升级新增平台依赖此项，已有记录不覆盖）
+	if err := ensureDefaultPans(); err != nil {
+		utils.Error("补种默认平台失败: %v", err)
 	}
 
 	// 插入默认数据（只在数据库为空时）
@@ -384,27 +389,6 @@ func insertDefaultDataIfEmpty() error {
 		}
 	}
 
-	// 插入默认网盘平台（使用FirstOrCreate避免重复）
-	defaultPans := []entity.Pan{
-		{Name: "baidu", Key: 1, Icon: "<i class=\"fas fa-cloud text-blue-500\"></i>", Remark: "百度网盘"},
-		{Name: "aliyun", Key: 2, Icon: "<i class=\"fas fa-cloud text-orange-500\"></i>", Remark: "阿里云盘"},
-		{Name: "quark", Key: 3, Icon: "<i class=\"fas fa-atom text-purple-500\"></i>", Remark: "夸克网盘"},
-		{Name: "tianyi", Key: 4, Icon: "<i class=\"fas fa-cloud text-cyan-500\"></i>", Remark: "天翼云盘"},
-		{Name: "xunlei", Key: 5, Icon: "<i class=\"fas fa-bolt text-yellow-500\"></i>", Remark: "迅雷云盘"},
-		{Name: "123pan", Key: 8, Icon: "<i class=\"fas fa-folder text-red-500\"></i>", Remark: "123云盘"},
-		{Name: "115", Key: 12, Icon: "<i class=\"fas fa-cloud-upload-alt text-green-600\"></i>", Remark: "115网盘"},
-		{Name: "uc", Key: 14, Icon: "<i class=\"fas fa-cloud-download-alt text-purple-600\"></i>", Remark: "UC网盘"},
-		{Name: "guangya", Key: 16, Icon: "<i class=\"fas fa-dove text-pink-500\"></i>", Remark: "光鸭云盘"},
-		{Name: "other", Key: 15, Icon: "<i class=\"fas fa-cloud text-gray-500\"></i>", Remark: "其他"},
-	}
-
-	for _, pan := range defaultPans {
-		if err := DB.Where("name = ?", pan.Name).FirstOrCreate(&pan).Error; err != nil {
-			utils.Error("插入平台 %s 失败: %v", pan.Name, err)
-			// 继续执行，不因为单个平台失败而停止
-		}
-	}
-
 	// 插入默认系统配置
 	defaultSystemConfigs := []entity.SystemConfig{
 		{Key: entity.ConfigKeySiteTitle, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},
@@ -466,6 +450,33 @@ func insertDefaultDataIfEmpty() error {
 	}
 
 	utils.Info("默认数据插入完成")
+	return nil
+}
+
+// ensureDefaultPans 幂等补种默认网盘平台
+// 老库升级场景：insertDefaultDataIfEmpty 仅在空库时执行，新版本新增的默认平台（如 guangya）
+// 不会写入已有数据库，导致前端"添加账号"下拉缺少该平台。这里每次启动按 name 逐个
+// FirstOrCreate：已有的（含管理员修改过的）不动，缺失的补齐。
+func ensureDefaultPans() error {
+	defaultPans := []entity.Pan{
+		{Name: "baidu", Key: 1, Icon: "<i class=\"fas fa-cloud text-blue-500\"></i>", Remark: "百度网盘"},
+		{Name: "aliyun", Key: 2, Icon: "<i class=\"fas fa-cloud text-orange-500\"></i>", Remark: "阿里云盘"},
+		{Name: "quark", Key: 3, Icon: "<i class=\"fas fa-atom text-purple-500\"></i>", Remark: "夸克网盘"},
+		{Name: "tianyi", Key: 4, Icon: "<i class=\"fas fa-cloud text-cyan-500\"></i>", Remark: "天翼云盘"},
+		{Name: "xunlei", Key: 5, Icon: "<i class=\"fas fa-bolt text-yellow-500\"></i>", Remark: "迅雷云盘"},
+		{Name: "123pan", Key: 8, Icon: "<i class=\"fas fa-folder text-red-500\"></i>", Remark: "123云盘"},
+		{Name: "115", Key: 12, Icon: "<i class=\"fas fa-cloud-upload-alt text-green-600\"></i>", Remark: "115网盘"},
+		{Name: "uc", Key: 14, Icon: "<i class=\"fas fa-cloud-download-alt text-purple-600\"></i>", Remark: "UC网盘"},
+		{Name: "guangya", Key: 16, Icon: "<i class=\"fas fa-dove text-pink-500\"></i>", Remark: "光鸭云盘"},
+		{Name: "other", Key: 15, Icon: "<i class=\"fas fa-cloud text-gray-500\"></i>", Remark: "其他"},
+	}
+
+	for _, pan := range defaultPans {
+		if err := DB.Where("name = ?", pan.Name).FirstOrCreate(&pan).Error; err != nil {
+			utils.Error("插入平台 %s 失败: %v", pan.Name, err)
+			// 继续执行，不因为单个平台失败而停止
+		}
+	}
 	return nil
 }
 
