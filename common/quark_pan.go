@@ -176,8 +176,8 @@ func (q *QuarkPanService) Transfer(shareID string) (*TransferResult, error) {
 		fidTokenList = append(fidTokenList, item.ShareFidToken)
 	}
 
-	// 转存资源
-	saveResult, err := q.getShareSave(shareID, stoken, fidList, fidTokenList)
+	// 转存资源（存入根目录 urldb 文件夹，目录不可用时回退根目录）
+	saveResult, err := q.getShareSaveToDir(shareID, stoken, fidList, fidTokenList, q.ensureTargetDir())
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("转存失败: %v", err)), nil
 	}
@@ -426,11 +426,6 @@ func (q *QuarkPanService) getShare(shareID, stoken string) (*ShareResult, error)
 	return &response.Data, nil
 }
 
-// getShareSave 转存分享
-func (q *QuarkPanService) getShareSave(shareID, stoken string, fidList, fidTokenList []string) (*SaveResult, error) {
-	return q.getShareSaveToDir(shareID, stoken, fidList, fidTokenList, "0")
-}
-
 // getShareSaveToDir 转存分享到指定目录
 func (q *QuarkPanService) getShareSaveToDir(shareID, stoken string, fidList, fidTokenList []string, toPdirFid string) (*SaveResult, error) {
 	data := map[string]interface{}{
@@ -467,6 +462,77 @@ func (q *QuarkPanService) getShareSaveToDir(shareID, stoken string, fidList, fid
 	}
 
 	return &response.Data, nil
+}
+
+// ensureTargetDir 确保根目录存在 urldb 转存文件夹并返回其 fid；任何异常回退根目录，不阻断转存主流程
+func (q *QuarkPanService) ensureTargetDir() string {
+	const targetDirName = "urldb"
+
+	// 在根目录中查找目标文件夹（file_type=1 或 file=false 均表示文件夹）
+	findTargetDir := func() string {
+		fileList, err := q.getDirFile("0")
+		if err != nil {
+			return ""
+		}
+		for _, file := range fileList {
+			name, _ := file["file_name"].(string)
+			if name != targetDirName {
+				continue
+			}
+			fileType, _ := file["file_type"].(float64)
+			isDir := fileType == 1
+			if f, ok := file["file"].(bool); ok && !f {
+				isDir = true
+			}
+			if isDir {
+				fid, _ := file["fid"].(string)
+				return fid
+			}
+		}
+		return ""
+	}
+
+	if fid := findTargetDir(); fid != "" {
+		return fid
+	}
+
+	// 不存在则创建
+	data := map[string]interface{}{
+		"pdir_fid":      "0",
+		"file_name":     targetDirName,
+		"dir_path":      "",
+		"dir_init_lock": false,
+	}
+	respData, err := q.HTTPPost("https://drive-pc.quark.cn/1/clouddrive/file", data, map[string]string{
+		"pr":           "ucpro",
+		"fr":           "pc",
+		"uc_param_str": "",
+	})
+	if err != nil {
+		log.Printf("创建转存目录 %s 失败: %v，回退根目录转存", targetDirName, err)
+		return "0"
+	}
+
+	var response struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(respData, &response); err != nil {
+		log.Printf("解析创建目录响应失败: %v，回退根目录转存", err)
+		return "0"
+	}
+
+	// 创建成功或同名冲突（目录已存在）时重查一次拿 fid
+	if response.Status == 200 || strings.Contains(response.Message, "同名") {
+		time.Sleep(500 * time.Millisecond)
+		if fid := findTargetDir(); fid != "" {
+			return fid
+		}
+		log.Printf("创建转存目录 %s 后未查到目录，回退根目录转存", targetDirName)
+	} else {
+		log.Printf("创建转存目录 %s 失败: %s，回退根目录转存", targetDirName, response.Message)
+	}
+	return "0"
 }
 
 // 生成指定长度的时间戳

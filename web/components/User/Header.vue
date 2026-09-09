@@ -2,13 +2,23 @@
   <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between items-center h-16">
-        <!-- 左侧 Logo 和标题 -->
+        <!-- 左侧 Logo 和标题（读取后台站点配置） -->
         <div class="flex items-center">
           <NuxtLink to="/user" class="flex items-center space-x-3">
-            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <i class="fas fa-user text-white text-sm"></i>
-            </div>
-            <span class="text-xl font-bold text-gray-900 dark:text-white">用户中心</span>
+            <img
+              v-if="systemConfig?.site_logo"
+              :src="getImageUrl(systemConfig.site_logo)"
+              :alt="systemConfig?.site_title || 'Logo'"
+              class="h-8 w-auto object-contain"
+              @error="handleLogoError"
+            />
+            <img
+              v-else
+              src="/assets/images/logo.webp"
+              alt="Logo"
+              class="h-8 w-auto object-contain"
+            />
+            <span class="text-xl font-bold text-gray-900 dark:text-white">{{ systemConfig?.site_title || '用户中心' }}</span>
           </NuxtLink>
         </div>
 
@@ -79,12 +89,26 @@
 
 <script setup lang="ts">
 import { useUserLayout } from '~/composables/useUserLayout'
+import { useImageUrl } from '~/composables/useImageUrl'
+import { useSystemConfigStore } from '~/stores/systemConfig'
 
 // 用户状态管理
 const userStore = useUserStore()
 
 // 使用用户布局组合式函数
 const { getUserMenuItems } = useUserLayout()
+
+// 站点配置（logo / 站名，与主站共享缓存，无额外请求）
+const systemConfigStore = useSystemConfigStore()
+await systemConfigStore.initConfig(false, false)
+const systemConfig = computed(() => systemConfigStore.config)
+const { getImageUrl } = useImageUrl()
+
+// 配置的 logo 加载失败时回退默认 logo
+const handleLogoError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.src = '/assets/images/logo.webp'
+}
 
 // 用户菜单状态
 const showUserMenu = ref(false)
