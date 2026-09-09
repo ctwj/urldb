@@ -69,11 +69,16 @@ jobs:
       with:
         node-version: 20
 
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        standalone: true
+
     - name: Build Frontend
       run: |
         cd web
-        npm install --frozen-lockfile --legacy-peer-deps
-        npm run build
+        pnpm install --frozen-lockfile
+        pnpm run build
 
     - name: Create frontend archive
       run: |
