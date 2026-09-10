@@ -63,6 +63,18 @@ func GetResources(c *gin.Context) {
 		params["pan_name"] = panName
 	}
 
+	// 上传者过滤（管理端资源列表；冗余字段在 DB 侧过滤，命中该条件时下方跳过 Meilisearch 分支）
+	if submitter := c.Query("submitter"); submitter != "" {
+		params["submitter"] = submitter
+	}
+	if hasSubmitter := c.Query("has_submitter"); hasSubmitter != "" {
+		if hasSubmitter == "true" {
+			params["has_submitter"] = true
+		} else if hasSubmitter == "false" {
+			params["has_submitter"] = false
+		}
+	}
+
 	// 添加 is_valid 过滤参数
 	if isValid := c.Query("is_valid"); isValid != "" {
 		if isValid == "true" {
@@ -85,7 +97,9 @@ func GetResources(c *gin.Context) {
 	var total int64
 
 	// 如果有搜索关键词且启用了Meilisearch，优先使用Meilisearch搜索
-	if search := c.Query("search"); search != "" && meilisearchManager != nil && meilisearchManager.IsEnabled() {
+	// （索引不支持 submitter/has_submitter 过滤，带上传者过滤时直接走数据库）
+	hasSubmitterFilter := c.Query("submitter") != "" || c.Query("has_submitter") != ""
+	if search := c.Query("search"); search != "" && !hasSubmitterFilter && meilisearchManager != nil && meilisearchManager.IsEnabled() {
 		// 构建Meilisearch过滤器
 		filters := make(map[string]interface{})
 		if panID := c.Query("pan_id"); panID != "" {
@@ -339,6 +353,17 @@ func CheckResourceExists(c *gin.Context) {
 		"url":    url,
 		"exists": exists,
 	})
+}
+
+// GetResourceSubmitters 上传者列表及计数（管理端资源筛选下拉）
+func GetResourceSubmitters(c *gin.Context) {
+	rows, err := repoManager.ResourceRepository.ListSubmitters()
+	if err != nil {
+		utils.Error("GetResourceSubmitters - 查询失败: %v", err)
+		ErrorResponse(c, "获取上传者列表失败", http.StatusInternalServerError)
+		return
+	}
+	SuccessResponse(c, rows)
 }
 
 // CreateResource 创建资源

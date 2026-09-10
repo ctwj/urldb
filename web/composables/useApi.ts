@@ -73,6 +73,8 @@ export const useResourceApi = () => {
   const submitReport = (data: any) => useApiFetch('/reports', { method: 'POST', body: data }).then(parseApiResponse)
   // 新增：提交版权申述
   const submitCopyrightClaim = (data: any) => useApiFetch('/copyright-claims', { method: 'POST', body: data }).then(parseApiResponse)
+  // 新增：上传者列表及计数（管理端资源筛选下拉）
+  const getResourceSubmitters = () => useApiFetch('/resources/submitters').then(parseApiResponse)
 
   // 新增：管理后台举报相关API
   const getReportsRaw = (params?: any) => useApiFetch('/reports', { params })
@@ -91,7 +93,8 @@ export const useResourceApi = () => {
     getResources, getHotResources, getResource, getResourcesByKey, createResource, updateResource, deleteResource, searchResources, getResourcesByPan, incrementViewCount, batchDeleteResources, getResourceLink, getRelatedResources, checkResourceValidity, batchCheckResourceValidity,
     submitReport, submitCopyrightClaim,
     getReports, getReport, updateReport, deleteReport, getReportsRaw,
-    getCopyrightClaims, getCopyrightClaim, updateCopyrightClaim, deleteCopyrightClaim
+    getCopyrightClaims, getCopyrightClaim, updateCopyrightClaim, deleteCopyrightClaim,
+    getResourceSubmitters
   }
 }
 
@@ -289,7 +292,12 @@ export const useUserApi = () => {
   const updateUser = (id: number, data: any) => useApiFetch(`/users/${id}`, { method: 'PUT', body: data }).then(parseApiResponse)
   const deleteUser = (id: number) => useApiFetch(`/users/${id}`, { method: 'DELETE' }).then(parseApiResponse)
   const changePassword = (id: number, newPassword: string) => useApiFetch(`/users/${id}/password`, { method: 'PUT', body: { new_password: newPassword } }).then(parseApiResponse)
-  return { getUsers, getUser, createUser, updateUser, deleteUser, changePassword }
+  // 用户上传资源管理（管理员）
+  // 注意：该接口返回 data.list/total 形状，parseApiResponse 会退化为纯数组丢失 total，这里返回原始响应由调用方解包
+  const getUserResources = (id: number, params?: any) => useApiFetch(`/users/${id}/resources`, { params })
+  const deleteUserResource = (id: number) => useApiFetch(`/user-resources/${id}`, { method: 'DELETE' }).then(parseApiResponse)
+  const updateUserUploadStatus = (id: number, uploadDisabled: boolean) => useApiFetch(`/users/${id}/upload-status`, { method: 'PUT', body: { upload_disabled: uploadDisabled } }).then(parseApiResponse)
+  return { getUsers, getUser, createUser, updateUser, deleteUser, changePassword, getUserResources, deleteUserResource, updateUserUploadStatus }
 } 
 
 // 公开获取系统配置API

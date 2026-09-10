@@ -8,14 +8,15 @@ import (
 // ToUserResponse 将User实体转换为UserResponse
 func ToUserResponse(user *entity.User) dto.UserResponse {
 	return dto.UserResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		Role:      user.Role,
-		IsActive:  user.IsActive,
-		LastLogin: user.LastLogin,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		ID:             user.ID,
+		Username:       user.Username,
+		Email:          user.Email,
+		Role:           user.Role,
+		IsActive:       user.IsActive,
+		UploadDisabled: user.UploadDisabled,
+		LastLogin:      user.LastLogin,
+		CreatedAt:      user.CreatedAt,
+		UpdatedAt:      user.UpdatedAt,
 	}
 }
 

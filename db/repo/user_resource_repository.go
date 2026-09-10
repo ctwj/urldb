@@ -22,6 +22,8 @@ type UserResourceRepository interface {
 	ListByUser(userID uint, page, pageSize int, status, keyword string) ([]*entity.UserResource, int64, error)
 	// GetStatsByUser 五态计数（前端统计卡）
 	GetStatsByUser(userID uint) (stats map[string]int64, err error)
+	// CountGroupByUser 全表按用户分组计数（管理端用户列表展示上传资源数）
+	CountGroupByUser() (counts map[uint]int64, err error)
 }
 
 // UserResourceRepositoryImpl 用户上传资源Repository实现
@@ -118,4 +120,26 @@ func (r *UserResourceRepositoryImpl) GetStatsByUser(userID uint) (map[string]int
 	}
 	stats["total"] = total
 	return stats, nil
+}
+
+// CountGroupByUser 全表按用户分组计数（管理端用户列表展示上传资源数）
+func (r *UserResourceRepositoryImpl) CountGroupByUser() (map[uint]int64, error) {
+	type userCount struct {
+		UserID uint  `json:"user_id"`
+		Count  int64 `json:"count"`
+	}
+	var rows []userCount
+	err := r.GetDB().Model(&entity.UserResource{}).
+		Select("user_id, COUNT(*) as count").
+		Group("user_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[uint]int64, len(rows))
+	for _, row := range rows {
+		counts[row.UserID] = row.Count
+	}
+	return counts, nil
 }

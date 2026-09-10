@@ -65,6 +65,7 @@
           :bordered="false"
           :single-line="false"
           :loading="loading"
+          :scroll-x="1200"
           @update:page="handlePageChange"
         />
       </div>
@@ -199,6 +200,47 @@
         </div>
       </template>
     </n-modal>
+
+    <!-- 用户上传资源列表模态框（管理员） -->
+    <n-modal v-model:show="showResourcesModal" preset="card" :title="`用户「${resourcesUser?.username}」的上传资源`" style="width: 960px">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <n-select
+            v-model:value="resourceStatus"
+            :options="resourceStatusOptions"
+            placeholder="状态筛选"
+            clearable
+            style="width: 150px"
+            @update:value="() => { resourcePage = 1; fetchUserResources() }"
+          />
+          <span class="text-sm text-gray-500">共 {{ resourceTotal }} 条</span>
+        </div>
+        <n-button size="small" @click="fetchUserResources">
+          <template #icon>
+            <i class="fas fa-refresh"></i>
+          </template>
+          刷新
+        </n-button>
+      </div>
+
+      <n-data-table
+        :columns="resourceColumns"
+        :data="resourceList"
+        :loading="resourcesLoading"
+        :bordered="false"
+        size="small"
+        :row-key="(row: any) => row.id"
+      />
+
+      <div class="mt-3 flex justify-center">
+        <n-pagination
+          v-model:page="resourcePage"
+          :item-count="resourceTotal"
+          :page-size="resourcePageSize"
+          @update:page="fetchUserResources"
+        />
+      </div>
+    </n-modal>
 </template>
 
 <script setup lang="ts">
@@ -215,9 +257,21 @@ interface User {
   email: string
   role: string
   is_active: boolean
+  upload_disabled: boolean
+  resource_count?: number
   last_login?: string
   created_at: string
   updated_at: string
+}
+
+// 用户上传资源（管理弹窗）
+interface UserResourceItem {
+  id: number
+  title: string
+  url: string
+  status: string
+  fail_reason?: string
+  created_at: string
 }
 
 const notification = useNotification()
@@ -323,6 +377,8 @@ const columns = [
   {
     title: '用户名',
     key: 'username',
+    ellipsis: { tooltip: true },
+    width: 140,
     render: (row: User) => {
       return h('span', { title: row.username }, row.username)
     }
@@ -330,6 +386,8 @@ const columns = [
   {
     title: '邮箱',
     key: 'email',
+    ellipsis: { tooltip: true },
+    width: 200,
     render: (row: User) => {
       return h('span', { title: row.email }, row.email)
     }
@@ -353,7 +411,27 @@ const columns = [
       const statusClass = row.is_active
         ? 'px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
         : 'px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-      return h('span', { class: statusClass }, row.is_active ? '激活' : '禁用')
+      return h('div', { class: 'flex flex-col gap-1 items-start' }, [
+        h('span', { class: statusClass }, row.is_active ? '激活' : '禁用'),
+        row.upload_disabled
+          ? h('span', { class: 'px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' }, '禁传')
+          : null
+      ])
+    }
+  },
+  {
+    title: '上传资源',
+    key: 'resource_count',
+    width: 100,
+    render: (row: User) => {
+      return h('button', {
+        class: 'px-2 py-1 text-xs bg-cyan-100 hover:bg-cyan-200 text-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-400 rounded transition-colors',
+        onClick: () => openResourcesModal(row),
+        title: `查看 ${row.username} 上传的资源列表`
+      }, [
+        h('i', { class: 'fas fa-cloud-upload-alt mr-1' }),
+        String(row.resource_count ?? 0)
+      ])
     }
   },
   {
@@ -367,7 +445,7 @@ const columns = [
   {
     title: '操作',
     key: 'actions',
-    width: 200,
+    width: 260,
     render: (row: User) => {
       return h('div', { class: 'flex items-center gap-2' }, [
         h('button', {
@@ -384,6 +462,16 @@ const columns = [
         }, [
           h('i', { class: 'fas fa-key mr-1' }),
           '修改密码'
+        ]),
+        h('button', {
+          class: row.upload_disabled
+            ? 'px-2 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded transition-colors'
+            : 'px-2 py-1 text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 rounded transition-colors',
+          onClick: () => toggleUploadDisabled(row),
+          title: row.upload_disabled ? '恢复该用户上传资源的权限' : '禁止该用户上传资源'
+        }, [
+          h('i', { class: 'fas fa-ban mr-1' }),
+          row.upload_disabled ? '解禁上传' : '禁止上传'
         ]),
         h('button', {
           class: 'px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:text-red-400 rounded transition-colors',
@@ -599,6 +687,155 @@ onMounted(() => {
 })
 
 
+
+// ===== 用户上传资源管理 =====
+
+// 上传资源状态选项（对齐后端五态）
+const resourceStatusOptions = [
+  { label: '未检测', value: 'pending' },
+  { label: '有效', value: 'valid' },
+  { label: '无效', value: 'invalid' },
+  { label: '处理中', value: 'processing' },
+  { label: '已公开', value: 'published' }
+]
+
+const statusLabel = (status: string) => resourceStatusOptions.find(o => o.value === status)?.label || status
+const statusBadgeClass = (status: string) => {
+  const map: Record<string, string> = {
+    pending: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400',
+    valid: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
+    invalid: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
+    processing: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
+    published: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+  }
+  return `px-2 py-1 text-xs font-medium rounded-full ${map[status] || map.pending}`
+}
+
+const showResourcesModal = ref(false)
+const resourcesUser = ref<User | null>(null)
+const resourceList = ref<UserResourceItem[]>([])
+const resourceTotal = ref(0)
+const resourcePage = ref(1)
+const resourcePageSize = 10
+const resourceStatus = ref<string | null>(null)
+const resourcesLoading = ref(false)
+
+// 打开用户上传资源弹窗
+const openResourcesModal = (user: User) => {
+  resourcesUser.value = user
+  resourcePage.value = 1
+  resourceStatus.value = null
+  showResourcesModal.value = true
+  fetchUserResources()
+}
+
+// 拉取该用户的上传资源列表
+// 注意：getUserResources 返回原始响应（data.list 形状会被 parseApiResponse 退化为数组丢失 total），这里手动解包 data
+const fetchUserResources = async () => {
+  if (!resourcesUser.value) return
+  resourcesLoading.value = true
+  try {
+    const params: any = { page: resourcePage.value, page_size: resourcePageSize }
+    if (resourceStatus.value) params.status = resourceStatus.value
+    const res = await userApi.getUserResources(resourcesUser.value.id, params) as any
+    const payload = res?.data || {}
+    resourceList.value = payload.list || []
+    resourceTotal.value = payload.total || 0
+  } catch (error) {
+    resourceList.value = []
+    resourceTotal.value = 0
+    notification.error({ content: '获取资源列表失败', duration: 3000 })
+  } finally {
+    resourcesLoading.value = false
+  }
+}
+
+// 管理员删除用户资源
+const deleteUserResource = (row: UserResourceItem) => {
+  dialog.warning({
+    title: '警告',
+    content: `确定删除资源「${row.title}」吗？若该资源已发布为公共资源，公共池不受影响。`,
+    positiveText: '确定',
+    negativeText: '取消',
+    draggable: true,
+    onPositiveClick: async () => {
+      try {
+        await userApi.deleteUserResource(row.id)
+        notification.success({ content: '删除成功', duration: 3000 })
+        fetchUserResources()
+        fetchData() // 同步刷新列表中的上传数
+      } catch (error) {
+        notification.error({ content: '删除失败', duration: 3000 })
+      }
+    }
+  })
+}
+
+// 禁止/恢复上传权限
+const toggleUploadDisabled = async (row: User) => {
+  try {
+    await userApi.updateUserUploadStatus(row.id, !row.upload_disabled)
+    notification.success({
+      content: row.upload_disabled ? '已恢复该用户上传权限' : '已禁止该用户上传资源',
+      duration: 3000
+    })
+    fetchData()
+  } catch (error) {
+    notification.error({ content: '操作失败', duration: 3000 })
+  }
+}
+
+// 上传资源弹窗表格列
+const resourceColumns = [
+  { title: 'ID', key: 'id', width: 60, render: (row: UserResourceItem) => h('span', { class: 'font-medium' }, row.id) },
+  {
+    title: '标题',
+    key: 'title',
+    ellipsis: { tooltip: true },
+    render: (row: UserResourceItem) => h('span', { title: row.title, class: 'cursor-help' }, row.title)
+  },
+  {
+    title: '链接',
+    key: 'url',
+    width: 180,
+    ellipsis: { tooltip: true },
+    render: (row: UserResourceItem) => h('span', { title: row.url, class: 'text-gray-500 cursor-help' }, row.url)
+  },
+  {
+    title: '状态',
+    key: 'status',
+    width: 90,
+    render: (row: UserResourceItem) => h('span', { class: statusBadgeClass(row.status) }, statusLabel(row.status))
+  },
+  {
+    title: '失败原因',
+    key: 'fail_reason',
+    width: 140,
+    ellipsis: { tooltip: true },
+    render: (row: UserResourceItem) => h('span', { title: row.fail_reason || '', class: 'text-gray-500 cursor-help' }, row.fail_reason || '-')
+  },
+  {
+    title: '提交时间',
+    key: 'created_at',
+    width: 160,
+    render: (row: UserResourceItem) => h('span', { class: 'text-gray-500' }, formatDate(row.created_at))
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 80,
+    render: (row: UserResourceItem) => {
+      return h('button', {
+        class: 'px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:text-red-400 rounded transition-colors',
+        onClick: () => deleteUserResource(row),
+        title: '删除该上传记录'
+      }, [
+        h('i', { class: 'fas fa-trash mr-1' }),
+        '删除'
+      ])
+    }
+  }
+]
 
 // 计算属性
 const showModal = computed({

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	panutils "github.com/ctwj/urldb/common"
 	"github.com/ctwj/urldb/db/entity"
@@ -190,6 +191,80 @@ func DeleteUserResource(c *gin.Context) {
 	SuccessResponse(c, nil)
 }
 
+// AdminGetUserResources 管理员查看指定用户的上传资源列表（分页 + 状态/关键词过滤，复用 ListByUser）
+func AdminGetUserResources(c *gin.Context) {
+	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的用户ID", http.StatusBadRequest)
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
+	status := c.Query("status")
+	keyword := c.Query("keyword")
+
+	list, total, err := repoManager.UserResourceRepository.ListByUser(uint(userID), page, pageSize, status, keyword)
+	if err != nil {
+		utils.Error("AdminGetUserResources - 查询失败: user_id=%d, %v", userID, err)
+		ErrorResponse(c, "获取资源列表失败", http.StatusInternalServerError)
+		return
+	}
+
+	stats, err := repoManager.UserResourceRepository.GetStatsByUser(uint(userID))
+	if err != nil {
+		utils.Error("AdminGetUserResources - 统计失败: user_id=%d, %v", userID, err)
+		stats = map[string]int64{}
+	}
+
+	SuccessResponse(c, gin.H{
+		"list":      list,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+		"stats":     stats,
+	})
+}
+
+// AdminDeleteUserResource 管理员删除任意用户的上传资源（不影响已发布的公共池资源）
+func AdminDeleteUserResource(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的资源ID", http.StatusBadRequest)
+		return
+	}
+
+	ur, err := repoManager.UserResourceRepository.FindByID(uint(id))
+	if err != nil {
+		ErrorResponse(c, "资源不存在", http.StatusNotFound)
+		return
+	}
+
+	adminUsername, _ := c.Get("username")
+	utils.Info("AdminDeleteUserResource - 管理员删除用户资源 - 管理员: %s, 用户资源ID: %d, 归属用户ID: %d, 状态: %s", adminUsername, id, ur.UserID, ur.Status)
+
+	// processing 状态：尽力移除仍在队列中的来源记录（与用户自删语义一致）
+	if ur.Status == entity.UserResourceStatusProcessing {
+		if _, err := repoManager.ReadyResourceRepository.DeleteByUserResourceID(ur.ID); err != nil {
+			utils.Warn("AdminDeleteUserResource - 移除队列记录失败（忽略）: id=%d, %v", ur.ID, err)
+		}
+	}
+
+	if err := repoManager.UserResourceRepository.Delete(ur.ID); err != nil {
+		utils.Error("AdminDeleteUserResource - 删除失败: %v", err)
+		ErrorResponse(c, "删除失败", http.StatusInternalServerError)
+		return
+	}
+
+	SuccessResponse(c, nil)
+}
+
 // BatchSubmitUserResources 批量提交（逐条处理、逐条返回结果，FR-010；单次上限与整体拒绝语义见契约 §2）
 func BatchSubmitUserResources(c *gin.Context) {
 	const maxBatchItems = 50
@@ -270,6 +345,16 @@ func BatchSubmitUserResources(c *gin.Context) {
 
 // submitSingleUserResource 单条提交共享逻辑（提交与批量复用，US3）
 func submitSingleUserResource(userID uint, title, description, rawURL string) (*userResourceSubmitResult, error) {
+	// 上传权限校验（管理员可禁止单个用户上传；用户查询异常时放行，鉴权已由 JWT 保证）
+	if user, err := repoManager.UserRepository.FindByID(userID); err == nil && user.UploadDisabled {
+		return nil, &userResourceError{Code: http.StatusForbidden, Message: "账号已被禁止上传资源，如有疑问请联系管理员"}
+	}
+
+	// 违禁词校验（标题+描述，命中即拒绝提交；配置读取失败时跳过，不阻断上传）
+	if forbidden := checkUserUploadForbiddenWords(title, description); len(forbidden) > 0 {
+		return nil, &userResourceError{Code: http.StatusBadRequest, Message: fmt.Sprintf("标题或描述包含违禁词: %s，请修改后重新提交", strings.Join(forbidden, ", "))}
+	}
+
 	// 平台识别（D2：与自动处理通道同一识别入口）
 	shareID, serviceType := panutils.ExtractShareId(rawURL)
 	if serviceType == panutils.NotFound || shareID == "" {
@@ -402,6 +487,27 @@ func enqueueUserResource(ur *entity.UserResource) error {
 	}
 
 	ur.Status = entity.UserResourceStatusProcessing
+	return nil
+}
+
+// checkUserUploadForbiddenWords 校验用户上传的标题/描述是否命中违禁词（复用系统违禁词配置）。
+// 返回命中的违禁词列表（空切片=通过）；配置读取失败时跳过校验并记日志。
+func checkUserUploadForbiddenWords(title, description string) []string {
+	cleanWords, err := utils.GetForbiddenWordsFromConfig(func() (string, error) {
+		return repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyForbiddenWords)
+	})
+	if err != nil {
+		utils.Error("checkUserUploadForbiddenWords - 获取违禁词配置失败（跳过校验）: %v", err)
+		return nil
+	}
+	if len(cleanWords) == 0 {
+		return nil
+	}
+
+	info := utils.CheckResourceForbiddenWords(title, description, cleanWords)
+	if info.HasForbiddenWords {
+		return info.ForbiddenWords
+	}
 	return nil
 }
 

@@ -1,9 +1,10 @@
 <template>
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
+    <div class="flex flex-wrap items-center gap-4">
       <!-- 搜索框（可选） -->
       <n-input
         v-if="config.search"
+        class="flex-1 min-w-[220px]"
         :value="getValue(config.search.key)"
         :placeholder="config.search.placeholder"
         clearable
@@ -19,15 +20,17 @@
       <n-select
         v-for="sel in config.selects"
         :key="sel.key"
+        class="w-[180px] flex-shrink-0"
         :value="getValue(sel.key)"
         :placeholder="sel.placeholder"
         :options="sel.options"
+        :filterable="sel.filterable"
         clearable
         @update:value="(v) => setValue(sel.key, v)"
       />
 
-      <!-- 操作按钮 -->
-      <div class="flex gap-2">
+      <!-- 操作按钮（固定同行右侧，空间不足时才换行） -->
+      <div class="flex gap-2 ml-auto flex-shrink-0">
         <n-button type="primary" @click="emit('search')">
           <template #icon>
             <i class="fas fa-search"></i>
@@ -62,6 +65,8 @@ export interface FilterConfig {
     key: string
     placeholder: string
     options: Array<{ label: string; value: string | number }>
+    /** 开启后可输入关键字过滤选项（n-select filterable），仍只能选择已有选项 */
+    filterable?: boolean
   }>
 }
 

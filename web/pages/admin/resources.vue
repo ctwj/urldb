@@ -147,6 +147,10 @@
                     <i class="fas fa-user mr-1"></i>
                     {{ resource.author }}
                   </span>
+                  <span v-if="resource.submitter" class="text-cyan-600 dark:text-cyan-400" title="上传者（用户上传来源）">
+                    <i class="fas fa-cloud-upload-alt mr-1"></i>
+                    {{ resource.submitter }}
+                  </span>
                   <span v-if="resource.file_size">
                     <i class="fas fa-file mr-1"></i>
                     {{ resource.file_size }}
@@ -365,6 +369,7 @@ const filterValues = ref<Record<string, any>>({
   search: '',
   category: null,
   platform: null,
+  submitter: null,
 })
 
 // 编辑相关
@@ -396,6 +401,18 @@ const editRules = {
 // 分类/平台数据加载
 const { data: categoriesData } = await useAsyncData('resourceCategories', () => categoryApi.getCategories())
 const { data: platformsData } = await useAsyncData('resourcePlatforms', () => panApi.getPans())
+// 上传者数据：/resources/submitters 需要管理员 token，SSR 阶段拿不到会 401 且不会自动重试，
+// 因此改在客户端 onMounted 加载
+const submitterRows = ref<Array<{ submitter: string; count: number }>>([])
+
+const fetchSubmitters = async () => {
+  try {
+    const rows = (await resourceApi.getResourceSubmitters()) as any
+    submitterRows.value = Array.isArray(rows) ? rows : []
+  } catch (err) {
+    submitterRows.value = []
+  }
+}
 
 const categoryOptions = computed(() => {
   const data = categoriesData.value as any
@@ -414,12 +431,20 @@ const platformOptions = computed(() => {
   }))
 })
 
+// 上传者下拉选项：仅用户上传 + 各上传者（带计数）；特殊值 __user_only__ 表示 submitter 非空
+const USER_ONLY_FILTER = '__user_only__'
+const submitterOptions = computed(() => [
+  { label: '仅用户上传', value: USER_ONLY_FILTER },
+  ...submitterRows.value.map((row) => ({ label: `${row.submitter}（${row.count}）`, value: row.submitter })),
+])
+
 // 筛选栏配置（声明式）
 const filterConfig = computed<FilterConfig>(() => ({
   search: { placeholder: '搜索资源...', key: 'search' },
   selects: [
     { key: 'category', placeholder: '选择分类', options: categoryOptions.value },
     { key: 'platform', placeholder: '选择平台', options: platformOptions.value },
+    { key: 'submitter', placeholder: '上传者（可输入过滤）', options: submitterOptions.value, filterable: true },
   ],
 }))
 
@@ -516,6 +541,14 @@ const fetchData = async () => {
     }
     if (filterValues.value.category) params.category_id = filterValues.value.category
     if (filterValues.value.platform) params.pan_id = filterValues.value.platform
+    if (filterValues.value.submitter) {
+      // 上传者过滤：特殊值=仅用户上传（submitter 非空），其余按用户名精确匹配
+      if (filterValues.value.submitter === USER_ONLY_FILTER) {
+        params.has_submitter = true
+      } else {
+        params.submitter = filterValues.value.submitter
+      }
+    }
 
     const response = (await resourceApi.getResources(params)) as any
     if (response && response.data) {
@@ -694,6 +727,7 @@ onMounted(async () => {
   userStore.initAuth()
   const { options } = await loadTagOptions('', 1, tagPagination.pageSize)
   tagOptions.value = options
+  fetchSubmitters()
   fetchData()
 })
 </script>

@@ -397,6 +397,7 @@ func main() {
 		// 资源管理
 		api.GET("/resources", handlers.GetResources)
 		api.GET("/resources/hot", handlers.GetHotResources)
+		api.GET("/resources/submitters", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetResourceSubmitters)
 		api.POST("/resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.CreateResource)
 		api.PUT("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateResource)
 		api.DELETE("/resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteResource)
@@ -473,6 +474,10 @@ func main() {
 		api.PUT("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateUser)
 		api.PUT("/users/:id/password", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.ChangePassword)
 		api.DELETE("/users/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.DeleteUser)
+		// 用户上传资源管理（管理员）
+		api.GET("/users/:id/resources", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.AdminGetUserResources)
+		api.DELETE("/user-resources/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.AdminDeleteUserResource)
+		api.PUT("/users/:id/upload-status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.UpdateUserUploadStatus)
 
 		// API 申请审核与凭证管理（016-api-access-application，管理员）
 		api.GET("/admin/api-applications/stats", middleware.AuthMiddleware(), middleware.AdminMiddleware(), handlers.GetApiApplicationStats)

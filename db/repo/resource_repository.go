@@ -54,6 +54,8 @@ type ResourceRepository interface {
 	FindFailedResourceMetaByKey(key string) (*FailedResourceMeta, error)
 	MarkAsSyncedToMeilisearch(ids []uint) error
 	MarkAllAsUnsyncedToMeilisearch() error
+	// ListSubmitters 资源表中出现过的上传者及计数（管理端资源筛选下拉）
+	ListSubmitters() ([]SubmitterCount, error)
 	FindAllWithPagination(page, limit int) ([]entity.Resource, int64, error)
 	GetRandomResourceWithFilters(categoryFilter, tagFilter string, isPushSavedInfo bool) (*entity.Resource, error)
 	DeleteRelatedResources(ckID uint) (int64, error)
@@ -291,6 +293,18 @@ func (r *ResourceRepositoryImpl) SearchWithFilters(params map[string]interface{}
 		case "pan_id": // 添加pan_id参数支持
 			if panID, ok := value.(uint); ok {
 				db = db.Where("pan_id = ?", panID)
+			}
+		case "submitter": // 按上传者用户名过滤（管理端资源列表，冗余字段模糊匹配）
+			if submitter, ok := value.(string); ok && submitter != "" {
+				db = db.Where("submitter ILIKE ?", "%"+submitter+"%")
+			}
+		case "has_submitter": // 仅看用户上传/非用户上传（管理端资源列表）
+			if hasSubmitter, ok := value.(bool); ok {
+				if hasSubmitter {
+					db = db.Where("submitter IS NOT NULL AND submitter != ''")
+				} else {
+					db = db.Where("(submitter IS NULL OR submitter = '')")
+				}
 			}
 		case "is_valid":
 			if isValid, ok := value.(bool); ok {
@@ -641,6 +655,24 @@ func (r *ResourceRepositoryImpl) MarkAllAsUnsyncedToMeilisearch() error {
 			"synced_to_meilisearch": false,
 			"synced_at":             nil,
 		}).Error
+}
+
+// SubmitterCount 上传者计数行（管理端资源筛选下拉）
+type SubmitterCount struct {
+	Submitter string `json:"submitter"`
+	Count     int64  `json:"count"`
+}
+
+// ListSubmitters 资源表中出现过的上传者及计数（管理端资源筛选下拉）
+func (r *ResourceRepositoryImpl) ListSubmitters() ([]SubmitterCount, error) {
+	var rows []SubmitterCount
+	err := r.db.Model(&entity.Resource{}).
+		Select("submitter, COUNT(*) as count").
+		Where("submitter IS NOT NULL AND submitter != ''").
+		Group("submitter").
+		Order("count DESC").
+		Scan(&rows).Error
+	return rows, err
 }
 
 // FindSyncedToMeilisearch 查找已同步到Meilisearch的资源

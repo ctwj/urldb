@@ -32,6 +32,11 @@ type UpdateUserRequest struct {
 	IsActive bool   `json:"is_active"`
 }
 
+// UpdateUserUploadStatusRequest 设置用户上传权限（管理员）
+type UpdateUserUploadStatusRequest struct {
+	UploadDisabled bool `json:"upload_disabled"`
+}
+
 // ChangePasswordRequest 修改密码请求
 type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required,min=6"`
@@ -50,6 +55,10 @@ type UserResponse struct {
 	Email     string     `json:"email"`
 	Role      string     `json:"role"`
 	IsActive  bool       `json:"is_active"`
+	// UploadDisabled 是否被禁止上传资源（管理员设置）
+	UploadDisabled bool `json:"upload_disabled"`
+	// ResourceCount 上传资源数（仅管理端用户列表填充；omitempty 避免登录等接口携带多余字段）
+	ResourceCount int64 `json:"resource_count,omitempty"`
 	LastLogin *time.Time `json:"last_login"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`

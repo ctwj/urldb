@@ -142,6 +142,16 @@ func GetUsers(c *gin.Context) {
 	}
 
 	responses := converter.ToUserResponseList(users)
+
+	// 附加每用户上传资源数（查询失败不影响列表，仅缺该字段）
+	if countMap, cerr := repoManager.UserResourceRepository.CountGroupByUser(); cerr == nil {
+		for i := range responses {
+			responses[i].ResourceCount = countMap[responses[i].ID]
+		}
+	} else {
+		utils.Error("GetUsers - 统计用户上传资源数失败（忽略）: %v", cerr)
+	}
+
 	SuccessResponse(c, responses)
 }
 
@@ -261,6 +271,50 @@ func UpdateUser(c *gin.Context) {
 	utils.Info("UpdateUser - 用户更新成功 - 管理员: %s, 用户ID: %d, 更新前: %s, 更新后: %s, IP: %s", adminUsername, id, oldInfo, newInfo, clientIP)
 
 	SuccessResponse(c, gin.H{"message": "用户更新成功"})
+}
+
+// UpdateUserUploadStatus 设置用户上传权限（管理员）
+// POST {upload_disabled: true} 禁止该用户上传资源；false 解除禁止
+func UpdateUserUploadStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ErrorResponse(c, "无效的ID", http.StatusBadRequest)
+		return
+	}
+
+	var req dto.UpdateUserUploadStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	adminUsername, _ := c.Get("username")
+	clientIP, _ := c.Get("client_ip")
+	utils.Info("UpdateUserUploadStatus - 管理员设置上传权限 - 管理员: %s, 目标用户ID: %d, upload_disabled: %t, IP: %s", adminUsername, id, req.UploadDisabled, clientIP)
+
+	user, err := repoManager.UserRepository.FindByID(uint(id))
+	if err != nil {
+		utils.Warn("UpdateUserUploadStatus - 目标用户不存在 - 管理员: %s, 用户ID: %d, IP: %s", adminUsername, id, clientIP)
+		ErrorResponse(c, "用户不存在", http.StatusNotFound)
+		return
+	}
+
+	user.UploadDisabled = req.UploadDisabled
+	if err := repoManager.UserRepository.Update(user); err != nil {
+		utils.Error("UpdateUserUploadStatus - 更新失败 - 管理员: %s, 用户ID: %d, IP: %s, Error: %v", adminUsername, id, clientIP, err)
+		ErrorResponse(c, "设置失败", http.StatusInternalServerError)
+		return
+	}
+
+	utils.Info("UpdateUserUploadStatus - 设置成功 - 管理员: %s, 用户: %s(ID:%d), upload_disabled: %t, IP: %s", adminUsername, user.Username, id, req.UploadDisabled, clientIP)
+
+	message := "已恢复该用户上传权限"
+	if req.UploadDisabled {
+		message = "已禁止该用户上传资源"
+	}
+
+	SuccessResponse(c, gin.H{"message": message})
 }
 
 // ChangePassword 修改用户密码（管理员）

@@ -15,6 +15,7 @@ type User struct {
 	EmailVerified bool          `json:"email_verified" gorm:"default:false;comment:邮箱是否已认证"`
 	Role         string         `json:"role" gorm:"size:20;default:'user';comment:角色"`
 	IsActive  bool           `json:"is_active" gorm:"default:true;comment:是否激活"`
+	UploadDisabled bool      `json:"upload_disabled" gorm:"default:false;comment:禁止上传资源(管理员设置)"`
 	LastLogin *time.Time     `json:"last_login" gorm:"comment:最后登录时间"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
