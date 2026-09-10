@@ -23,6 +23,8 @@ var (
 	globalLinkCheckService services.LinkCheckService
 	// 全局用户上传资源仓储（015-user-resource-upload：scheduler 回写用户资源状态）
 	globalUserResourceRepo repo.UserResourceRepository
+	// 全局用户仓储（用户上传来源发布时冗余提交者用户名到公开资源）
+	globalUserRepo repo.UserRepository
 	// 全局 API 凭证仓储（016-api-access-application：到期提醒任务）
 	globalApiCredentialRepo repo.ApiCredentialRepository
 )
@@ -65,6 +67,16 @@ func SetGlobalUserResourceRepo(r repo.UserResourceRepository) {
 // GetGlobalUserResourceRepo 获取全局用户上传资源仓储
 func GetGlobalUserResourceRepo() repo.UserResourceRepository {
 	return globalUserResourceRepo
+}
+
+// SetGlobalUserRepo 设置全局用户仓储
+func SetGlobalUserRepo(r repo.UserRepository) {
+	globalUserRepo = r
+}
+
+// GetGlobalUserRepo 获取全局用户仓储
+func GetGlobalUserRepo() repo.UserRepository {
+	return globalUserRepo
 }
 
 // GetGlobalScheduler 获取全局调度器实例（单例模式）

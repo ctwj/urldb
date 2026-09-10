@@ -30,6 +30,7 @@ type ResourceResponse struct {
 	Tags                []TagResponse `json:"tags"`
 	Cover               string        `json:"cover"`
 	Author              string        `json:"author"`
+	Submitter           string        `json:"submitter"`
 	ErrorMsg            string        `json:"error_msg"`
 	SyncedToMeilisearch bool          `json:"synced_to_meilisearch"`
 	SyncedAt            *time.Time    `json:"synced_at"`

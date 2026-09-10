@@ -190,6 +190,16 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 
 	utils.Debug(fmt.Sprintf("检测到服务类型: %s, 分享ID: %s", serviceType.String(), shareID))
 
+	// 队列项未携带 Key 时兜底生成（文本导入等来源/历史队列残留），
+	// 避免公开资源 key 为空导致详情链接 /r/ 缺参
+	if readyResource.Key == "" {
+		if key, err := r.readyResourceRepo.GenerateUniqueKey(); err == nil {
+			readyResource.Key = key
+		} else {
+			utils.Error(fmt.Sprintf("生成资源组标识失败（继续以空key入库）: URL=%s: %v", readyResource.URL, err))
+		}
+	}
+
 	resource := &entity.Resource{
 		Title:       derefString(readyResource.Title),
 		Description: readyResource.Description,
@@ -199,6 +209,11 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 		IsPublic:    true,
 		Key:         readyResource.Key,
 		PanID:       r.getPanIDByServiceType(serviceType),
+	}
+
+	// 用户上传来源：冗余提交者用户名到公开资源（查询展示用，失败不阻断入库）
+	if username := r.resolveSubmitterUsername(readyResource); username != "" {
+		resource.Submitter = username
 	}
 
 	// 检查违禁词
@@ -316,6 +331,42 @@ func (r *ReadyResourceScheduler) convertReadyResourceToResource(readyResource en
 	}
 
 	return resource, nil
+}
+
+// resolveSubmitterUsername 从队列项解析提交者用户名，用于发布时冗余到公开资源。
+// 仅 Source=="user_upload" 且 Extra 携带 user_resource_id 的记录有效；
+// 任一环节失败仅记日志返回空串，不阻断资源入库。
+func (r *ReadyResourceScheduler) resolveSubmitterUsername(ready entity.ReadyResource) string {
+	if ready.Source != "user_upload" || ready.Extra == "" {
+		return ""
+	}
+
+	userResourceRepo := GetGlobalUserResourceRepo()
+	userRepo := GetGlobalUserRepo()
+	if userResourceRepo == nil || userRepo == nil {
+		utils.Warn(fmt.Sprintf("[user_upload] 未注入用户相关仓储，跳过提交者冗余: %s", ready.URL))
+		return ""
+	}
+
+	id64, err := strconv.ParseUint(ready.Extra, 10, 32)
+	if err != nil {
+		utils.Warn(fmt.Sprintf("[user_upload] Extra 不是合法的 user_resource_id，跳过提交者冗余: %s (Extra: %s)", ready.URL, ready.Extra))
+		return ""
+	}
+
+	ur, err := userResourceRepo.FindByID(uint(id64))
+	if err != nil {
+		utils.Warn(fmt.Sprintf("[user_upload] 查询用户资源失败，跳过提交者冗余: id=%d: %v", id64, err))
+		return ""
+	}
+
+	user, err := userRepo.FindByID(ur.UserID)
+	if err != nil {
+		utils.Warn(fmt.Sprintf("[user_upload] 查询提交者失败，跳过提交者冗余: user_id=%d: %v", ur.UserID, err))
+		return ""
+	}
+
+	return user.Username
 }
 
 // finalizeUserResource 用户上传来源的队列项处理完成后回写状态（015-user-resource-upload D4）。

@@ -24,6 +24,7 @@ type MeilisearchDocument struct {
 	PanName     string    `json:"pan_name"`
 	PanID       *uint     `json:"pan_id"`
 	Author      string    `json:"author"`
+	Submitter   string    `json:"submitter"`
 	Cover       string    `json:"cover"`
 	IsValid     bool      `json:"is_valid"`
 	CreatedAt   time.Time `json:"created_at"`

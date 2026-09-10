@@ -136,7 +136,7 @@
                 </div>
 
                 <!-- 基本信息 -->
-                <div v-if="mainResource?.file_size || mainResource?.author" class="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
+                <div v-if="mainResource?.file_size || mainResource?.author || mainResource?.submitter" class="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
                   <span v-if="mainResource?.file_size" class="flex items-center gap-1">
                     <i class="fas fa-file text-purple-500"></i>
                     {{ mainResource.file_size }}
@@ -144,6 +144,10 @@
                   <span v-if="mainResource?.author" class="flex items-center gap-1">
                     <i class="fas fa-user text-orange-500"></i>
                     {{ mainResource.author }}
+                  </span>
+                  <span v-if="mainResource?.submitter" class="flex items-center gap-1">
+                    <i class="fas fa-cloud-upload-alt text-cyan-500"></i>
+                    上传者: {{ mainResource.submitter }}
                   </span>
                 </div>
               </div>

@@ -28,6 +28,7 @@ func ToResourceResponse(resource *entity.Resource) dto.ResourceResponse {
 		UpdatedAt:           resource.UpdatedAt,
 		Cover:               resource.Cover,
 		Author:              resource.Author,
+		Submitter:           resource.Submitter,
 		ErrorMsg:            resource.ErrorMsg,
 		SyncedToMeilisearch: resource.SyncedToMeilisearch,
 		SyncedAt:            resource.SyncedAt,
@@ -109,6 +110,9 @@ func ToResourceResponseFromMeilisearch(doc interface{}) dto.ResourceResponse {
 	}
 	if authorField := docValue.FieldByName("Author"); authorField.IsValid() {
 		response.Author = authorField.String()
+	}
+	if submitterField := docValue.FieldByName("Submitter"); submitterField.IsValid() {
+		response.Submitter = submitterField.String()
 	}
 	if createdAtField := docValue.FieldByName("CreatedAt"); createdAtField.IsValid() {
 		response.CreatedAt = createdAtField.Interface().(time.Time)

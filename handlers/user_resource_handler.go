@@ -383,12 +383,19 @@ func enqueueUserResource(ur *entity.UserResource) error {
 	panID := resolvePanID(ur.URL)
 	ur.PanID = panID
 
+	// 生成资源组标识（与批量添加/公共API路径对齐；缺失会导致公开资源 key 为空、详情链接 /r/ 缺参）
+	key, err := repoManager.ReadyResourceRepository.GenerateUniqueKey()
+	if err != nil {
+		return fmt.Errorf("生成资源组标识失败: %w", err)
+	}
+
 	ready := &entity.ReadyResource{
 		Title:       &ur.Title,
 		Description: ur.Description,
 		URL:         ur.URL,
 		Source:      "user_upload",
 		Extra:       fmt.Sprintf("%d", ur.ID),
+		Key:         key,
 	}
 	if err := repoManager.ReadyResourceRepository.Create(ready); err != nil {
 		return err

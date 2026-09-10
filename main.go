@@ -242,6 +242,9 @@ func main() {
 	// 注入用户上传资源仓储（015-user-resource-upload：scheduler 处理完成后回写状态）
 	scheduler.SetGlobalUserResourceRepo(repoManager.UserResourceRepository)
 
+	// 注入用户仓储（用户上传来源发布时冗余提交者用户名到公开资源）
+	scheduler.SetGlobalUserRepo(repoManager.UserRepository)
+
 	// 注入 API 凭证仓储（016-api-access-application：到期提醒任务使用）
 	scheduler.SetGlobalApiCredentialRepo(repoManager.ApiCredentialRepository)
 

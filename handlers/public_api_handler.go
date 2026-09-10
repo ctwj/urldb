@@ -288,6 +288,8 @@ func (h *PublicAPIHandler) SearchResources(c *gin.Context) {
 						FileSize:    doc.FileSize,
 						Key:         doc.Key,
 						PanID:       doc.PanID,
+						Author:      doc.Author,
+						Submitter:   doc.Submitter,
 						Cover:       doc.Cover,
 						CreatedAt:   doc.CreatedAt,
 						UpdatedAt:   doc.UpdatedAt,

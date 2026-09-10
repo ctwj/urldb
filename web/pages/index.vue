@@ -200,7 +200,12 @@
               <p v-if="resource.description_highlight || resource.description" class="text-xs text-gray-500 dark:text-slate-400 mt-1 line-clamp-2 break-words" v-html="resource.description_highlight || resource.description"></p>
               <div class="flex items-center justify-between mt-1.5">
                 <span class="text-xs text-gray-400 dark:text-slate-500" v-html="formatRelativeTime(resource.updated_at)"></span>
-                <span class="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1"><i class="fas fa-eye" aria-hidden="true"></i>详情</span>
+                <div class="flex items-center gap-2 min-w-0">
+                  <span v-if="resource.submitter" class="text-xs text-cyan-600 dark:text-cyan-400 flex items-center gap-1 truncate" :title="`上传者: ${resource.submitter}`">
+                    <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>{{ resource.submitter }}
+                  </span>
+                  <span class="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 flex-shrink-0"><i class="fas fa-eye" aria-hidden="true"></i>详情</span>
+                </div>
               </div>
             </div>
           </article>
@@ -305,6 +310,11 @@
                     </div>
                     <!-- 显示描述 -->
                     <div v-if="resource.description_highlight || resource.description" class="text-xs text-gray-600 dark:text-slate-400 mt-1 break-words line-clamp-2" v-html="resource.description_highlight || resource.description">
+                    </div>
+                    <!-- 显示上传者 -->
+                    <div v-if="resource.submitter" class="mt-1 text-xs text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
+                      <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>
+                      <span>上传者: {{ resource.submitter }}</span>
                     </div>
                   </div>
                 </div>
