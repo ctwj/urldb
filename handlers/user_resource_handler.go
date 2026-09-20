@@ -345,6 +345,12 @@ func BatchSubmitUserResources(c *gin.Context) {
 
 // submitSingleUserResource 单条提交共享逻辑（提交与批量复用，US3）
 func submitSingleUserResource(userID uint, title, description, rawURL string) (*userResourceSubmitResult, error) {
+	// 标题必填（批量提交不再自动生成「批量资源」标题；同时兜底单条提交的纯空白标题）
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil, &userResourceError{Code: http.StatusBadRequest, Message: "资源标题不能为空，请按「资源标题|分享链接」格式提交"}
+	}
+
 	// 上传权限校验（管理员可禁止单个用户上传；用户查询异常时放行，鉴权已由 JWT 保证）
 	if user, err := repoManager.UserRepository.FindByID(userID); err == nil && user.UploadDisabled {
 		return nil, &userResourceError{Code: http.StatusForbidden, Message: "账号已被禁止上传资源，如有疑问请联系管理员"}

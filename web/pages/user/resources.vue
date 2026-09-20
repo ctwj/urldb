@@ -198,7 +198,7 @@
           </span>
           <div>
             <p class="font-semibold text-gray-900 dark:text-white leading-tight">批量提交资源</p>
-            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">每行一条，逐条检测并返回结果</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">每行一条「资源标题|分享链接」，逐条检测并返回结果</p>
           </div>
         </div>
       </template>
@@ -207,20 +207,32 @@
         v-model:value="batchText"
         type="textarea"
         :rows="8"
-        placeholder="资源标题|https://pan.quark.cn/s/xxxxx&#10;https://pan.baidu.com/s/xxxxx"
+        placeholder="资源标题|https://pan.quark.cn/s/xxxxx&#10;资源标题|https://pan.baidu.com/s/xxxxx"
       />
-      <div class="flex items-center gap-2 px-3 py-2.5 mt-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 text-xs text-gray-500 dark:text-gray-400">
-        <i class="fas fa-info-circle text-gray-400"></i>
-        <span>支持「标题|链接」格式，空行自动跳过，单次最多 50 条</span>
+      <div class="flex items-start gap-2 px-3 py-2.5 mt-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 text-xs text-gray-500 dark:text-gray-400">
+        <i class="fas fa-info-circle text-gray-400 mt-0.5"></i>
+        <span>每行必须为「资源标题|分享链接」格式，<span class="font-medium text-orange-500">标题必填</span>（缺少标题的行无法提交），空行自动跳过，单次最多 50 条</span>
+      </div>
+      <div
+        v-if="missingTitleCount > 0"
+        class="flex items-start gap-2 px-3 py-2.5 mt-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-xs text-red-600 dark:text-red-400"
+      >
+        <i class="fas fa-exclamation-circle mt-0.5"></i>
+        <span>有 {{ missingTitleCount }} 行缺少标题，请在链接前加上「资源标题|」后再提交</span>
       </div>
 
       <template #footer>
         <div class="flex items-center justify-between">
-          <span class="text-xs text-gray-400">已识别 {{ parsedBatchLines.length }} 条</span>
+          <span class="text-xs text-gray-400">已识别 {{ validBatchLines.length }} 条</span>
           <div class="flex gap-3">
             <n-button @click="showBatchModal = false">取消</n-button>
-            <n-button type="primary" :loading="batchSubmitting" :disabled="parsedBatchLines.length === 0" @click="handleBatchSubmit">
-              提交 {{ parsedBatchLines.length }} 条
+            <n-button
+              type="primary"
+              :loading="batchSubmitting"
+              :disabled="validBatchLines.length === 0 || missingTitleCount > 0"
+              @click="handleBatchSubmit"
+            >
+              提交 {{ validBatchLines.length }} 条
             </n-button>
           </div>
         </div>
@@ -356,6 +368,7 @@ const batchResult = ref<{ results: any[]; successCount: number; failCount: numbe
   failCount: 0
 })
 
+// 批量输入解析：每行必须为「资源标题|分享链接」格式，缺标题的行不允许提交
 const parsedBatchLines = computed(() => {
   return batchText.value
     .split('\n')
@@ -363,12 +376,16 @@ const parsedBatchLines = computed(() => {
     .filter((line) => line.length > 0)
     .map((line) => {
       const sep = line.lastIndexOf('|')
-      if (sep > 0 && sep < line.length - 1) {
-        return { title: line.slice(0, sep).trim(), url: line.slice(sep + 1).trim() }
-      }
-      return { title: `批量资源 ${new Date().toLocaleString('zh-CN')}`, url: line }
+      const title = sep > 0 ? line.slice(0, sep).trim() : ''
+      const url = sep > 0 && sep < line.length - 1 ? line.slice(sep + 1).trim() : line
+      return { title, url, hasTitle: title.length > 0 }
     })
 })
+
+// 格式正确（带标题）的行
+const validBatchLines = computed(() => parsedBatchLines.value.filter((item) => item.hasTitle))
+// 缺少标题的行数
+const missingTitleCount = computed(() => parsedBatchLines.value.length - validBatchLines.value.length)
 
 // 表格列
 const columns = [
@@ -570,7 +587,14 @@ const handleDelete = (row: any) => {
 
 // 批量提交
 const handleBatchSubmit = async () => {
-  const items = parsedBatchLines.value
+  if (missingTitleCount.value > 0) {
+    notification.error({
+      content: `有 ${missingTitleCount.value} 行缺少标题，请按「资源标题|分享链接」格式补充后提交`,
+      duration: 4000
+    })
+    return
+  }
+  const items = validBatchLines.value.map(({ title, url }) => ({ title, url }))
   if (items.length === 0) return
   if (items.length > 50) {
     notification.error({ content: '单次最多提交 50 条', duration: 3000 })
