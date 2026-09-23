@@ -13,6 +13,7 @@ type UserRepository interface {
 	FindByEmail(email string) (*entity.User, error)
 	UpdateLastLogin(id uint) error
 	FindByRole(role string) ([]entity.User, error)
+	FindWithPagination(page, pageSize int) ([]entity.User, int64, error)
 }
 
 // UserRepositoryImpl 用户Repository实现
@@ -58,4 +59,16 @@ func (r *UserRepositoryImpl) FindByRole(role string) ([]entity.User, error) {
 	var users []entity.User
 	err := r.db.Where("role = ?", role).Find(&users).Error
 	return users, err
+}
+
+// FindWithPagination 分页查询用户列表（按 id 升序，与列表页展示顺序一致）
+func (r *UserRepositoryImpl) FindWithPagination(page, pageSize int) ([]entity.User, int64, error) {
+	var users []entity.User
+	var total int64
+	if err := r.db.Model(&entity.User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	offset := (page - 1) * pageSize
+	err := r.db.Order("id ASC").Offset(offset).Limit(pageSize).Find(&users).Error
+	return users, total, err
 }

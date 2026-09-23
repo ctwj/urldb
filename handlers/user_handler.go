@@ -133,9 +133,18 @@ func Register(c *gin.Context) {
 	})
 }
 
-// GetUsers 获取用户列表（管理员）
+// GetUsers 获取用户列表（管理员，分页）
 func GetUsers(c *gin.Context) {
-	users, err := repoManager.UserRepository.FindAll()
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 1000 {
+		pageSize = 20
+	}
+
+	users, total, err := repoManager.UserRepository.FindWithPagination(page, pageSize)
 	if err != nil {
 		ErrorResponse(c, err.Error(), http.StatusInternalServerError)
 		return
@@ -152,7 +161,12 @@ func GetUsers(c *gin.Context) {
 		utils.Error("GetUsers - 统计用户上传资源数失败（忽略）: %v", cerr)
 	}
 
-	SuccessResponse(c, responses)
+	SuccessResponse(c, gin.H{
+		"data":  responses,
+		"total": int(total),
+		"page":  page,
+		"limit": pageSize,
+	})
 }
 
 // CreateUser 创建用户（管理员）
