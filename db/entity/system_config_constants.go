@@ -21,6 +21,9 @@ const (
 	// API配置
 	ConfigKeyApiToken = "api_token"
 
+	// 安全配置
+	ConfigKeyJWTSecret = "jwt_secret" // JWT签名密钥（优先环境变量 JWT_SECRET，键名含 secret 自动按敏感配置脱敏）
+
 	// 违禁词配置
 	ConfigKeyForbiddenWords = "forbidden_words"
 

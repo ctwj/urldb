@@ -307,6 +307,11 @@ func main() {
 	// 设置公开API中间件的Repository管理器
 	middleware.SetRepositoryManager(repoManager)
 
+	// 初始化JWT签名密钥（环境变量 JWT_SECRET 优先，其次系统配置，均缺失时随机生成并持久化）
+	if err := middleware.InitJWTSecret(); err != nil {
+		utils.Fatal("初始化JWT签名密钥失败: %v", err)
+	}
+
 	// 创建公开API处理器
 	publicAPIHandler := handlers.NewPublicAPIHandler()
 

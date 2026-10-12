@@ -29,6 +29,9 @@ services:
       DB_NAME: url_db
       PORT: 8080
       TIMEZONE: Asia/Shanghai
+      # JWT签名密钥：建议显式设置（可用 openssl rand -hex 32 生成）；
+      # 不设置时首次启动自动生成随机密钥并持久化到数据库，之后所有登录会话将复用该密钥
+      # JWT_SECRET: change-me-to-a-long-random-string
     depends_on:
       postgres:
         condition: service_healthy

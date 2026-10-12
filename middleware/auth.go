@@ -1,8 +1,14 @@
 package middleware
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -13,7 +19,101 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtSecret = []byte("your-secret-key")
+// SecretSource JWT签名密钥的来源
+type SecretSource string
+
+const (
+	SecretSourceEnv       SecretSource = "env"       // 环境变量 JWT_SECRET
+	SecretSourceStored    SecretSource = "stored"    // 系统配置中已持久化的密钥
+	SecretSourceGenerated SecretSource = "generated" // 首次启动时随机生成
+)
+
+// jwtSecretEnvKey JWT签名密钥的环境变量名
+const jwtSecretEnvKey = "JWT_SECRET"
+
+var (
+	jwtSecretOnce sync.Once
+	jwtSecret     []byte
+)
+
+// InitJWTSecret 初始化JWT签名密钥。解析顺序：环境变量 JWT_SECRET →
+// 系统配置中已持久化的密钥 → 随机生成并持久化到系统配置。
+// 需在数据库初始化、SetRepositoryManager之后、路由注册前调用。
+func InitJWTSecret() error {
+	var initErr error
+	jwtSecretOnce.Do(func() {
+		var source SecretSource
+		jwtSecret, source, initErr = loadJWTSecret()
+		if initErr != nil {
+			return
+		}
+		switch source {
+		case SecretSourceEnv:
+			utils.Info("JWT签名密钥来源: 环境变量 JWT_SECRET")
+		case SecretSourceStored:
+			utils.Info("JWT签名密钥来源: 系统配置")
+		case SecretSourceGenerated:
+			utils.Info("已生成随机JWT签名密钥并持久化到系统配置")
+		}
+	})
+	return initErr
+}
+
+// loadJWTSecret 串联密钥解析与持久化
+func loadJWTSecret() ([]byte, SecretSource, error) {
+	var storedValue string
+	if repoManager != nil {
+		if v, err := repoManager.SystemConfigRepository.GetConfigValue(entity.ConfigKeyJWTSecret); err == nil {
+			storedValue = v
+		}
+	}
+
+	secret, source, needPersist, err := resolveSecret(os.Getenv(jwtSecretEnvKey), storedValue, generateRandomSecret)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if needPersist {
+		if repoManager == nil {
+			return nil, "", errors.New("无法持久化JWT密钥: RepositoryManager未初始化")
+		}
+		if err := repoManager.SystemConfigRepository.UpsertConfigs([]entity.SystemConfig{{
+			Key:   entity.ConfigKeyJWTSecret,
+			Value: secret,
+			Type:  entity.ConfigTypeString,
+		}}); err != nil {
+			return nil, "", fmt.Errorf("持久化JWT密钥失败: %w", err)
+		}
+	}
+
+	return []byte(secret), source, nil
+}
+
+// resolveSecret 密钥解析决策：环境变量优先，其次已存储值，均缺失时生成随机密钥。
+// 返回密钥、来源及是否需要持久化。
+func resolveSecret(envValue, storedValue string, generate func() (string, error)) (string, SecretSource, bool, error) {
+	if envValue != "" {
+		return envValue, SecretSourceEnv, false, nil
+	}
+	if storedValue != "" {
+		return storedValue, SecretSourceStored, false, nil
+	}
+
+	secret, err := generate()
+	if err != nil {
+		return "", "", false, fmt.Errorf("生成JWT密钥失败: %w", err)
+	}
+	return secret, SecretSourceGenerated, true, nil
+}
+
+// generateRandomSecret 生成32字节随机密钥的hex编码
+func generateRandomSecret() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
 
 // Claims JWT声明
 type Claims struct {
