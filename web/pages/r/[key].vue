@@ -255,6 +255,8 @@
                       <button
                         class="px-4 py-2 text-sm font-medium rounded-lg border border-blue-200 dark:border-blue-400/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors flex items-center gap-2 disabled:opacity-50"
                         :disabled="resource.forbidden || loadingStates[resource.id]"
+                        data-umami-event="download"
+                        :data-umami-event-type="resource.pan?.remark || '未知平台'"
                         @click="toggleLink(resource)"
                       >
                         <i class="fas" :class="loadingStates[resource.id] ? 'fa-spinner fa-spin' : 'fa-external-link-alt'"></i>
