@@ -16,6 +16,7 @@ const (
 	ConfigKeyAutoTransferEnabled       = "auto_transfer_enabled"
 	ConfigKeyAutoTransferLimitDays     = "auto_transfer_limit_days"
 	ConfigKeyAutoTransferMinSpace      = "auto_transfer_min_space"
+	ConfigKeyAutoTransferSkipUserUpload = "auto_transfer_skip_user_upload" // 用户上传资源跳过自动转存
 	ConfigKeyAutoFetchHotDramaEnabled  = "auto_fetch_hot_drama_enabled"
 
 	// API配置
@@ -216,6 +217,7 @@ const (
 	ConfigDefaultAutoTransferEnabled       = "false"
 	ConfigDefaultAutoTransferLimitDays     = "0"
 	ConfigDefaultAutoTransferMinSpace      = "100"
+	ConfigDefaultAutoTransferSkipUserUpload = "true" // 用户上传资源默认跳过自动转存
 	ConfigDefaultAutoFetchHotDramaEnabled  = "false"
 
 	// API配置默认值

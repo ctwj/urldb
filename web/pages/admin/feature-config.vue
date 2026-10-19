@@ -257,6 +257,15 @@
                 <n-switch v-model:value="configForm.auto_transfer_enabled" />
               </div>
 
+              <!-- 用户上传资源跳过转存 -->
+              <div class="space-y-2">
+                <div class="flex items-center space-x-2">
+                  <label class="text-base font-semibold text-gray-800 dark:text-gray-200">用户上传资源跳过转存</label>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">开启后，用户上传发布的资源取链时直接返回原始分享链接，不做自动转存（原链失效会被自动标记失效）</span>
+                </div>
+                <n-switch v-model:value="configForm.auto_transfer_skip_user_upload" :disabled="!configForm.auto_transfer_enabled" />
+              </div>
+
 
 
               <!-- 最小存储空间 -->
@@ -447,6 +456,7 @@ interface FeatureConfigForm {
   auto_process_enabled: boolean
   auto_process_interval: string
   auto_transfer_enabled: boolean
+  auto_transfer_skip_user_upload: boolean
   auto_transfer_min_space: string
   ad_keywords: string
   auto_insert_ad: string
@@ -484,6 +494,7 @@ const {
     auto_process_enabled: 'auto_process_ready_resources',
     auto_process_interval: 'auto_process_interval',
     auto_transfer_enabled: 'auto_transfer_enabled',
+    auto_transfer_skip_user_upload: 'auto_transfer_skip_user_upload',
     auto_transfer_min_space: 'auto_transfer_min_space',
     ad_keywords: 'ad_keywords',
     auto_insert_ad: 'auto_insert_ad',
@@ -522,6 +533,7 @@ const configForm = ref<FeatureConfigForm>({
   auto_process_enabled: false,
   auto_process_interval: '30',
   auto_transfer_enabled: false,
+  auto_transfer_skip_user_upload: true,
   auto_transfer_min_space: '500',
   ad_keywords: '',
   auto_insert_ad: '',
@@ -575,6 +587,7 @@ const fetchConfig = async () => {
         auto_process_enabled: response.auto_process_ready_resources || false,
         auto_process_interval: String(response.auto_process_interval || 30),
         auto_transfer_enabled: response.auto_transfer_enabled || false,
+        auto_transfer_skip_user_upload: response.auto_transfer_skip_user_upload !== false,
         auto_transfer_min_space: String(response.auto_transfer_min_space || 500),
         ad_keywords: response.ad_keywords || '',
         auto_insert_ad: response.auto_insert_ad || '',
@@ -624,6 +637,7 @@ const saveConfig = async () => {
       auto_process_enabled: configForm.value.auto_process_enabled,
       auto_process_interval: configForm.value.auto_process_interval,
       auto_transfer_enabled: configForm.value.auto_transfer_enabled,
+      auto_transfer_skip_user_upload: configForm.value.auto_transfer_skip_user_upload,
       auto_transfer_min_space: configForm.value.auto_transfer_min_space,
       ad_keywords: configForm.value.ad_keywords,
       auto_insert_ad: configForm.value.auto_insert_ad,

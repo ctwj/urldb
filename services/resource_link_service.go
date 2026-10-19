@@ -86,6 +86,10 @@ func (s *resourceLinkServiceImpl) Resolve(ctx context.Context, resource *entity.
 	if panName != "quark" && panName != "xunlei" && panName != "baidu" && panName != "guangya" {
 		return LinkResolution{URL: resource.URL, Type: "original", Platform: platform}, nil
 	}
+	// 用户上传来源：跳过开关开启时不复用历史转存链、不触发转存，直接交付原链
+	if ShouldSkipAutoTransfer(s.configRepo, resource) {
+		return LinkResolution{URL: resource.URL, Type: "original", Platform: platform}, nil
+	}
 	// 已存在转存链接
 	if resource.SaveURL != "" {
 		return LinkResolution{URL: resource.SaveURL, Type: "transferred", Platform: platform, Transferred: true}, nil
@@ -166,6 +170,15 @@ func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource
 		ApplyValidityWriteback(resource, origResult, s.resourceRepo, s.meiliManager)
 	}
 
+	// 3.5) 用户上传来源：跳过开关开启时不进入转存/分享决策树（不复用 saveUrl、不重新分享、不转存），
+	// 直接交付原链；放在有效性回写之后，保证原链失效仍被 PanCheck 标记 is_valid=false（不再展示）。
+	if ShouldSkipAutoTransfer(s.configRepo, resource) {
+		if origResult.Status == "invalid" {
+			return UnifiedLinkResult{Invalid: true, Type: "invalid", Platform: platform}, nil
+		}
+		return UnifiedLinkResult{URL: resource.URL, Type: "original", Platform: platform}, nil
+	}
+
 	// 4) 决策树
 	// 4a/4b) 有 saveUrl：仅当「确定失效」才尝试恢复（分享）；有效或未确定 → 直接复用现有 saveUrl
 	if hasSave {
@@ -210,6 +223,20 @@ func (s *resourceLinkServiceImpl) ResolveWithCheck(ctx context.Context, resource
 	// 不把内部错误以 ⚠️ 形式抛给用户（错误已记入服务端日志，不影响排查）。
 	utils.Error("[RESOURCE_LINK] 自动转存失败，静默回退原始链接 (resource=%d): %s", resource.ID, res.ErrorMsg)
 	return UnifiedLinkResult{URL: resource.URL, Type: "original", Platform: platform}, nil
+}
+
+// ShouldSkipAutoTransfer 用户上传资源是否跳过自动转存：
+// 仅用户上传来源（发布时冗余 Submitter 标记，015-user-resource-upload）且开关开启时跳过；
+// 开关关闭时走原有转存逻辑。配置行缺失或读取失败默认跳过（存量库补种前的安全回退）。
+func ShouldSkipAutoTransfer(configRepo repo.SystemConfigRepository, resource *entity.Resource) bool {
+	if resource == nil || resource.Submitter == "" {
+		return false
+	}
+	skip, err := configRepo.GetConfigBool(entity.ConfigKeyAutoTransferSkipUserUpload)
+	if err != nil {
+		return true
+	}
+	return skip
 }
 
 // PerformAutoTransfer 执行自动转存（由 handlers 迁移，逻辑保持一致）。

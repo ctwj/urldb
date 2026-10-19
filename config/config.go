@@ -327,7 +327,7 @@ func (cm *ConfigManager) getCategoryByConfigKey(key string) string {
 		return "seo"
 	case key == entity.ConfigKeyAutoProcessReadyResources || key == entity.ConfigKeyAutoProcessInterval:
 		return "auto_process"
-	case key == entity.ConfigKeyAutoTransferEnabled || key == entity.ConfigKeyAutoTransferLimitDays:
+	case key == entity.ConfigKeyAutoTransferEnabled || key == entity.ConfigKeyAutoTransferLimitDays || key == entity.ConfigKeyAutoTransferSkipUserUpload:
 		return "auto_transfer"
 	case key == entity.ConfigKeyAutoCleanupEnabled || key == entity.ConfigKeyAutoCleanupRetentionDays || key == entity.ConfigKeyAutoCleanupIntervalMinutes:
 		return "auto_cleanup"
@@ -366,6 +366,7 @@ func (cm *ConfigManager) getDefaultConfigType(key string) string {
 	switch key {
 	case entity.ConfigKeyAutoProcessReadyResources,
 		entity.ConfigKeyAutoTransferEnabled,
+		entity.ConfigKeyAutoTransferSkipUserUpload,
 		entity.ConfigKeyAutoFetchHotDramaEnabled,
 		entity.ConfigKeyMaintenanceMode,
 		entity.ConfigKeyEnableRegister,

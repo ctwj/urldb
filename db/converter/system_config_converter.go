@@ -53,6 +53,10 @@ func SystemConfigToResponse(configs []entity.SystemConfig) *dto.SystemConfigResp
 			if val, err := strconv.Atoi(config.Value); err == nil {
 				response.AutoTransferMinSpace = val
 			}
+		case entity.ConfigKeyAutoTransferSkipUserUpload:
+			if val, err := strconv.ParseBool(config.Value); err == nil {
+				response.AutoTransferSkipUserUpload = val
+			}
 		case entity.ConfigKeyAutoFetchHotDramaEnabled:
 			if val, err := strconv.ParseBool(config.Value); err == nil {
 				response.AutoFetchHotDramaEnabled = val
@@ -243,6 +247,10 @@ func RequestToSystemConfig(req *dto.SystemConfigRequest) []entity.SystemConfig {
 	if req.AutoTransferEnabled != nil {
 		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferEnabled, Value: strconv.FormatBool(*req.AutoTransferEnabled), Type: entity.ConfigTypeBool})
 		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoTransferEnabled)
+	}
+	if req.AutoTransferSkipUserUpload != nil {
+		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoTransferSkipUserUpload, Value: strconv.FormatBool(*req.AutoTransferSkipUserUpload), Type: entity.ConfigTypeBool})
+		updatedKeys = append(updatedKeys, entity.ConfigKeyAutoTransferSkipUserUpload)
 	}
 	if req.AutoFetchHotDramaEnabled != nil {
 		configs = append(configs, entity.SystemConfig{Key: entity.ConfigKeyAutoFetchHotDramaEnabled, Value: strconv.FormatBool(*req.AutoFetchHotDramaEnabled), Type: entity.ConfigTypeBool})
@@ -512,6 +520,7 @@ func SystemConfigToPublicResponse(configs []entity.SystemConfig) map[string]inte
 		case entity.ConfigKeyAutoProcessInterval:
 		case entity.ConfigKeyAutoTransferLimitDays:
 		case entity.ConfigKeyAutoTransferMinSpace:
+		case entity.ConfigKeyAutoTransferSkipUserUpload:
 		case entity.ConfigKeyAutoFetchHotDramaEnabled:
 		case entity.ConfigKeyAutoCleanupEnabled:
 		case entity.ConfigKeyAutoCleanupRetentionDays:
@@ -550,6 +559,7 @@ func getDefaultConfigResponse() *dto.SystemConfigResponse {
 		AutoTransferEnabled:       false,
 		AutoTransferLimitDays:     0,
 		AutoTransferMinSpace:      100,
+		AutoTransferSkipUserUpload: true,
 		AutoFetchHotDramaEnabled:  false,
 		AutoCleanupEnabled:         false,
 		AutoCleanupRetentionDays:   7,

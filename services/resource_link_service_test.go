@@ -34,10 +34,14 @@ func (f *fakePanRepo) FindByID(_ uint) (*entity.Pan, error) { return f.pan, nil 
 
 type fakeConfigRepo struct {
 	repo.SystemConfigRepository
-	autoTransfer bool
+	autoTransfer   bool
+	skipUserUpload bool
 }
 
 func (f *fakeConfigRepo) GetConfigBool(key string) (bool, error) {
+	if key == entity.ConfigKeyAutoTransferSkipUserUpload {
+		return f.skipUserUpload, nil
+	}
 	if key == entity.ConfigKeyAutoTransferEnabled {
 		return f.autoTransfer, nil
 	}
@@ -89,11 +93,11 @@ var (
 	panAlipan  = &entity.Pan{ID: 2, Name: "alipan", Remark: "阿里云盘"}
 )
 
-func newSvc(pan *entity.Pan, checkURLs map[string]ResourceCheckResult, autoTransfer bool, resRepo *fakeResourceRepo) ResourceLinkService {
+func newSvc(pan *entity.Pan, checkURLs map[string]ResourceCheckResult, autoTransfer, skipUserUpload bool, resRepo *fakeResourceRepo) ResourceLinkService {
 	return NewResourceLinkService(
 		&fakeCksRepo{},
 		&fakePanRepo{pan: pan},
-		&fakeConfigRepo{autoTransfer: autoTransfer},
+		&fakeConfigRepo{autoTransfer: autoTransfer, skipUserUpload: skipUserUpload},
 		resRepo,
 		&fakeLinkCheck{urls: checkURLs},
 		nil, // meiliManager nil → ApplyValidityWriteback 跳过 Meili 同步
@@ -114,6 +118,7 @@ func TestResolveWithCheck_DecisionTree(t *testing.T) {
 		resource        *entity.Resource
 		checkURLs       map[string]ResourceCheckResult
 		autoTransfer    bool
+		skipUserUpload  bool
 		wantType        string
 		wantInvalid     bool
 		wantURL         string
@@ -183,12 +188,45 @@ func TestResolveWithCheck_DecisionTree(t *testing.T) {
 			autoTransfer: false,
 			wantType: "original", wantURL: origURL, wantNoteEmpty: true,
 		},
+		{
+			name: "quark·用户上传·跳过开·有saveUrl·原始有效→original(不复用saveUrl)",
+			pan: panQuark, resource: func() *entity.Resource {
+				r := mkRes(10, origURL, saveURL, true)
+				r.Submitter = "alice"
+				return r
+			}(),
+			checkURLs: map[string]ResourceCheckResult{origURL: validRes, saveURL: validRes},
+			autoTransfer: true, skipUserUpload: true,
+			wantType: "original", wantURL: origURL, wantNoteEmpty: true,
+		},
+		{
+			name: "quark·用户上传·跳过开·原始失效→Invalid+回写false",
+			pan: panQuark, resource: func() *entity.Resource {
+				r := mkRes(11, origURL, "", true)
+				r.Submitter = "alice"
+				return r
+			}(),
+			checkURLs: map[string]ResourceCheckResult{origURL: invalidRes},
+			autoTransfer: true, skipUserUpload: true,
+			wantType: "invalid", wantInvalid: true, wantNoteEmpty: true, wantValidWrite: bptr(false),
+		},
+		{
+			name: "quark·用户上传·跳过关·无saveUrl·原始有效·转存开→转存尝试失败回退original",
+			pan: panQuark, resource: func() *entity.Resource {
+				r := mkRes(12, origURL, "", true)
+				r.Submitter = "alice"
+				return r
+			}(),
+			checkURLs: map[string]ResourceCheckResult{origURL: validRes},
+			autoTransfer: true, skipUserUpload: false,
+			wantType: "original", wantURL: origURL, wantNoteEmpty: true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			resRepo := &fakeResourceRepo{}
-			svc := newSvc(tc.pan, tc.checkURLs, tc.autoTransfer, resRepo)
+			svc := newSvc(tc.pan, tc.checkURLs, tc.autoTransfer, tc.skipUserUpload, resRepo)
 
 			got, err := svc.ResolveWithCheck(context.Background(), tc.resource)
 			if err != nil {
@@ -252,6 +290,82 @@ func TestPerformShare_Guards(t *testing.T) {
 			}
 			if !tc.wantSuccess && got.ErrorMsg == "" {
 				t.Errorf("失败时应有 ErrorMsg，实际为空")
+			}
+		})
+	}
+}
+
+// errConfigRepo 让 GetConfigBool 永远失败，验证配置行缺失/读取失败时的回退语义
+type errConfigRepo struct {
+	repo.SystemConfigRepository
+}
+
+func (f *errConfigRepo) GetConfigBool(_ string) (bool, error) { return false, errNoAccount }
+
+// TestShouldSkipAutoTransfer 验证用户上传资源跳过自动转存的开关语义：
+// 仅用户上传来源(Submitter 冗余标记)且开关开启时跳过；配置读取失败默认跳过（存量库未插入配置行）。
+func TestShouldSkipAutoTransfer(t *testing.T) {
+	userUpload := mkRes(1, "https://pan.quark.cn/s/u1", "", true)
+	userUpload.Submitter = "alice"
+	normal := mkRes(2, "https://pan.quark.cn/s/n1", "", true)
+
+	tests := []struct {
+		name     string
+		repo     repo.SystemConfigRepository
+		resource *entity.Resource
+		want     bool
+	}{
+		{"非用户上传·开关开→不跳过", &fakeConfigRepo{skipUserUpload: true}, normal, false},
+		{"用户上传·开关开→跳过", &fakeConfigRepo{skipUserUpload: true}, userUpload, true},
+		{"用户上传·开关关→不跳过", &fakeConfigRepo{skipUserUpload: false}, userUpload, false},
+		{"用户上传·配置读取失败→默认跳过", &errConfigRepo{}, userUpload, true},
+		{"非用户上传·配置读取失败→不跳过", &errConfigRepo{}, normal, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ShouldSkipAutoTransfer(tc.repo, tc.resource); got != tc.want {
+				t.Errorf("ShouldSkipAutoTransfer = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestResolve_UserUploadSkip 验证 Resolve（网页/机器人共用取链）的用户上传跳过路由
+func TestResolve_UserUploadSkip(t *testing.T) {
+	const (
+		origURL = "https://pan.quark.cn/s/abc"
+		saveURL = "https://pan.quark.cn/s/xyz"
+	)
+	mkUserRes := func(id uint, resSaveURL string) *entity.Resource {
+		r := mkRes(id, origURL, resSaveURL, true)
+		r.Submitter = "alice"
+		return r
+	}
+
+	tests := []struct {
+		name           string
+		resource       *entity.Resource
+		autoTransfer   bool
+		skipUserUpload bool
+		wantType       string
+		wantURL        string
+	}{
+		{"用户上传·跳过开·已有转存链→original", mkUserRes(1, saveURL), true, true, "original", origURL},
+		{"用户上传·跳过关·已有转存链→transferred", mkUserRes(2, saveURL), true, false, "transferred", saveURL},
+		{"非用户上传·跳过开·已有转存链→transferred", mkRes(3, origURL, saveURL, true), true, true, "transferred", saveURL},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newSvc(panQuark, nil, tc.autoTransfer, tc.skipUserUpload, nil)
+			got, err := svc.Resolve(context.Background(), tc.resource)
+			if err != nil {
+				t.Fatalf("Resolve 返回错误: %v", err)
+			}
+			if got.Type != tc.wantType {
+				t.Errorf("Type = %q, want %q", got.Type, tc.wantType)
+			}
+			if got.URL != tc.wantURL {
+				t.Errorf("URL = %q, want %q", got.URL, tc.wantURL)
 			}
 		})
 	}

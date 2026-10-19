@@ -816,6 +816,18 @@ func GetResourceLink(c *gin.Context) {
 		return
 	}
 
+	// 用户上传来源：跳过开关开启时不复用历史转存链、不触发转存，直接交付原链
+	if services.ShouldSkipAutoTransfer(repoManager.SystemConfigRepository, resource) {
+		utils.Info("用户上传资源跳过自动转存，返回原链接: %s", resource.URL)
+		SuccessResponse(c, gin.H{
+			"url":         resource.URL,
+			"type":        "original",
+			"platform":    panInfo.Remark,
+			"resource_id": resource.ID,
+		})
+		return
+	}
+
 	// 如果已存在转存链接，直接返回
 	if resource.SaveURL != "" {
 		utils.Info("已存在转存链接，直接返回: %s", resource.SaveURL)

@@ -16,6 +16,7 @@ type SystemConfigRequest struct {
 	AutoTransferEnabled       *bool `json:"auto_transfer_enabled,omitempty"`        // 开启自动转存
 	AutoTransferLimitDays     *int  `json:"auto_transfer_limit_days,omitempty"`     // 自动转存限制天数（0表示不限制）
 	AutoTransferMinSpace      *int  `json:"auto_transfer_min_space,omitempty"`      // 最小存储空间（GB）
+	AutoTransferSkipUserUpload *bool `json:"auto_transfer_skip_user_upload,omitempty"` // 用户上传资源跳过自动转存
 	AutoFetchHotDramaEnabled  *bool `json:"auto_fetch_hot_drama_enabled,omitempty"` // 自动拉取热播剧名字
 
 	// 自动清理转存文件配置（002-auto-cleanup-transfer）
@@ -101,6 +102,7 @@ type SystemConfigResponse struct {
 	AutoTransferEnabled       bool `json:"auto_transfer_enabled"`        // 开启自动转存
 	AutoTransferLimitDays     int  `json:"auto_transfer_limit_days"`     // 自动转存限制天数（0表示不限制）
 	AutoTransferMinSpace      int  `json:"auto_transfer_min_space"`      // 最小存储空间（GB）
+	AutoTransferSkipUserUpload bool `json:"auto_transfer_skip_user_upload"` // 用户上传资源跳过自动转存
 	AutoFetchHotDramaEnabled  bool `json:"auto_fetch_hot_drama_enabled"` // 自动拉取热播剧名字
 
 	// 自动清理转存文件配置（002-auto-cleanup-transfer）
