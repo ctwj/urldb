@@ -502,39 +502,21 @@ func (r *ReadyResourceScheduler) initPanCache() {
 			return
 		}
 
-		// 建立 ServiceType 到 PanID 的映射
-		serviceTypeToPanName := map[string]string{
-			"quark":   "quark",
-			"alipan":  "aliyun", // 阿里云盘在数据库中的名称是 aliyun
-			"baidu":   "baidu",
-			"uc":      "uc",
-			"xunlei":  "xunlei",
-			"tianyi":  "tianyi",
-			"123pan":  "123pan",
-			"115":     "115",
-			"unknown": "other",
+		if r.panCache == nil {
+			r.panCache = make(map[string]*uint)
 		}
 
-		// 创建平台名称到ID的映射
-		panNameToID := make(map[string]*uint)
-		for _, pan := range pans {
-			panID := pan.ID
-			panNameToID[pan.Name] = &panID
+		// 以 pan.name 为键建映射：ServiceType.String() 与 pan.name 同名的平台
+		// （quark/baidu/uc/xunlei/tianyi/123pan/115/guangya/other）自动命中，新增
+		// 平台无需在此登记——曾因硬编码清单漏登 guangya，导致光鸭资源入库 pan_id 为空
+		for _, p := range pans {
+			panID := p.ID
+			r.panCache[p.Name] = &panID
 		}
 
-		// 建立 ServiceType 到 PanID 的映射
-		for serviceType, panName := range serviceTypeToPanName {
-			if panID, exists := panNameToID[panName]; exists {
-				r.panCache[serviceType] = panID
-				utils.Info(fmt.Sprintf("平台映射缓存: %s -> %s (ID: %d)", serviceType, panName, *panID))
-			} else {
-				utils.Error(fmt.Sprintf("警告: 未找到平台 %s 对应的数据库记录", panName))
-			}
-		}
-
-		// 确保有默认的 other 平台
-		if otherID, exists := panNameToID["other"]; exists {
-			r.panCache["unknown"] = otherID
+		// ServiceType.String() 与 pan.name 不同名的历史例外
+		if aliyunID, exists := r.panCache["aliyun"]; exists {
+			r.panCache["alipan"] = aliyunID
 		}
 
 		utils.Info(fmt.Sprintf("平台映射缓存初始化完成，共 %d 个映射", len(r.panCache)))
