@@ -149,6 +149,7 @@ func InitDB() error {
 	// 009-statistics-enhancement: 历史来源数据回填（幂等，仅在迁移时执行）
 	if shouldRunMigration() {
 		backfillSourceColumn(DB)
+		backfillApiApplicationType(DB)
 	}
 
 	// 幂等补种全部默认数据（specs/005-fix-admin-login）
@@ -341,6 +342,17 @@ func backfillSourceColumn(db *gorm.DB) {
 		utils.Error("回填 resource_views.source 失败: %v", res.Error)
 	} else {
 		utils.Info("回填 resource_views.source=web，影响行数: %d", res.RowsAffected)
+	}
+}
+
+// backfillApiApplicationType 将存量 API 申请单的 type 回填为 apply（开通申请）。
+// api_applications 新增 type 列带 default:'apply'，但 AutoMigrate 不会回填历史已存在行。
+// 幂等，重复执行无害。
+func backfillApiApplicationType(db *gorm.DB) {
+	if res := db.Exec("UPDATE api_applications SET type = ? WHERE type IS NULL OR type = ''", entity.ApiApplicationTypeApply); res.Error != nil {
+		utils.Error("回填 api_applications.type 失败: %v", res.Error)
+	} else if res.RowsAffected > 0 {
+		utils.Info("回填 api_applications.type=apply，影响行数: %d", res.RowsAffected)
 	}
 }
 

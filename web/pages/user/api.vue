@@ -6,7 +6,7 @@
         <i class="fas fa-key text-blue-500 mr-2"></i>
         API 访问
       </h1>
-      <p class="text-gray-600 dark:text-gray-400 mt-1">申请开通 API 权限，通过程序化方式查询平台公开资源</p>
+      <p class="text-gray-600 dark:text-gray-400 mt-1">申请开通 / 续期 API 权限，通过程序化方式查询平台公开资源</p>
     </div>
 
     <n-spin :show="loading">
@@ -37,6 +37,11 @@
             </div>
           </n-alert>
 
+          <!-- 已过期：引导续期（API Key 保持不变，审核通过即恢复） -->
+          <n-alert v-if="credential.expired" type="error" :show-icon="true" class="mb-4">
+            凭证已过期，API 调用将返回 403。提交续期并经管理员审核通过后即可恢复，API Key 保持不变。
+          </n-alert>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">凭证标识（前缀）</p>
@@ -59,7 +64,11 @@
             </div>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <n-button v-if="canRenew" type="primary" secondary @click="openRenew">
+              <template #icon><i class="fas fa-calendar-plus"></i></template>
+              续期
+            </n-button>
             <n-button type="warning" secondary :disabled="credential.status !== 'active' || credential.expired" :loading="resetting" @click="showResetConfirm = true">
               <template #icon><i class="fas fa-sync-alt"></i></template>
               重置凭证
@@ -184,22 +193,25 @@
         <div v-if="application" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <div class="flex items-center mb-4">
             <div class="w-1 h-6 bg-blue-500 rounded-full mr-3"></div>
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">我的申请</h2>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ isRenewalApp ? '我的续期申请' : '我的申请' }}</h2>
           </div>
           <div class="space-y-3">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
+              <n-tag v-if="isRenewalApp" type="info" size="small">续期 {{ application.duration_months }} 个月</n-tag>
               <n-tag :type="applicationTagType">{{ applicationTagLabel }}</n-tag>
               <span class="text-sm text-gray-500 dark:text-gray-400">提交于 {{ formatTime(application.created_at) }}</span>
             </div>
-            <div>
+            <div v-if="application.purpose">
               <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">用途说明</p>
               <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{{ application.purpose }}</p>
             </div>
             <n-alert v-if="application.status === 'rejected'" type="error" :show-icon="true" class="mt-2">
-              申请被拒绝{{ application.reject_reason ? `：${application.reject_reason}` : '' }}。您可以修改用途后重新提交。
+              {{ isRenewalApp ? '续期申请被拒绝' : '申请被拒绝' }}{{ application.reject_reason ? `：${application.reject_reason}` : '' }}。{{ isRenewalApp ? '您可以重新提交续期。' : '您可以修改用途后重新提交。' }}
             </n-alert>
             <n-alert v-if="application.status === 'pending'" type="info" :show-icon="true">
-              申请正在等待管理员审核，审核结果将通过本页面展示。
+              {{ isRenewalApp
+                ? `续期申请正在等待管理员审核，通过后有效期将自审核时间起延长 ${application.duration_months} 个月。`
+                : '申请正在等待管理员审核，审核结果将通过本页面展示。' }}
             </n-alert>
           </div>
         </div>
@@ -265,6 +277,29 @@
         </div>
       </template>
     </n-modal>
+
+    <!-- 续期 -->
+    <n-modal v-model:show="showRenewModal" preset="dialog" type="info" title="续期 API 凭证"
+      positive-text="确认续期" negative-text="取消"
+      :loading="renewing"
+      @positive-click="confirmRenew">
+      <div class="space-y-4">
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ renewModalIntro }}</p>
+        <div>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mb-2">选择续期时长（1-6 个月，可多次叠加）</p>
+          <div class="flex flex-wrap gap-2">
+            <n-button v-for="m in 6" :key="m" size="small" :type="renewMonths === m ? 'primary' : 'default'" :secondary="renewMonths !== m" @click="renewMonths = m">
+              {{ m }} 个月
+            </n-button>
+          </div>
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-300">
+          当前到期：<span class="text-gray-800 dark:text-gray-100">{{ credential?.expired ? '已过期' : (credential?.expires_at ? formatTime(credential.expires_at) : '-') }}</span>
+          <i class="fas fa-arrow-right text-xs mx-1 text-gray-400"></i>
+          续期后：<span class="font-medium text-blue-500">{{ renewPreviewExpiry }}</span>
+        </p>
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -296,6 +331,12 @@ const showResetConfirm = ref(false)
 const showKeyModal = ref(false)
 const newKey = ref('')
 
+// 凭证续期（1-6 个月；未过期自动通过，已过期转审核）
+const RENEW_WINDOW_DAYS = 7
+const showRenewModal = ref(false)
+const renewMonths = ref(1)
+const renewing = ref(false)
+
 // 复制成功态（短暂显示"已复制"）
 const copiedRecently = ref(false)
 const copiedCurl = ref(false)
@@ -312,13 +353,43 @@ const curlExample = computed(() => {
   return `curl "${origin}/api/open/resources/search?keyword=电影&size=20" \\\n  -H "X-API-Key: urldb_你的凭证"`
 })
 
-// 可提交申请：未认证不行；有待审核不行；已开通（未过期）不行；无申请/已拒绝/已过期可以
+// 可提交开通申请：未认证不行；有待审核不行；存在凭证（active，含已过期——走续期）不行；无凭证/已停用可申请
 const canApply = computed(() => {
   if (!status.value || !status.value.email_verified) return false
   if (application.value && application.value.status === 'pending') return false
-  if (credential.value && credential.value.status === 'active' && !credential.value.expired) return false
+  if (credential.value && credential.value.status === 'active') return false
   return true
 })
+
+// 凭证是否处于续期窗口：已过期或 N 天内到期
+const expiresSoon = computed(() => {
+  const c = credential.value
+  if (!c?.expires_at) return false
+  return c.expired || new Date(c.expires_at).getTime() - Date.now() <= RENEW_WINDOW_DAYS * 86400 * 1000
+})
+
+// 凭证卡片上展示续期入口：active 且有到期时间（永久无需续期）、处于续期窗口、且没有待审核申请
+const canRenew = computed(() => {
+  const c = credential.value
+  if (!c || c.status !== 'active' || !c.expires_at) return false
+  if (application.value && application.value.status === 'pending') return false
+  return expiresSoon.value
+})
+
+const isRenewalApp = computed(() => application.value?.type === 'renewal')
+
+// 续期后新到期时间预览：未过期自当前到期时间顺延，已过期自当前时间起算
+const renewPreviewExpiry = computed(() => {
+  const c = credential.value
+  if (!c?.expires_at) return ''
+  const base = c.expired ? new Date() : new Date(c.expires_at)
+  base.setMonth(base.getMonth() + renewMonths.value)
+  return formatTime(base.toISOString())
+})
+
+const renewModalIntro = computed(() => credential.value?.expired
+  ? '凭证已过期，续期需经管理员审核，通过后有效期自审核时间起延长所选月数，API Key 保持不变。'
+  : '凭证未过期，续期将自动通过，自当前到期时间顺延所选月数（不损失剩余时长），API Key 保持不变。')
 
 const applicationTagType = computed(() => {
   switch (application.value?.status) {
@@ -388,6 +459,31 @@ const confirmReset = async () => {
     notify('error', '重置失败', e?.message || '请稍后重试')
   } finally {
     resetting.value = false
+  }
+}
+
+const openRenew = () => {
+  renewMonths.value = 1
+  showRenewModal.value = true
+}
+
+const confirmRenew = async () => {
+  renewing.value = true
+  try {
+    const res: any = await useApiFetch('/user/api/renew', { method: 'POST', body: { months: renewMonths.value } })
+    const data = res?.data ?? res
+    if (data?.auto_approved) {
+      notify('success', '续期成功', `新到期时间：${data.credential_expires_at ? formatTime(data.credential_expires_at) : '永久有效'}`)
+    } else {
+      notify('info', '续期申请已提交', '请等待管理员审核，结果将通过邮件与本页面展示')
+    }
+    showRenewModal.value = false
+    await fetchStatus()
+  } catch (e: any) {
+    notify('error', '续期失败', e?.message || '请稍后重试')
+    return false
+  } finally {
+    renewing.value = false
   }
 }
 

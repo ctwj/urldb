@@ -69,7 +69,7 @@ func ApiKeyAuth() gin.HandlerFunc {
 		if cred.IsExpired(now) {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
-				"message": "凭证已过期，请重新申请",
+				"message": "凭证已过期，请前往用户中心续期",
 				"code":    403,
 			})
 			c.Abort()

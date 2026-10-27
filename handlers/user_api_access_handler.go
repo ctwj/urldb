@@ -143,6 +143,7 @@ func ApplyApiAccess(c *gin.Context) {
 		UserID:  userID,
 		Email:   user.Email,
 		Purpose: purpose,
+		Type:    entity.ApiApplicationTypeApply,
 		Status:  entity.ApiApplicationStatusPending,
 	}
 	if err := repoManager.ApiApplicationRepository.Create(app); err != nil {
@@ -223,7 +224,7 @@ func ResetMyApiKey(c *gin.Context) {
 		return
 	}
 	if cred.IsExpired(now) {
-		ErrorResponse(c, "凭证已过期，请重新申请", http.StatusForbidden)
+		ErrorResponse(c, "凭证已过期，请先续期", http.StatusForbidden)
 		return
 	}
 
@@ -246,5 +247,47 @@ func ResetMyApiKey(c *gin.Context) {
 		"key":        plain,
 		"key_prefix": prefix,
 		"expires_at": cred.ExpiresAt,
+	})
+}
+
+// RenewApiAccess 续期 API 凭证（A6，1-6 个月）
+// 凭证未过期 → 自动通过并自当前到期时间顺延；已过期 → 转人工审核，同意后自审核时间起算。
+// 与申请开通的区别：周期可选；未过期免审。API Key 保持不变。
+func RenewApiAccess(c *gin.Context) {
+	var req struct {
+		Months int `json:"months"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, "请求参数错误", http.StatusBadRequest)
+		return
+	}
+	if req.Months < 1 || req.Months > services.ApiRenewalMaxMonths {
+		ErrorResponse(c, "续期月数需为 1-6 个月", http.StatusBadRequest)
+		return
+	}
+
+	userID := c.GetUint("user_id")
+	app, expiresAt, autoApproved, err := services.RenewApiCredential(userID, req.Months)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrCredentialNotFound):
+			ErrorResponse(c, "尚未开通 API 权限，请先提交开通申请", http.StatusBadRequest)
+		case errors.Is(err, services.ErrCredentialDisabled):
+			ErrorResponse(c, "权限已被停用，无法续期，请联系管理员", http.StatusForbidden)
+		case errors.Is(err, services.ErrCredentialPermanent):
+			ErrorResponse(c, "凭证永久有效，无需续期", http.StatusBadRequest)
+		case errors.Is(err, services.ErrApplicationPendingExists):
+			ErrorResponse(c, "已有申请在审核中，请耐心等待", http.StatusBadRequest)
+		default:
+			utils.Error("RenewApiAccess - 续期失败 - userID: %d, error: %v", userID, err)
+			ErrorResponse(c, "操作失败，请稍后重试", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	SuccessResponse(c, gin.H{
+		"auto_approved":         autoApproved,
+		"application":           app,
+		"credential_expires_at": expiresAt,
 	})
 }

@@ -17,16 +17,18 @@ type ApiCredentialInfo struct {
 
 // ApiApplicationAdminItem 管理端申请列表项（B1）
 type ApiApplicationAdminItem struct {
-	ID           uint       `json:"id"`
-	UserID       uint       `json:"user_id"`
-	Username     string     `json:"username"`
-	Email        string     `json:"email"`
-	Purpose      string     `json:"purpose"`
-	Status       string     `json:"status"`
-	RejectReason string     `json:"reject_reason"`
-	ReviewerName string     `json:"reviewer_name"`
-	ReviewedAt   *time.Time `json:"reviewed_at"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID             uint       `json:"id"`
+	UserID         uint       `json:"user_id"`
+	Username       string     `json:"username"`
+	Email          string     `json:"email"`
+	Purpose        string     `json:"purpose"`
+	Type           string     `json:"type"`                    // apply开通/renewal续期
+	DurationMonths int        `json:"duration_months"`         // 续期月数（仅续期申请）
+	Status         string     `json:"status"`
+	RejectReason   string     `json:"reject_reason"`
+	ReviewerName   string     `json:"reviewer_name"`
+	ReviewedAt     *time.Time `json:"reviewed_at"`
+	CreatedAt      time.Time  `json:"created_at"`
 
 	// 已同意申请关联的凭证状态（approved 行填充，其余为空值）
 	CredentialStatus  string     `json:"credential_status,omitempty"`              // active/disabled

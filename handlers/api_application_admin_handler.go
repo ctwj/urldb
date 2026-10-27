@@ -67,16 +67,18 @@ func ListApiApplications(c *gin.Context) {
 			userCache[app.UserID] = username
 		}
 		item := dto.ApiApplicationAdminItem{
-			ID:           app.ID,
-			UserID:       app.UserID,
-			Username:     username,
-			Email:        app.Email,
-			Purpose:      app.Purpose,
-			Status:       app.Status,
-			RejectReason: app.RejectReason,
-			ReviewerName: app.ReviewerName,
-			ReviewedAt:   app.ReviewedAt,
-			CreatedAt:    app.CreatedAt,
+			ID:             app.ID,
+			UserID:         app.UserID,
+			Username:       username,
+			Email:          app.Email,
+			Purpose:        app.Purpose,
+			Type:           app.Type,
+			DurationMonths: app.DurationMonths,
+			Status:         app.Status,
+			RejectReason:   app.RejectReason,
+			ReviewerName:   app.ReviewerName,
+			ReviewedAt:     app.ReviewedAt,
+			CreatedAt:      app.CreatedAt,
 		}
 		// 已同意申请附带凭证状态与到期时间（列表展示 + 有效期调整入口）
 		if app.Status == entity.ApiApplicationStatusApproved {

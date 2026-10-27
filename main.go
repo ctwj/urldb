@@ -385,6 +385,7 @@ func main() {
 		api.POST("/user/api/apply", middleware.AuthMiddleware(), handlers.ApplyApiAccess)
 		api.GET("/user/api/status", middleware.AuthMiddleware(), handlers.GetMyApiStatus)
 		api.POST("/user/api/reset-key", middleware.AuthMiddleware(), handlers.ResetMyApiKey)
+		api.POST("/user/api/renew", middleware.AuthMiddleware(), handlers.RenewApiAccess)
 
 		// 用户下载历史（仅登录用户）
 		api.GET("/user/download-history", middleware.AuthMiddleware(), handlers.GetDownloadHistory)

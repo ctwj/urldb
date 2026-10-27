@@ -21,7 +21,7 @@
 
     <!-- 通知区域 -->
     <template #notice-section>
-      <n-alert title="同意申请后将自动为用户签发 API 调用凭证；已同意的申请可对其用户执行「停用权限」（立即失效）与「启用权限」（恢复调用），并可调整凭证有效期" type="info" />
+      <n-alert title="开通申请同意后自动签发 API 调用凭证；续期申请同意后延长凭证有效期（API Key 保持不变，过期续期自审核时间起算）。已同意的申请可对其用户执行「停用权限」（立即失效）与「启用权限」（恢复调用），并可调整凭证有效期" type="info" />
     </template>
 
     <!-- 过滤栏 - 状态筛选与搜索 -->
@@ -93,7 +93,7 @@
           :bordered="false"
           :single-line="false"
           :loading="loading"
-          :scroll-x="1300"
+          :scroll-x="1420"
           class="h-full"
         />
       </div>
@@ -266,16 +266,19 @@ const debouncedSearch = () => {
 }
 
 const approve = (row: any) => {
+  const isRenewal = row.type === 'renewal'
   dialog.warning({
-    title: '同意申请',
-    content: `确定同意用户「${row.username}」的 API 开通申请吗？同意后将自动签发调用凭证。`,
+    title: isRenewal ? '同意续期申请' : '同意申请',
+    content: isRenewal
+      ? `确定同意用户「${row.username}」的续期申请吗？同意后其凭证有效期将延长 ${row.duration_months} 个月（已过期则自审核时间起算），API Key 保持不变。`
+      : `确定同意用户「${row.username}」的 API 开通申请吗？同意后将自动签发调用凭证。`,
     positiveText: '确定同意',
     negativeText: '取消',
     onPositiveClick: async () => {
       acting.value = true
       try {
         await useApiFetch(`/admin/api-applications/${row.id}/approve`, { method: 'POST' })
-        notify('success', '已同意', `用户「${row.username}」的 API 权限已开通`)
+        notify('success', '已同意', `用户「${row.username}」的 ${isRenewal ? `API 凭证已续期 ${row.duration_months} 个月` : 'API 权限已开通'}`)
         refreshAll()
       } catch (e: any) {
         notify('error', '操作失败', e?.message || '请稍后重试')
@@ -418,6 +421,14 @@ const columns = [
     ])
   },
   { title: '邮箱', key: 'email', width: 190, ellipsis: { tooltip: true } },
+  {
+    title: '类型',
+    key: 'type',
+    width: 115,
+    render: (row: any) => row.type === 'renewal'
+      ? h(NTag, { type: 'info', size: 'small', round: true }, { default: () => `续期 ${row.duration_months || '-'} 个月` })
+      : h(NTag, { size: 'small', round: true, bordered: false }, { default: () => '开通' })
+  },
   { title: '用途说明', key: 'purpose', minWidth: 200, render: renderPurpose },
   { title: '状态', key: 'status', width: 100, render: renderStatus },
   {
