@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/ctwj/urldb/db/entity"
@@ -97,6 +98,18 @@ func ApproveApplication(appID, reviewerID uint, reviewerName string) (*entity.Ap
 
 	utils.Info("ApproveApplication - 申请已同意并签发凭证 - appID: %d, userID: %d, expiresAt: %v",
 		appID, app.UserID, expiresAt)
+
+	// 审批通过邮件通知（异步发送，失败仅记日志，不影响审批结果）
+	go func() {
+		if err := SendApiApprovalMail(app.Email, expiresAt); err != nil {
+			if errors.Is(err, ErrSmtpNotConfigured) {
+				utils.Warn("ApproveApplication - SMTP 未配置，跳过审批通过邮件 - appID: %d", appID)
+				return
+			}
+			utils.Error("ApproveApplication - 审批通过邮件发送失败 - appID: %d, userID: %d, error: %v", appID, app.UserID, err)
+		}
+	}()
+
 	return app, expiresAt, nil
 }
 
@@ -150,14 +163,13 @@ func EnableUserCredential(userID uint) error {
 }
 
 // UpdateUserCredentialExpiry 管理员调整凭证到期时间（B5）
-// expiresAt 为 nil 表示永久；同时清空 reminder_sent_at，使新到期日临近时可再次提醒
+// expiresAt 为 nil 表示永久；到期提醒按自然日实时计算，新到期日自动生效
 func UpdateUserCredentialExpiry(userID uint, expiresAt *time.Time) (*entity.ApiCredential, error) {
 	cred, err := repoManager.ApiCredentialRepository.FindByUserID(userID)
 	if err != nil || cred == nil {
 		return nil, ErrCredentialNotFound
 	}
 	cred.ExpiresAt = expiresAt
-	cred.ReminderSentAt = nil
 	if err := repoManager.ApiCredentialRepository.SaveForUser(cred); err != nil {
 		return nil, err
 	}
@@ -166,23 +178,65 @@ func UpdateUserCredentialExpiry(userID uint, expiresAt *time.Time) (*entity.ApiC
 }
 
 // SendApiExpirationReminderMail 发送凭证到期提醒邮件（FR-018，供 scheduler 调用）
-// 返回是否实际发送（用户邮箱缺失/发信失败均不视为成功，reminder_sent_at 不落值）
-func SendApiExpirationReminderMail(userID uint, expiresAt time.Time) (bool, error) {
+// daysLeft 为按自然日计算的剩余天数；用户不存在或未填邮箱时静默跳过
+func SendApiExpirationReminderMail(userID uint, expiresAt time.Time, daysLeft int) error {
 	user, err := repoManager.UserRepository.FindByID(userID)
-	if err != nil || user == nil || user.Email == "" {
-		return false, err
+	if err != nil {
+		return err
+	}
+	if user == nil || user.Email == "" {
+		utils.Debug("SendApiExpirationReminderMail - 用户不存在或未填邮箱，跳过 - userID: %d", userID)
+		return nil
 	}
 
 	subject := "您的 API 访问凭证即将到期"
 	body := "<div style=\"font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;\">" +
 		"<h2 style=\"color:#1f2937;\">API 访问凭证即将到期</h2>" +
 		"<p style=\"color:#4b5563;\">您的 API 访问凭证将于 <b>" + expiresAt.Format("2006-01-02 15:04") +
-		"</b> 到期。</p>" +
-		"<p style=\"color:#4b5563;\">到期后 API 将无法继续调用。如需继续使用，请在到期后重新提交开通申请。</p>" +
+		"</b> 到期，还剩约 <b>" + strconv.Itoa(daysLeft) + "</b> 天。</p>" +
+		"<p style=\"color:#4b5563;\">到期后凭证将自动失效，API 将无法继续调用。如需继续使用，请在到期后重新提交开通申请。</p>" +
 		"<p style=\"color:#9ca3af;font-size:12px;\">本邮件为系统自动发送，请勿回复。</p></div>"
+	return SendSystemMail(user.Email, subject, body)
+}
 
-	if err := SendSystemMail(user.Email, subject, body); err != nil {
-		return false, err
+// SendApiApprovalMail 发送审批通过通知邮件（附带凭证到期时间）
+
+// SendApiExpiredMail 发送凭证过期通知邮件（FR-018，供 scheduler 调用，过期后第一个自然日触发）
+// 用户不存在或未填邮箱时静默跳过
+func SendApiExpiredMail(userID uint, expiredAt time.Time) error {
+	user, err := repoManager.UserRepository.FindByID(userID)
+	if err != nil {
+		return err
 	}
-	return true, nil
+	if user == nil || user.Email == "" {
+		utils.Debug("SendApiExpiredMail - 用户不存在或未填邮箱，跳过 - userID: %d", userID)
+		return nil
+	}
+
+	subject := "您的 API 访问凭证已过期"
+	body := "<div style=\"font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;\">" +
+		"<h2 style=\"color:#dc2626;\">API 访问凭证已过期</h2>" +
+		"<p style=\"color:#4b5563;\">您的 API 访问凭证已于 <b>" + expiredAt.Format("2006-01-02 15:04") +
+		"</b> 过期，现已自动失效，API 调用将返回 403。</p>" +
+		"<p style=\"color:#4b5563;\">如需继续使用，请前往用户中心「API 访问」页面重新提交开通申请。</p>" +
+		"<p style=\"color:#9ca3af;font-size:12px;\">本邮件为系统自动发送，请勿回复。</p></div>"
+	return SendSystemMail(user.Email, subject, body)
+}
+// to 为申请时认证的邮箱；expiresAt 为 nil 表示永久有效
+func SendApiApprovalMail(to string, expiresAt *time.Time) error {
+	if to == "" {
+		return nil
+	}
+	expiryText := "永久有效"
+	if expiresAt != nil {
+		expiryText = "<b>" + expiresAt.Format("2006-01-02 15:04") + "</b>"
+	}
+	subject := "您的 API 访问申请已通过"
+	body := "<div style=\"font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;\">" +
+		"<h2 style=\"color:#1f2937;\">API 访问申请已通过</h2>" +
+		"<p style=\"color:#4b5563;\">您的 API 访问申请已通过审核，API 凭证已签发。</p>" +
+		"<p style=\"color:#4b5563;\">凭证有效期至：" + expiryText + "，到期后凭证将自动失效。</p>" +
+		"<p style=\"color:#4b5563;\">请前往用户中心「API 访问」页面查看凭证并获取 API Key。</p>" +
+		"<p style=\"color:#9ca3af;font-size:12px;\">本邮件为系统自动发送，请勿回复。</p></div>"
+	return SendSystemMail(to, subject, body)
 }

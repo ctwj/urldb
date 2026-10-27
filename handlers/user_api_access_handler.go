@@ -235,7 +235,6 @@ func ResetMyApiKey(c *gin.Context) {
 	}
 	cred.KeyHash = hash
 	cred.KeyPrefix = prefix
-	cred.ReminderSentAt = nil
 	if err := repoManager.ApiCredentialRepository.SaveForUser(cred); err != nil {
 		utils.Error("ResetMyApiKey - 凭证保存失败 - userID: %d, error: %v", userID, err)
 		ErrorResponse(c, "操作失败，请稍后重试", http.StatusInternalServerError)

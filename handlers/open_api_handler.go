@@ -43,6 +43,7 @@ func OpenSearchResources(c *gin.Context) {
 	}
 
 	var items []gin.H
+	var viewIDs []uint
 
 	// 优先 Meilisearch（is_valid 过滤在索引侧；is_public 回查 DB 校验，FR-011 双保险）
 	if meilisearchManager != nil && meilisearchManager.IsEnabled() {
@@ -68,6 +69,7 @@ func OpenSearchResources(c *gin.Context) {
 					if !publicSet[doc.ID] {
 						continue
 					}
+					viewIDs = append(viewIDs, doc.ID)
 					// 契约：仅返回 url（save_url 优先）、cover，不返回 id/save_url/category
 					itemURL := doc.SaveURL
 					if itemURL == "" {
@@ -111,6 +113,7 @@ func OpenSearchResources(c *gin.Context) {
 			if itemURL == "" {
 				itemURL = r.URL
 			}
+			viewIDs = append(viewIDs, r.ID)
 			tagNames := make([]string, 0, len(r.Tags))
 			for _, t := range r.Tags {
 				tagNames = append(tagNames, t.Name)
@@ -127,13 +130,15 @@ func OpenSearchResources(c *gin.Context) {
 		}
 	}
 
-	// 访问留痕（复用 api_access_logs，异步避免阻塞响应）
-	go func(statusCode, processCount int, params string) {
+	// 访问留痕（api_access_logs）+ 获取资源留痕（resource_views，用户API渠道计入来源分布），异步避免阻塞响应。
+	// ip/userAgent 与参数在进入 goroutine 前取值，避免 gin.Context 回收后被复用
+	ip, userAgent, path, method := c.ClientIP(), c.GetHeader("User-Agent"), c.Request.URL.Path, c.Request.Method
+	go func(statusCode, processCount int, params, ip, userAgent, path, method string, viewIDs []uint) {
 		log := &entity.APIAccessLog{
-			IP:             c.ClientIP(),
-			UserAgent:      c.GetHeader("User-Agent"),
-			Endpoint:       c.Request.URL.Path,
-			Method:         c.Request.Method,
+			IP:             ip,
+			UserAgent:      userAgent,
+			Endpoint:       path,
+			Method:         method,
 			RequestParams:  params,
 			ResponseStatus: statusCode,
 			ProcessCount:   processCount,
@@ -142,7 +147,15 @@ func OpenSearchResources(c *gin.Context) {
 		if err := repoManager.APIAccessLogRepository.Create(log); err != nil {
 			utils.Error("OpenSearchResources - 访问日志写入失败: %v", err)
 		}
-	}(http.StatusOK, len(items), c.Request.URL.RawQuery)
+
+		// 每条返回资源记一次获取（size 上限 100，量级可控），仪表盘「获取资源来源分布」随之展示用户API渠道
+		for _, rid := range viewIDs {
+			if err := repoManager.ResourceViewRepository.RecordView(rid, ip, userAgent, entity.SourceAPI); err != nil {
+				utils.Error("OpenSearchResources - 获取资源记录写入失败: %v", err)
+				break
+			}
+		}
+	}(http.StatusOK, len(items), c.Request.URL.RawQuery, ip, userAgent, path, method, viewIDs)
 
 	SuccessResponse(c, gin.H{
 		"list": items,

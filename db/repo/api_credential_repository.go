@@ -19,7 +19,7 @@ type ApiCredentialRepository interface {
 	ExistsActiveUnexpiredByUser(userID uint, now time.Time) (bool, error)
 	// SaveForUser 按归属用户保存（无则创建，有则按 ID 更新）
 	SaveForUser(cred *entity.ApiCredential) error
-	// FindExpiringBetween 查询到期时间落在 [start, end] 且未发过提醒的 active 凭证（FR-018 每日提醒）
+	// FindExpiringBetween 查询到期时间落在 (start, end] 的 active 凭证（FR-018 到期/过期提醒候选集，档位匹配由调用方按自然日判定）
 	FindExpiringBetween(start, end time.Time) ([]*entity.ApiCredential, error)
 }
 
@@ -88,11 +88,11 @@ func (r *ApiCredentialRepositoryImpl) SaveForUser(cred *entity.ApiCredential) er
 	return r.GetDB().Save(cred).Error
 }
 
-// FindExpiringBetween 查询到期时间落在 [start, end] 且未发过提醒的 active 凭证
+// FindExpiringBetween 查询到期时间落在 (start, end] 且未过期的 active 凭证
 func (r *ApiCredentialRepositoryImpl) FindExpiringBetween(start, end time.Time) ([]*entity.ApiCredential, error) {
 	var list []*entity.ApiCredential
 	err := r.GetDB().
-		Where("status = ? AND expires_at IS NOT NULL AND expires_at >= ? AND expires_at <= ? AND reminder_sent_at IS NULL",
+		Where("status = ? AND expires_at IS NOT NULL AND expires_at > ? AND expires_at <= ?",
 			entity.ApiCredentialStatusActive, start, end).
 		Find(&list).Error
 	return list, err
