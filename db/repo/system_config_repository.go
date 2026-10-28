@@ -152,6 +152,10 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 			{Key: entity.ConfigKeyAutoCleanupEnabled, Value: entity.ConfigDefaultAutoCleanupEnabled, Type: entity.ConfigTypeBool},
 			{Key: entity.ConfigKeyAutoCleanupRetentionDays, Value: entity.ConfigDefaultAutoCleanupRetentionDays, Type: entity.ConfigTypeInt},
 			{Key: entity.ConfigKeyAutoCleanupIntervalMinutes, Value: entity.ConfigDefaultAutoCleanupIntervalMinutes, Type: entity.ConfigTypeInt},
+			// 微信公众号动态验证码配置（TOTP 动态口令）
+			{Key: entity.ConfigKeyWechatDynamicCodeEnabled, Value: entity.ConfigDefaultWechatDynamicCodeEnabled, Type: entity.ConfigTypeBool},
+			{Key: entity.ConfigKeyWechatDynamicCodeSecret, Value: entity.ConfigDefaultWechatDynamicCodeSecret, Type: entity.ConfigTypeString},
+			{Key: entity.ConfigKeyWechatDynamicCodeTemplate, Value: entity.ConfigDefaultWechatDynamicCodeTemplate, Type: entity.ConfigTypeString},
 			// Google索引配置
 			{Key: entity.GoogleIndexConfigKeyEnabled, Value: "false", Type: entity.ConfigTypeBool},
 			{Key: entity.GoogleIndexConfigKeySiteName, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},
@@ -223,6 +227,10 @@ func (r *SystemConfigRepositoryImpl) GetOrCreateDefault() ([]entity.SystemConfig
 		entity.ConfigKeyAutoCleanupEnabled:         {Key: entity.ConfigKeyAutoCleanupEnabled, Value: entity.ConfigDefaultAutoCleanupEnabled, Type: entity.ConfigTypeBool},
 		entity.ConfigKeyAutoCleanupRetentionDays:   {Key: entity.ConfigKeyAutoCleanupRetentionDays, Value: entity.ConfigDefaultAutoCleanupRetentionDays, Type: entity.ConfigTypeInt},
 		entity.ConfigKeyAutoCleanupIntervalMinutes: {Key: entity.ConfigKeyAutoCleanupIntervalMinutes, Value: entity.ConfigDefaultAutoCleanupIntervalMinutes, Type: entity.ConfigTypeInt},
+		// 微信公众号动态验证码配置（TOTP 动态口令）
+		entity.ConfigKeyWechatDynamicCodeEnabled:  {Key: entity.ConfigKeyWechatDynamicCodeEnabled, Value: entity.ConfigDefaultWechatDynamicCodeEnabled, Type: entity.ConfigTypeBool},
+		entity.ConfigKeyWechatDynamicCodeSecret:   {Key: entity.ConfigKeyWechatDynamicCodeSecret, Value: entity.ConfigDefaultWechatDynamicCodeSecret, Type: entity.ConfigTypeString},
+		entity.ConfigKeyWechatDynamicCodeTemplate: {Key: entity.ConfigKeyWechatDynamicCodeTemplate, Value: entity.ConfigDefaultWechatDynamicCodeTemplate, Type: entity.ConfigTypeString},
 		// Google索引配置
 		entity.GoogleIndexConfigKeyEnabled:       {Key: entity.GoogleIndexConfigKeyEnabled, Value: "false", Type: entity.ConfigTypeBool},
 		entity.GoogleIndexConfigKeySiteName:      {Key: entity.GoogleIndexConfigKeySiteName, Value: entity.ConfigDefaultSiteTitle, Type: entity.ConfigTypeString},

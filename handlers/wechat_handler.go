@@ -199,10 +199,11 @@ func (h *WechatHandler) GetBotStatus(c *gin.Context) {
 
 	// 解析配置状态
 	configStatus := map[string]interface{}{
-		"enabled":            false,
-		"auto_reply_enabled": false,
-		"app_id_configured":  false,
-		"token_configured":   false,
+		"enabled":              false,
+		"auto_reply_enabled":   false,
+		"app_id_configured":    false,
+		"token_configured":     false,
+		"dynamic_code_enabled": false,
 	}
 
 	for _, config := range configs {
@@ -215,6 +216,8 @@ func (h *WechatHandler) GetBotStatus(c *gin.Context) {
 			configStatus["app_id_configured"] = config.Value != ""
 		case entity.ConfigKeyWechatToken:
 			configStatus["token_configured"] = config.Value != ""
+		case entity.ConfigKeyWechatDynamicCodeEnabled:
+			configStatus["dynamic_code_enabled"] = config.Value == "true"
 		}
 	}
 

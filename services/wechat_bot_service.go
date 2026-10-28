@@ -22,14 +22,17 @@ type WechatBotService interface {
 
 // WechatBotConfig 微信公众号机器人配置
 type WechatBotConfig struct {
-	Enabled         bool
-	AppID           string
-	AppSecret       string
-	Token           string
-	EncodingAesKey  string
-	WelcomeMessage  string
-	AutoReplyEnabled bool
-	SearchLimit     int
+	Enabled             bool
+	AppID               string
+	AppSecret           string
+	Token               string
+	EncodingAesKey      string
+	WelcomeMessage      string
+	AutoReplyEnabled    bool
+	SearchLimit         int
+	DynamicCodeEnabled  bool   // 「验证码」动态口令回复开关（TOTP，独立于自动回复开关）
+	DynamicCodeSecret   string // 动态口令共享密钥，需与站点侧插件配置一致
+	DynamicCodeTemplate string // 回复文案模板，{{code}} 占位符替换为当期口令
 }
 
 // WechatBotServiceImpl 微信公众号机器人服务实现

@@ -74,6 +74,11 @@ const (
 	ConfigKeyWechatAutoReplyEnabled = "wechat_auto_reply_enabled"
 	ConfigKeyWechatSearchLimit      = "wechat_search_limit"
 
+	// 微信公众号动态验证码配置（按《微信公众号动态口令对接说明》，与站点共享密钥离线同步）
+	ConfigKeyWechatDynamicCodeEnabled  = "wechat_dynamic_code_enabled"
+	ConfigKeyWechatDynamicCodeSecret   = "wechat_dynamic_code_secret"
+	ConfigKeyWechatDynamicCodeTemplate = "wechat_dynamic_code_template" // 回复文案模板，{{code}} 占位符替换为当期口令
+
 	// 界面配置
 	ConfigKeyEnableAnnouncements = "enable_announcements"
 	ConfigKeyAnnouncements       = "announcements"
@@ -185,6 +190,11 @@ const (
 	ConfigResponseFieldWechatAutoReplyEnabled = "wechat_auto_reply_enabled"
 	ConfigResponseFieldWechatSearchLimit      = "wechat_search_limit"
 
+	// 微信公众号动态验证码配置字段
+	ConfigResponseFieldWechatDynamicCodeEnabled  = "wechat_dynamic_code_enabled"
+	ConfigResponseFieldWechatDynamicCodeSecret   = "wechat_dynamic_code_secret"
+	ConfigResponseFieldWechatDynamicCodeTemplate = "wechat_dynamic_code_template"
+
 	// 界面配置字段
 	ConfigResponseFieldEnableAnnouncements = "enable_announcements"
 	ConfigResponseFieldAnnouncements       = "announcements"
@@ -271,6 +281,11 @@ const (
 	ConfigDefaultWechatWelcomeMessage   = "欢迎关注老九网盘资源库！发送关键词即可搜索资源。"
 	ConfigDefaultWechatAutoReplyEnabled = "true"
 	ConfigDefaultWechatSearchLimit      = "5"
+
+	// 微信公众号动态验证码配置默认值（共享密钥默认取对接文档示例值，需与站点插件配置一致，后台可改）
+	ConfigDefaultWechatDynamicCodeEnabled  = "false"
+	ConfigDefaultWechatDynamicCodeSecret   = "moss-wxpass-8f4c2a1e9b7d"
+	ConfigDefaultWechatDynamicCodeTemplate = "当期下载口令：{{code}}（{{refresh_time}} 后刷新，{{expire_time}} 前有效）\n\n回到网站，在下载弹窗中输入该口令即可获取下载链接。"
 
 	// 界面配置默认值
 	ConfigDefaultEnableAnnouncements = "false"

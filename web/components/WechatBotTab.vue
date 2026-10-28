@@ -37,6 +37,85 @@
         </n-form>
       </n-card>
 
+      <!-- 动态验证码（TOTP 动态口令，供其他系统离线校验） -->
+      <n-card title="动态验证码" class="mb-6">
+        <div class="space-y-4">
+          <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+            <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">
+              开启后，用户向公众号发送「<strong>验证码</strong>」，公众号自动回复按共享密钥与当前时间算出的 <strong>6 位动态口令</strong>（约 30 分钟内有效）。
+            </p>
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              该口令用于<strong>其他系统做校验</strong>（例如资源站的下载口令验证插件）：对方配置同一共享密钥后，用相同算法在本地计算比对即可放行，
+              <strong>无需与微信公众号或本系统有任何接口交互</strong>。校验方通常同时接受当前与上一时间窗的口令，实际有效期 30～60 分钟。
+            </p>
+          </div>
+
+          <n-form :model="configForm" label-placement="left" label-width="120px">
+            <n-form-item label="启用动态验证码">
+              <n-switch v-model:value="configForm.dynamic_code_enabled" />
+            </n-form-item>
+            <n-form-item label="共享密钥">
+              <n-input
+                v-model:value="configForm.dynamic_code_secret"
+                type="password"
+                placeholder="请输入共享密钥（需与对接系统配置一致）"
+                show-password-on="click"
+              />
+            </n-form-item>
+            <n-form-item label="回复文案">
+              <div class="w-full">
+                <n-input
+                  v-model:value="configForm.dynamic_code_template"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="留空使用默认文案"
+                />
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  用户发送「验证码」后公众号回复的文案。占位符：
+                  <code v-pre class="px-1 bg-gray-100 dark:bg-gray-800 rounded">{{code}}</code> 当期 6 位口令、
+                  <code v-pre class="px-1 bg-gray-100 dark:bg-gray-800 rounded">{{refresh_time}}</code> 新口令刷新时刻、
+                  <code v-pre class="px-1 bg-gray-100 dark:bg-gray-800 rounded">{{expire_time}}</code> 口令最迟失效时刻；留空使用默认文案。
+                </p>
+              </div>
+            </n-form-item>
+          </n-form>
+
+          <!-- 当期口令实时预览 -->
+          <div v-if="configForm.dynamic_code_secret" class="flex flex-wrap items-center gap-4 bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+            <div>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">当期口令（{{ refreshTimeText }} 刷新 · {{ expireTimeText }} 前有效）</p>
+              <p class="text-3xl font-mono font-bold tracking-widest text-green-700 dark:text-green-300">{{ currentCode }}</p>
+            </div>
+            <n-tag :type="remainingSeconds <= 60 ? 'warning' : 'info'" size="small">
+              {{ remainingText }} 后刷新
+            </n-tag>
+            <n-button size="small" @click="copyToClipboard(currentCode)">
+              <template #icon>
+                <i class="fas fa-copy"></i>
+              </template>
+              复制
+            </n-button>
+          </div>
+
+          <!-- 算法说明：第三方无需与微信交互即可自行计算 -->
+          <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <h4 class="font-medium text-gray-800 dark:text-gray-200 mb-2">算法说明（对接方按此自行计算，无需调用任何接口）</h4>
+            <div class="text-sm text-gray-700 dark:text-gray-300 space-y-1 mb-3">
+              <p>· 算法：HMAC-SHA1（RFC 4226 / RFC 6238 截断），口令为 6 位数字（不足补前导 0）</p>
+              <p>· 时间窗：1800 秒（30 分钟），counter = floor(unix时间戳 / 1800)</p>
+              <p>· 密钥：共享密钥字符串的 UTF-8 字节（不做 Base32 转换）；输入：8 字节大端 counter</p>
+              <p>
+                · 计算：off = sum[19] &amp; 0x0F；val = ((sum[off]&amp;0x7F)&lt;&lt;24) | sum[off+1]&lt;&lt;16 | sum[off+2]&lt;&lt;8 | sum[off+3]（无符号 32 位）；
+                口令 = val mod 1000000，格式化为 6 位
+              </p>
+              <p>· 自检：密钥为 moss-wxpass-8f4c2a1e9b7d 时，unix 时间戳 1700000000 → 534579、1700001800 → 079502、1735689600 → 428950</p>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">参考实现（Node.js，其他语言按同规格实现即可）：</p>
+            <pre class="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto leading-5"><code>{{ referenceCode }}</code></pre>
+          </div>
+        </div>
+      </n-card>
+
       <!-- 微信公众号验证文件上传 -->
       <n-card title="微信公众号验证文件" class="mb-6">
         <div class="space-y-4">
@@ -183,9 +262,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useNotification } from 'naive-ui'
 import { useWechatApi } from '~/composables/useApi'
+import { generateTotpCode, totpRemainingSeconds, TOTP_PERIOD_SECONDS } from '~/utils/totp'
 
 // 定义配置表单类型
 interface WechatBotConfigForm {
@@ -197,6 +277,9 @@ interface WechatBotConfigForm {
   welcome_message: string
   auto_reply_enabled: boolean
   search_limit: number
+  dynamic_code_enabled: boolean
+  dynamic_code_secret: string
+  dynamic_code_template: string
 }
 
 const notification = useNotification()
@@ -223,7 +306,10 @@ const configForm = reactive<WechatBotConfigForm>({
   encoding_aes_key: '',
   welcome_message: '欢迎关注老九网盘资源库！发送关键词即可搜索资源。',
   auto_reply_enabled: true,
-  search_limit: 5
+  search_limit: 5,
+  dynamic_code_enabled: false,
+  dynamic_code_secret: '',
+  dynamic_code_template: '当期下载口令：{{code}}（{{refresh_time}} 后刷新，{{expire_time}} 前有效）\n\n回到网站，在下载弹窗中输入该口令即可获取下载链接。'
 })
 
 // 计算服务器URL
@@ -249,6 +335,9 @@ const fetchBotConfig = async () => {
       configForm.welcome_message = response.welcome_message || '欢迎关注老九网盘资源库！发送关键词即可搜索资源。'
       configForm.auto_reply_enabled = response.auto_reply_enabled || true
       configForm.search_limit = response.search_limit || 5
+      configForm.dynamic_code_enabled = response.dynamic_code_enabled || false
+      configForm.dynamic_code_secret = response.dynamic_code_secret || ''
+      configForm.dynamic_code_template = response.dynamic_code_template || '当期下载口令：{{code}}（{{refresh_time}} 后刷新，{{expire_time}} 前有效）\n\n回到网站，在下载弹窗中输入该口令即可获取下载链接。'
     }
   } catch (error) {
     console.error('获取微信机器人配置失败:', error)
@@ -289,7 +378,10 @@ const saveConfig = async () => {
       encoding_aes_key: configForm.encoding_aes_key,
       welcome_message: configForm.welcome_message,
       auto_reply_enabled: configForm.auto_reply_enabled,
-      search_limit: configForm.search_limit
+      search_limit: configForm.search_limit,
+      dynamic_code_enabled: configForm.dynamic_code_enabled,
+      dynamic_code_secret: configForm.dynamic_code_secret,
+      dynamic_code_template: configForm.dynamic_code_template
     }
 
     const response = await wechatApi.updateBotConfig(payload)
@@ -338,6 +430,67 @@ const copyToClipboard = async (text: string) => {
     })
   }
 }
+
+// ===== 动态验证码：当期口令实时预览（与后端/对接方同算法，纯前端计算） =====
+const currentCode = ref('')
+const remainingSeconds = ref(0)
+const refreshTimeText = ref('')
+const expireTimeText = ref('')
+
+const remainingText = computed(() => {
+  const m = Math.floor(remainingSeconds.value / 60)
+  const s = remainingSeconds.value % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+})
+
+const formatHM = (unixSec: number) => {
+  const d = new Date(unixSec * 1000)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+const refreshCurrentCode = () => {
+  const now = Math.floor(Date.now() / 1000)
+  remainingSeconds.value = totpRemainingSeconds(now)
+  // 时间窗翻动时刻与失效时刻（与后端模板渲染口径一致）
+  const windowEnd = now - (now % TOTP_PERIOD_SECONDS) + TOTP_PERIOD_SECONDS
+  refreshTimeText.value = formatHM(windowEnd)
+  expireTimeText.value = formatHM(windowEnd + TOTP_PERIOD_SECONDS)
+  if (configForm.dynamic_code_secret) {
+    currentCode.value = generateTotpCode(configForm.dynamic_code_secret, now)
+  }
+}
+
+watch(() => configForm.dynamic_code_secret, refreshCurrentCode)
+
+let codeTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  refreshCurrentCode()
+  codeTimer = setInterval(refreshCurrentCode, 1000)
+})
+onUnmounted(() => {
+  if (codeTimer) clearInterval(codeTimer)
+})
+
+// 算法说明卡片展示的参考实现（Node.js），对接方照此即可离线算出当期口令
+const referenceCode = `const crypto = require('crypto')
+
+const SECRET = '你的共享密钥'   // 与公众号后台「动态验证码」配置一致
+const PERIOD = 1800            // 时间窗 30 分钟
+
+function totp(secret, unixSeconds, period = PERIOD) {
+  const counter = Math.floor(unixSeconds / period)   // 1. 时间片计数
+  const buf = Buffer.alloc(8)
+  buf.writeBigUInt64BE(BigInt(counter))              // 2. 8 字节大端输入
+  const sum = crypto.createHmac('sha1', Buffer.from(secret, 'utf8')).update(buf).digest()
+  const off = sum[sum.length - 1] & 0x0f             // 3. 取摘要末字节低 4 位
+  const val = ((sum[off] & 0x7f) << 24 | sum[off + 1] << 16 | sum[off + 2] << 8 | sum[off + 3]) >>> 0
+  return String(val % 1000000).padStart(6, '0')      // 4. 6 位口令，不足补 0
+}
+
+// 自检（密钥为示例值 moss-wxpass-8f4c2a1e9b7d 时）：
+//   totp(SECRET, 1700000000) === '534579'
+//   totp(SECRET, 1700001800) === '079502'
+//   totp(SECRET, 1735689600) === '428950'`
 
 // 验证文件上传相关函数
 const beforeUpload = (options: { file: any, fileList: any[] }) => {

@@ -35,6 +35,9 @@ func (s *WechatBotServiceImpl) loadConfig() error {
 	s.config.WelcomeMessage = "欢迎关注老九网盘资源库！发送关键词即可搜索资源。"
 	s.config.AutoReplyEnabled = true
 	s.config.SearchLimit = 5
+	s.config.DynamicCodeEnabled = false
+	s.config.DynamicCodeSecret = entity.ConfigDefaultWechatDynamicCodeSecret
+	s.config.DynamicCodeTemplate = entity.ConfigDefaultWechatDynamicCodeTemplate
 
 	for _, config := range configs {
 		switch config.Key {
@@ -69,6 +72,19 @@ func (s *WechatBotServiceImpl) loadConfig() error {
 				}
 			}
 			utils.Info("[WECHAT:CONFIG] 加载配置 %s = %s (SearchLimit: %d)", config.Key, config.Value, s.config.SearchLimit)
+		case entity.ConfigKeyWechatDynamicCodeEnabled:
+			s.config.DynamicCodeEnabled = config.Value == "true"
+			utils.Info("[WECHAT:CONFIG] 加载配置 %s = %s (DynamicCodeEnabled: %v)", config.Key, config.Value, s.config.DynamicCodeEnabled)
+		case entity.ConfigKeyWechatDynamicCodeSecret:
+			if config.Value != "" {
+				s.config.DynamicCodeSecret = config.Value
+			}
+			utils.Info("[WECHAT:CONFIG] 加载配置 %s = [HIDDEN]", config.Key)
+		case entity.ConfigKeyWechatDynamicCodeTemplate:
+			if config.Value != "" {
+				s.config.DynamicCodeTemplate = config.Value
+			}
+			utils.Info("[WECHAT:CONFIG] 加载配置 %s = %s", config.Key, config.Value)
 		}
 	}
 
@@ -173,13 +189,20 @@ func (s *WechatBotServiceImpl) HandleMessage(msg *message.MixMessage) (interface
 
 // handleTextMessage 处理文本消息
 func (s *WechatBotServiceImpl) handleTextMessage(msg *message.MixMessage) (interface{}, error) {
+	keyword := strings.TrimSpace(msg.Content)
+
+	// 「验证码」命令：回复动态口令（微信公众号动态口令对接说明）。
+	// 仅受动态验证码开关控制，独立于自动回复开关，关闭开关时按普通关键词走搜索流程。
+	if keyword == "验证码" {
+		return s.handleDynamicCode()
+	}
+
 	utils.Debug("[WECHAT:MESSAGE] 处理文本消息 - AutoReplyEnabled: %v", s.config.AutoReplyEnabled)
 	if !s.config.AutoReplyEnabled {
 		utils.Info("[WECHAT:MESSAGE] 自动回复未启用")
 		return nil, nil
 	}
 
-	keyword := strings.TrimSpace(msg.Content)
 	utils.Info("[WECHAT:MESSAGE] 搜索关键词: '%s'", keyword)
 
 	// 检查是否是分页命令
@@ -251,6 +274,39 @@ func (s *WechatBotServiceImpl) handleTextMessage(msg *message.MixMessage) (inter
 	resultText := s.formatSearchResultsWithPagination(keyword, pageResources, string(msg.FromUserName))
 	utils.Info("[WECHAT:MESSAGE] 格式化搜索结果，返回文本长度: %d", len(resultText))
 	return message.NewText(resultText), nil
+}
+
+// handleDynamicCode 处理「验证码」命令，回复按共享密钥+当前时间计算的当期动态口令。
+// 算法与站点侧口令校验插件一致（TOTP，30 分钟时间窗），两边无需接口交互。
+func (s *WechatBotServiceImpl) handleDynamicCode() (interface{}, error) {
+	if !s.config.DynamicCodeEnabled {
+		return nil, nil
+	}
+
+	if s.config.DynamicCodeSecret == "" {
+		utils.Warn("[WECHAT:MESSAGE] 动态验证码已开启但共享密钥为空，请到后台配置")
+		return message.NewText("动态验证码功能未正确配置，请联系管理员"), nil
+	}
+
+	code := utils.GenerateDynamicCode(s.config.DynamicCodeSecret, time.Now().Unix(), utils.DynamicCodePeriod)
+	utils.Info("[WECHAT:MESSAGE] 回复动态验证码: %s", code)
+
+	// 渲染回复文案模板（{{code}}/{{refresh_time}}/{{expire_time}} 占位符，风格与 Telegram 模板一致）
+	text := s.config.DynamicCodeTemplate
+	if text == "" {
+		text = entity.ConfigDefaultWechatDynamicCodeTemplate
+	}
+	nowUnix := time.Now().Unix()
+	windowEnd := nowUnix - nowUnix%utils.DynamicCodePeriod + utils.DynamicCodePeriod // 下一时间窗起点 = 新口令刷新时刻
+	refreshTime := time.Unix(windowEnd, 0).Format("15:04")
+	// 站点侧同时接受当前与上一时间窗口令，故当期口令最迟有效至刷新后再经过一个时间窗
+	expireTime := time.Unix(windowEnd+utils.DynamicCodePeriod, 0).Format("15:04")
+	text = strings.NewReplacer(
+		"{{code}}", code, "{code}", code,
+		"{{refresh_time}}", refreshTime, "{refresh_time}", refreshTime,
+		"{{expire_time}}", expireTime, "{expire_time}", expireTime,
+	).Replace(text)
+	return message.NewText(text), nil
 }
 
 // handlePrevPage 处理上一页命令

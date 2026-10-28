@@ -18,6 +18,9 @@ func WechatBotConfigRequestToSystemConfigs(req dto.WechatBotConfigRequest) []ent
 		{Key: entity.ConfigKeyWechatWelcomeMessage, Value: req.WelcomeMessage},
 		{Key: entity.ConfigKeyWechatAutoReplyEnabled, Value: wechatBoolToString(req.AutoReplyEnabled)},
 		{Key: entity.ConfigKeyWechatSearchLimit, Value: wechatIntToString(req.SearchLimit)},
+		{Key: entity.ConfigKeyWechatDynamicCodeEnabled, Value: wechatBoolToString(req.DynamicCodeEnabled)},
+		{Key: entity.ConfigKeyWechatDynamicCodeSecret, Value: req.DynamicCodeSecret},
+		{Key: entity.ConfigKeyWechatDynamicCodeTemplate, Value: req.DynamicCodeTemplate},
 	}
 	return configs
 }
@@ -25,14 +28,17 @@ func WechatBotConfigRequestToSystemConfigs(req dto.WechatBotConfigRequest) []ent
 // SystemConfigToWechatBotConfig 将系统配置转换为微信机器人配置响应
 func SystemConfigToWechatBotConfig(configs []entity.SystemConfig) dto.WechatBotConfigResponse {
 	resp := dto.WechatBotConfigResponse{
-		Enabled:          false,
-		AppID:            "",
-		AppSecret:        "",
-		Token:            "",
-		EncodingAesKey:   "",
-		WelcomeMessage:   "欢迎关注老九网盘资源库！发送关键词即可搜索资源。",
-		AutoReplyEnabled: true,
-		SearchLimit:      5,
+		Enabled:             false,
+		AppID:               "",
+		AppSecret:           "",
+		Token:               "",
+		EncodingAesKey:      "",
+		WelcomeMessage:      "欢迎关注老九网盘资源库！发送关键词即可搜索资源。",
+		AutoReplyEnabled:    true,
+		SearchLimit:         5,
+		DynamicCodeEnabled:  false,
+		DynamicCodeSecret:   entity.ConfigDefaultWechatDynamicCodeSecret,
+		DynamicCodeTemplate: entity.ConfigDefaultWechatDynamicCodeTemplate,
 	}
 
 	for _, config := range configs {
@@ -56,6 +62,16 @@ func SystemConfigToWechatBotConfig(configs []entity.SystemConfig) dto.WechatBotC
 		case entity.ConfigKeyWechatSearchLimit:
 			if config.Value != "" {
 				resp.SearchLimit = wechatStringToInt(config.Value)
+			}
+		case entity.ConfigKeyWechatDynamicCodeEnabled:
+			resp.DynamicCodeEnabled = config.Value == "true"
+		case entity.ConfigKeyWechatDynamicCodeSecret:
+			if config.Value != "" {
+				resp.DynamicCodeSecret = config.Value
+			}
+		case entity.ConfigKeyWechatDynamicCodeTemplate:
+			if config.Value != "" {
+				resp.DynamicCodeTemplate = config.Value
 			}
 		}
 	}
